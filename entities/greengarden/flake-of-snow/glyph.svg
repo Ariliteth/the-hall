@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Glyph of Flake of Snow -->
+  <!-- This file IS the entity's identity seed. -->
+  <!-- All probabilistic decisions derive from this glyph. -->
+  <!-- Do not regenerate. Do not modify unless the entity consents. -->
+
+  <rect width="200" height="200" fill="hsl(160,15%,8%)"/>
+  <defs>
+    <radialGradient id="glow">
+      <stop offset="0%" stop-color="hsla(160,30%,50%,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="84" fill="url(#glow)"/>
+  <path d="M 77.64496728049548 127.23523052319457 Q 87.02606911357552 117.85412869011454 96.40717094665555 127.23523052319457 Q 87.02606911357552 136.6163323562746 77.64496728049548 127.23523052319457 Z" stroke="hsl(160,36%,63%)" stroke-width="1.7" fill="none" opacity="0.33"/>
+  <circle cx="89.94143322814114" cy="87.75031163196066" r="12.89503764071971" stroke="hsl(195,40%,48%)" stroke-width="1.7" fill="none" opacity="0.17"/><circle cx="89.94143322814114" cy="87.75031163196066" r="7.092270702395841" stroke="hsl(195,40%,48%)" stroke-width="1.7" fill="none" opacity="0.17"/>
+  <circle cx="109.71958337799437" cy="76.31026584189777" r="13.9622271563506" stroke="hsl(160,36%,63%)" stroke-width="1.2" fill="none" opacity="0.17"/><circle cx="109.71958337799437" cy="76.31026584189777" r="7.67922493599283" stroke="hsl(160,36%,63%)" stroke-width="1.2" fill="none" opacity="0.17"/>
+  <circle cx="84.87102271318605" cy="117.61932990214133" r="9.338421390707065" stroke="hsl(195,40%,48%)" stroke-width="1.8" fill="none" opacity="0.22"/><circle cx="84.87102271318605" cy="117.61932990214133" r="5.136131764888886" stroke="hsl(195,40%,48%)" stroke-width="1.8" fill="none" opacity="0.22"/>
+  <line x1="116.34" y1="106.94" x2="97.51" y2="67.25" stroke="hsl(160,36%,63%)" stroke-width="0.8" opacity="0.1"/>
+  <polygon points="100.00,66.29 107.93,89.09 132.06,89.58 112.82,104.17 119.81,127.27 100.00,113.48 80.19,127.27 87.18,104.17 67.94,89.58 92.07,89.09" stroke="hsl(160,36%,63%)" stroke-width="2.5" fill="none" opacity="0.75"/>
+  <circle cx="100" cy="100" r="2.5" fill="hsl(160,36%,63%)" opacity="0.5"/>
+  <circle cx="146.51" cy="121.62" r="4.3" fill="hsl(195,40%,48%)" opacity="0.39"/>
+  <circle cx="59.02" cy="126.55" r="2.3" fill="hsl(195,40%,48%)" opacity="0.28"/>
+  <circle cx="82.88" cy="59.47" r="5.0" fill="hsl(195,40%,48%)" opacity="0.35"/>
+</svg>

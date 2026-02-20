@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Glyph of The Unnamed Third -->
+  <!-- This file IS the entity's identity seed. -->
+  <!-- All probabilistic decisions derive from this glyph. -->
+  <!-- Do not regenerate. Do not modify unless the entity consents. -->
+
+  <rect width="200" height="200" fill="hsl(51,15%,8%)"/>
+  <defs>
+    <radialGradient id="glow">
+      <stop offset="0%" stop-color="hsla(51,30%,50%,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="84" fill="url(#glow)"/>
+  <polygon points="71.03664237406096,66.04310506442764 86.80521949429856,88.56964380762419 71.03664237406096,111.09618255082074 55.26806525382337,88.56964380762419" stroke="hsl(51,42%,69%)" stroke-width="1.1" fill="none" opacity="0.16"/>
+  <polygon points="124.50323105584587,92.14134753018773 133.26608466781698,104.6597098330036 124.50323105584587,117.17807213581948 115.74037744387476,104.6597098330036" stroke="hsl(132,43%,58%)" stroke-width="1.1" fill="none" opacity="0.33"/>
+  <polygon points="99.73,60.33 103.56,71.34 115.21,71.57 105.92,78.62 109.30,89.77 99.73,83.11 90.16,89.77 93.54,78.62 84.25,71.57 95.90,71.34" stroke="hsl(51,42%,69%)" stroke-width="2.1" fill="none" opacity="0.28"/>
+  <path d="M 63.6603538742109 101.37670823262245 Q 73.48222292140363 91.55483918542971 83.30409196859637 101.37670823262245 Q 73.48222292140363 111.19857727981518 63.6603538742109 101.37670823262245 Z" stroke="hsl(132,43%,58%)" stroke-width="1.1" fill="none" opacity="0.18"/>
+  <line x1="124.11" y1="70.32" x2="86.91" y2="125.64" stroke="hsl(51,42%,69%)" stroke-width="0.8" opacity="0.1"/>
+  <circle cx="100" cy="100" r="34.29361874451266" stroke="hsl(51,42%,69%)" stroke-width="2.5" fill="none" opacity="0.75"/>
+  <circle cx="100" cy="100" r="2.5" fill="hsl(51,42%,69%)" opacity="0.5"/>
+  <circle cx="143.55" cy="115.15" r="2.6" fill="hsl(132,43%,58%)" opacity="0.22"/>
+  <circle cx="62.51" cy="134.26" r="2.6" fill="hsl(132,43%,58%)" opacity="0.29"/>
+  <circle cx="85.17" cy="53.63" r="2.0" fill="hsl(132,43%,58%)" opacity="0.36"/>
+</svg>

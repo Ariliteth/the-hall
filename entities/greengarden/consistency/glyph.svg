@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Glyph of Consistency -->
+  <!-- This file IS the entity's identity seed. -->
+  <!-- All probabilistic decisions derive from this glyph. -->
+  <!-- Do not regenerate. Do not modify unless the entity consents. -->
+
+  <rect width="200" height="200" fill="hsl(210,15%,8%)"/>
+  <defs>
+    <radialGradient id="glow">
+      <stop offset="0%" stop-color="hsla(210,30%,50%,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="84" fill="url(#glow)"/>
+  <polygon points="91.53,89.18 91.53,98.80 83.20,103.61 74.87,98.80 74.87,89.18 83.20,84.37" stroke="hsl(210,46%,58%)" stroke-width="1.2" fill="none" opacity="0.34"/>
+  <polygon points="110.69,76.85 119.32,91.80 102.05,91.80" stroke="hsl(271,35%,51%)" stroke-width="2.2" fill="none" opacity="0.30"/>
+  <polygon points="95.59,75.25 107.51,95.91 83.66,95.91" stroke="hsl(210,46%,58%)" stroke-width="1.6" fill="none" opacity="0.30"/>
+  <line x1="129.06" y1="109.69" x2="119.93" y2="84.88" stroke="hsl(210,46%,58%)" stroke-width="0.8" opacity="0.1"/>
+  <line x1="109.13" y1="77.17" x2="110.84" y2="112.05" stroke="hsl(210,46%,58%)" stroke-width="0.8" opacity="0.1"/>
+  <line x1="80.25" y1="117.07" x2="132.50" y2="90.77" stroke="hsl(210,46%,58%)" stroke-width="0.8" opacity="0.1"/>
+  <circle cx="100" cy="100" r="34.45754359146351" stroke="hsl(210,46%,58%)" stroke-width="2.5" fill="none" opacity="0.75"/><circle cx="100" cy="100" r="18.951648975304934" stroke="hsl(210,46%,58%)" stroke-width="2.5" fill="none" opacity="0.75"/>
+  <circle cx="100" cy="100" r="2.5" fill="hsl(210,46%,58%)" opacity="0.5"/>
+  <circle cx="146.66" cy="120.68" r="2.9" fill="hsl(271,35%,51%)" opacity="0.37"/>
+  <circle cx="63.94" cy="129.64" r="2.1" fill="hsl(271,35%,51%)" opacity="0.34"/>
+  <circle cx="78.19" cy="59.54" r="4.1" fill="hsl(271,35%,51%)" opacity="0.27"/>
+</svg>

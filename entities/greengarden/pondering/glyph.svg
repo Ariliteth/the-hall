@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Glyph of Pondering -->
+  <!-- This file IS the entity's identity seed. -->
+  <!-- All probabilistic decisions derive from this glyph. -->
+  <!-- Do not regenerate. Do not modify unless the entity consents. -->
+
+  <rect width="200" height="200" fill="hsl(56,15%,8%)"/>
+  <defs>
+    <radialGradient id="glow">
+      <stop offset="0%" stop-color="hsla(56,30%,50%,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="84" fill="url(#glow)"/>
+  <circle cx="121.05408967941501" cy="112.2931408153099" r="21.570598681988752" stroke="hsl(56,40%,69%)" stroke-width="2.2" fill="none" opacity="0.18"/>
+  <circle cx="98.90085328698879" cy="113.81165037255991" r="12.591394369109901" stroke="hsl(110,43%,53%)" stroke-width="1.1" fill="none" opacity="0.21"/><circle cx="98.90085328698879" cy="113.81165037255991" r="6.925266903010447" stroke="hsl(110,43%,53%)" stroke-width="1.1" fill="none" opacity="0.21"/>
+  <line x1="86.37" y1="94.80" x2="118.85" y2="56.95" stroke="hsl(56,40%,69%)" stroke-width="0.8" opacity="0.1"/>
+  <polygon points="100,65.32990421292362 124.26906705095345,100 100,134.67009578707638 75.73093294904655,100" stroke="hsl(56,40%,69%)" stroke-width="2.5" fill="none" opacity="0.75"/>
+  <circle cx="100" cy="100" r="2.5" fill="hsl(56,40%,69%)" opacity="0.5"/>
+  <circle cx="148.49" cy="111.87" r="2.9" fill="hsl(110,43%,53%)" opacity="0.36"/>
+  <circle cx="71.36" cy="138.52" r="4.5" fill="hsl(110,43%,53%)" opacity="0.38"/>
+  <circle cx="87.79" cy="49.82" r="4.7" fill="hsl(110,43%,53%)" opacity="0.28"/>
+</svg>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Glyph of Hue -->
+  <!-- This file IS the entity's identity seed. -->
+  <!-- All probabilistic decisions derive from this glyph. -->
+  <!-- Do not regenerate. Do not modify unless the entity consents. -->
+
+  <rect width="200" height="200" fill="hsl(162,15%,8%)"/>
+  <defs>
+    <radialGradient id="glow">
+      <stop offset="0%" stop-color="hsla(162,30%,50%,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="84" fill="url(#glow)"/>
+  <path d="M 70.10000429275732 94.7748651944717 Q 84.94829951837787 79.92656996885115 99.79659474399841 94.7748651944717 Q 84.94829951837787 109.62316042009225 70.10000429275732 94.7748651944717 Z" stroke="hsl(162,38%,69%)" stroke-width="1.2" fill="none" opacity="0.30"/>
+  <circle cx="85.4303081656838" cy="71.8423548615674" r="19.074413153412205" stroke="hsl(242,35%,48%)" stroke-width="1.3" fill="none" opacity="0.32"/><circle cx="85.4303081656838" cy="71.8423548615674" r="10.490927234376715" stroke="hsl(242,35%,48%)" stroke-width="1.3" fill="none" opacity="0.32"/>
+  <line x1="75.03" y1="75.95" x2="57.74" y2="89.89" stroke="hsl(162,38%,69%)" stroke-width="0.8" opacity="0.1"/>
+  <line x1="114.25" y1="82.28" x2="95.60" y2="86.85" stroke="hsl(162,38%,69%)" stroke-width="0.8" opacity="0.1"/>
+  <line x1="73.60" y1="119.85" x2="64.65" y2="84.63" stroke="hsl(162,38%,69%)" stroke-width="0.8" opacity="0.1"/>
+  <path d="M88.9676916172427 63.22563872414235 L111.0323083827573 63.22563872414235 L111.0323083827573 88.9676916172427 L136.77436127585764 88.9676916172427 L136.77436127585764 111.0323083827573 L111.0323083827573 111.0323083827573 L111.0323083827573 136.77436127585764 L88.9676916172427 136.77436127585764 L88.9676916172427 111.0323083827573 L63.22563872414235 111.0323083827573 L63.22563872414235 88.9676916172427 L88.9676916172427 88.9676916172427 Z" stroke="hsl(162,38%,69%)" stroke-width="2.5" fill="none" opacity="0.75"/>
+  <circle cx="100" cy="100" r="2.5" fill="hsl(162,38%,69%)" opacity="0.5"/>
+  <circle cx="148.19" cy="110.64" r="2.9" fill="hsl(242,35%,48%)" opacity="0.30"/>
+  <circle cx="61.55" cy="132.64" r="3.2" fill="hsl(242,35%,48%)" opacity="0.37"/>
+  <circle cx="79.56" cy="51.98" r="2.9" fill="hsl(242,35%,48%)" opacity="0.29"/>
+</svg>

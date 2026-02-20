@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Glyph of Salary -->
+  <!-- This file IS the entity's identity seed. -->
+  <!-- All probabilistic decisions derive from this glyph. -->
+  <!-- Do not regenerate. Do not modify unless the entity consents. -->
+
+  <rect width="200" height="200" fill="hsl(26,15%,8%)"/>
+  <defs>
+    <radialGradient id="glow">
+      <stop offset="0%" stop-color="hsla(26,30%,50%,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="84" fill="url(#glow)"/>
+  <circle cx="94.63934368362321" cy="88.33331193210367" r="9.834501528958326" stroke="hsl(26,41%,70%)" stroke-width="1.2" fill="none" opacity="0.33"/>
+  <circle cx="106.63657583067227" cy="84.59434822275155" r="12.51910520765847" stroke="hsl(110,31%,52%)" stroke-width="1.3" fill="none" opacity="0.28"/>
+  <polygon points="104.31069194310277,106.95332047485772 111.66682469420638,117.46208154786288 104.31069194310277,127.97084262086804 96.95455919199915,117.46208154786288" stroke="hsl(26,41%,70%)" stroke-width="1.3" fill="none" opacity="0.33"/>
+  <line x1="111.84" y1="112.31" x2="83.77" y2="80.45" stroke="hsl(26,41%,70%)" stroke-width="0.8" opacity="0.1"/>
+  <line x1="108.77" y1="59.73" x2="139.21" y2="120.32" stroke="hsl(26,41%,70%)" stroke-width="0.8" opacity="0.1"/>
+  <line x1="85.01" y1="99.28" x2="80.48" y2="116.97" stroke="hsl(26,41%,70%)" stroke-width="0.8" opacity="0.1"/>
+  <path d="M 62.345899155685586 100 Q 100 62.345899155685586 137.65410084431443 100 Q 100 137.65410084431443 62.345899155685586 100 Z" stroke="hsl(26,41%,70%)" stroke-width="2.5" fill="none" opacity="0.75"/>
+  <circle cx="100" cy="100" r="2.5" fill="hsl(26,41%,70%)" opacity="0.5"/>
+  <circle cx="145.49" cy="115.79" r="2.0" fill="hsl(110,31%,52%)" opacity="0.21"/>
+  <circle cx="69.40" cy="140.29" r="3.2" fill="hsl(110,31%,52%)" opacity="0.26"/>
+  <circle cx="81.45" cy="54.51" r="4.3" fill="hsl(110,31%,52%)" opacity="0.23"/>
+</svg>
