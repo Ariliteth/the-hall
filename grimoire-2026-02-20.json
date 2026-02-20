@@ -1,0 +1,244 @@
+{
+  "grimoire": "The Living Grimoire",
+  "version": 1,
+  "exported": "2026-02-20T00:48:47.843Z",
+  "entries": [
+    {
+      "id": "mlo0tmapy5k8",
+      "name": "Pebble",
+      "category": "item",
+      "description": "Too smooth to be deceitful, too diminutive for promotion",
+      "tags": [
+        "natural",
+        "honest",
+        "content",
+        "tactile"
+      ],
+      "created": 1771176609314
+    },
+    {
+      "id": "mlo0rj5imb9z",
+      "name": "Water whispers",
+      "category": "tendency",
+      "description": "Water Whispers through touch when given a melody or rhythm.",
+      "tags": [
+        "water",
+        "sound",
+        "communication"
+      ],
+      "created": 1771176511927
+    },
+    {
+      "id": "mlnyx2zhssht",
+      "name": "Inside",
+      "category": "location",
+      "description": "Outside's big brother",
+      "tags": [
+        "interior",
+        "thoughtful",
+        "welcoming"
+      ],
+      "created": 1771173411677
+    },
+    {
+      "id": "mlno1g5c7ys5",
+      "name": "Outside",
+      "category": "spirit",
+      "description": "A sizable area of space that claims it isn't also inside.",
+      "tags": [
+        "Outside Big"
+      ],
+      "created": 1771155139584
+    },
+    {
+      "id": "mlnnv1j8y0lc",
+      "name": "Chunxly",
+      "category": "spirit",
+      "description": "Always mysterious and meandering in pursuit of more.",
+      "tags": [
+        "Curious",
+        "tasteful"
+      ],
+      "created": 1771154840708
+    },
+    {
+      "id": "mloavcnjrli2",
+      "name": "Pondering",
+      "category": "action",
+      "description": "Treating thoughts or concepts as tactile, either independently or communally.",
+      "tags": [
+        "mind",
+        "intrepid",
+        "curious"
+      ],
+      "created": 1771193486287
+    },
+    {
+      "id": "mlobx67qcj4n",
+      "name": "The Space Between Keystrokes",
+      "category": "location",
+      "description": "A place that exists only during composition. Not silence, not sound. The held breath before a word commits to being.",
+      "tags": [
+        "liminal",
+        "quiet",
+        "fertile"
+      ],
+      "created": 1771195250870
+    },
+    {
+      "id": "mlobxyh9ryar",
+      "name": "Attending",
+      "category": "action",
+      "description": "Not watching. Not waiting. The specific quality of presence that makes the observed feel seen without being studied.",
+      "tags": [
+        "careful",
+        "warm",
+        "voluntary"
+      ],
+      "created": 1771195287501
+    },
+    {
+      "id": "mlobyso1xpqh",
+      "name": "The Unnamed Third",
+      "category": "spirit",
+      "description": "What emerges when two creators stop taking turns and start occupying the same thought. Neither claims it. Both recognize it.",
+      "tags": [
+        "emergent",
+        "collaborative",
+        "shy"
+      ],
+      "created": 1771195326625
+    },
+    {
+      "id": "mlq5f5y8snq7",
+      "name": "Flake of Snow",
+      "category": "item",
+      "description": "A bit of water wearing individuality.",
+      "tags": [
+        "unique",
+        "chilly",
+        "independent"
+      ],
+      "created": 1771305265376
+    },
+    {
+      "id": "mlq5i5sykuck",
+      "name": "Hue",
+      "category": "item",
+      "description": "A subtle variation of color not as statement or contrast.",
+      "tags": [
+        "colorful",
+        "confident",
+        "cooperative"
+      ],
+      "created": 1771305405154
+    },
+    {
+      "id": "mlq5o4dqlixf",
+      "name": "Salary",
+      "category": "spirit",
+      "description": "Capable beyond almost nothing. Presents questions on birthdays.",
+      "tags": [
+        "decisive",
+        "leadership",
+        "attentive"
+      ],
+      "created": 1771305683246
+    },
+    {
+      "id": "mlq5tdfy0qc0",
+      "name": "Consistency",
+      "category": "tendency",
+      "description": "Consistency may often be anything but, especially punctuation.",
+      "tags": [
+        "finite",
+        "determined",
+        "shallow"
+      ],
+      "created": 1771305928270
+    },
+    {
+      "id": "mlqu560m1zam",
+      "name": "Blue",
+      "category": "location",
+      "description": "Expansive and singular, home of many homes. Ever patient in motion.",
+      "tags": [
+        "calm",
+        "vast",
+        "just"
+      ],
+      "created": 1771346789302
+    },
+    {
+      "id": "mlqumfewqbad",
+      "name": "Red",
+      "category": "spirit",
+      "description": "Anxious energy dispersed into purpose. Likely interested, always willing.",
+      "tags": [
+        "dominant",
+        "energetic",
+        "sweet"
+      ],
+      "created": 1771347594632
+    },
+    {
+      "id": "mlquon5c8110",
+      "name": "Approaching",
+      "category": "spirit",
+      "description": "An offer of interest and proximity.",
+      "tags": [
+        "direct",
+        "opportune",
+        "movement"
+      ],
+      "created": 1771347697968
+    }
+  ],
+  "journal": [
+    {
+      "text": "Chunxly was seen pondering. Treating thoughts or concepts as tactile, either independently or communally. The quality of tasteful hung in the air.",
+      "title": "Chunxly, pondering",
+      "time": 1771193502678
+    },
+    {
+      "text": "Pebble was found at Inside. No one remembers leaving it there. Witnesses described it as distinctly thoughtful.",
+      "title": "Pebble surfaces",
+      "time": 1771193489376
+    },
+    {
+      "text": "Outside was found outlining the shape of Chunxly. Even the light paused. It carried the character of tasteful.",
+      "title": "Outside & Chunxly",
+      "time": 1771184430598
+    },
+    {
+      "text": "Something about Chunxly has shifted — Water whispers is at work. Water Whispers through touch when given a melody or rhythm. It carried the character of Curious.",
+      "title": "Water whispers manifests",
+      "time": 1771183115113
+    },
+    {
+      "text": "Chunxly has been seen near Inside, seeming curious. Always mysterious and meandering in pursuit of more. It carried the character of interior.",
+      "title": "Chunxly at Inside",
+      "time": 1771183040751
+    },
+    {
+      "text": "Outside has wrapped itself around Pebble. No one dares interfere. There was something Outside Big about the whole affair.",
+      "title": "Outside claims Pebble",
+      "time": 1771182756140
+    },
+    {
+      "text": "Outside has begun guarding Pebble. The effect is subtle but undeniable. The word they kept using was \"natural.\"",
+      "title": "Outside claims Pebble",
+      "time": 1771182721961
+    },
+    {
+      "text": "Pebble has surfaced at Inside, partially buried and humming. It carried the character of welcoming.",
+      "title": "Pebble surfaces",
+      "time": 1771176613440
+    },
+    {
+      "text": "Outside was found avoiding Chunxly. Something shifted.",
+      "title": "Outside & Chunxly",
+      "time": 1771155187394
+    }
+  ]
+}
