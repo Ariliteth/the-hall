@@ -1,0 +1,22 @@
+{
+  "grimoire": "The Living Grimoire",
+  "version": 1,
+  "exported": "2026-02-21T21:13:28.234Z",
+  "entries": [
+    {
+      "id": "mlwt3kqa",
+      "name": "Luxorborf",
+      "category": "spirit",
+      "description": "Occasionally dreams of small containers. Has been this way for a while.",
+      "tags": [
+        "space",
+        "spirit",
+        "creature",
+        "scattered"
+      ],
+      "created": 1771707778674,
+      "source": "critter-crank"
+    }
+  ],
+  "journal": []
+}

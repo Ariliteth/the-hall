@@ -1,0 +1,1831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUNT!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Russo+One&family=Share+Tech+Mono&family=Bebas+Neue&display=swap');
+
+  :root {
+    --dirt: #2a1f0e;
+    --mud: #3d2b0f;
+    --bark: #5c3d1a;
+    --moss: #4a5c2a;
+    --blood: #8b1a1a;
+    --gore: #c0392b;
+    --bone: #d4c5a0;
+    --parchment: #e8d5a3;
+    --sky: #7a9bb5;
+    --orange: #d4620a;
+    --yellow: #d4a017;
+    --green: #5a8a3a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--dirt);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--bone);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px),
+      repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.02) 3px, rgba(0,0,0,0.02) 6px);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* VHS scanline flicker */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(transparent 50%, rgba(0,0,0,0.04) 50%);
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 100;
+    animation: scanlines 8s linear infinite;
+  }
+
+  @keyframes scanlines {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100px; }
+  }
+
+  /* HEADER */
+  #header {
+    width: 100%;
+    max-width: 720px;
+    padding: 16px 20px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 3px solid var(--bark);
+  }
+
+  #show-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    color: var(--orange);
+    letter-spacing: 4px;
+    text-shadow: 3px 3px 0 var(--blood), 6px 6px 0 rgba(0,0,0,0.5);
+    line-height: 1;
+  }
+
+  #show-title span {
+    color: var(--yellow);
+  }
+
+  #episode-info {
+    font-size: 0.65rem;
+    color: var(--bark);
+    text-align: right;
+    line-height: 1.6;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* MAIN ARENA */
+  #game {
+    width: 100%;
+    max-width: 720px;
+    padding: 0 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* MONSTER PANEL */
+  #monster-panel {
+    margin-top: 16px;
+    background: var(--mud);
+    border: 2px solid var(--bark);
+    border-bottom: 4px solid var(--bark);
+    position: relative;
+    overflow: hidden;
+  }
+
+  #monster-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse at 70% 40%, rgba(139,26,26,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse at 20% 80%, rgba(74,92,42,0.1) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  #monster-name-bar {
+    background: var(--blood);
+    padding: 6px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--bark);
+  }
+
+  #monster-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 3px;
+    color: var(--parchment);
+  }
+
+  #monster-status-tag {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.6);
+    background: rgba(0,0,0,0.3);
+    padding: 2px 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  #monster-body {
+    padding: 14px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  #monster-art {
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 72px;
+    position: relative;
+    filter: drop-shadow(0 0 8px rgba(139,26,26,0.5));
+    transition: transform 0.1s;
+  }
+
+  #monster-art.shake {
+    animation: shake 0.4s ease;
+  }
+
+  #monster-art.attack-anim {
+    animation: monster-lunge 0.5s ease;
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px) rotate(-2deg); }
+    40% { transform: translateX(8px) rotate(2deg); }
+    60% { transform: translateX(-6px) rotate(-1deg); }
+    80% { transform: translateX(6px) rotate(1deg); }
+  }
+
+  @keyframes monster-lunge {
+    0% { transform: translateX(0) scale(1); }
+    30% { transform: translateX(30px) scale(1.2); }
+    60% { transform: translateX(-10px) scale(0.95); }
+    100% { transform: translateX(0) scale(1); }
+  }
+
+  #monster-stats {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--bark);
+  }
+
+  .hp-bar-wrap, .rage-bar-wrap {
+    height: 18px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--bark);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hp-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blood), var(--gore));
+    transition: width 0.6s cubic-bezier(0.25,0.46,0.45,0.94);
+    position: relative;
+  }
+
+  .hp-bar::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    right: 4px;
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+  }
+
+  .rage-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--orange), var(--yellow));
+    transition: width 0.6s cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+
+  .stat-nums {
+    font-size: 0.65rem;
+    color: var(--parchment);
+    text-align: right;
+    margin-top: 1px;
+  }
+
+  #monster-states {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+    min-height: 20px;
+  }
+
+  .state-tag {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border: 1px solid;
+    animation: state-pop 0.3s ease;
+  }
+
+  @keyframes state-pop {
+    0% { transform: scale(0); opacity: 0; }
+    70% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .state-tag.brittle { color: var(--gore); border-color: var(--gore); background: rgba(192,57,43,0.2); }
+  .state-tag.frail { color: #e67e22; border-color: #e67e22; background: rgba(230,126,34,0.2); }
+  .state-tag.poison { color: #8e44ad; border-color: #8e44ad; background: rgba(142,68,173,0.2); }
+  .state-tag.enraged { color: var(--yellow); border-color: var(--yellow); background: rgba(212,160,23,0.2); }
+  .state-tag.mighty { color: #2ecc71; border-color: #2ecc71; background: rgba(46,204,113,0.2); }
+  .state-tag.stunned { color: var(--sky); border-color: var(--sky); background: rgba(122,155,181,0.2); }
+  .state-tag.exhausted { color: #95a5a6; border-color: #95a5a6; background: rgba(149,165,166,0.2); }
+
+  /* HUNTER PANEL */
+  #hunter-panel {
+    background: var(--mud);
+    border: 2px solid var(--bark);
+    border-bottom: 4px solid var(--bark);
+    padding: 10px 14px;
+  }
+
+  #hunter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  #hunter-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    color: var(--green);
+  }
+
+  #hunter-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .hunter-bar-wrap {
+    height: 14px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--bark);
+    overflow: hidden;
+  }
+
+  .hunter-hp-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #2ecc71, #27ae60);
+    transition: width 0.6s cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+
+  .hunter-stam-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--sky), #5dade2);
+    transition: width 0.6s cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+
+  #hunter-states {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+    min-height: 18px;
+  }
+
+  /* LOG */
+  #log-panel {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--bark);
+    padding: 10px 14px;
+    min-height: 80px;
+    max-height: 80px;
+    overflow-y: auto;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bark) transparent;
+  }
+
+  .log-line {
+    opacity: 0;
+    animation: log-appear 0.3s ease forwards;
+    padding-left: 12px;
+    position: relative;
+  }
+
+  .log-line::before {
+    content: '>';
+    position: absolute;
+    left: 0;
+    color: var(--bark);
+  }
+
+  @keyframes log-appear {
+    from { opacity: 0; transform: translateX(-6px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .log-line.player { color: var(--parchment); }
+  .log-line.monster { color: #e74c3c; }
+  .log-line.system { color: var(--yellow); }
+  .log-line.good { color: #2ecc71; }
+
+  /* ACTION BUTTONS */
+  #action-area {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #action-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--bark);
+    text-align: center;
+  }
+
+  #actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .action-btn {
+    background: var(--mud);
+    border: 2px solid var(--bark);
+    border-bottom: 4px solid rgba(0,0,0,0.5);
+    color: var(--bone);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    padding: 12px 8px;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.4;
+    transition: all 0.1s;
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .action-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+  }
+
+  .action-btn:hover:not(:disabled) {
+    background: var(--bark);
+    border-color: var(--bone);
+    color: var(--parchment);
+    transform: translateY(-2px);
+    border-bottom-width: 6px;
+  }
+
+  .action-btn:active:not(:disabled) {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+  }
+
+  .action-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .action-btn .btn-cost {
+    display: block;
+    font-size: 0.55rem;
+    color: var(--sky);
+    margin-top: 4px;
+    letter-spacing: 2px;
+  }
+
+  .action-btn .btn-type {
+    display: block;
+    font-size: 0.55rem;
+    color: var(--moss);
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+  }
+
+  /* type color accents */
+  .action-btn.attack { border-top: 3px solid var(--blood); }
+  .action-btn.defend { border-top: 3px solid var(--sky); }
+  .action-btn.utility { border-top: 3px solid var(--moss); }
+  .action-btn.status { border-top: 3px solid #8e44ad; }
+
+  /* CROWD FLASH OVERLAY */
+  #crowd-flash {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 18px;
+    background: rgba(0,0,0,0.7);
+    animation: flash-in 0.2s ease;
+  }
+
+  #crowd-flash.show { display: flex; }
+
+  @keyframes flash-in {
+    0% { opacity: 0; }
+    30% { opacity: 1; background: rgba(255,255,255,0.15); }
+    100% { opacity: 1; background: rgba(0,0,0,0.7); }
+  }
+
+  #crowd-flash::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,0.6) 0%, transparent 4%),
+      radial-gradient(circle at 75% 15%, rgba(255,255,255,0.5) 0%, transparent 3%),
+      radial-gradient(circle at 55% 70%, rgba(255,255,255,0.4) 0%, transparent 3%),
+      radial-gradient(circle at 88% 60%, rgba(255,255,255,0.6) 0%, transparent 4%),
+      radial-gradient(circle at 10% 80%, rgba(255,255,255,0.3) 0%, transparent 2%);
+    pointer-events: none;
+    animation: flash-bulbs 0.4s ease forwards;
+  }
+
+  @keyframes flash-bulbs {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  #crowd-moment-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 6px;
+    color: var(--yellow);
+    text-shadow: 0 0 20px rgba(212,160,23,0.8), 3px 3px 0 rgba(0,0,0,0.8);
+    text-align: center;
+    padding: 0 20px;
+    animation: moment-slide 0.4s cubic-bezier(0.22,1,0.36,1);
+  }
+
+  @keyframes moment-slide {
+    0% { transform: translateY(20px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  #crowd-stars {
+    display: flex;
+    gap: 24px;
+  }
+
+  .crowd-star-btn {
+    background: none;
+    border: 2px solid var(--bark);
+    color: var(--bone);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    padding: 12px 20px;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.5;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .crowd-star-btn .star-icon {
+    display: block;
+    font-size: 1.6rem;
+    margin-bottom: 4px;
+  }
+
+  .crowd-star-btn:hover {
+    background: var(--bark);
+    border-color: var(--yellow);
+    color: var(--yellow);
+    transform: scale(1.08);
+  }
+
+  #crowd-skip {
+    font-size: 0.55rem;
+    color: var(--bark);
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    text-decoration: underline;
+  }
+
+  #crowd-skip:hover { color: var(--bone); }
+
+  /* DAMAGE FLOATERS */
+  .floater {
+    position: fixed;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    pointer-events: none;
+    animation: float-up 1.2s ease forwards;
+    z-index: 200;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.8);
+  }
+
+  .floater.dmg { color: var(--gore); }
+  .floater.heal { color: #2ecc71; }
+  .floater.miss { color: var(--bone); font-size: 1.2rem; }
+  .floater.hunter-dmg { color: var(--yellow); }
+
+  @keyframes float-up {
+    0% { transform: translateY(0) scale(0.5); opacity: 1; }
+    20% { transform: translateY(-10px) scale(1.3); opacity: 1; }
+    100% { transform: translateY(-70px) scale(1); opacity: 0; }
+  }
+
+  /* OVERLAY */
+  #overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  #overlay.show { display: flex; }
+
+  #overlay-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 4rem;
+    letter-spacing: 8px;
+    text-align: center;
+    text-shadow: 4px 4px 0 rgba(0,0,0,0.8);
+    animation: title-slam 0.5s cubic-bezier(0.36,0.07,0.19,0.97) both;
+  }
+
+  @keyframes title-slam {
+    0% { transform: scale(3); opacity: 0; }
+    60% { transform: scale(0.95); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  #overlay-title.win { color: var(--yellow); }
+  #overlay-title.lose { color: var(--gore); }
+
+  #overlay-sub {
+    font-size: 0.8rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--bark);
+    text-align: center;
+  }
+
+  #restart-btn {
+    background: var(--blood);
+    border: 2px solid var(--gore);
+    border-bottom: 4px solid rgba(0,0,0,0.5);
+    color: var(--parchment);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 4px;
+    padding: 12px 40px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  #restart-btn:hover {
+    background: var(--gore);
+    transform: translateY(-2px);
+    border-bottom-width: 6px;
+  }
+
+  /* TICKER */
+  #ticker {
+    width: 100%;
+    background: var(--blood);
+    border-top: 1px solid var(--gore);
+    border-bottom: 1px solid var(--gore);
+    overflow: hidden;
+    padding: 4px 0;
+    margin-bottom: 4px;
+  }
+
+  #ticker-inner {
+    display: inline-block;
+    white-space: nowrap;
+    animation: ticker 30s linear infinite;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--parchment);
+  }
+
+  @keyframes ticker {
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
+
+  /* TURN COUNTER */
+  #turn-counter {
+    text-align: center;
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--bark);
+    padding: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="show-title">HUNT!<br><span>EXTREME</span></div>
+  <div id="episode-info">
+    SEASON 4 · EPISODE 12<br>
+    "NO MERCY IN THE MUDFLATS"<br>
+    ©1997 WILDWOOD PRODUCTIONS
+  </div>
+</div>
+
+<div id="ticker">
+  <span id="ticker-inner">★ COMING UP: BARRY TANGLES WITH A DIABLOS IN TONIGHT'S FINALE ★ VIEWER DISCRETION ADVISED ★ HUNT RESPONSIBLY ★ DO NOT ATTEMPT AT HOME ★ TONIGHT'S SPONSOR: HUNTER'S GUILD FIELD RATIONS ★ "STAY NOURISHED. STAY ALIVE." ★ CALL 1-800-GUILD-UP FOR LICENSING INFO ★</span>
+</div>
+
+<div id="game">
+  <div id="monster-panel">
+    <div id="monster-name-bar">
+      <div id="monster-name">GREAT JAGGI</div>
+      <div id="monster-status-tag">● ON CAMERA</div>
+    </div>
+    <div id="monster-body">
+      <div id="monster-art">🦎</div>
+      <div id="monster-stats">
+        <div class="stat-row">
+          <div class="stat-label">Vitality</div>
+          <div class="hp-bar-wrap">
+            <div class="hp-bar" id="monster-hp-bar" style="width:100%"></div>
+          </div>
+          <div class="stat-nums" id="monster-hp-nums">300 / 300</div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-label">Rage</div>
+          <div class="rage-bar-wrap">
+            <div class="rage-bar" id="monster-rage-bar" style="width:0%"></div>
+          </div>
+          <div class="stat-nums" id="monster-rage-nums">0 / 100</div>
+        </div>
+        <div id="monster-states"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="hunter-panel">
+    <div id="hunter-header">
+      <div id="hunter-name">⚔ THE HUNTER</div>
+      <div style="font-size:0.6rem; color:var(--bark);" id="turn-counter">TURN 1</div>
+    </div>
+    <div id="hunter-bars">
+      <div class="stat-row">
+        <div class="stat-label">HP</div>
+        <div class="hunter-bar-wrap">
+          <div class="hunter-hp-bar" id="hunter-hp-bar" style="width:100%"></div>
+        </div>
+        <div class="stat-nums" id="hunter-hp-nums">200 / 200</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label">Stamina</div>
+        <div class="hunter-bar-wrap">
+          <div class="hunter-stam-bar" id="hunter-stam-bar" style="width:100%"></div>
+        </div>
+        <div class="stat-nums" id="hunter-stam-nums">100 / 100</div>
+      </div>
+    </div>
+    <div id="hunter-states"></div>
+  </div>
+
+  <div id="log-panel" id="log"></div>
+
+  <div id="action-area">
+    <div id="action-label">— Choose your action —</div>
+    <div id="actions">
+      <button class="action-btn" id="btn0" onclick="playAction(0)"></button>
+      <button class="action-btn" id="btn1" onclick="playAction(1)"></button>
+      <button class="action-btn" id="btn2" onclick="playAction(2)"></button>
+    </div>
+  </div>
+</div>
+
+<div id="crowd-flash">
+  <div id="crowd-moment-text">MASTERFUL!</div>
+  <div id="crowd-stars">
+    <button class="crowd-star-btn" id="star-a" onclick="pickStar('a')">
+      <span class="star-icon">⚔</span>
+      <span>Go Again</span>
+    </button>
+    <button class="crowd-star-btn" id="star-b" onclick="pickStar('b')">
+      <span class="star-icon">🌿</span>
+      <span>Catch Breath</span>
+    </button>
+  </div>
+  <div id="crowd-skip" onclick="pickStar('skip')">just a nod</div>
+</div>
+
+<div id="overlay">
+  <div id="overlay-title">HUNT COMPLETE</div>
+  <div id="overlay-sub">The monster has been subdued.</div>
+  <button id="restart-btn" onclick="initGame()">HUNT AGAIN</button>
+</div>
+
+<script>
+// ============================================================
+// HELPERS — DICE
+// ============================================================
+
+function d4() { return Math.floor(Math.random() * 4) + 1; }
+function advantagedD4() { return Math.max(d4(), d4()); } // roll twice, take higher
+
+// ============================================================
+// DATA
+// ============================================================
+
+// ============================================================
+// HALL INTEGRATION — fetch entity tunings from GitHub
+// ============================================================
+
+const HALL_REPO = "Ariliteth/the-hall";
+const HALL_BRANCH = "main";
+const HALL_NEIGHBORHOOD = "greengarden";
+
+// Known residents — slugs must match folder names in the repo
+// Add or remove as the neighborhood grows
+const GREENGARDEN_SLUGS = [
+  "chunxly",
+  // more slugs here as you add residents
+];
+
+// Fallback monsters for offline / fetch-fail situations
+const FALLBACK_MONSTERS = [
+  {
+    name: "GREAT JAGGI",
+    emoji: "🦎",
+    maxHp: 300,
+    atk: 18,
+    description: "A pack leader with a frill full of attitude.",
+    tags: ["territorial", "loud"],
+    category: "spirit",
+    actions: [
+      { name: "Pack Call", effect: "summon", msg: "The Great Jaggi calls for backup!", state: {id:"mighty",target:"monster"} },
+      { name: "Tail Spin", effect: "damage", power: 1.0, msg: "The Great Jaggi whips its tail at you!" },
+      { name: "Lunge Bite", effect: "damage", power: 1.4, msg: "The Great Jaggi lunges with snapping jaws!" },
+      { name: "Intimidate", effect: "status", msg: "The Great Jaggi puffs its frill! You feel frightened.", state: {id:"frightened",target:"hunter"} },
+      { name: "Pounce", effect: "damage", power: 0.8, msg: "The Great Jaggi pounces!", stamDrain: 20 },
+    ]
+  },
+  {
+    name: "BARROTH",
+    emoji: "🐊",
+    maxHp: 420,
+    atk: 25,
+    description: "A mud-coated brute that rolls through anything in its path.",
+    tags: ["heavy", "relentless"],
+    category: "spirit",
+    actions: [
+      { name: "Mud Roll", effect: "damage", power: 1.2, msg: "Barroth barrels through you in a mud-soaked roll!", stamDrain: 30 },
+      { name: "Head Slam", effect: "damage", power: 1.6, msg: "Barroth smashes its crown straight down!" },
+      { name: "Mud Sling", effect: "status", msg: "Barroth flings mud! You're exhausted.", state: {id:"exhausted",target:"hunter"} },
+      { name: "Charge", effect: "damage", power: 2.0, msg: "Barroth charges! You're sent flying!", stamDrain: 40 },
+      { name: "Thrash", effect: "damage", power: 0.9, msg: "Barroth thrashes its massive tail." },
+    ]
+  },
+];
+
+// ── Tuning parser ────────────────────────────────────────────
+// Reads a tuning.md string and extracts what the Score needs
+function parseTuning(md, slug) {
+  const lines = md.split('\n');
+
+  // Name: first h1
+  const nameLine = lines.find(l => l.startsWith('# '));
+  const name = nameLine ? nameLine.replace('# ', '').trim() : slug;
+
+  // Category: bold line after **Category:**
+  const catMatch = md.match(/\*\*Category:\*\*\s*(.+)/);
+  const category = catMatch ? catMatch[1].trim().toLowerCase() : 'spirit';
+
+  // Description: first non-empty line after category that isn't a heading or tag line
+  const descMatch = md.match(/\*\*Category:\*\*[^\n]*\n+([^*\n#][^\n]+)/);
+  const description = descMatch ? descMatch[1].trim() : 'Mysterious. Keeps its own counsel.';
+
+  // Tags: **Tags:** line
+  const tagsMatch = md.match(/\*\*Tags:\*\*\s*(.+)/);
+  const tags = tagsMatch
+    ? tagsMatch[1].split(',').map(t => t.trim().toLowerCase())
+    : [];
+
+  return { name, category, description, tags, slug };
+}
+
+// ── Entity → Monster ─────────────────────────────────────────
+// Derives combat stats and actions from a parsed tuning.
+// This is the Score's interpretation — the entity doesn't know this happens.
+function entityToMonster(entity) {
+  const { name, category, description, tags } = entity;
+
+  // Stats derived from tags and category
+  const isCurious    = tags.some(t => ['curious','wandering','seeking','tasteful','meandering'].includes(t));
+  const isAggressive = tags.some(t => ['fierce','bold','territorial','hungry','predator'].includes(t));
+  const isSubtle     = tags.some(t => ['quiet','subtle','patient','watching','still'].includes(t));
+  const isMighty     = tags.some(t => ['mighty','large','heavy','ancient','powerful'].includes(t));
+  const isSwift      = tags.some(t => ['quick','swift','nimble','light','restless'].includes(t));
+  const isToxic      = tags.some(t => ['poisonous','toxic','venomous','strange','uncanny'].includes(t));
+
+  // Base stats
+  const baseHp  = isMighty ? 500 : isAggressive ? 380 : 300;
+  const baseAtk = isMighty ? 30  : isAggressive ? 26  : isSubtle ? 18 : 22;
+
+  // Emoji: pick from category + tags
+  const emojiMap = {
+    spirit: ['👁','🌀','✨','🌙','🔮','💫','🌊'],
+    item:   ['📿','🗝','🪬','🧿','🫙','📜'],
+    location: ['🌿','🌾','🍄','🌲','🏚','🪨'],
+    tendency: ['🌫','🌪','💧','🔥','⚡','🌑'],
+    action:   ['⚔','🏹','🛡','🌀','💥'],
+  };
+  const pool = emojiMap[category] || emojiMap.spirit;
+  const emoji = pool[Math.abs(hashStr(name)) % pool.length];
+
+  // Actions generated from personality
+  const actions = [];
+
+  // Every entity gets a signature move derived from description
+  actions.push({
+    name: `${name}'s Whim`,
+    effect: 'damage',
+    power: isMighty ? 1.6 : 1.0,
+    msg: `${name} acts on sudden impulse${isMighty ? ' — with tremendous force' : ''}.`
+  });
+
+  if (isCurious) {
+    actions.push({
+      name: 'Sudden Interest',
+      effect: 'damage',
+      power: 0.8,
+      msg: `${name} approaches with unsettling curiosity.`,
+      stamDrain: 15,
+    });
+    actions.push({
+      name: 'Meander',
+      effect: 'status',
+      msg: `${name} moves in an unpredictable pattern. You lose your footing.`,
+      state: { id: 'exhausted', target: 'hunter' },
+    });
+  }
+
+  if (isAggressive) {
+    actions.push({
+      name: 'Press Forward',
+      effect: 'damage',
+      power: 1.4,
+      msg: `${name} presses its advantage without hesitation!`,
+    });
+  }
+
+  if (isSubtle) {
+    actions.push({
+      name: 'Quiet Move',
+      effect: 'damage',
+      power: 1.2,
+      msg: `You almost didn't see it coming. ${name} was always closer than you thought.`,
+    });
+    actions.push({
+      name: 'Patient Wait',
+      effect: 'summon',
+      msg: `${name} holds still. You feel it gathering something.`,
+      state: { id: 'mighty', target: 'monster' },
+    });
+  }
+
+  if (isToxic) {
+    actions.push({
+      name: 'Strange Emanation',
+      effect: 'status',
+      msg: `Something comes off ${name} that you can't name. You feel frightened.`,
+      state: { id: 'frightened', target: 'hunter' },
+    });
+  }
+
+  if (isSwift) {
+    actions.push({
+      name: 'Quick Pass',
+      effect: 'damage',
+      power: 0.9,
+      msg: `${name} moves through your space before you can react.`,
+      stamDrain: 20,
+    });
+  }
+
+  // Fallback if somehow no actions generated
+  if (actions.length < 2) {
+    actions.push({
+      name: 'Assert Presence',
+      effect: 'damage',
+      power: 1.1,
+      msg: `${name} simply insists on being noticed.`,
+    });
+  }
+
+  return {
+    name: name.toUpperCase(),
+    emoji,
+    maxHp: baseHp,
+    atk: baseAtk,
+    description,
+    tags,
+    category,
+    actions,
+    fromHall: true,
+  };
+}
+
+// ── Simple hash for emoji picking (reuse pattern from Crank) ─
+function hashStr(str) {
+  var h = 0;
+  for (var i = 0; i < str.length; i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h = h | 0;
+  }
+  return Math.abs(h);
+}
+
+// ── Fetch one tuning ─────────────────────────────────────────
+async function fetchTuning(slug) {
+  const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/entities/${HALL_NEIGHBORHOOD}/${slug}/tuning.md`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Could not fetch ${slug}`);
+  const md = await res.text();
+  return parseTuning(md, slug);
+}
+
+// ── Build monster roster from Hall + fallbacks ───────────────
+async function buildMonsterRoster() {
+  const monsters = [];
+
+  for (const slug of GREENGARDEN_SLUGS) {
+    try {
+      const entity = await fetchTuning(slug);
+      monsters.push(entityToMonster(entity));
+    } catch(e) {
+      console.warn(`Could not load entity: ${slug}`, e);
+    }
+  }
+
+  // Always include fallbacks so there's always something to fight
+  return monsters.concat(FALLBACK_MONSTERS);
+}
+
+// ── Greengarden ticker lines ─────────────────────────────────
+// These populate the news crawl. Entities from the Hall can appear here.
+// Replace / extend as the neighborhood grows.
+const GREENGARDEN_NEWS = [
+  "★ REPORTS OF UNUSUAL ACTIVITY NEAR THE EASTERN THICKET ★",
+  "★ CHUNXLY WAS SEEN AGAIN NEAR THE MARKET — NOBODY KNOWS WHAT IT WANTS ★",
+  "★ HUNT RESPONSIBLY. THE FIELD CREW THANKS YOU. ★",
+  "★ TONIGHT'S EPISODE FILMED ON LOCATION IN GREENGARDEN ★",
+  "★ LOCAL SPIRIT DECLINES TO COMMENT ★",
+  "★ VIEWER ADVISORY: SOME ENTITIES DO NOT WISH TO BE HUNTED ★",
+  "★ CHUNXLY QUOTE OF THE DAY: \"More. Obviously more.\" ★",
+  "★ THE MYCORRHIZAL LAYER HAS BEEN UNUSUALLY ACTIVE THIS WEEK ★",
+  "★ DO NOT APPROACH THE EDGE OF THE NEIGHBORHOOD AFTER DARK ★",
+  "★ SPONSORED BY HUNTER'S GUILD FIELD RATIONS — STAY NOURISHED, STAY ALIVE ★",
+  "★ SEVERAL RESIDENTS REPORT FEELING WATCHED. CAMERA CREW DENIES INVOLVEMENT. ★",
+  "★ THIS SCORE IS PRODUCED IN ASSOCIATION WITH FIXED POINT LOCAL ★",
+  "★ CALL 1-800-GUILD-UP FOR LICENSING INFORMATION ★",
+];
+
+function buildTicker(monster) {
+  // Weave in the active monster's name if it came from The Hall
+  let lines = [...GREENGARDEN_NEWS];
+  if (monster && monster.fromHall) {
+    lines.splice(2, 0, `★ TONIGHT'S TARGET: ${monster.name} — "${monster.description}" ★`);
+    lines.splice(5, 0, `★ FIELD CREW REPORTS ${monster.name} IS QUOTE "BEHAVING UNUSUALLY" ★`);
+  }
+  return lines.join('   ');
+}
+
+const ACTIONS = [
+  // ATTACK
+  { name: "Strike", type: "attack", desc: "A clean blow.", effect: "damage", power: 1.0 },
+  { name: "Heavy Strike", type: "attack", desc: "Slow but devastating.", effect: "damage", power: 1.8 },
+  { name: "Double Strike", type: "attack", desc: "Hit twice, lighter.", effect: "damage_multi", power: 0.7, hits: 2 },
+  { name: "Wild Swing", type: "attack", desc: "Big swing, some risk.", effect: "damage_risky", power: 2.2, missChance: 0.3 },
+  { name: "Piercing Thrust", type: "attack", desc: "Ignores armor.", effect: "pierce_damage", power: 1.1 },
+  { name: "Sweep", type: "attack", desc: "Wide arc, solid damage.", effect: "damage", power: 1.3 },
+  { name: "Pressure Point", type: "attack", desc: "Targets weakness.", effect: "damage_brittle", power: 1.0 },
+  // DEFEND
+  { name: "Dodge Roll", type: "defend", desc: "Evade the next hit.", effect: "evade" },
+  { name: "Block", type: "defend", desc: "Reduce incoming damage.", effect: "block", value: 60 },
+  { name: "Brace", type: "defend", desc: "Fortify your stance.", effect: "fortify" },
+  { name: "Dive!", type: "defend", desc: "Full evasion, lose stamina.", effect: "dive", staminaCost: 30 },
+  // UTILITY
+  { name: "Dust Off", type: "utility", desc: "Recover some HP.", effect: "heal", value: 60 },
+  { name: "Sharpen", type: "utility", desc: "Gain Mighty next hit.", effect: "buff_mighty" },
+  { name: "Spot Weakness", type: "utility", desc: "Inflict Brittle.", effect: "debuff_brittle" },
+  { name: "Deep Breath", type: "utility", desc: "Restore stamina.", effect: "restore_stam", value: 50 },
+  { name: "Flex", type: "utility", desc: "Gain Mighty 1 turn.", effect: "buff_mighty" },
+  { name: "Momentum", type: "utility", desc: "Clear negative states.", effect: "cleanse" },
+  // STATUS
+  { name: "Poison Coated", type: "status", desc: "Apply Poison.", effect: "apply_poison" },
+  { name: "Stagger", type: "status", desc: "Try to Stun.", effect: "apply_stun" },
+  { name: "Exploit Wound", type: "status", desc: "Inflict Frail.", effect: "apply_frail" },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+
+let MONSTERS = [];
+let G = {};
+
+async function initGame() {
+  // Show loading state
+  document.getElementById('monster-name').textContent = '...';
+  document.getElementById('monster-art').textContent = '🌀';
+  document.getElementById('overlay').classList.remove('show');
+  setButtonsEnabled(false);
+
+  // Build roster from Hall + fallbacks
+  if (MONSTERS.length === 0) {
+    MONSTERS = await buildMonsterRoster();
+  }
+
+  const monster = MONSTERS[Math.floor(Math.random() * MONSTERS.length)];
+
+  G = {
+    turn: 1,
+    monster: {
+      name: monster.name,
+      emoji: monster.emoji,
+      atk: monster.atk,
+      actions: monster.actions,
+      maxHp: monster.maxHp,
+      hp: monster.maxHp,
+      maxRage: 100,
+      rage: 0,
+      states: [],
+    },
+    hunter: {
+      maxHp: 200,
+      hp: 200,
+      maxStam: 100,
+      stam: 100,
+      states: [],
+      block: 0,
+      evading: false,
+      fortified: false,
+      mighty: false,
+      bonusDamage: 0,
+    },
+    currentActions: [],
+    waiting: false,
+    pendingHeroicAfterMonster: null,
+    pendingRedraw: false,
+  };
+
+  document.getElementById('monster-name').textContent = monster.name;
+  document.getElementById('monster-art').textContent = monster.emoji;
+
+  // Wire ticker with Greengarden news + active monster
+  document.getElementById('ticker-inner').textContent = buildTicker(monster);
+
+  // Episode flavour — changes based on whether this is a Hall entity
+  const fromHall = monster.fromHall;
+  document.getElementById('episode-info').innerHTML = fromHall
+    ? `GREENGARDEN · LIVE ENCOUNTER<br>"${monster.description}"<br><span style="color:var(--moss)">● READING FROM THE HALL</span>`
+    : `SEASON 4 · EPISODE 12<br>"NO MERCY IN THE MUDFLATS"<br>©1997 WILDWOOD PRODUCTIONS`;
+
+  clearLog();
+  if (fromHall) {
+    log(`Signal received from The Hall. Entity located: ${monster.name}.`, 'system');
+    log(`"${monster.description}"`, 'system');
+    log(`The Score interprets. The field crew follows.`, 'system');
+  } else {
+    log(`The camera crew follows you into the field...`, 'system');
+    log(`TARGET ACQUIRED: ${monster.name}. ${monster.description}`, 'system');
+    log(`This is your moment. Make it count.`, 'system');
+  }
+
+  renderAll();
+  drawActions();
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+
+function renderAll() {
+  renderMonster();
+  renderHunter();
+  document.getElementById('turn-counter').textContent = `TURN ${G.turn}`;
+}
+
+function renderMonster() {
+  const m = G.monster;
+  const hpPct = Math.max(0, (m.hp / m.maxHp) * 100);
+  const ragePct = (m.rage / m.maxRage) * 100;
+
+  document.getElementById('monster-hp-bar').style.width = hpPct + '%';
+  document.getElementById('monster-hp-nums').textContent = `${Math.max(0,m.hp)} / ${m.maxHp}`;
+  document.getElementById('monster-rage-bar').style.width = ragePct + '%';
+  document.getElementById('monster-rage-nums').textContent = `${Math.floor(m.rage)} / ${m.maxRage}`;
+
+  const statesEl = document.getElementById('monster-states');
+  statesEl.innerHTML = '';
+  m.states.forEach(s => {
+    const tag = document.createElement('div');
+    tag.className = `state-tag ${s.id}`;
+    tag.textContent = s.id.toUpperCase() + (s.turns ? ` (${s.turns})` : '');
+    statesEl.appendChild(tag);
+  });
+}
+
+function renderHunter() {
+  const h = G.hunter;
+  const hpPct = Math.max(0, (h.hp / h.maxHp) * 100);
+  const stamPct = Math.max(0, (h.stam / h.maxStam) * 100);
+
+  document.getElementById('hunter-hp-bar').style.width = hpPct + '%';
+  document.getElementById('hunter-hp-nums').textContent = `${Math.max(0,h.hp)} / ${h.maxHp}`;
+  document.getElementById('hunter-stam-bar').style.width = stamPct + '%';
+  document.getElementById('hunter-stam-nums').textContent = `${Math.floor(h.stam)} / ${h.maxStam}`;
+
+  const statesEl = document.getElementById('hunter-states');
+  statesEl.innerHTML = '';
+  // show active states
+  if (h.evading) addStateTag(statesEl, 'evasive', 'EVASIVE', 'mighty');
+  if (h.fortified) addStateTag(statesEl, 'fortified', 'FORTIFIED', 'mighty');
+  if (h.mighty) addStateTag(statesEl, 'mighty', 'MIGHTY', 'mighty');
+  if (h.block > 0) addStateTag(statesEl, 'block', `BLOCK ${h.block}`, 'stunned');
+  h.states.forEach(s => {
+    addStateTag(statesEl, s.id, s.id.toUpperCase() + (s.turns ? ` (${s.turns})` : ''), s.id);
+  });
+}
+
+function addStateTag(parent, cls, text, colorClass) {
+  const tag = document.createElement('div');
+  tag.className = `state-tag ${colorClass}`;
+  tag.textContent = text;
+  parent.appendChild(tag);
+}
+
+// ============================================================
+// ACTIONS
+// ============================================================
+
+function drawActions() {
+  // Pick 3 random actions weighted by situation
+  const pool = [...ACTIONS];
+  const picked = [];
+  while (picked.length < 3 && pool.length > 0) {
+    const idx = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(idx, 1)[0]);
+  }
+  G.currentActions = picked;
+
+  picked.forEach((a, i) => {
+    const btn = document.getElementById(`btn${i}`);
+    btn.className = `action-btn ${a.type}`;
+    btn.innerHTML = `<span class="btn-type">${a.type}</span>${a.name}<span class="btn-cost">${a.desc}</span>`;
+    btn.disabled = false;
+  });
+}
+
+function setButtonsEnabled(enabled) {
+  for (let i = 0; i < 3; i++) {
+    document.getElementById(`btn${i}`).disabled = !enabled;
+  }
+}
+
+// ============================================================
+// CROWD FLASH SYSTEM
+// ============================================================
+
+// Heroic moment definitions
+// Each has: a check function (returns true/false given context), 
+// a title, and two star options with effect and label
+const HEROIC_MOMENTS = [
+  {
+    id: 'clean_dodge',
+    title: 'CLEAN DODGE!',
+    subtitle: 'The crowd holds its breath.',
+    stars: [
+      { icon: '⚡', label: 'Press the Advantage', effect: 'bonus_damage', desc: '+40 dmg on next attack' },
+      { icon: '💨', label: 'Roll Clear', effect: 'restore_stam_bonus', desc: 'Restore 30 stamina' },
+    ]
+  },
+  {
+    id: 'crit_hit',
+    title: 'DEVASTATING BLOW!',
+    subtitle: 'Camera zoom. The monster staggers.',
+    stars: [
+      { icon: '🩸', label: 'Exploit It', effect: 'apply_brittle_bonus', desc: 'Inflict Brittle (advantaged d4)' },
+      { icon: '🔥', label: 'Ride the Wave', effect: 'bonus_mighty', desc: 'Gain Mighty for next turn' },
+    ]
+  },
+  {
+    id: 'wild_miss',
+    title: 'YOU SWUNG WIDE!',
+    subtitle: '...but you\'re still standing.',
+    stars: [
+      { icon: '😤', label: 'Shake it Off', effect: 'cleanse_bonus', desc: 'Clear a negative state' },
+      { icon: '🎯', label: 'Recalibrate', effect: 'draw_better', desc: 'Reroll your three options' },
+    ]
+  },
+  {
+    id: 'monster_missed',
+    title: 'NARROWLY AVOIDED!',
+    subtitle: 'You had no idea that was coming.',
+    stars: [
+      { icon: '🌟', label: 'Lucky Break', effect: 'heal_bonus', desc: 'Recover 40 HP' },
+      { icon: '👁', label: 'Read the Beast', effect: 'apply_brittle_bonus', desc: 'Inflict Brittle (advantaged d4)' },
+    ]
+  },
+  {
+    id: 'low_hp',
+    title: 'STILL IN IT!',
+    subtitle: 'The crowd erupts.',
+    stars: [
+      { icon: '❤️', label: 'Dig Deep', effect: 'heal_bonus', desc: 'Recover 60 HP' },
+      { icon: '💢', label: 'Pure Spite', effect: 'bonus_mighty', desc: 'Gain Mighty. The rage helps.' },
+    ]
+  },
+];
+
+// Words of encouragement for the skip option (just a nod)
+const ENCOURAGEMENTS = [
+  "You've got this.",
+  "Keep moving.",
+  "Breathe.",
+  "The camera loves you.",
+  "One hit at a time.",
+  "You've seen worse.",
+  "The field crew is proud.",
+  "Don't stop now.",
+  "That's the stuff.",
+  "Steady.",
+];
+
+let pendingHeroicResolve = null;
+
+function showCrowdFlash(moment) {
+  return new Promise(resolve => {
+    pendingHeroicResolve = resolve;
+
+    document.getElementById('crowd-moment-text').innerHTML = 
+      `${moment.title}<br><span style="font-size:0.8rem;color:var(--bone);letter-spacing:2px;">${moment.subtitle}</span>`;
+
+    const starA = document.getElementById('star-a');
+    const starB = document.getElementById('star-b');
+    starA.querySelector('span:not(.star-icon)').textContent = moment.stars[0].label;
+    starA.querySelector('.star-icon').textContent = moment.stars[0].icon;
+    starA.title = moment.stars[0].desc;
+
+    starB.querySelector('span:not(.star-icon)').textContent = moment.stars[1].label;
+    starB.querySelector('.star-icon').textContent = moment.stars[1].icon;
+    starB.title = moment.stars[1].desc;
+
+    document.getElementById('crowd-flash').classList.add('show');
+  });
+}
+
+function pickStar(which) {
+  const flash = document.getElementById('crowd-flash');
+  flash.classList.remove('show');
+
+  if (!pendingHeroicResolve) return;
+  const resolve = pendingHeroicResolve;
+  pendingHeroicResolve = null;
+
+  if (which === 'skip') {
+    const msg = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
+    log(`The camera operator gives you a thumbs up. "${msg}"`, 'system');
+    resolve(null);
+    return;
+  }
+
+  resolve(which); // 'a' or 'b'
+}
+
+async function applyStarEffect(moment, choice) {
+  if (!choice) return;
+  const star = choice === 'a' ? moment.stars[0] : moment.stars[1];
+  const h = G.hunter;
+  const m = G.monster;
+
+  log(`You take the moment: ${star.label}.`, 'good');
+
+  switch(star.effect) {
+    case 'bonus_damage':
+      h.bonusDamage = (h.bonusDamage || 0) + 40;
+      log(`Next attack deals +40 bonus damage.`, 'good');
+      break;
+    case 'restore_stam_bonus':
+      h.stam = Math.min(h.maxStam, h.stam + 30);
+      log(`Restored 30 stamina.`, 'good');
+      break;
+    case 'apply_brittle_bonus':
+      addMonsterState({id: 'brittle', turns: 1});
+      log(`${m.name} is Brittle! (${G.monster.states.find(s=>s.id==='brittle').turns} turns)`, 'good');
+      break;
+    case 'bonus_mighty':
+      h.mighty = true;
+      log(`Gained Mighty for the next attack.`, 'good');
+      break;
+    case 'cleanse_bonus':
+      if (h.states.length > 0) {
+        const removed = h.states.shift();
+        log(`Cleared ${removed.id.toUpperCase()} from your conditions.`, 'good');
+      } else {
+        log(`Nothing to clear — but you feel sharper for it.`, 'good');
+      }
+      break;
+    case 'draw_better':
+      G.pendingRedraw = true;
+      log(`Your options will be rerolled.`, 'good');
+      break;
+    case 'heal_bonus':
+      const healed = Math.min(60, h.maxHp - h.hp);
+      h.hp = Math.min(h.maxHp, h.hp + 60);
+      spawnFloater(`+${healed}`, document.getElementById('hunter-hp-bar'), 'heal');
+      log(`Recovered ${healed} HP.`, 'good');
+      break;
+  }
+  renderAll();
+}
+
+// ============================================================
+// MAIN TURN LOOP
+// ============================================================
+
+async function playAction(idx) {
+  if (G.waiting) return;
+  G.waiting = true;
+  setButtonsEnabled(false);
+
+  const action = G.currentActions[idx];
+  const heroicMoment = await executeHunterAction(action);
+
+  if (G.monster.hp <= 0) {
+    endGame(true);
+    return;
+  }
+
+  // Show crowd flash if a heroic moment occurred
+  if (heroicMoment) {
+    const choice = await showCrowdFlash(heroicMoment);
+    await applyStarEffect(heroicMoment, choice);
+    if (G.monster.hp <= 0) { endGame(true); return; }
+  }
+
+  await sleep(500);
+  G.pendingHeroicAfterMonster = null;
+  await executeMonsterAction();
+
+  if (G.hunter.hp <= 0) {
+    endGame(false);
+    return;
+  }
+
+  // Dodge flash — happened during monster turn
+  if (G.pendingHeroicAfterMonster) {
+    const m2 = G.pendingHeroicAfterMonster;
+    G.pendingHeroicAfterMonster = null;
+    const choice2 = await showCrowdFlash(m2);
+    await applyStarEffect(m2, choice2);
+    if (G.monster.hp <= 0) { endGame(true); return; }
+  }
+
+  G.turn++;
+  tickStates();
+  renderAll();
+  await sleep(300);
+
+  if (G.pendingRedraw) {
+    G.pendingRedraw = false;
+    drawActions();
+  } else {
+    drawActions();
+  }
+  G.waiting = false;
+}
+
+async function executeHunterAction(action) {
+  const h = G.hunter;
+  const m = G.monster;
+  let heroicMoment = null;
+
+  const hasMighty = h.mighty;
+  const mightyMult = hasMighty ? 1.5 : 1.0;
+  const brittleMult = hasMonsterState('brittle') ? 1.5 : 1.0;
+  const baseAtk = 30;
+  const bonusFlat = h.bonusDamage || 0;
+  h.bonusDamage = 0;
+
+  switch(action.effect) {
+    case 'damage': {
+      const dmg = Math.round(baseAtk * action.power * mightyMult * brittleMult) + bonusFlat;
+      dealDamageToMonster(dmg);
+      log(`You use ${action.name}! Deals ${dmg} damage.`, 'player');
+      if (dmg >= 60) heroicMoment = HEROIC_MOMENTS.find(m => m.id === 'crit_hit');
+      break;
+    }
+    case 'damage_multi': {
+      let total = 0;
+      for (let i = 0; i < action.hits; i++) {
+        const dmg = Math.round(baseAtk * action.power * mightyMult * brittleMult);
+        total += dmg;
+        dealDamageToMonster(dmg);
+        await sleep(200);
+      }
+      total += bonusFlat;
+      log(`You use ${action.name}! Deals ${total} total damage (${action.hits} hits).`, 'player');
+      if (total >= 60) heroicMoment = HEROIC_MOMENTS.find(m => m.id === 'crit_hit');
+      break;
+    }
+    case 'damage_risky': {
+      if (Math.random() < action.missChance) {
+        log(`You use ${action.name}! ...but it misses completely!`, 'player');
+        spawnFloater('MISS!', document.getElementById('monster-art'), 'miss');
+        addMonsterRage(10);
+        heroicMoment = HEROIC_MOMENTS.find(m => m.id === 'wild_miss');
+      } else {
+        const dmg = Math.round(baseAtk * action.power * mightyMult * brittleMult) + bonusFlat;
+        dealDamageToMonster(dmg);
+        log(`You use ${action.name}! Connects for ${dmg} damage!`, 'player');
+        heroicMoment = HEROIC_MOMENTS.find(m => m.id === 'crit_hit');
+      }
+      break;
+    }
+    case 'pierce_damage': {
+      const dmg = Math.round(baseAtk * action.power * mightyMult) + bonusFlat;
+      dealDamageToMonster(dmg, true);
+      log(`You use ${action.name}! Pierces for ${dmg} damage!`, 'player');
+      break;
+    }
+    case 'damage_brittle': {
+      const mult = hasMonsterState('brittle') ? 2.5 : 1.0;
+      const dmg = Math.round(baseAtk * action.power * mightyMult * mult) + bonusFlat;
+      dealDamageToMonster(dmg);
+      log(`You use ${action.name}! ${hasMonsterState('brittle') ? 'CRITICAL on weak point! ' : ''}Deals ${dmg} damage.`, 'player');
+      if (hasMonsterState('brittle') || dmg >= 60) heroicMoment = HEROIC_MOMENTS.find(m => m.id === 'crit_hit');
+      break;
+    }
+    case 'evade': {
+      h.evading = true;
+      log(`You use ${action.name}! Ready to dodge the next attack.`, 'player');
+      break;
+    }
+    case 'block': {
+      h.block = action.value;
+      log(`You use ${action.name}! Block ${action.value} incoming damage.`, 'player');
+      break;
+    }
+    case 'fortify': {
+      h.fortified = true;
+      log(`You use ${action.name}! Taking reduced damage this turn.`, 'player');
+      break;
+    }
+    case 'dive': {
+      if (h.stam >= action.staminaCost) {
+        h.stam -= action.staminaCost;
+        h.evading = true;
+        log(`You use ${action.name}! Burnt stamina for a full evasion.`, 'player');
+      } else {
+        log(`You use ${action.name}! Too exhausted to fully dive — partial dodge only.`, 'player');
+        h.evading = true;
+        h.stam = 0;
+      }
+      break;
+    }
+    case 'heal': {
+      const healed = Math.min(action.value, h.maxHp - h.hp);
+      h.hp = Math.min(h.maxHp, h.hp + action.value);
+      log(`You use ${action.name}! Recover ${healed} HP.`, 'good');
+      spawnFloater(`+${healed}`, document.getElementById('hunter-hp-bar'), 'heal');
+      break;
+    }
+    case 'buff_mighty': {
+      h.mighty = true;
+      log(`You use ${action.name}! Feeling mighty — next attacks hit 50% harder.`, 'good');
+      break;
+    }
+    case 'restore_stam': {
+      const gained = Math.min(action.value, h.maxStam - h.stam);
+      h.stam = Math.min(h.maxStam, h.stam + action.value);
+      log(`You use ${action.name}! Restored ${gained} stamina.`, 'good');
+      break;
+    }
+    case 'cleanse': {
+      h.states = [];
+      log(`You use ${action.name}! Cleared all negative effects. Back in form.`, 'good');
+      break;
+    }
+    case 'apply_poison': {
+      addMonsterState({id: 'poison', turns: 1});
+      const dur = G.monster.states.find(s=>s.id==='poison').turns;
+      log(`You use ${action.name}! The ${m.name} is poisoned! (${dur} turns)`, 'player');
+      break;
+    }
+    case 'apply_stun': {
+      if (Math.random() < 0.55) {
+        addMonsterState({id: 'stunned', turns: 1});
+        log(`You use ${action.name}! The ${m.name} is stunned!`, 'player');
+        heroicMoment = HEROIC_MOMENTS.find(m => m.id === 'crit_hit');
+      } else {
+        log(`You use ${action.name}! But the ${m.name} shakes it off.`, 'player');
+      }
+      break;
+    }
+    case 'apply_frail': {
+      addMonsterState({id: 'frail', turns: 1});
+      const dur = G.monster.states.find(s=>s.id==='frail').turns;
+      log(`You use ${action.name}! The ${m.name} is frail! (${dur} turns)`, 'player');
+      break;
+    }
+    case 'debuff_brittle': {
+      addMonsterState({id: 'brittle', turns: 1});
+      const dur = G.monster.states.find(s=>s.id==='brittle').turns;
+      log(`You use ${action.name}! Spotted a weak point — Brittle! (${dur} turns)`, 'player');
+      break;
+    }
+  }
+
+  // Clear mighty after attack use
+  if (hasMighty && ['damage','damage_multi','damage_risky','pierce_damage','damage_brittle'].includes(action.effect)) {
+    h.mighty = false;
+  }
+
+  // Poison tick on monster
+  if (hasMonsterState('poison')) {
+    const poisonDmg = 15;
+    m.hp -= poisonDmg;
+    log(`Poison deals ${poisonDmg} damage to ${m.name}!`, 'good');
+  }
+
+  // Low HP heroic moment check (override lesser moments)
+  if (h.hp <= h.maxHp * 0.3 && Math.random() < 0.5) {
+    heroicMoment = HEROIC_MOMENTS.find(m => m.id === 'low_hp');
+  }
+
+  renderAll();
+  return heroicMoment;
+}
+
+async function executeMonsterAction() {
+  const m = G.monster;
+  const h = G.hunter;
+
+  // Stunned: skip action
+  if (hasMonsterState('stunned')) {
+    log(`${m.name} is stunned and can't act!`, 'good');
+    removeMonsterState('stunned');
+    animateMonster('shake');
+    return;
+  }
+
+  // Pick action — enraged monsters prefer high-power moves
+  let pool = [...m.actions];
+  if (m.rage >= 100) {
+    pool = pool.filter(a => a.power >= 1.4 || a.effect === 'summon');
+    if (pool.length === 0) pool = m.actions;
+  }
+  const action = pool[Math.floor(Math.random() * pool.length)];
+
+  log(action.msg, 'monster');
+  animateMonster('attack-anim');
+  await sleep(300);
+
+  if (action.effect === 'damage') {
+    let dmg = Math.round(m.atk * (action.power || 1.0));
+    const enragedMult = m.rage >= 100 ? 1.5 : 1.0;
+    dmg = Math.round(dmg * enragedMult);
+
+    if (h.evading) {
+      log(`You dodge the attack cleanly!`, 'good');
+      h.evading = false;
+      addMonsterRage(5);
+      G.pendingHeroicAfterMonster = HEROIC_MOMENTS.find(hm => hm.id === 'monster_missed');
+      return;
+    }
+    if (h.fortified) dmg = Math.round(dmg * 0.6);
+    dmg = Math.max(0, dmg - h.block);
+    h.block = 0;
+    h.fortified = false;
+
+    if (hasHunterState('frightened')) {
+      dmg = Math.round(dmg * 1.2);
+      log(`You're frightened — took extra damage!`, 'monster');
+    }
+
+    if (action.stamDrain) {
+      h.stam = Math.max(0, h.stam - action.stamDrain);
+      log(`Lost ${action.stamDrain} stamina!`, 'monster');
+    }
+
+    h.hp -= dmg;
+    spawnFloater(`-${dmg}`, document.getElementById('hunter-hp-bar'), 'hunter-dmg');
+    log(`You take ${dmg} damage!`, 'monster');
+    addMonsterRage(8);
+
+  } else if (action.effect === 'summon') {
+    addMonsterState({id: 'mighty', turns: 2});
+    addMonsterRage(15);
+  } else if (action.effect === 'status' && action.state) {
+    if (action.state.target === 'hunter') {
+      addHunterState({id: action.state.id, turns: 2});
+      addMonsterRage(10);
+    }
+  }
+
+  renderAll();
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function dealDamageToMonster(dmg, pierce = false) {
+  G.monster.hp -= dmg;
+  animateMonster('shake');
+  spawnFloater(`-${dmg}`, document.getElementById('monster-art'), 'dmg');
+  addMonsterRage(12);
+}
+
+function addMonsterRage(amount) {
+  G.monster.rage = Math.min(G.monster.maxRage, G.monster.rage + amount);
+  if (G.monster.rage >= 100 && !hasMonsterState('enraged')) {
+    addMonsterState({id: 'enraged', turns: 999});
+    log(`${G.monster.name} has entered a RAGE!`, 'monster');
+  }
+}
+
+function addMonsterState(state) {
+  // If the state has a turns value that should be randomized (> 0 and not 999),
+  // roll advantaged d4 for duration. Permanent states (999) stay permanent.
+  const existing = G.monster.states.find(s => s.id === state.id);
+  const turns = (state.turns && state.turns !== 999) ? advantagedD4() : state.turns;
+  if (existing) {
+    // Refresh to new roll if higher
+    existing.turns = Math.max(existing.turns, turns);
+  } else {
+    G.monster.states.push({...state, turns});
+  }
+}
+
+function removeMonsterState(id) {
+  G.monster.states = G.monster.states.filter(s => s.id !== id);
+}
+
+function hasMonsterState(id) {
+  return G.monster.states.some(s => s.id === id);
+}
+
+function addHunterState(state) {
+  const existing = G.hunter.states.find(s => s.id === state.id);
+  const turns = (state.turns && state.turns !== 999) ? state.turns : state.turns; // monster applies fixed turns to hunter
+  if (!existing) {
+    G.hunter.states.push({...state, turns});
+  } else {
+    existing.turns = Math.max(existing.turns, turns);
+  }
+}
+
+function hasHunterState(id) {
+  return G.hunter.states.some(s => s.id === id);
+}
+
+function tickStates() {
+  // Tick monster states
+  G.monster.states = G.monster.states.map(s => ({...s, turns: s.turns - 1})).filter(s => s.turns > 0);
+  // Tick hunter states
+  G.hunter.states = G.hunter.states.map(s => ({...s, turns: s.turns - 1})).filter(s => s.turns > 0);
+  // Passive stamina regen
+  G.hunter.stam = Math.min(G.hunter.maxStam, G.hunter.stam + 10);
+  // Reset block each turn
+  G.hunter.block = 0;
+  G.hunter.evading = false;
+  G.hunter.fortified = false;
+}
+
+function animateMonster(cls) {
+  const el = document.getElementById('monster-art');
+  el.classList.remove('shake', 'attack-anim');
+  void el.offsetWidth;
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), 600);
+}
+
+function spawnFloater(text, anchorEl, type) {
+  const rect = anchorEl.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = `floater ${type}`;
+  el.textContent = text;
+  el.style.left = (rect.left + rect.width / 2 - 20) + 'px';
+  el.style.top = (rect.top + window.scrollY) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1300);
+}
+
+function log(text, type = 'player') {
+  const panel = document.getElementById('log-panel');
+  const line = document.createElement('div');
+  line.className = `log-line ${type}`;
+  line.textContent = text;
+  panel.appendChild(line);
+  panel.scrollTop = panel.scrollHeight;
+  // Keep log trimmed
+  while (panel.children.length > 20) panel.removeChild(panel.firstChild);
+}
+
+function clearLog() {
+  document.getElementById('log-panel').innerHTML = '';
+}
+
+function endGame(won) {
+  const overlay = document.getElementById('overlay');
+  const title = document.getElementById('overlay-title');
+  const sub = document.getElementById('overlay-sub');
+
+  overlay.classList.add('show');
+
+  if (won) {
+    title.textContent = 'HUNT COMPLETE';
+    title.className = 'win';
+    sub.textContent = `${G.monster.name} subdued after ${G.turn} turns. The crew got everything on tape.`;
+  } else {
+    title.textContent = 'CARTED';
+    title.className = 'lose';
+    sub.textContent = `The ${G.monster.name} wins this round. The medic is on his way.`;
+  }
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// ============================================================
+// INIT
+// ============================================================
+initGame();
+</script>
+</body>
+</html>
