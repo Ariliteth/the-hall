@@ -1,0 +1,84 @@
+name: Sync Registry
+
+on:
+  push:
+    paths:
+      - 'entities/**'
+      - 'registry.json'
+
+jobs:
+  sync-registry:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync registry.json from entities directory
+        run: |
+          python3 << 'EOF'
+          import json
+          import os
+          from pathlib import Path
+
+          entities_dir = Path("entities")
+          registry_path = Path("registry.json")
+
+          # Load existing registry if present
+          if registry_path.exists():
+              with open(registry_path) as f:
+                  registry = json.load(f)
+          else:
+              registry = {"neighborhoods": {}}
+
+          neighborhoods = registry.setdefault("neighborhoods", {})
+
+          # Walk entities/ — every subdirectory is a neighborhood,
+          # every subdirectory within that is a resident slug.
+          # A valid resident must have a tuning.md.
+          if entities_dir.exists():
+              for neighborhood_dir in sorted(entities_dir.iterdir()):
+                  if not neighborhood_dir.is_dir():
+                      continue
+                  neighborhood = neighborhood_dir.name
+                  found_slugs = sorted([
+                      slug_dir.name
+                      for slug_dir in neighborhood_dir.iterdir()
+                      if slug_dir.is_dir() and (slug_dir / "tuning.md").exists()
+                  ])
+                  if found_slugs:
+                      # Preserve existing order, append any new arrivals
+                      existing = neighborhoods.get(neighborhood, [])
+                      new_arrivals = [s for s in found_slugs if s not in existing]
+                      if new_arrivals:
+                          print(f"New arrivals in {neighborhood}: {new_arrivals}")
+                      neighborhoods[neighborhood] = existing + new_arrivals
+
+              # Remove neighborhoods that no longer exist on disk
+              for neighborhood in list(neighborhoods.keys()):
+                  if not (entities_dir / neighborhood).is_dir():
+                      print(f"Neighborhood removed from disk: {neighborhood}")
+                      del neighborhoods[neighborhood]
+
+          # Write updated registry
+          with open(registry_path, "w") as f:
+              json.dump(registry, f, indent=2)
+              f.write("\n")
+
+          print("Registry synced.")
+          print(json.dumps(registry, indent=2))
+          EOF
+
+      - name: Commit updated registry if changed
+        run: |
+          git config user.name "the-hall-registry"
+          git config user.email "registry@fixedpointlocal"
+          git add registry.json
+          if git diff --staged --quiet; then
+            echo "Registry already current. Nothing to commit."
+          else
+            git commit -m "Auto-sync registry from entities directory"
+            git push
+          fi
