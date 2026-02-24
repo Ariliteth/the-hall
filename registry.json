@@ -1,14 +1,32 @@
 {
   "neighborhoods": {
     "greengarden": [
-      "chunxly"
+      "chunxly",
+      "approaching",
+      "attending",
+      "blue",
+      "consistency",
+      "flake-of-snow",
+      "hue",
+      "inside",
+      "outside",
+      "pebble",
+      "pondering",
+      "red",
+      "salary",
+      "the-space-between-keystrokes",
+      "the-unnamed-third",
+      "water-whispers"
     ],
     "kitchendom": [
-      "briny-broadswordfish"
+      "briny-broadswordfish",
+      "noble-knightshade",
+      "the-kitchendom"
     ],
     "mucklerbuckler": [
       "scalescream",
-      "mudhull"
+      "mudhull",
+      "mucklerbuckler"
     ]
   }
 }
