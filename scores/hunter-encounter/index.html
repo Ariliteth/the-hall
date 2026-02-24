@@ -698,7 +698,7 @@
 </div>
 
 <div id="ticker">
-  <span id="ticker-inner">★ COMING UP: BARRY TANGLES WITH A DIABLOS IN TONIGHT'S FINALE ★ VIEWER DISCRETION ADVISED ★ HUNT RESPONSIBLY ★ DO NOT ATTEMPT AT HOME ★ TONIGHT'S SPONSOR: HUNTER'S GUILD FIELD RATIONS ★ "STAY NOURISHED. STAY ALIVE." ★ CALL 1-800-GUILD-UP FOR LICENSING INFO ★</span>
+  <span id="ticker-inner">★ COMING UP: BARRY TANGLES WITH A MUDHULL IN TONIGHT'S FINALE ★ VIEWER DISCRETION ADVISED ★ HUNT RESPONSIBLY ★ DO NOT ATTEMPT AT HOME ★ TONIGHT'S SPONSOR: HUNTER'S GUILD FIELD RATIONS ★ "STAY NOURISHED. STAY ALIVE." ★ CALL 1-800-GUILD-UP FOR LICENSING INFO ★</span>
 </div>
 
 <div id="game">
@@ -804,47 +804,53 @@ function advantagedD4() { return Math.max(d4(), d4()); } // roll twice, take hig
 
 const HALL_REPO = "Ariliteth/the-hall";
 const HALL_BRANCH = "main";
-const HALL_NEIGHBORHOOD = "greengarden";
 
-// Known residents — slugs must match folder names in the repo
-// Add or remove as the neighborhood grows
-const GREENGARDEN_SLUGS = [
-  "chunxly",
-  // more slugs here as you add residents
-];
+// Entity roster — keyed by neighborhood.
+// Add neighborhoods and slugs as The Hall grows.
+// Any neighborhood with entities here will be included in the encounter pool.
+const HALL_ROSTER = {
+  greengarden: [
+    "chunxly",
+    // add greengarden residents here
+  ],
+  kitchendom: [
+    "briny-broadswordfish",
+    // add kitchendom residents here
+  ],
+};
 
 // Fallback monsters for offline / fetch-fail situations
 const FALLBACK_MONSTERS = [
   {
-    name: "GREAT JAGGI",
+    name: "SCALESCREAM",
     emoji: "🦎",
     maxHp: 300,
     atk: 18,
-    description: "A pack leader with a frill full of attitude.",
+    description: "A pack leader with a frill full of attitude. Nobody knows what it's screaming about.",
     tags: ["territorial", "loud"],
     category: "spirit",
     actions: [
-      { name: "Pack Call", effect: "summon", msg: "The Great Jaggi calls for backup!", state: {id:"mighty",target:"monster"} },
-      { name: "Tail Spin", effect: "damage", power: 1.0, msg: "The Great Jaggi whips its tail at you!" },
-      { name: "Lunge Bite", effect: "damage", power: 1.4, msg: "The Great Jaggi lunges with snapping jaws!" },
-      { name: "Intimidate", effect: "status", msg: "The Great Jaggi puffs its frill! You feel frightened.", state: {id:"frightened",target:"hunter"} },
-      { name: "Pounce", effect: "damage", power: 0.8, msg: "The Great Jaggi pounces!", stamDrain: 20 },
+      { name: "Pack Call", effect: "summon", msg: "Scalescream calls for backup!", state: {id:"mighty",target:"monster"} },
+      { name: "Tail Whip", effect: "damage", power: 1.0, msg: "Scalescream whips its tail at you!" },
+      { name: "Lunge Bite", effect: "damage", power: 1.4, msg: "Scalescream lunges with snapping jaws!" },
+      { name: "Frill Flash", effect: "status", msg: "Scalescream puffs its frill! You feel frightened.", state: {id:"frightened",target:"hunter"} },
+      { name: "Pounce", effect: "damage", power: 0.8, msg: "Scalescream pounces!", stamDrain: 20 },
     ]
   },
   {
-    name: "BARROTH",
+    name: "MUDHULL",
     emoji: "🐊",
     maxHp: 420,
     atk: 25,
-    description: "A mud-coated brute that rolls through anything in its path.",
+    description: "A mud-coated brute that rolls through anything in its path. Has never stopped moving long enough to have a feeling.",
     tags: ["heavy", "relentless"],
     category: "spirit",
     actions: [
-      { name: "Mud Roll", effect: "damage", power: 1.2, msg: "Barroth barrels through you in a mud-soaked roll!", stamDrain: 30 },
-      { name: "Head Slam", effect: "damage", power: 1.6, msg: "Barroth smashes its crown straight down!" },
-      { name: "Mud Sling", effect: "status", msg: "Barroth flings mud! You're exhausted.", state: {id:"exhausted",target:"hunter"} },
-      { name: "Charge", effect: "damage", power: 2.0, msg: "Barroth charges! You're sent flying!", stamDrain: 40 },
-      { name: "Thrash", effect: "damage", power: 0.9, msg: "Barroth thrashes its massive tail." },
+      { name: "Mud Roll", effect: "damage", power: 1.2, msg: "Mudhull barrels through you in a mud-soaked roll!", stamDrain: 30 },
+      { name: "Crown Slam", effect: "damage", power: 1.6, msg: "Mudhull smashes its crowned head straight down!" },
+      { name: "Mud Sling", effect: "status", msg: "Mudhull flings mud! You're exhausted.", state: {id:"exhausted",target:"hunter"} },
+      { name: "Charge", effect: "damage", power: 2.0, msg: "Mudhull charges! You're sent flying!", stamDrain: 40 },
+      { name: "Thrash", effect: "damage", power: 0.9, msg: "Mudhull thrashes its massive tail." },
     ]
   },
 ];
@@ -1008,10 +1014,10 @@ function hashStr(str) {
 }
 
 // ── Fetch one tuning ─────────────────────────────────────────
-async function fetchTuning(slug) {
-  const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/entities/${HALL_NEIGHBORHOOD}/${slug}/tuning.md`;
+async function fetchTuning(neighborhood, slug) {
+  const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/entities/${neighborhood}/${slug}/tuning.md`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Could not fetch ${slug}`);
+  if (!res.ok) throw new Error(`Could not fetch ${slug} from ${neighborhood}`);
   const md = await res.text();
   return parseTuning(md, slug);
 }
@@ -1020,12 +1026,14 @@ async function fetchTuning(slug) {
 async function buildMonsterRoster() {
   const monsters = [];
 
-  for (const slug of GREENGARDEN_SLUGS) {
-    try {
-      const entity = await fetchTuning(slug);
-      monsters.push(entityToMonster(entity));
-    } catch(e) {
-      console.warn(`Could not load entity: ${slug}`, e);
+  for (const [neighborhood, slugs] of Object.entries(HALL_ROSTER)) {
+    for (const slug of slugs) {
+      try {
+        const entity = await fetchTuning(neighborhood, slug);
+        monsters.push(entityToMonster(entity));
+      } catch(e) {
+        console.warn(`Could not load entity: ${slug} from ${neighborhood}`, e);
+      }
     }
   }
 
@@ -1034,8 +1042,6 @@ async function buildMonsterRoster() {
 }
 
 // ── Greengarden ticker lines ─────────────────────────────────
-// These populate the news crawl. Entities from the Hall can appear here.
-// Replace / extend as the neighborhood grows.
 const GREENGARDEN_NEWS = [
   "★ REPORTS OF UNUSUAL ACTIVITY NEAR THE EASTERN THICKET ★",
   "★ CHUNXLY WAS SEEN AGAIN NEAR THE MARKET — NOBODY KNOWS WHAT IT WANTS ★",
@@ -1052,9 +1058,20 @@ const GREENGARDEN_NEWS = [
   "★ CALL 1-800-GUILD-UP FOR LICENSING INFORMATION ★",
 ];
 
+// ── Kitchendom ticker lines ───────────────────────────────────
+const KITCHENDOM_NEWS = [
+  "★ SOURCES CONFIRM THE BROADSWORDFISH HAS BEEN SPOTTED NEAR THE SPHERICAL OCEAN — FLAVOR PROFILE DESCRIBED AS EXTRAORDINARY ★",
+  "★ MIDDLE MARKET MANAGEMENT IS OPEN — THE SONG IS PLAYING — ALL ARE WELCOME ★",
+  "★ TONIGHT'S HUNT BROUGHT TO YOU BY THE KITCHENDOM — WHERE THINGS MEAN WHAT THEY SAY ★",
+  "★ FIELD CREW REPORTS THE NIGHTSHADE FOREST IS GLOWING AGAIN — BEAUTIFUL ACTUALLY ★",
+  "★ SCRAGGLES SPOTTED IN SECTOR 4 — NOBODY OWNS THEM — BE THE ONE WHO NOTICES ★",
+  "★ THE MARKETEER HAS NO COMMENT BUT THE VEST IMPLIES TRUST ★",
+  "★ COMPETING FOR WONDER, NOT POSSESSION — HUNT THOUGHTFULLY ★",
+];
+
 function buildTicker(monster) {
-  // Weave in the active monster's name if it came from The Hall
-  let lines = [...GREENGARDEN_NEWS];
+  // Combine news from all neighborhoods, weave in active monster if from Hall
+  let lines = [...GREENGARDEN_NEWS, ...KITCHENDOM_NEWS];
   if (monster && monster.fromHall) {
     lines.splice(2, 0, `★ TONIGHT'S TARGET: ${monster.name} — "${monster.description}" ★`);
     lines.splice(5, 0, `★ FIELD CREW REPORTS ${monster.name} IS QUOTE "BEHAVING UNUSUALLY" ★`);
