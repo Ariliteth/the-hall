@@ -805,19 +805,28 @@ function advantagedD4() { return Math.max(d4(), d4()); } // roll twice, take hig
 const HALL_REPO = "Ariliteth/the-hall";
 const HALL_BRANCH = "main";
 
-// Entity roster — keyed by neighborhood.
-// Add neighborhoods and slugs as The Hall grows.
-// Any neighborhood with entities here will be included in the encounter pool.
-const HALL_ROSTER = {
-  greengarden: [
-    "chunxly",
-    // add greengarden residents here
-  ],
-  kitchendom: [
-    "briny-broadswordfish",
-    // add kitchendom residents here
-  ],
-};
+// ── Registry fetch ────────────────────────────────────────────
+// Reads neighborhood/slug roster from the repository root.
+// This is the pattern all Scores should follow — check who's present
+// before assuming. Adding a neighborhood to the registry is all
+// that's needed for any Score using this pattern to find it.
+async function fetchRegistry() {
+  const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/registry.json`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Registry not found');
+    return await res.json();
+  } catch(e) {
+    console.warn('Could not load registry, using fallback roster', e);
+    return {
+      neighborhoods: {
+        greengarden: ["chunxly"],
+        kitchendom: ["briny-broadswordfish"],
+        mucklerbuckler: ["scalescream", "mudhull"]
+      }
+    };
+  }
+}
 
 // Fallback monsters for offline / fetch-fail situations
 const FALLBACK_MONSTERS = [
@@ -1026,7 +1035,8 @@ async function fetchTuning(neighborhood, slug) {
 async function buildMonsterRoster() {
   const monsters = [];
 
-  for (const [neighborhood, slugs] of Object.entries(HALL_ROSTER)) {
+  const registry = await fetchRegistry();
+  for (const [neighborhood, slugs] of Object.entries(registry.neighborhoods)) {
     for (const slug of slugs) {
       try {
         const entity = await fetchTuning(neighborhood, slug);
