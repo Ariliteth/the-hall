@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIXED POINT LOCAL</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Playfair+Display:ital@0;1&display=swap');
+
+  :root {
+    --void: #0a0806;
+    --deep: #120f0a;
+    --mud: #1e1710;
+    --bark: #3d2e18;
+    --warm: #5c4020;
+    --amber: #c8820a;
+    --gold: #e8b84b;
+    --bone: #d4c8a8;
+    --parchment: #ede0c0;
+    --static: rgba(255,255,255,0.03);
+    --signal: #e8b84b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--void);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--bone);
+    overflow-x: hidden;
+  }
+
+  /* CRT scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* ── SIGNAL BAR ── */
+  #signal-bar {
+    width: 100%;
+    background: var(--amber);
+    padding: 3px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.55rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--void);
+    font-weight: bold;
+    position: relative;
+    z-index: 10;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  #stage {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+    position: relative;
+    z-index: 10;
+  }
+
+  /* ── MASTHEAD ── */
+  #masthead {
+    padding: 32px 0 24px;
+    border-bottom: 1px solid var(--bark);
+    margin-bottom: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #channel-tag {
+    font-size: 0.6rem;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--amber);
+    opacity: 0.8;
+  }
+
+  #title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 8vw, 5.5rem);
+    letter-spacing: 8px;
+    color: var(--parchment);
+    line-height: 0.9;
+    text-shadow: 4px 4px 0 rgba(0,0,0,0.6);
+    position: relative;
+  }
+
+  #title span {
+    color: var(--amber);
+  }
+
+  #subtitle {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: var(--warm);
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* ── STATUS LINE ── */
+  #status-line {
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--bark);
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    margin-top: 12px;
+  }
+
+  #status-line .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--amber);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s ease infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── TWO COLUMN LAYOUT ── */
+  #columns {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 32px;
+    align-items: start;
+  }
+
+  /* ── SCORE RACK ── */
+  #rack-section h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 4px;
+    color: var(--amber);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--bark);
+  }
+
+  #score-rack {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .score-card {
+    background: var(--deep);
+    border: 1px solid var(--bark);
+    border-left: 3px solid var(--bark);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(200,130,10,0.05) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .score-card:hover::before,
+  .score-card.selected::before {
+    opacity: 1;
+  }
+
+  .score-card:hover,
+  .score-card.selected {
+    border-left-color: var(--amber);
+    border-color: var(--warm);
+  }
+
+  .score-card.selected {
+    background: var(--mud);
+  }
+
+  .score-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.3rem;
+    letter-spacing: 3px;
+    color: var(--parchment);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .score-card.selected .score-title {
+    color: var(--gold);
+  }
+
+  .score-desc {
+    font-size: 0.65rem;
+    color: var(--warm);
+    letter-spacing: 1px;
+    line-height: 1.6;
+  }
+
+  .score-meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .score-tag {
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border: 1px solid var(--bark);
+    color: var(--bark);
+  }
+
+  .score-card.selected .score-tag {
+    border-color: var(--warm);
+    color: var(--warm);
+  }
+
+  /* coming soon card */
+  .score-card.soon {
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .sidebar-block {
+    border: 1px solid var(--bark);
+    background: var(--deep);
+  }
+
+  .sidebar-block h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 3px;
+    color: var(--amber);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--bark);
+    background: var(--mud);
+  }
+
+  /* ── NEIGHBORHOOD FILTER ── */
+  #neighborhood-list {
+    padding: 8px 0;
+  }
+
+  .neighborhood-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+  }
+
+  .neighborhood-item:hover {
+    background: var(--mud);
+  }
+
+  .neighborhood-item input[type="checkbox"] {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--bark);
+    background: var(--void);
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    transition: all 0.1s;
+  }
+
+  .neighborhood-item input[type="checkbox"]:checked {
+    background: var(--amber);
+    border-color: var(--amber);
+  }
+
+  .neighborhood-item input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background: var(--void);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+
+  .neighborhood-name {
+    flex: 1;
+    color: var(--bone);
+  }
+
+  .neighborhood-count {
+    font-size: 0.55rem;
+    color: var(--bark);
+    letter-spacing: 1px;
+  }
+
+  /* ── THEME SELECTOR ── */
+  #theme-list {
+    padding: 8px 0;
+  }
+
+  .theme-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .theme-item:hover {
+    background: var(--mud);
+  }
+
+  .theme-item input[type="checkbox"] {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--bark);
+    background: var(--void);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+    position: relative;
+    transition: all 0.1s;
+  }
+
+  .theme-item input[type="checkbox"]:checked {
+    background: var(--amber);
+    border-color: var(--amber);
+  }
+
+  .theme-item input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background: var(--void);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+
+  .theme-info {
+    flex: 1;
+  }
+
+  .theme-name {
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    color: var(--bone);
+    line-height: 1.4;
+  }
+
+  .theme-desc {
+    font-size: 0.55rem;
+    color: var(--bark);
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+    line-height: 1.5;
+  }
+
+  /* ── ROSTER PREVIEW ── */
+  #roster-preview {
+    padding: 10px 12px;
+    min-height: 60px;
+  }
+
+  .roster-entry {
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    color: var(--warm);
+    line-height: 2;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .roster-entry .hood {
+    color: var(--bark);
+    font-size: 0.5rem;
+  }
+
+  #roster-loading {
+    font-size: 0.6rem;
+    color: var(--bark);
+    letter-spacing: 2px;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* ── LAUNCH ── */
+  #launch-section {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #context-summary {
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    color: var(--warm);
+    line-height: 1.8;
+    padding: 12px 16px;
+    border: 1px solid var(--bark);
+    background: var(--deep);
+    min-height: 48px;
+  }
+
+  #launch-btn {
+    background: var(--amber);
+    border: none;
+    border-bottom: 4px solid rgba(0,0,0,0.4);
+    color: var(--void);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 6px;
+    padding: 14px 40px;
+    cursor: pointer;
+    transition: all 0.1s;
+    align-self: flex-start;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #launch-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 50%);
+  }
+
+  #launch-btn:hover {
+    background: var(--gold);
+    transform: translateY(-2px);
+    border-bottom-width: 6px;
+  }
+
+  #launch-btn:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+  }
+
+  #launch-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ── TICKER ── */
+  #ticker {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--amber);
+    padding: 5px 0;
+    overflow: hidden;
+    z-index: 20;
+  }
+
+  #ticker-inner {
+    display: inline-block;
+    white-space: nowrap;
+    animation: ticker 40s linear infinite;
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--void);
+    font-weight: bold;
+  }
+
+  @keyframes ticker {
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
+
+  /* ── LOADING SCREEN ── */
+  #loading-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--void);
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    transition: opacity 0.6s ease;
+  }
+
+  #loading-screen.fade {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #loading-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 8px;
+    color: var(--amber);
+  }
+
+  #loading-msg {
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    color: var(--bark);
+    text-transform: uppercase;
+    animation: blink 1s step-end infinite;
+  }
+
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div id="loading-title">FIXED POINT LOCAL</div>
+  <div id="loading-msg">TUNING IN...</div>
+</div>
+
+<div id="signal-bar">
+  <span><span class="dot" style="width:5px;height:5px;border-radius:50%;background:var(--void);display:inline-block;margin-right:6px;"></span>FIXED POINT LOCAL — ON AIR</span>
+  <span id="signal-time"></span>
+</div>
+
+<div id="stage">
+
+  <div id="masthead">
+    <div id="channel-tag">A catalog of small gods, strange objects, & forgotten places</div>
+    <div id="title">FIXED POINT <span>LOCAL</span></div>
+    <div id="subtitle">The Hall is open. The music is already playing.</div>
+    <div id="status-line">
+      <span><span class="dot"></span>BROADCASTING</span>
+      <span id="neighborhood-status">READING REGISTRY...</span>
+      <span id="entity-count"></span>
+    </div>
+  </div>
+
+  <div id="columns">
+
+    <div id="rack-section">
+      <h2>— Select a Score —</h2>
+      <div id="score-rack">
+
+        <div class="score-card selected" data-score="hunter-encounter" data-url="scores/hunter-encounter/index.html" onclick="selectScore(this)">
+          <div class="score-title">HUNTER ENCOUNTER</div>
+          <div class="score-desc">A turn-based encounter. The field crew is already on location. Something from The Hall is waiting.</div>
+          <div class="score-meta">
+            <span class="score-tag">Combat</span>
+            <span class="score-tag">Single Session</span>
+            <span class="score-tag">All Neighborhoods</span>
+          </div>
+        </div>
+
+        <div class="score-card soon" data-score="tending-field">
+          <div class="score-title">THE TENDING FIELD</div>
+          <div class="score-desc">A critter arrives. An entity is already there. You are not playing either of them.</div>
+          <div class="score-meta">
+            <span class="score-tag">Observation</span>
+            <span class="score-tag">Coming Soon</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="launch-section">
+        <div id="context-summary">Select a Score to begin.</div>
+        <button id="launch-btn" disabled onclick="launchScore()">PLAY</button>
+      </div>
+    </div>
+
+    <div id="sidebar">
+
+      <div class="sidebar-block">
+        <h3>Neighborhoods</h3>
+        <div id="neighborhood-list">
+          <div id="neighborhoods-loading" style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:2px;">READING REGISTRY...</div>
+        </div>
+      </div>
+
+      <div class="sidebar-block">
+        <h3>Themes</h3>
+        <div id="theme-list">
+          <div id="themes-loading" style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:2px;">READING THEMES...</div>
+        </div>
+      </div>
+
+      <div class="sidebar-block">
+        <h3>On The Roster</h3>
+        <div id="roster-preview">
+          <div id="roster-loading">FETCHING RESIDENTS...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="ticker">
+  <span id="ticker-inner">★ FIXED POINT LOCAL — THE HALL IS OPEN ★ THREE NEIGHBORHOODS ACTIVE ★ ATTEND GENTLY ★</span>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+
+const HALL_REPO   = "Ariliteth/the-hall";
+const HALL_BRANCH = "main";
+const RAW         = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}`;
+
+// Known Themes — slugs must match folders in /themes/
+const KNOWN_THEMES = [
+  {
+    slug: "kitchendom",
+    name: "Kitchendom",
+    desc: "Cuisine-world vocabulary. Marketeer voice. The table is set."
+  },
+  // Add new themes here as they are committed to the repository
+];
+
+// ============================================================
+// STATE
+// ============================================================
+
+let registry       = null;
+let selectedScore  = "hunter-encounter";
+let selectedScoreUrl = "scores/hunter-encounter/index.html";
+let activeThemes   = new Set();
+let activeNeighborhoods = new Set();
+
+// ============================================================
+// BOOT
+// ============================================================
+
+window.addEventListener('DOMContentLoaded', async () => {
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  try {
+    registry = await fetchRegistry();
+    renderNeighborhoods();
+    renderRoster();
+    updateTicker();
+    updateContextSummary();
+  } catch(e) {
+    document.getElementById('neighborhoods-loading').textContent = 'SIGNAL LOST — OFFLINE MODE';
+    document.getElementById('roster-loading').textContent = 'NO SIGNAL';
+  }
+
+  renderThemes();
+  updateLaunchButton();
+
+  // Fade loading screen
+  setTimeout(() => {
+    document.getElementById('loading-screen').classList.add('fade');
+    setTimeout(() => document.getElementById('loading-screen').remove(), 700);
+  }, 900);
+});
+
+// ============================================================
+// REGISTRY
+// ============================================================
+
+async function fetchRegistry() {
+  const res = await fetch(`${RAW}/registry.json`);
+  if (!res.ok) throw new Error('Registry unavailable');
+  return res.json();
+}
+
+// ============================================================
+// RENDER NEIGHBORHOODS
+// ============================================================
+
+function renderNeighborhoods() {
+  const container = document.getElementById('neighborhood-list');
+  container.innerHTML = '';
+
+  const neighborhoods = Object.entries(registry.neighborhoods);
+
+  // Default: all active
+  neighborhoods.forEach(([slug]) => activeNeighborhoods.add(slug));
+
+  // Update status line
+  document.getElementById('neighborhood-status').textContent =
+    `${neighborhoods.length} NEIGHBORHOODS`;
+  document.getElementById('entity-count').textContent =
+    `${Object.values(registry.neighborhoods).flat().length} RESIDENTS`;
+
+  neighborhoods.forEach(([slug, slugs]) => {
+    const item = document.createElement('div');
+    item.className = 'neighborhood-item';
+    item.innerHTML = `
+      <input type="checkbox" id="hood-${slug}" checked onchange="toggleNeighborhood('${slug}', this.checked)">
+      <label class="neighborhood-name" for="hood-${slug}">${formatNeighborhoodName(slug)}</label>
+      <span class="neighborhood-count">${slugs.length}</span>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function formatNeighborhoodName(slug) {
+  const names = {
+    greengarden: 'Greengarden',
+    kitchendom: 'The Kitchendom',
+    mucklerbuckler: 'Mucklerbuckler',
+  };
+  return names[slug] || slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function toggleNeighborhood(slug, checked) {
+  if (checked) activeNeighborhoods.add(slug);
+  else activeNeighborhoods.delete(slug);
+  renderRoster();
+  updateContextSummary();
+  updateLaunchButton();
+}
+
+// ============================================================
+// RENDER THEMES
+// ============================================================
+
+function renderThemes() {
+  const container = document.getElementById('theme-list');
+  container.innerHTML = '';
+
+  if (KNOWN_THEMES.length === 0) {
+    container.innerHTML = '<div style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:1px;">No themes in the repository yet.</div>';
+    return;
+  }
+
+  KNOWN_THEMES.forEach(theme => {
+    const item = document.createElement('div');
+    item.className = 'theme-item';
+    item.innerHTML = `
+      <input type="checkbox" id="theme-${theme.slug}" onchange="toggleTheme('${theme.slug}', this.checked)">
+      <div class="theme-info">
+        <div class="theme-name">${theme.name}</div>
+        <div class="theme-desc">${theme.desc}</div>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function toggleTheme(slug, checked) {
+  if (checked) activeThemes.add(slug);
+  else activeThemes.delete(slug);
+  updateContextSummary();
+}
+
+// ============================================================
+// RENDER ROSTER PREVIEW
+// ============================================================
+
+function renderRoster() {
+  const container = document.getElementById('roster-preview');
+  container.innerHTML = '';
+
+  if (!registry) return;
+
+  let any = false;
+  for (const [hood, slugs] of Object.entries(registry.neighborhoods)) {
+    if (!activeNeighborhoods.has(hood)) continue;
+    slugs.forEach(slug => {
+      any = true;
+      const entry = document.createElement('div');
+      entry.className = 'roster-entry';
+      entry.innerHTML = `
+        <span>${formatSlug(slug)}</span>
+        <span class="hood">${formatNeighborhoodName(hood)}</span>
+      `;
+      container.appendChild(entry);
+    });
+  }
+
+  if (!any) {
+    container.innerHTML = '<div style="font-size:0.6rem;color:var(--bark);letter-spacing:1px;">No neighborhoods selected.</div>';
+  }
+}
+
+function formatSlug(slug) {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ============================================================
+// SCORE SELECTION
+// ============================================================
+
+function selectScore(el) {
+  document.querySelectorAll('.score-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedScore  = el.dataset.score;
+  selectedScoreUrl = el.dataset.url;
+  updateContextSummary();
+  updateLaunchButton();
+}
+
+// ============================================================
+// CONTEXT SUMMARY
+// ============================================================
+
+function updateContextSummary() {
+  const el = document.getElementById('context-summary');
+  if (!selectedScore) {
+    el.textContent = 'Select a Score to begin.';
+    return;
+  }
+
+  const hoods = [...activeNeighborhoods].map(formatNeighborhoodName).join(', ') || 'none';
+  const themes = activeThemes.size > 0
+    ? [...activeThemes].map(t => KNOWN_THEMES.find(x => x.slug === t)?.name || t).join(', ')
+    : 'none';
+  const residents = registry
+    ? Object.entries(registry.neighborhoods)
+        .filter(([h]) => activeNeighborhoods.has(h))
+        .flatMap(([,s]) => s).length
+    : '?';
+
+  el.innerHTML = `
+    SCORE: ${formatSlug(selectedScore)}<br>
+    NEIGHBORHOODS: ${hoods}<br>
+    RESIDENTS ON ROSTER: ${residents}<br>
+    THEMES: ${themes}
+  `;
+}
+
+// ============================================================
+// LAUNCH
+// ============================================================
+
+function updateLaunchButton() {
+  const btn = document.getElementById('launch-btn');
+  btn.disabled = !selectedScore || activeNeighborhoods.size === 0;
+}
+
+function launchScore() {
+  if (!selectedScore || activeNeighborhoods.size === 0) return;
+
+  // Build launch URL with context passed as query params
+  const params = new URLSearchParams();
+  params.set('neighborhoods', [...activeNeighborhoods].join(','));
+  if (activeThemes.size > 0) params.set('themes', [...activeThemes].join(','));
+
+  const url = `${selectedScoreUrl}?${params.toString()}`;
+  window.location.href = url;
+}
+
+// ============================================================
+// TICKER
+// ============================================================
+
+function updateTicker() {
+  if (!registry) return;
+  const hoods = Object.keys(registry.neighborhoods).map(formatNeighborhoodName);
+  const residents = Object.values(registry.neighborhoods).flat().map(formatSlug);
+  const lines = [
+    `★ FIXED POINT LOCAL — THE HALL IS OPEN`,
+    `★ ${hoods.length} NEIGHBORHOODS BROADCASTING: ${hoods.join(' · ')}`,
+    `★ RESIDENTS ON RECORD: ${residents.join(' · ')}`,
+    `★ ATTEND GENTLY`,
+    `★ CHAOS, LAUGHTER, JUSTICE`,
+    `★ THE WORLD KNOWS MORE THAN IT SHOWS`,
+    `★ CONSENT OVER COMMAND`,
+    `★ NOTHING IS FORCED TO PARTICIPATE`,
+    `★ FIXEDPOINTLOCAL — SIGNAL STRONG`,
+  ];
+  document.getElementById('ticker-inner').textContent = lines.join('   ');
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+
+function updateClock() {
+  const now = new Date();
+  const t = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const el = document.getElementById('signal-time');
+  if (el) el.textContent = t;
+}
+
+</script>
+</body>
+</html>

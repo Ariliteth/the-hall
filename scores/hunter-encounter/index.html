@@ -805,6 +805,19 @@ function advantagedD4() { return Math.max(d4(), d4()); } // roll twice, take hig
 const HALL_REPO = "Ariliteth/the-hall";
 const HALL_BRANCH = "main";
 
+// ── Session context from hub ──────────────────────────────────
+// Read neighborhoods and themes passed from the hub via URL params.
+// If launched directly (no params), read the full registry as normal.
+const PARAMS = new URLSearchParams(window.location.search);
+const SESSION_NEIGHBORHOODS = PARAMS.get('neighborhoods')
+  ? new Set(PARAMS.get('neighborhoods').split(','))
+  : null; // null = no filter, use all
+const SESSION_THEMES = PARAMS.get('themes')
+  ? new Set(PARAMS.get('themes').split(','))
+  : new Set();
+
+const KITCHENDOM_THEME_ACTIVE = SESSION_THEMES.has('kitchendom');
+
 // ── Registry fetch ────────────────────────────────────────────
 // Reads neighborhood/slug roster from the repository root.
 // This is the pattern all Scores should follow — check who's present
@@ -1037,6 +1050,8 @@ async function buildMonsterRoster() {
 
   const registry = await fetchRegistry();
   for (const [neighborhood, slugs] of Object.entries(registry.neighborhoods)) {
+    // If hub passed a neighborhood filter, respect it
+    if (SESSION_NEIGHBORHOODS && !SESSION_NEIGHBORHOODS.has(neighborhood)) continue;
     for (const slug of slugs) {
       try {
         const entity = await fetchTuning(neighborhood, slug);
@@ -1080,13 +1095,81 @@ const KITCHENDOM_NEWS = [
 ];
 
 function buildTicker(monster) {
-  // Combine news from all neighborhoods, weave in active monster if from Hall
-  let lines = [...GREENGARDEN_NEWS, ...KITCHENDOM_NEWS];
+  // Base news — always present
+  let lines = [...GREENGARDEN_NEWS];
+
+  // Kitchendom Theme active — weave in Kitchendom news
+  if (KITCHENDOM_THEME_ACTIVE || (SESSION_NEIGHBORHOODS && SESSION_NEIGHBORHOODS.has('kitchendom'))) {
+    lines = [...lines, ...KITCHENDOM_NEWS];
+  }
+
+  // Weave in active monster if from The Hall
   if (monster && monster.fromHall) {
     lines.splice(2, 0, `★ TONIGHT'S TARGET: ${monster.name} — "${monster.description}" ★`);
     lines.splice(5, 0, `★ FIELD CREW REPORTS ${monster.name} IS QUOTE "BEHAVING UNUSUALLY" ★`);
   }
+
+  // Kitchendom Theme — marketeer_voice sign-off
+  if (KITCHENDOM_THEME_ACTIVE) {
+    lines.push(`★ THIS HUNT IS CONDUCTED UNDER THE KITCHENDOM THEME — MARKETEER VOICE ACTIVE ★`);
+  }
+
   return lines.join('   ');
+}
+
+// ── Kitchendom Theme vocabulary overlay ──────────────────────
+// When Kitchendom Theme is active, the Score dresses itself.
+// Action names and status names are replaced. Logic is unchanged.
+const KITCHENDOM_ACTIONS = {
+  "Strike":         "Sharp Reduction",
+  "Heavy Strike":   "The Centrepiece",
+  "Double Strike":  "Knife Work",
+  "Wild Swing":     "Full Roast",
+  "Piercing Thrust":"Salt Finish",
+  "Sweep":          "Grand Service",
+  "Pressure Point": "Spot The Weakness",
+  "Dodge Roll":     "Step Back",
+  "Block":          "Let It Rest",
+  "Brace":          "Mise en Place",
+  "Dive!":          "Flash Fry Dodge",
+  "Dust Off":       "Taste Test",
+  "Sharpen":        "Whet The Blade",
+  "Spot Weakness":  "Read The Room",
+  "Deep Breath":    "Rest Period",
+  "Flex":           "In The Zone",
+  "Momentum":       "Clear The Pass",
+  "Poison Coated":  "Curdled",
+  "Stagger":        "Overseasoned",
+  "Exploit Wound":  "Underseasoned",
+};
+
+const KITCHENDOM_STATUSES = {
+  exhausted:   "On The Weeds",
+  stunned:     "Overseasoned",
+  empowered:   "In The Zone",
+  weakened:    "Underseasoned",
+  poisoned:    "Curdled",
+  frightened:  "Stage Fright",
+  brittle:     "Soft Spot",
+  frail:       "Underprepared",
+  mighty:      "Fire In The Pass",
+  enraged:     "Full Boil",
+};
+
+function applyThemeToActions(actions) {
+  if (!KITCHENDOM_THEME_ACTIVE) return actions;
+  return actions.map(a => ({
+    ...a,
+    name: KITCHENDOM_ACTIONS[a.name] || a.name,
+  }));
+}
+
+function applyThemeToPlayerActions(actions) {
+  if (!KITCHENDOM_THEME_ACTIVE) return actions;
+  return actions.map(a => ({
+    ...a,
+    name: KITCHENDOM_ACTIONS[a.name] || a.name,
+  }));
 }
 
 const ACTIONS = [
@@ -1171,14 +1254,27 @@ async function initGame() {
   document.getElementById('monster-name').textContent = monster.name;
   document.getElementById('monster-art').textContent = monster.emoji;
 
-  // Wire ticker with Greengarden news + active monster
+  // Apply Kitchendom Theme palette if active
+  if (KITCHENDOM_THEME_ACTIVE) {
+    document.documentElement.style.setProperty('--dirt',   '#1A1208');
+    document.documentElement.style.setProperty('--mud',    '#2A1F0A');
+    document.documentElement.style.setProperty('--bark',   '#5C3A1E');
+    document.documentElement.style.setProperty('--blood',  '#2A6B6B');
+    document.documentElement.style.setProperty('--gore',   '#3A8A8A');
+    document.documentElement.style.setProperty('--orange', '#F4A832');
+    document.documentElement.style.setProperty('--yellow', '#FAF3E0');
+    document.documentElement.style.setProperty('--green',  '#7DAF6E');
+  }
+
+  // Wire ticker with active neighborhoods and Theme
   document.getElementById('ticker-inner').textContent = buildTicker(monster);
 
-  // Episode flavour — changes based on whether this is a Hall entity
+  // Episode flavour
   const fromHall = monster.fromHall;
+  const themeLabel = KITCHENDOM_THEME_ACTIVE ? '<br><span style="color:var(--green)">● KITCHENDOM THEME ACTIVE</span>' : '';
   document.getElementById('episode-info').innerHTML = fromHall
-    ? `GREENGARDEN · LIVE ENCOUNTER<br>"${monster.description}"<br><span style="color:var(--moss)">● READING FROM THE HALL</span>`
-    : `SEASON 4 · EPISODE 12<br>"NO MERCY IN THE MUDFLATS"<br>©1997 WILDWOOD PRODUCTIONS`;
+    ? `GREENGARDEN · LIVE ENCOUNTER<br>"${monster.description}"<br><span style="color:var(--moss)">● READING FROM THE HALL</span>${themeLabel}`
+    : `SEASON 4 · EPISODE 12<br>"NO MERCY IN THE MUDFLATS"<br>©1997 WILDWOOD PRODUCTIONS${themeLabel}`;
 
   clearLog();
   if (fromHall) {
@@ -1220,7 +1316,8 @@ function renderMonster() {
   m.states.forEach(s => {
     const tag = document.createElement('div');
     tag.className = `state-tag ${s.id}`;
-    tag.textContent = s.id.toUpperCase() + (s.turns ? ` (${s.turns})` : '');
+    const displayName = KITCHENDOM_THEME_ACTIVE ? (KITCHENDOM_STATUSES[s.id] || s.id).toUpperCase() : s.id.toUpperCase();
+    tag.textContent = displayName + (s.turns ? ` (${s.turns})` : '');
     statesEl.appendChild(tag);
   });
 }
@@ -1243,7 +1340,8 @@ function renderHunter() {
   if (h.mighty) addStateTag(statesEl, 'mighty', 'MIGHTY', 'mighty');
   if (h.block > 0) addStateTag(statesEl, 'block', `BLOCK ${h.block}`, 'stunned');
   h.states.forEach(s => {
-    addStateTag(statesEl, s.id, s.id.toUpperCase() + (s.turns ? ` (${s.turns})` : ''), s.id);
+    const displayName = KITCHENDOM_THEME_ACTIVE ? (KITCHENDOM_STATUSES[s.id] || s.id).toUpperCase() : s.id.toUpperCase();
+    addStateTag(statesEl, s.id, displayName + (s.turns ? ` (${s.turns})` : ''), s.id);
   });
 }
 
@@ -1271,7 +1369,8 @@ function drawActions() {
   picked.forEach((a, i) => {
     const btn = document.getElementById(`btn${i}`);
     btn.className = `action-btn ${a.type}`;
-    btn.innerHTML = `<span class="btn-type">${a.type}</span>${a.name}<span class="btn-cost">${a.desc}</span>`;
+    const displayName = KITCHENDOM_THEME_ACTIVE ? (KITCHENDOM_ACTIONS[a.name] || a.name) : a.name;
+    btn.innerHTML = `<span class="btn-type">${a.type}</span>${displayName}<span class="btn-cost">${a.desc}</span>`;
     btn.disabled = false;
   });
 }
