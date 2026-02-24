@@ -819,23 +819,29 @@ const SESSION_THEMES = PARAMS.get('themes')
 const KITCHENDOM_THEME_ACTIVE = SESSION_THEMES.has('kitchendom');
 
 // ── Registry fetch ────────────────────────────────────────────
-// Reads neighborhood/slug roster from the repository root.
-// This is the pattern all Scores should follow — check who's present
-// before assuming. Adding a neighborhood to the registry is all
-// that's needed for any Score using this pattern to find it.
+// Reads neighborhood roster from the repository root.
+// Registry uses neighborhood-centric structure:
+// { neighborhoods: { slug: { entities: [], theme, scores: [] } } }
+// Normalizes to flat entity lists for roster building.
 async function fetchRegistry() {
   const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/registry.json`;
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error('Registry not found');
-    return await res.json();
+    const data = await res.json();
+    // Normalize — support both old flat array and new object format
+    const normalized = { neighborhoods: {} };
+    for (const [slug, entry] of Object.entries(data.neighborhoods)) {
+      normalized.neighborhoods[slug] = Array.isArray(entry) ? entry : (entry.entities || []);
+    }
+    return normalized;
   } catch(e) {
     console.warn('Could not load registry, using fallback roster', e);
     return {
       neighborhoods: {
         greengarden: ["chunxly"],
-        kitchendom: ["briny-broadswordfish"],
-        mucklerbuckler: ["scalescream", "mudhull"]
+        kitchendom: ["briny-broadswordfish", "noble-knightshade", "the-kitchendom"],
+        mucklerbuckler: ["scalescream", "mudhull", "mucklerbuckler"]
       }
     };
   }
@@ -1037,7 +1043,7 @@ function hashStr(str) {
 
 // ── Fetch one tuning ─────────────────────────────────────────
 async function fetchTuning(neighborhood, slug) {
-  const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/entities/${neighborhood}/${slug}/tuning.md`;
+  const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/neighborhoods/${neighborhood}/entities/${slug}/tuning.md`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Could not fetch ${slug} from ${neighborhood}`);
   const md = await res.text();

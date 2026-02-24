@@ -683,15 +683,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     registry = await fetchRegistry();
     renderNeighborhoods();
+    renderThemes();
     renderRoster();
     updateTicker();
     updateContextSummary();
   } catch(e) {
     document.getElementById('neighborhoods-loading').textContent = 'SIGNAL LOST — OFFLINE MODE';
     document.getElementById('roster-loading').textContent = 'NO SIGNAL';
+    renderThemes(); // still render with KNOWN_THEMES fallback
   }
 
-  renderThemes();
   updateLaunchButton();
 
   // Fade loading screen
@@ -724,19 +725,25 @@ function renderNeighborhoods() {
   // Default: all active
   neighborhoods.forEach(([slug]) => activeNeighborhoods.add(slug));
 
-  // Update status line
+  // Helper to get entity list from either old or new registry format
+  const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
+
+  const totalResidents = neighborhoods.reduce((sum, [, entry]) => sum + getEntities(entry).length, 0);
+
   document.getElementById('neighborhood-status').textContent =
     `${neighborhoods.length} NEIGHBORHOODS`;
   document.getElementById('entity-count').textContent =
-    `${Object.values(registry.neighborhoods).flat().length} RESIDENTS`;
+    `${totalResidents} RESIDENTS`;
 
-  neighborhoods.forEach(([slug, slugs]) => {
+  neighborhoods.forEach(([slug, entry]) => {
+    const entities = getEntities(entry);
+    const hasTheme = !Array.isArray(entry) && entry.theme;
     const item = document.createElement('div');
     item.className = 'neighborhood-item';
     item.innerHTML = `
       <input type="checkbox" id="hood-${slug}" checked onchange="toggleNeighborhood('${slug}', this.checked)">
-      <label class="neighborhood-name" for="hood-${slug}">${formatNeighborhoodName(slug)}</label>
-      <span class="neighborhood-count">${slugs.length}</span>
+      <label class="neighborhood-name" for="hood-${slug}">${formatNeighborhoodName(slug)}${hasTheme ? ' ◆' : ''}</label>
+      <span class="neighborhood-count">${entities.length}</span>
     `;
     container.appendChild(item);
   });
@@ -767,12 +774,30 @@ function renderThemes() {
   const container = document.getElementById('theme-list');
   container.innerHTML = '';
 
-  if (KNOWN_THEMES.length === 0) {
+  // Build theme list from registry — any neighborhood with a theme entry
+  const themes = [];
+  if (registry) {
+    for (const [slug, entry] of Object.entries(registry.neighborhoods)) {
+      if (!Array.isArray(entry) && entry.theme) {
+        themes.push({
+          slug: entry.theme,
+          name: formatNeighborhoodName(slug),
+          desc: `The ${formatNeighborhoodName(slug)} conducts.`
+        });
+      }
+    }
+  }
+  // Fall back to KNOWN_THEMES for any not yet in registry
+  KNOWN_THEMES.forEach(t => {
+    if (!themes.find(x => x.slug === t.slug)) themes.push(t);
+  });
+
+  if (themes.length === 0) {
     container.innerHTML = '<div style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:1px;">No themes in the repository yet.</div>';
     return;
   }
 
-  KNOWN_THEMES.forEach(theme => {
+  themes.forEach(theme => {
     const item = document.createElement('div');
     item.className = 'theme-item';
     item.innerHTML = `
@@ -802,18 +827,20 @@ function renderRoster() {
 
   if (!registry) return;
 
+  const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
+
   let any = false;
-  for (const [hood, slugs] of Object.entries(registry.neighborhoods)) {
+  for (const [hood, entry] of Object.entries(registry.neighborhoods)) {
     if (!activeNeighborhoods.has(hood)) continue;
-    slugs.forEach(slug => {
+    getEntities(entry).forEach(slug => {
       any = true;
-      const entry = document.createElement('div');
-      entry.className = 'roster-entry';
-      entry.innerHTML = `
+      const el = document.createElement('div');
+      el.className = 'roster-entry';
+      el.innerHTML = `
         <span>${formatSlug(slug)}</span>
         <span class="hood">${formatNeighborhoodName(hood)}</span>
       `;
-      container.appendChild(entry);
+      container.appendChild(el);
     });
   }
 
@@ -854,10 +881,11 @@ function updateContextSummary() {
   const themes = activeThemes.size > 0
     ? [...activeThemes].map(t => KNOWN_THEMES.find(x => x.slug === t)?.name || t).join(', ')
     : 'none';
+  const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
   const residents = registry
     ? Object.entries(registry.neighborhoods)
         .filter(([h]) => activeNeighborhoods.has(h))
-        .flatMap(([,s]) => s).length
+        .reduce((sum, [, entry]) => sum + getEntities(entry).length, 0)
     : '?';
 
   el.innerHTML = `
@@ -895,8 +923,9 @@ function launchScore() {
 
 function updateTicker() {
   if (!registry) return;
+  const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
   const hoods = Object.keys(registry.neighborhoods).map(formatNeighborhoodName);
-  const residents = Object.values(registry.neighborhoods).flat().map(formatSlug);
+  const residents = Object.values(registry.neighborhoods).flatMap(getEntities).map(formatSlug);
   const lines = [
     `★ FIXED POINT LOCAL — THE HALL IS OPEN`,
     `★ ${hoods.length} NEIGHBORHOODS BROADCASTING: ${hoods.join(' · ')}`,

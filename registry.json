@@ -1,14 +1,46 @@
 {
   "neighborhoods": {
-    "greengarden": [
-      "chunxly"
-    ],
-    "kitchendom": [
-      "briny-broadswordfish"
-    ],
-    "mucklerbuckler": [
-      "scalescream",
-      "mudhull"
-    ]
+    "greengarden": {
+      "entities": [
+        "chunxly",
+        "approaching",
+        "attending",
+        "blue",
+        "consistency",
+        "flake-of-snow",
+        "hue",
+        "inside",
+        "outside",
+        "pebble",
+        "pondering",
+        "red",
+        "salary",
+        "the-space-between-keystrokes",
+        "the-unnamed-third",
+        "water-whispers"
+      ],
+      "theme": null,
+      "scores": []
+    },
+    "kitchendom": {
+      "entities": [
+        "briny-broadswordfish",
+        "noble-knightshade",
+        "the-kitchendom"
+      ],
+      "theme": "kitchendom",
+      "scores": []
+    },
+    "mucklerbuckler": {
+      "entities": [
+        "scalescream",
+        "mudhull",
+        "mucklerbuckler"
+      ],
+      "theme": null,
+      "scores": [
+        "hunter-encounter"
+      ]
+    }
   }
 }

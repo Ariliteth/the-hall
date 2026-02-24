@@ -3,7 +3,7 @@ name: Sync Registry
 on:
   push:
     paths:
-      - 'entities/**'
+      - 'neighborhoods/**'
       - 'registry.json'
 
 jobs:
@@ -16,17 +16,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync registry.json from entities directory
+      - name: Sync registry.json from neighborhoods directory
         run: |
           python3 << 'EOF'
           import json
           import os
           from pathlib import Path
 
-          entities_dir = Path("entities")
+          neighborhoods_dir = Path("neighborhoods")
           registry_path = Path("registry.json")
 
-          # Load existing registry if present
           if registry_path.exists():
               with open(registry_path) as f:
                   registry = json.load(f)
@@ -35,34 +34,62 @@ jobs:
 
           neighborhoods = registry.setdefault("neighborhoods", {})
 
-          # Walk entities/ — every subdirectory is a neighborhood,
-          # every subdirectory within that is a resident slug.
-          # A valid resident must have a tuning.md.
-          if entities_dir.exists():
-              for neighborhood_dir in sorted(entities_dir.iterdir()):
+          if neighborhoods_dir.exists():
+              for neighborhood_dir in sorted(neighborhoods_dir.iterdir()):
                   if not neighborhood_dir.is_dir():
                       continue
-                  neighborhood = neighborhood_dir.name
-                  found_slugs = sorted([
-                      slug_dir.name
-                      for slug_dir in neighborhood_dir.iterdir()
-                      if slug_dir.is_dir() and (slug_dir / "tuning.md").exists()
-                  ])
-                  if found_slugs:
-                      # Preserve existing order, append any new arrivals
-                      existing = neighborhoods.get(neighborhood, [])
-                      new_arrivals = [s for s in found_slugs if s not in existing]
+                  slug = neighborhood_dir.name
+
+                  if slug not in neighborhoods:
+                      neighborhoods[slug] = {"entities": [], "theme": None, "scores": []}
+                  entry = neighborhoods[slug]
+                  entry.setdefault("entities", [])
+                  entry.setdefault("theme", None)
+                  entry.setdefault("scores", [])
+
+                  entities_dir = neighborhood_dir / "entities"
+                  if entities_dir.exists():
+                      found = sorted([
+                          d.name for d in entities_dir.iterdir()
+                          if d.is_dir() and (d / "tuning.md").exists()
+                      ])
+                      new_arrivals = [e for e in found if e not in entry["entities"]]
                       if new_arrivals:
-                          print(f"New arrivals in {neighborhood}: {new_arrivals}")
-                      neighborhoods[neighborhood] = existing + new_arrivals
+                          print(f"New entities in {slug}: {new_arrivals}")
+                      entry["entities"] = entry["entities"] + new_arrivals
+                      entry["entities"] = [
+                          e for e in entry["entities"]
+                          if (entities_dir / e).is_dir()
+                      ]
 
-              # Remove neighborhoods that no longer exist on disk
-              for neighborhood in list(neighborhoods.keys()):
-                  if not (entities_dir / neighborhood).is_dir():
-                      print(f"Neighborhood removed from disk: {neighborhood}")
-                      del neighborhoods[neighborhood]
+                  theme_dir = neighborhood_dir / "theme"
+                  if theme_dir.exists() and (theme_dir / "tuning.md").exists():
+                      if entry["theme"] is None:
+                          print(f"Theme found in {slug}")
+                      entry["theme"] = slug
+                  else:
+                      entry["theme"] = None
 
-          # Write updated registry
+                  scores_dir = neighborhood_dir / "scores"
+                  if scores_dir.exists():
+                      found_scores = sorted([
+                          d.name for d in scores_dir.iterdir()
+                          if d.is_dir() and any(d.iterdir())
+                      ])
+                      new_scores = [s for s in found_scores if s not in entry["scores"]]
+                      if new_scores:
+                          print(f"New scores in {slug}: {new_scores}")
+                      entry["scores"] = entry["scores"] + new_scores
+                      entry["scores"] = [
+                          s for s in entry["scores"]
+                          if (scores_dir / s).is_dir()
+                      ]
+
+              for slug in list(neighborhoods.keys()):
+                  if not (neighborhoods_dir / slug).is_dir():
+                      print(f"Neighborhood removed: {slug}")
+                      del neighborhoods[slug]
+
           with open(registry_path, "w") as f:
               json.dump(registry, f, indent=2)
               f.write("\n")
@@ -79,6 +106,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "Registry already current. Nothing to commit."
           else
-            git commit -m "Auto-sync registry from entities directory"
+            git commit -m "Auto-sync registry from neighborhoods directory"
             git push
           fi
