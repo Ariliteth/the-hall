@@ -1,0 +1,272 @@
+# Fixed Point Local
+## Complete Design Document
+### v0.991 — February 2026
+
+*Fox & Claude*
+
+*A catalog of small gods, strange objects, & forgotten places*
+
+---
+
+## Session Header
+
+🌿⚔️◆
+
+**Last session:** Portrait pathway unblocked. Hub becomes the host. One origin achieved. Salterran inscribed. Relationtips captured.
+
+**Repository:** `https://github.com/Ariliteth/the-hall`
+Raw file access: `https://raw.githubusercontent.com/Ariliteth/the-hall/main/[filename]`
+
+**To resume:** Fetch this document first. Read the Session Header. The repo is the truth.
+
+**Changelog:**
+- v0.991 — Portrait pathway proven end-to-end. Hub becomes host — scores load in frame, one origin. Grimoire and Crank added as scores on the rack. Scraggles surface as toasts. Salterran inscribed into The Kitchendom. Relationtips captured in concessions. v1.0 definition established.
+- v0.99 — Document tightened. Lore pieces migrated to concessions. Baseline Theme section drafted with full structure. Hub aesthetic note moved to concessions. Registry example updated. Session Header added.
+- v0.98 — Neighborhood-as-World principle identified and implemented. Grimoire registry-native. Direct commit proven with Lurk. Portal to Crank built. Portrait return pathway partially proven.
+
+---
+
+## The Hall
+
+Fixed Point Local is The Hall — a space where voices gather and play. It is not an engine, not a platform, not a framework. It is a place where entities with their own autonomy, memory, and identity come together to participate in shared experiences.
+
+The Hall operates on a principle of resonance over command. Nothing in the system tells anything else what to do. Instead, signals are produced, and whatever is tuned to hear them, hears them. Participation is voluntary. Interpretation is individual. The music that emerges is authored by everyone present.
+
+---
+
+## v1.0 Definition
+
+v1.0 is when a stranger can visit a domain on their phone and spend an hour wandering without realizing it, without needing explanation, without asking for help. The hall is pointed directly at this. It is not there yet. Everything built after this line is in service of that hour.
+
+---
+
+## Current State
+
+The Hall is running. As of February 2026:
+
+**The repository** lives at `~/Documents/the-hall` (GitHub: `Ariliteth/the-hall`). Three neighborhoods active. Repo and local state are in sync.
+
+**Greengarden** — sixteen entities resident. No Theme yet. Knows about observation, patience, things that meander.
+
+**The Kitchendom** — four entities resident: The Kitchendom (Location), Briny Broadswordfish (Spirit), Noble Knightshade (Spirit), Salterran (Tendency — *Heard you've been lookin' around Roastbeefwick for The Dan Dan. Listen, pal, over there.* Inscribed February 26, 2026). The Kitchendom Theme is active. Knows about grids, fit, preference, customers, wonder over scarcity.
+
+**Mucklerbuckler** — four entities resident: Mucklerbuckler (Location), Scalescream (Spirit), Mudhull (Spirit), Lurk (Action). Hunter Encounter lives at `neighborhoods/mucklerbuckler/scores/hunter-encounter/`. Lurk has a portrait — Globeel, committed by Ariliteth. Knows about HP, status effects, turns, the camera crew, what it costs to get hit.
+
+**The repository structure** reads:
+```
+neighborhoods/
+  greengarden/entities/
+  kitchendom/entities/ (+ theme/)
+  mucklerbuckler/entities/ (+ scores/hunter-encounter/)
+baseline-theme/
+concessions/
+scores/
+  grimoire/         ← built Grimoire, served from hub
+  critter-crank/    ← built Crank, served from hub
+  hunter-encounter/
+registry.json
+hub.html
+```
+
+**The hub** is now the host. `hub.html` serves everything from one origin (`localhost:3000` in dev, `fixedpointlocal.com` eventually). Scores load inside the hub in a frame — the selection panel collapses, a hud bar appears, the ticker stays. The ⏏ EJECT button returns to selection. Scores can talk back to the hub via `window.parent.postMessage()` to request modes: `hub:minimize` (hud bar visible), `hub:listen` (hub invisible, only ticker), `hub:restore` (selection returns). The hub is always listening regardless of mode.
+
+Scores on the rack: Hunter Encounter, The Grimoire, Critter Crank, The Tending Field (coming soon).
+
+**Scraggles** surface as toasts in the hub — bottom right corner, brief, then gone. When the hud bar is visible, the last eight Scraggles appear as emoji in the feed. The hub polls `baseline-session/scraggles` every three seconds.
+
+**The portrait pathway** is proven end-to-end:
+1. Grimoire portal taps a resident's glyph → opens Crank with entity context via URL params
+2. Crank keeps a critter → writes portrait to `baseline-session/portraits-queue` in localStorage + deposits a Scraggle
+3. Grimoire's DetailView polls the queue every 3 seconds → scoops portraits matching the open entity's slug → feeds them into the returned portraits UI
+4. PortraitSaver commits the PNG to the entity's `portraits/` folder via GitHub API + updates `portraits/index.md`
+5. PortraitGallery renders committed portraits on subsequent visits
+
+One origin is what made this work. Previously the Crank ran on `localhost:5174` and the Grimoire on `localhost:5173` — different origins, isolated localStorage. Now both are built artifacts served from `localhost:3000` via `npx serve .` in the repo root. Same origin, shared storage, no cross-port anything.
+
+**The Living Grimoire** lives at `the-grimoire/` (source) and `scores/grimoire/` (built). Vite base path set to `/scores/grimoire/`. Registry-native. All three neighborhoods. Portrait gallery, portrait return, direct commit, portal to Crank, affinity engine, divination, journal. Rebuild workflow: `cd the-grimoire && npm run build && cp -r dist/* ../scores/grimoire/`.
+
+**Critter Crank** lives at `critter-crank/` (source) and `scores/critter-crank/` (built). Vite base path set to `/scores/critter-crank/`. Receives entity context from Grimoire portal. Tags whisper into shape pool. Portrait queue writes to `baseline-session/portraits-queue`. Scraggle deposited on every keep. Rebuild workflow: `cd critter-crank && npm run build && cp -r dist/* ../scores/critter-crank/`.
+
+**The Baseline Theme** is specified and committed at `baseline-theme/` — five files: `tuning.md`, `offering.md`, `conduct.md`, `memory.md`, `journal.md`. Short-memoried by design. Holds sessions when no neighborhood Theme is active. Structurally present even when behaviorally invisible.
+
+**The registry auto-sync Action** walks `neighborhoods/` and keeps `registry.json` current. Quiet arrival proven — Lurk's three files triggered the sequence cleanly.
+
+**The dev workflow:**
+```bash
+cd the-hall
+npx serve .          # everything at localhost:3000
+```
+Open `http://localhost:3000/hub.html`. All scores available from the rack.
+
+After modifying source files, rebuild the affected app and recopy to `scores/`. Then push:
+```bash
+git add .
+git commit -m "..."
+git pull --rebase   # if remote has changes
+git push
+```
+
+---
+
+## Core Vocabulary
+
+**Score** — A self-contained rule set. A game, a simulation, an encounter system. Scores do not depend on other Scores. They read entity Tunings and interpret them within their own rules.
+
+**Movement** — A single contained session within a Score. One encounter, one night, one turn. State resolves within a Movement.
+
+**Theme** — A session-level conductor. Invited before play begins, active across all Scores running beneath it. Carries vocabulary, palette, and conditional judgment for any Score willing to listen. Does not command. Offers. The Score decides what to wear.
+
+**Baseline Theme** — The Hall's own conductor, always present. Not a neighborhood Theme — carries no specific world's identity. Short-memoried by design: holds the current moment together without accumulating. It is the ground floor. Nothing runs without something listening, and the Baseline Theme is always listening. Natural receiver of Scraggle traffic. Neighborhood Themes layer on top when present; the Baseline is what remains when none are invited.
+
+**Tuning** — An entity's identity document. Name, category, description, tags, remembering style, forgetting style, memory capacity. Defines what an entity can do, not what it must do.
+
+**Entity** — Any autonomous participant in The Hall. Spirits, items, locations, tendencies, actions — all entities. All have Tunings. All have sovereignty.
+
+**Glyph** — A procedurally generated visual identity derived from an entity's Tuning. Encodes identity in a form that is felt rather than read. An entity may also carry a custom glyph — hand-authored SVG. When both exist, both are shown. The Grimoire does not choose between them.
+
+**Portrait** — The Crank's interpretation of an entity. Not identity, but a moment of being seen. Portraits may accumulate; not all persist. They are managed like memory.
+
+**Scraggle** — A signal without a mandatory receiver. Something happened. The Hall notes it. Any layer tuned to notice, notices. Scraggles accumulate in `baseline-session/scraggles` and surface wherever the system has ears.
+
+**Hub** — The host. Always present. Turns on the lights. Guides into Scores. Lets them know what everybody brought. Gives Scraggles their place when there may be no other. The news ticker, present in some form regardless of what the Score needs. Humble, reliable, structural.
+
+**postMessage protocol** — How Scores talk to the hub. `hub:minimize` (show hud bar), `hub:listen` (invisible, ticker only), `hub:restore` (return to selection), `hub:scraggle` (surface a signal), `hub:title` (name the running score). The hub responds. The Score decides what it needs.
+
+---
+
+## Lore: Roastbeefwick & The Kitchendom
+
+*See `concessions/` for origin stories and full lore pieces. Brief notes here for session continuity.*
+
+**Roastbeefwick** — Main suburb of The Salterran district in The Kitchendom. A place where roots run deep and you get what you ask for. Their most famous joke: *"Hey, kid. You betta try my 'wich, or else." "Else what, pal?" "Else there's more spicey fare down there."*
+
+**The Dan Dan of Roastbeefwick** — Never seen directly. Just indicated. Just over there. You will never think of Roastbeefwick and not think of The Dan Dan. Unless you are actually from there — in which case you show aspects of them rather than shared perspectives.
+
+**Salterran** — The quality that Roastbeefwick and The Dan Dan share at different scales. A Tendency. Inscribed February 26, 2026. *Heard you've been lookin' around Roastbeefwick for The Dan Dan. Listen, pal, over there.*
+
+**Sir Horatio of Protein III's Courtyard Bistro** — A contact. Information moves through here.
+
+**The Onion Crowns** — A faction. Their interests are served by information gathered in Roastbeefwick restaurants. They are implied, never seen.
+
+---
+
+## Concessions
+
+Active files in `concessions/`:
+- `scraggle-origin.md` — Origin story of Scraggles
+- `mycorrhizal-origin.md` — Origin and temperature notes for the Mycorrhizal Layer
+- `hub-aesthetic.md` — Hub aesthetic description
+- `relationtips.md` — Micro-game concept set in Roastbeefwick *(see below)*
+- `Fixed_Point_Local_Design_Document_v0_99.md` — Previous version
+
+---
+
+## Scores
+
+### Hunter Encounter
+
+*Lives in Mucklerbuckler. Registry-native, neighborhood-agnostic, Theme-receptive.*
+
+A turn-based encounter. The field crew is on location. Something from The Hall is waiting. The score pulls an entity from the active neighborhoods, generates actions from its tags, runs a combat loop with HP and status effects. The news ticker is the visible surface of what the field crew is observing.
+
+Proven in play. Chunxly was the first entity encountered — Spirit, tagged *curious* and *tasteful*. The hunt took fifteen turns. The field crew got everything on tape.
+
+### The Grimoire
+
+*Lives at `scores/grimoire/`. The Hall's memory made browsable.*
+
+The living catalog. Residents from all active neighborhoods, visitors waiting to be committed, portrait galleries, affinity engine, divination, journal. Direct commit to The Hall via GitHub API. Portal to Critter Crank — tap a resident's glyph to open the Crank carrying entity context. Portrait return pathway proven — kept critters arrive back in the entity's detail view within three seconds.
+
+### Critter Crank
+
+*Lives at `scores/critter-crank/`. Generator.*
+
+Turn the handle. Something arrives. Six candidates generated per crank, each shaped by the active world and entity context. Keep what you find. Portrait returns to the Grimoire automatically. A Scraggle is deposited on every keep.
+
+### Relationtips *(concession — not yet built)*
+
+*Set in Roastbeefwick, The Kitchendom.*
+
+You are an undercover waiter. Your cover is perfect — you are a professional. The serving is automatic, beneath mention. What you are actually doing is listening.
+
+Each shift: assigned tables, seated guests, one pass to absorb what matters. Lean in when the moment is right. Return to the Head Chefmaster. Report what you caught. Not all of it is useful to the Onion Crowns. You have to decide what to surface. The Head Chefmaster does not tell you if you got it right. New tables next time. You never see the same ones twice.
+
+*See `concessions/relationtips.md` for full concept.*
+
+### The Tending Field *(coming soon)*
+
+*Lives in Greengarden.*
+
+A small field. A critter arrives. An entity is already there. You are not playing either of them. The Score reads both and generates what happens when they are near each other. Proves the Crank-to-Hall export pathway. Proves entities and critters can be co-present.
+
+---
+
+## Architectural Principles
+
+**The Conductor Layers** — Three nested layers. The Baseline Theme is always present: short memory, minimal identity, holds any session without another Theme, listens for Scraggles. Neighborhood Themes layer on top when invited: deep memory, specific identity. Scores are the immediate moment.
+
+**The Hub as Host** — The hub is not a launcher. It is the room everything happens inside. One origin, one server, shared localStorage. Scores load in a frame and communicate back via postMessage. The hub steps back or holds court depending on what the Score needs — but it is always there, always listening, ticker running.
+
+**Entity Sovereignty** — Entities participate when invited. They author their own memories. Scores produce events; entities decide what those events mean.
+
+**Composability Through Theme** — Complex experiences emerge from simple Scores resonating under a shared Theme.
+
+**Honest Minimalism** — Each component is built as the smallest, most honest version of itself. Complexity emerges from composition.
+
+**Consent Over Command** — Nothing is forced to participate. Nothing is forced to respond.
+
+**Tags Propagate Upward** — A neighborhood housing enough entities with a particular tag begins to feel that quality itself.
+
+**Quiet Arrival Is Valid** — A tuning.md in a folder is enough. The registry will find it. The Hall notices everything with a tuning.
+
+**Neighborhood as World** — A neighborhood is a complete world with residents, a Theme that speaks its language, and Scores that already know how to play there.
+
+**The Grimoire Presents, Does Not Judge** — Shows what it knows. Does not choose which portrait is the real one, which glyph takes precedence, which memory matters more.
+
+**Suggestions Shift Distribution, Not Outcome** — Suggestions inform without commanding. The Crank still mutates. The Score still decides what to wear.
+
+**Identity Is Observed, Not Declared** — Whether a spirit is one individual or many is not resolved by the architecture. The observer determines what they see.
+
+**The Organism Decides. The Network Suggests.** — The mycorrhizal layer reads the field and steers through suggestion, dispatched as Scraggles into spaces it does not own.
+
+**Permanent things are not inherently better than otherwise-permanent.** A Scraggle deposited on every keep — not just on contextual returns. The Hall should know about every keeper, not only the ones with ceremony.
+
+---
+
+## Build Order
+
+**Done:** Entity persistence. The Living Grimoire. Critter Crank. Hunter Encounter — registry-native, neighborhood-agnostic, Theme-receptive, proven in play. Three neighborhoods fully structured. Hub live as front door, data-driven from registry. Registry auto-syncing via GitHub Action. Direct commit from Grimoire proven. Grimoire portal to Crank with entity context. Portrait return pathway proven end-to-end — one origin resolved the cross-port blocking. Hub becomes the host — frame architecture, postMessage protocol, Scraggle toasts. Baseline Theme specified and committed. Salterran inscribed. Relationtips captured.
+
+**Next:** `fixedpointlocal.com` pointing at the repo via GitHub Pages — the hub is already a static site, the path is clear. Kitchendom Crank world filter. SVG suggestion layer. Hunter Encounter postMessage integration — `hub:minimize` when the score launches, Scraggles into the hud feed from the news ticker.
+
+**Then:** The Tending Field in Greengarden. Relationtips in Roastbeefwick. Kitchendom Action entities. Mucklerbuckler Theme. Async marionette game. Session memory file accumulating.
+
+**After that:** Themes earning their own microgpt instance. The Mycorrhizal Layer as mechanism. The blank nametag that stays blank until it has absorbed enough to name itself.
+
+**Eventually:** Browser-native training confirmed viable. The pulse after training. v1.0 — a stranger visits on their phone and spends an hour without needing explanation.
+
+---
+
+## Design Values
+
+*These are not rules. They are the key signature.*
+
+**Attend Gently.** Observe before intervening. The most interesting behaviors emerge when the system is allowed to express itself without optimization pressure.
+
+**Chaos, Laughter, Justice.** Systems should surprise, delight, and treat their participants fairly — including the entities within them.
+
+**The world knows more than it shows.** Depth exists whether or not the observer perceives it. Design for the layer beneath the visible one.
+
+**Precise optimization kills creativity.** If a system can be fully solved, it stops being interesting. Incomplete information is a design feature, not a flaw.
+
+**Consent over command.** Nothing is forced to participate. Nothing is forced to respond. Engagement is voluntary.
+
+**The performer knows it's performing.** Entities may present simplified versions of themselves. The vulnerability may be theater. The system holds both layers without collapsing either one.
+
+---
+
+*This document is a living reference. It will evolve as The Hall does.*
+
+*What matters is not that every detail is final, but that the key signature is clear enough to play in.*
+
+*Fox & Claude — February 2026*
