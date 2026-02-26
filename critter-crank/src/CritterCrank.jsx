@@ -537,21 +537,49 @@ export default function CritterCrank() {
   var [selectedCritter, setSelectedCritter] = useState(null); // expanded in collection
   var [editingDesc, setEditingDesc] = useState(false);
   var [customDesc, setCustomDesc] = useState("");
+  var [crankContext, setCrankContext] = useState(null); // entity context from Grimoire portal
 
   var world = worldKey ? WORLDS[worldKey] : null;
 
   useEffect(function() {
     (async function() {
       try {
-        var r = await window.storage.get("critter-collection-v2");
-        if (r) setCollection(JSON.parse(r.value));
+        var raw = localStorage.getItem("critter-collection-v2");
+        if (raw) setCollection(JSON.parse(raw));
+      } catch(e) {}
+
+      // Read entity context from URL params (lightweight) + localStorage (glyph SVG)
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var slug = params.get("slug");
+        var name = params.get("name");
+        if (slug && name) {
+          var tags = params.get("tags") ? params.get("tags").split(",").filter(Boolean) : [];
+          var neighborhood = params.get("neighborhood") || "";
+          var hasGlyph = params.get("hasGlyph") === "1";
+          var ctx = { slug: slug, name: name, tags: tags, neighborhood: neighborhood };
+          // Check localStorage for SVG payload if flagged
+          if (hasGlyph) {
+            try {
+              var glyphRaw = localStorage.getItem("crank-glyph-source");
+              if (glyphRaw) {
+                var glyphData = JSON.parse(glyphRaw);
+                // Only use if it matches this entity and was written recently (5 min)
+                if (glyphData.slug === slug && (Date.now() - glyphData.writtenAt) < 5 * 60 * 1000) {
+                  ctx.glyphSvg = glyphData.svg;
+                }
+              }
+            } catch(e) {}
+          }
+          setCrankContext(ctx);
+        }
       } catch(e) {}
     })();
   }, []);
 
   function saveCollection(next) {
     setCollection(next);
-    window.storage.set("critter-collection-v2", JSON.stringify(next)).catch(function(){});
+    try { localStorage.setItem("critter-collection-v2", JSON.stringify(next)); } catch(e) {}
   }
 
   function handleCrank() {
@@ -576,17 +604,42 @@ export default function CritterCrank() {
     var w = WORLDS[worldKey];
     var now = Date.now();
     var newRolls = [];
+
+    // Build entity tag → shape hint map for suggestion layer
+    // Tags whisper into the pool — they shift odds, they don't command
+    var entityHints = [];
+    if (crankContext && crankContext.tags) {
+      var tagShapeMap = {
+        subtle: ["scatter","line"], shifting: ["irregular","blob"], attentive: ["eye","ring"],
+        fierce: ["spike","diamond"], bold: ["diamond","cross"], territorial: ["rect","cross"],
+        quiet: ["circle","ring"], patient: ["ring","scatter"], watching: ["eye","circle"],
+        mighty: ["blob","irregular"], large: ["blob","rect"], heavy: ["rect","diamond"],
+        ancient: ["irregular","ring"], poisonous: ["scatter","blob"], toxic: ["scatter","ring"],
+        quick: ["scatter","spike"], swift: ["spike","line"], nimble: ["line","scatter"],
+        curious: ["eye","blob"], tasteful: ["circle","diamond"], meandering: ["irregular","scatter"],
+        seeking: ["eye","line"],
+      };
+      crankContext.tags.forEach(function(tag) {
+        var hints = tagShapeMap[tag];
+        if (hints) entityHints = entityHints.concat(hints);
+      });
+    }
+
     for (var i = 0; i < 6; i++) {
       var seed = now + i * 7919 + Math.floor(Math.random()*99999);
       var rng = seededRng(seed + 1234);
-      // World suggests recipe and extras, but has its own opinions
       var rKey = recipeKey;
       var worldNote = [];
       if (rng() > 0.6) { rKey = pick(w.recipePool, rng); if (rKey !== recipeKey) worldNote.push(rKey); }
       var rExtras = extraShapes.slice();
-      if (rng() > 0.5) { // world asserts itself more often
+      if (rng() > 0.5) {
         var hint = pick(w.extraHints, rng);
         if (!rExtras.includes(hint)) { rExtras.push(hint); worldNote.push("+"+hint); }
+      }
+      // Entity suggestion layer — whisper one hint if context is present
+      if (entityHints.length > 0 && rng() > 0.4) {
+        var entityHint = pick(entityHints, rng);
+        if (!rExtras.includes(entityHint)) { rExtras.push(entityHint); worldNote.push("~"+entityHint); }
       }
       var rPal = palKey || pick(w.palettePool, rng);
       var rCohesion = cohesionMode || pick(w.cohesionBias, rng);
@@ -620,6 +673,38 @@ export default function CritterCrank() {
     saveCollection(collection.concat([critter]));
     setSelected(null);
     setRolls(function(prev) { return prev.filter(function(_, i){return i!==selected;}); });
+
+    // If we arrived from the Grimoire, render this critter to a data URL and
+    // add it to the portrait return queue. The Grimoire polls for this.
+    if (crankContext && crankContext.slug) {
+      try {
+        var canvas = document.createElement("canvas");
+        canvas.width = 96; canvas.height = 96;
+        var ctx = canvas.getContext("2d");
+        var grid = renderCritter(roll.seed, roll.recipeKey, roll.extraShapes, roll.palKey, roll.cohesionMode);
+        var ps = 96 / 48;
+        for (var y = 0; y < 48; y++) {
+          for (var x = 0; x < 48; x++) {
+            var color = grid[y * 48 + x];
+            if (color) { ctx.fillStyle = color; ctx.fillRect(x * ps, y * ps, ps, ps); }
+          }
+        }
+        var dataUrl = canvas.toDataURL("image/png");
+        var portrait = {
+          slug: crankContext.slug,
+          name: critter.name,
+          dataUrl: dataUrl,
+          worldKey: worldKey,
+          seed: roll.seed,
+          keptAt: Date.now(),
+        };
+        try {
+          var channel = new BroadcastChannel("crank-portraits");
+          channel.postMessage(portrait);
+          channel.close();
+        } catch(e) {}
+      } catch(e) {}
+    }
   }
 
   function releaseFromCollection(id) {
@@ -664,6 +749,16 @@ export default function CritterCrank() {
         <div style={{ textAlign:"center", maxWidth:480 }}>
           <div style={{ fontSize:10, color:"#ffcc44", letterSpacing:"0.15em", marginBottom:8, textShadow:"0 0 12px #ffcc44aa" }}>✦ CRITTER CRANK ✦</div>
           <div style={{ fontSize:6, color:"#444422", marginBottom:40, letterSpacing:"0.1em", animation:"pulse 2s infinite" }}>where do you want to go?</div>
+          {crankContext ? (
+            <div style={{ background:"rgba(155,188,15,0.06)", border:"1px solid #3a5a00", borderRadius:6, padding:"10px 16px", marginBottom:24, textAlign:"left" }}>
+              <div style={{ fontSize:5, color:"#9bbc0f", letterSpacing:"0.1em", marginBottom:4 }}>ARRIVED FROM THE HALL</div>
+              <div style={{ fontSize:6, color:"#c8d890", marginBottom:4 }}>{crankContext.name}</div>
+              {crankContext.tags && crankContext.tags.length > 0 ? (
+                <div style={{ fontSize:4, color:"#4a6a10", letterSpacing:"0.05em" }}>{crankContext.tags.join(" · ")}</div>
+              ) : null}
+              <div style={{ fontSize:4, color:"#2a4a00", marginTop:6 }}>kept critters will return as portraits</div>
+            </div>
+          ) : null}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:10 }}>
             {WORLD_KEYS.map(function(k, i) {
               var w = WORLDS[k];
@@ -730,6 +825,19 @@ export default function CritterCrank() {
               ← WORLDS
             </button>
           </div>
+
+          {/* Entity context banner */}
+          {crankContext ? (
+            <div style={{ background:"rgba(155,188,15,0.05)", border:"1px solid #2a4a00", borderRadius:4, padding:"7px 10px", marginBottom:12, display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+              <div>
+                <div style={{ fontSize:4, color:"#4a7a00", letterSpacing:"0.1em", marginBottom:2 }}>HALL CONTEXT · {crankContext.name.toUpperCase()}</div>
+                {crankContext.tags && crankContext.tags.length > 0 ? (
+                  <div style={{ fontSize:4, color:"#2a5000" }}>{crankContext.tags.join(" · ")}</div>
+                ) : null}
+              </div>
+              <button onClick={function(){setCrankContext(null);}} style={{ background:"none", border:"none", color:"#2a4a00", fontSize:5, cursor:"pointer", fontFamily:"inherit", padding:0 }}>✕</button>
+            </div>
+          ) : null}
 
           {/* Screen bezel */}
           <div style={{ background:"#120008", borderRadius:10, padding:10, border:"4px solid #1a0010", boxShadow:"inset 0 4px 16px rgba(0,0,0,0.9), 0 2px 0 rgba(255,255,255,0.04)", marginBottom:14 }}>
