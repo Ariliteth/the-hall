@@ -19,6 +19,9 @@
     --parchment: #ede0c0;
     --static: rgba(255,255,255,0.03);
     --signal: #e8b84b;
+    --hub-height: 100vh;
+    --score-frame-display: none;
+    --selection-display: block;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -71,16 +74,134 @@
     color: var(--void);
     font-weight: bold;
     position: relative;
+    z-index: 50;
+    flex-shrink: 0;
+  }
+
+  #signal-bar .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--void);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s ease infinite;
+  }
+
+  /* ── HUB SHELL — full height flex column ── */
+  #hub-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: relative;
     z-index: 10;
   }
 
-  /* ── MAIN LAYOUT ── */
+  /* ── SELECTION PANEL ── */
+  #selection-panel {
+    flex: 1;
+    overflow-y: auto;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease;
+    max-height: 100vh;
+    opacity: 1;
+  }
+
+  #selection-panel.collapsed {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* ── SCORE FRAME AREA ── */
+  #score-area {
+    display: none;
+    flex: 1;
+    position: relative;
+    min-height: 0;
+  }
+
+  #score-area.active {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #score-frame {
+    width: 100%;
+    flex: 1;
+    border: none;
+    background: var(--void);
+    min-height: 0;
+  }
+
+  /* ── HUD BAR — shown when score is running ── */
+  #hud-bar {
+    display: none;
+    align-items: center;
+    gap: 16px;
+    padding: 5px 16px;
+    background: var(--mud);
+    border-bottom: 1px solid var(--bark);
+    font-size: 0.55rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--warm);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 50;
+  }
+
+  #hud-bar.visible {
+    display: flex;
+  }
+
+  #hud-score-name {
+    color: var(--amber);
+    flex: 1;
+  }
+
+  #hud-scraggle-feed {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    overflow: hidden;
+    max-width: 300px;
+  }
+
+  .hud-scraggle {
+    font-size: 0.9rem;
+    animation: scraggle-arrive 0.4s ease;
+    cursor: default;
+  }
+
+  @keyframes scraggle-arrive {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  #hud-eject {
+    background: none;
+    border: 1px solid var(--bark);
+    color: var(--warm);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  #hud-eject:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  /* ── STAGE ── */
   #stage {
     max-width: 860px;
     margin: 0 auto;
     padding: 0 24px 60px;
-    position: relative;
-    z-index: 10;
   }
 
   /* ── MASTHEAD ── */
@@ -108,12 +229,9 @@
     color: var(--parchment);
     line-height: 0.9;
     text-shadow: 4px 4px 0 rgba(0,0,0,0.6);
-    position: relative;
   }
 
-  #title span {
-    color: var(--amber);
-  }
+  #title span { color: var(--amber); }
 
   #subtitle {
     font-family: 'Playfair Display', serif;
@@ -124,7 +242,6 @@
     margin-top: 4px;
   }
 
-  /* ── STATUS LINE ── */
   #status-line {
     font-size: 0.6rem;
     letter-spacing: 2px;
@@ -137,8 +254,7 @@
   }
 
   #status-line .dot {
-    width: 6px;
-    height: 6px;
+    width: 6px; height: 6px;
     border-radius: 50%;
     background: var(--amber);
     display: inline-block;
@@ -197,9 +313,7 @@
   }
 
   .score-card:hover::before,
-  .score-card.selected::before {
-    opacity: 1;
-  }
+  .score-card.selected::before { opacity: 1; }
 
   .score-card:hover,
   .score-card.selected {
@@ -207,9 +321,7 @@
     border-color: var(--warm);
   }
 
-  .score-card.selected {
-    background: var(--mud);
-  }
+  .score-card.selected { background: var(--mud); }
 
   .score-title {
     font-family: 'Bebas Neue', sans-serif;
@@ -220,9 +332,7 @@
     margin-bottom: 4px;
   }
 
-  .score-card.selected .score-title {
-    color: var(--gold);
-  }
+  .score-card.selected .score-title { color: var(--gold); }
 
   .score-desc {
     font-size: 0.65rem;
@@ -251,7 +361,6 @@
     color: var(--warm);
   }
 
-  /* coming soon card */
   .score-card.soon {
     opacity: 0.4;
     cursor: default;
@@ -281,9 +390,7 @@
   }
 
   /* ── NEIGHBORHOOD FILTER ── */
-  #neighborhood-list {
-    padding: 8px 0;
-  }
+  #neighborhood-list { padding: 8px 0; }
 
   .neighborhood-item {
     display: flex;
@@ -296,14 +403,11 @@
     letter-spacing: 1px;
   }
 
-  .neighborhood-item:hover {
-    background: var(--mud);
-  }
+  .neighborhood-item:hover { background: var(--mud); }
 
   .neighborhood-item input[type="checkbox"] {
     appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 12px; height: 12px;
     border: 1px solid var(--bark);
     background: var(--void);
     cursor: pointer;
@@ -325,10 +429,7 @@
     clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
   }
 
-  .neighborhood-name {
-    flex: 1;
-    color: var(--bone);
-  }
+  .neighborhood-name { flex: 1; color: var(--bone); }
 
   .neighborhood-count {
     font-size: 0.55rem;
@@ -337,9 +438,7 @@
   }
 
   /* ── THEME SELECTOR ── */
-  #theme-list {
-    padding: 8px 0;
-  }
+  #theme-list { padding: 8px 0; }
 
   .theme-item {
     display: flex;
@@ -350,14 +449,11 @@
     transition: background 0.1s;
   }
 
-  .theme-item:hover {
-    background: var(--mud);
-  }
+  .theme-item:hover { background: var(--mud); }
 
   .theme-item input[type="checkbox"] {
     appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 12px; height: 12px;
     border: 1px solid var(--bark);
     background: var(--void);
     cursor: pointer;
@@ -380,9 +476,7 @@
     clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
   }
 
-  .theme-info {
-    flex: 1;
-  }
+  .theme-info { flex: 1; }
 
   .theme-name {
     font-size: 0.65rem;
@@ -492,14 +586,12 @@
 
   /* ── TICKER ── */
   #ticker {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
     background: var(--amber);
     padding: 5px 0;
     overflow: hidden;
-    z-index: 20;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 50;
   }
 
   #ticker-inner {
@@ -552,6 +644,40 @@
     animation: blink 1s step-end infinite;
   }
 
+  /* ── SCRAGGLE TOAST ── */
+  #scraggle-toast {
+    position: fixed;
+    bottom: 40px;
+    right: 16px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+
+  .scraggle-toast-item {
+    background: var(--mud);
+    border: 1px solid var(--bark);
+    border-left: 3px solid var(--amber);
+    padding: 6px 12px;
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+    color: var(--warm);
+    animation: toast-in 0.3s ease, toast-out 0.4s ease 3s forwards;
+    white-space: nowrap;
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes toast-out {
+    from { opacity: 1; }
+    to   { opacity: 0; pointer-events: none; }
+  }
+
 </style>
 </head>
 <body>
@@ -561,87 +687,129 @@
   <div id="loading-msg">TUNING IN...</div>
 </div>
 
-<div id="signal-bar">
-  <span><span class="dot" style="width:5px;height:5px;border-radius:50%;background:var(--void);display:inline-block;margin-right:6px;"></span>FIXED POINT LOCAL — ON AIR</span>
-  <span id="signal-time"></span>
-</div>
+<div id="hub-shell">
 
-<div id="stage">
-
-  <div id="masthead">
-    <div id="channel-tag">A catalog of small gods, strange objects, & forgotten places</div>
-    <div id="title">FIXED POINT <span>LOCAL</span></div>
-    <div id="subtitle">The Hall is open. The music is already playing.</div>
-    <div id="status-line">
-      <span><span class="dot"></span>BROADCASTING</span>
-      <span id="neighborhood-status">READING REGISTRY...</span>
-      <span id="entity-count"></span>
-    </div>
+  <!-- Always present: signal bar -->
+  <div id="signal-bar">
+    <span><span class="dot"></span>FIXED POINT LOCAL — ON AIR</span>
+    <span id="signal-time"></span>
   </div>
 
-  <div id="columns">
+  <!-- HUD bar — shown when a score is running and wants it -->
+  <div id="hud-bar">
+    <span id="hud-score-name"></span>
+    <div id="hud-scraggle-feed"></div>
+    <button id="hud-eject" onclick="ejectScore()">⏏ EJECT</button>
+  </div>
 
-    <div id="rack-section">
-      <h2>— Select a Score —</h2>
-      <div id="score-rack">
+  <!-- Selection panel — collapses when a score launches -->
+  <div id="selection-panel">
+    <div id="stage">
 
-        <div class="score-card selected" data-score="hunter-encounter" data-url="scores/hunter-encounter/index.html" onclick="selectScore(this)">
-          <div class="score-title">HUNTER ENCOUNTER</div>
-          <div class="score-desc">A turn-based encounter. The field crew is already on location. Something from The Hall is waiting.</div>
-          <div class="score-meta">
-            <span class="score-tag">Combat</span>
-            <span class="score-tag">Single Session</span>
-            <span class="score-tag">All Neighborhoods</span>
+      <div id="masthead">
+        <div id="channel-tag">A catalog of small gods, strange objects, & forgotten places</div>
+        <div id="title">FIXED POINT <span>LOCAL</span></div>
+        <div id="subtitle">The Hall is open. The music is already playing.</div>
+        <div id="status-line">
+          <span><span class="dot"></span>BROADCASTING</span>
+          <span id="neighborhood-status">READING REGISTRY...</span>
+          <span id="entity-count"></span>
+        </div>
+      </div>
+
+      <div id="columns">
+
+        <div id="rack-section">
+          <h2>— Select a Score —</h2>
+          <div id="score-rack">
+
+            <div class="score-card selected" data-score="hunter-encounter" data-url="scores/hunter-encounter/index.html" onclick="selectScore(this)">
+              <div class="score-title">HUNTER ENCOUNTER</div>
+              <div class="score-desc">A turn-based encounter. The field crew is already on location. Something from The Hall is waiting.</div>
+              <div class="score-meta">
+                <span class="score-tag">Combat</span>
+                <span class="score-tag">Single Session</span>
+                <span class="score-tag">All Neighborhoods</span>
+              </div>
+            </div>
+
+            <div class="score-card" data-score="grimoire" data-url="scores/grimoire/index.html" onclick="selectScore(this)">
+              <div class="score-title">THE GRIMOIRE</div>
+              <div class="score-desc">The living catalog. Residents, visitors, affinities, portraits. The Hall's memory made browsable.</div>
+              <div class="score-meta">
+                <span class="score-tag">Catalog</span>
+                <span class="score-tag">Persistent</span>
+              </div>
+            </div>
+
+            <div class="score-card" data-score="critter-crank" data-url="scores/critter-crank/index.html" onclick="selectScore(this)">
+              <div class="score-title">CRITTER CRANK</div>
+              <div class="score-desc">Turn the handle. Something arrives. Keep what you find, return it to The Hall.</div>
+              <div class="score-meta">
+                <span class="score-tag">Generator</span>
+                <span class="score-tag">Single Session</span>
+              </div>
+            </div>
+
+            <div class="score-card soon" data-score="tending-field">
+              <div class="score-title">THE TENDING FIELD</div>
+              <div class="score-desc">A critter arrives. An entity is already there. You are not playing either of them.</div>
+              <div class="score-meta">
+                <span class="score-tag">Observation</span>
+                <span class="score-tag">Coming Soon</span>
+              </div>
+            </div>
+
+          </div>
+
+          <div id="launch-section">
+            <div id="context-summary">Select a Score to begin.</div>
+            <button id="launch-btn" disabled onclick="launchScore()">PLAY</button>
           </div>
         </div>
 
-        <div class="score-card soon" data-score="tending-field">
-          <div class="score-title">THE TENDING FIELD</div>
-          <div class="score-desc">A critter arrives. An entity is already there. You are not playing either of them.</div>
-          <div class="score-meta">
-            <span class="score-tag">Observation</span>
-            <span class="score-tag">Coming Soon</span>
+        <div id="sidebar">
+
+          <div class="sidebar-block">
+            <h3>Neighborhoods</h3>
+            <div id="neighborhood-list">
+              <div id="neighborhoods-loading" style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:2px;">READING REGISTRY...</div>
+            </div>
           </div>
-        </div>
 
-      </div>
+          <div class="sidebar-block">
+            <h3>Themes</h3>
+            <div id="theme-list">
+              <div id="themes-loading" style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:2px;">READING THEMES...</div>
+            </div>
+          </div>
 
-      <div id="launch-section">
-        <div id="context-summary">Select a Score to begin.</div>
-        <button id="launch-btn" disabled onclick="launchScore()">PLAY</button>
-      </div>
-    </div>
+          <div class="sidebar-block">
+            <h3>On The Roster</h3>
+            <div id="roster-preview">
+              <div id="roster-loading">FETCHING RESIDENTS...</div>
+            </div>
+          </div>
 
-    <div id="sidebar">
-
-      <div class="sidebar-block">
-        <h3>Neighborhoods</h3>
-        <div id="neighborhood-list">
-          <div id="neighborhoods-loading" style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:2px;">READING REGISTRY...</div>
-        </div>
-      </div>
-
-      <div class="sidebar-block">
-        <h3>Themes</h3>
-        <div id="theme-list">
-          <div id="themes-loading" style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:2px;">READING THEMES...</div>
         </div>
       </div>
-
-      <div class="sidebar-block">
-        <h3>On The Roster</h3>
-        <div id="roster-preview">
-          <div id="roster-loading">FETCHING RESIDENTS...</div>
-        </div>
-      </div>
-
     </div>
   </div>
+
+  <!-- Score frame — hidden until a score launches -->
+  <div id="score-area">
+    <iframe id="score-frame" title="Score"></iframe>
+  </div>
+
+  <!-- Always present: ticker -->
+  <div id="ticker">
+    <span id="ticker-inner">★ FIXED POINT LOCAL — THE HALL IS OPEN ★ THREE NEIGHBORHOODS ACTIVE ★ ATTEND GENTLY ★</span>
+  </div>
+
 </div>
 
-<div id="ticker">
-  <span id="ticker-inner">★ FIXED POINT LOCAL — THE HALL IS OPEN ★ THREE NEIGHBORHOODS ACTIVE ★ ATTEND GENTLY ★</span>
-</div>
+<!-- Scraggle toasts -->
+<div id="scraggle-toast"></div>
 
 <script>
 // ============================================================
@@ -652,25 +820,24 @@ const HALL_REPO   = "Ariliteth/the-hall";
 const HALL_BRANCH = "main";
 const RAW         = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}`;
 
-// Known Themes — slugs must match folders in /themes/
 const KNOWN_THEMES = [
   {
     slug: "kitchendom",
     name: "Kitchendom",
     desc: "Cuisine-world vocabulary. Marketeer voice. The table is set."
   },
-  // Add new themes here as they are committed to the repository
 ];
 
 // ============================================================
 // STATE
 // ============================================================
 
-let registry       = null;
-let selectedScore  = "hunter-encounter";
-let selectedScoreUrl = "scores/hunter-encounter/index.html";
-let activeThemes   = new Set();
+let registry            = null;
+let selectedScore       = "hunter-encounter";
+let selectedScoreUrl    = "scores/hunter-encounter/index.html";
+let activeThemes        = new Set();
 let activeNeighborhoods = new Set();
+let scoreRunning        = false;
 
 // ============================================================
 // BOOT
@@ -679,6 +846,12 @@ let activeNeighborhoods = new Set();
 window.addEventListener('DOMContentLoaded', async () => {
   updateClock();
   setInterval(updateClock, 1000);
+
+  // Listen for messages from score frames
+  window.addEventListener('message', handleScoreMessage);
+
+  // Poll Scraggles — even with no score running, the hub is listening
+  setInterval(pollScraggles, 3000);
 
   try {
     registry = await fetchRegistry();
@@ -690,17 +863,146 @@ window.addEventListener('DOMContentLoaded', async () => {
   } catch(e) {
     document.getElementById('neighborhoods-loading').textContent = 'SIGNAL LOST — OFFLINE MODE';
     document.getElementById('roster-loading').textContent = 'NO SIGNAL';
-    renderThemes(); // still render with KNOWN_THEMES fallback
+    renderThemes();
   }
 
   updateLaunchButton();
 
-  // Fade loading screen
   setTimeout(() => {
     document.getElementById('loading-screen').classList.add('fade');
     setTimeout(() => document.getElementById('loading-screen').remove(), 700);
   }, 900);
 });
+
+// ============================================================
+// POSTMESSAGE — scores talk to the hub here
+// ============================================================
+// A score can send any of these messages:
+//
+//   { type: "hub:minimize" }          — collapse selection, show hud bar
+//   { type: "hub:listen" }            — collapse selection, hide hud bar (pure listening)
+//   { type: "hub:restore" }           — show selection panel again
+//   { type: "hub:scraggle", emoji, signal } — show a scraggle in the hud
+//   { type: "hub:title", name }       — update hud score name
+//
+// Scores that send nothing get the default: selection collapses, hud bar visible.
+
+function handleScoreMessage(e) {
+  // Only trust messages from our own origin
+  if (e.origin !== window.location.origin) return;
+  const msg = e.data;
+  if (!msg || !msg.type) return;
+
+  switch(msg.type) {
+    case 'hub:minimize':
+      setHubMode('hud');
+      break;
+    case 'hub:listen':
+      setHubMode('listening');
+      break;
+    case 'hub:restore':
+      setHubMode('selection');
+      break;
+    case 'hub:title':
+      if (msg.name) document.getElementById('hud-score-name').textContent = msg.name;
+      break;
+    case 'hub:scraggle':
+      receiveScraggle(msg.emoji || '✦', msg.signal || '');
+      break;
+  }
+}
+
+// ============================================================
+// HUB MODES
+// ============================================================
+
+function setHubMode(mode) {
+  const panel    = document.getElementById('selection-panel');
+  const scoreArea = document.getElementById('score-area');
+  const hudBar   = document.getElementById('hud-bar');
+
+  switch(mode) {
+    case 'hud':
+      // Score running, hud bar visible, selection hidden
+      panel.classList.add('collapsed');
+      scoreArea.classList.add('active');
+      hudBar.classList.add('visible');
+      break;
+    case 'listening':
+      // Score running, hub invisible (just ticker + signal bar)
+      panel.classList.add('collapsed');
+      scoreArea.classList.add('active');
+      hudBar.classList.remove('visible');
+      break;
+    case 'selection':
+      // Back to selection screen
+      panel.classList.remove('collapsed');
+      scoreArea.classList.remove('active');
+      hudBar.classList.remove('visible');
+      scoreRunning = false;
+      document.getElementById('score-frame').src = '';
+      break;
+  }
+}
+
+// ============================================================
+// SCRAGGLE HANDLING
+// ============================================================
+
+// Poll localStorage for new Scraggles and show them as toasts
+let lastScraggleCount = 0;
+
+function pollScraggles() {
+  try {
+    const raw = localStorage.getItem('baseline-session/scraggles');
+    if (!raw) return;
+    const scraggles = JSON.parse(raw);
+    if (!scraggles || scraggles.length <= lastScraggleCount) return;
+
+    // Show new ones
+    const newOnes = scraggles.slice(lastScraggleCount);
+    newOnes.forEach(s => receiveScraggle(s.emoji, s.signal, false));
+    lastScraggleCount = scraggles.length;
+  } catch(e) {}
+}
+
+function receiveScraggle(emoji, signal, writeToStorage = true) {
+  // Show in hud feed if hud bar is visible
+  const feed = document.getElementById('hud-scraggle-feed');
+  const hudVisible = document.getElementById('hud-bar').classList.contains('visible');
+  if (hudVisible) {
+    const el = document.createElement('span');
+    el.className = 'hud-scraggle';
+    el.textContent = emoji;
+    el.title = signal;
+    feed.appendChild(el);
+    // Keep feed tidy — max 8 scraggles visible
+    while (feed.children.length > 8) feed.removeChild(feed.firstChild);
+  }
+
+  // Show as toast regardless
+  showScraggleToast(emoji, signal);
+
+  // Write to storage if it came from outside (postMessage)
+  if (writeToStorage) {
+    try {
+      const raw = localStorage.getItem('baseline-session/scraggles');
+      const scraggles = raw ? JSON.parse(raw) : [];
+      scraggles.push({ emoji, signal, source: 'hub', arrivedAt: Date.now() });
+      localStorage.setItem('baseline-session/scraggles', JSON.stringify(scraggles));
+      lastScraggleCount = scraggles.length;
+    } catch(e) {}
+  }
+}
+
+function showScraggleToast(emoji, signal) {
+  const container = document.getElementById('scraggle-toast');
+  const el = document.createElement('div');
+  el.className = 'scraggle-toast-item';
+  el.textContent = `${emoji} ${signal}`;
+  container.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 4000);
+}
 
 // ============================================================
 // REGISTRY
@@ -721,19 +1023,13 @@ function renderNeighborhoods() {
   container.innerHTML = '';
 
   const neighborhoods = Object.entries(registry.neighborhoods);
-
-  // Default: all active
   neighborhoods.forEach(([slug]) => activeNeighborhoods.add(slug));
 
-  // Helper to get entity list from either old or new registry format
   const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
-
   const totalResidents = neighborhoods.reduce((sum, [, entry]) => sum + getEntities(entry).length, 0);
 
-  document.getElementById('neighborhood-status').textContent =
-    `${neighborhoods.length} NEIGHBORHOODS`;
-  document.getElementById('entity-count').textContent =
-    `${totalResidents} RESIDENTS`;
+  document.getElementById('neighborhood-status').textContent = `${neighborhoods.length} NEIGHBORHOODS`;
+  document.getElementById('entity-count').textContent = `${totalResidents} RESIDENTS`;
 
   neighborhoods.forEach(([slug, entry]) => {
     const entities = getEntities(entry);
@@ -774,23 +1070,15 @@ function renderThemes() {
   const container = document.getElementById('theme-list');
   container.innerHTML = '';
 
-  // Build theme list from registry — any neighborhood with a theme entry
   const themes = [];
   if (registry) {
     for (const [slug, entry] of Object.entries(registry.neighborhoods)) {
       if (!Array.isArray(entry) && entry.theme) {
-        themes.push({
-          slug: entry.theme,
-          name: formatNeighborhoodName(slug),
-          desc: `The ${formatNeighborhoodName(slug)} conducts.`
-        });
+        themes.push({ slug: entry.theme, name: formatNeighborhoodName(slug), desc: `The ${formatNeighborhoodName(slug)} conducts.` });
       }
     }
   }
-  // Fall back to KNOWN_THEMES for any not yet in registry
-  KNOWN_THEMES.forEach(t => {
-    if (!themes.find(x => x.slug === t.slug)) themes.push(t);
-  });
+  KNOWN_THEMES.forEach(t => { if (!themes.find(x => x.slug === t.slug)) themes.push(t); });
 
   if (themes.length === 0) {
     container.innerHTML = '<div style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:1px;">No themes in the repository yet.</div>';
@@ -818,28 +1106,24 @@ function toggleTheme(slug, checked) {
 }
 
 // ============================================================
-// RENDER ROSTER PREVIEW
+// RENDER ROSTER
 // ============================================================
 
 function renderRoster() {
   const container = document.getElementById('roster-preview');
   container.innerHTML = '';
-
   if (!registry) return;
 
   const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
-
   let any = false;
+
   for (const [hood, entry] of Object.entries(registry.neighborhoods)) {
     if (!activeNeighborhoods.has(hood)) continue;
     getEntities(entry).forEach(slug => {
       any = true;
       const el = document.createElement('div');
       el.className = 'roster-entry';
-      el.innerHTML = `
-        <span>${formatSlug(slug)}</span>
-        <span class="hood">${formatNeighborhoodName(hood)}</span>
-      `;
+      el.innerHTML = `<span>${formatSlug(slug)}</span><span class="hood">${formatNeighborhoodName(hood)}</span>`;
       container.appendChild(el);
     });
   }
@@ -860,7 +1144,7 @@ function formatSlug(slug) {
 function selectScore(el) {
   document.querySelectorAll('.score-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
-  selectedScore  = el.dataset.score;
+  selectedScore    = el.dataset.score;
   selectedScoreUrl = el.dataset.url;
   updateContextSummary();
   updateLaunchButton();
@@ -872,10 +1156,7 @@ function selectScore(el) {
 
 function updateContextSummary() {
   const el = document.getElementById('context-summary');
-  if (!selectedScore) {
-    el.textContent = 'Select a Score to begin.';
-    return;
-  }
+  if (!selectedScore) { el.textContent = 'Select a Score to begin.'; return; }
 
   const hoods = [...activeNeighborhoods].map(formatNeighborhoodName).join(', ') || 'none';
   const themes = activeThemes.size > 0
@@ -883,17 +1164,10 @@ function updateContextSummary() {
     : 'none';
   const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
   const residents = registry
-    ? Object.entries(registry.neighborhoods)
-        .filter(([h]) => activeNeighborhoods.has(h))
-        .reduce((sum, [, entry]) => sum + getEntities(entry).length, 0)
+    ? Object.entries(registry.neighborhoods).filter(([h]) => activeNeighborhoods.has(h)).reduce((sum, [, entry]) => sum + getEntities(entry).length, 0)
     : '?';
 
-  el.innerHTML = `
-    SCORE: ${formatSlug(selectedScore)}<br>
-    NEIGHBORHOODS: ${hoods}<br>
-    RESIDENTS ON ROSTER: ${residents}<br>
-    THEMES: ${themes}
-  `;
+  el.innerHTML = `SCORE: ${formatSlug(selectedScore)}<br>NEIGHBORHOODS: ${hoods}<br>RESIDENTS ON ROSTER: ${residents}<br>THEMES: ${themes}`;
 }
 
 // ============================================================
@@ -908,13 +1182,27 @@ function updateLaunchButton() {
 function launchScore() {
   if (!selectedScore || activeNeighborhoods.size === 0) return;
 
-  // Build launch URL with context passed as query params
   const params = new URLSearchParams();
   params.set('neighborhoods', [...activeNeighborhoods].join(','));
   if (activeThemes.size > 0) params.set('themes', [...activeThemes].join(','));
 
   const url = `${selectedScoreUrl}?${params.toString()}`;
-  window.location.href = url;
+
+  // Load into the frame — stay on this page
+  const frame = document.getElementById('score-frame');
+  frame.src = url;
+  scoreRunning = true;
+
+  // Update hud name
+  document.getElementById('hud-score-name').textContent = formatSlug(selectedScore);
+
+  // Default mode: hud bar visible, selection collapses
+  // The score can override this via postMessage once it loads
+  setHubMode('hud');
+}
+
+function ejectScore() {
+  setHubMode('selection');
 }
 
 // ============================================================
