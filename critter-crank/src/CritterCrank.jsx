@@ -692,19 +692,36 @@ export default function CritterCrank() {
         var dataUrl = canvas.toDataURL("image/png");
         var portrait = {
           slug: crankContext.slug,
+          neighborhood: crankContext.neighborhood || "",
           name: critter.name,
           dataUrl: dataUrl,
           worldKey: worldKey,
           seed: roll.seed,
           keptAt: Date.now(),
         };
+        // Write to baseline-session portrait queue — Grimoire polls this
         try {
-          var channel = new BroadcastChannel("crank-portraits");
-          channel.postMessage(portrait);
-          channel.close();
+          var qRaw = localStorage.getItem("baseline-session/portraits-queue");
+          var queue = qRaw ? JSON.parse(qRaw) : [];
+          queue.push(portrait);
+          localStorage.setItem("baseline-session/portraits-queue", JSON.stringify(queue));
         } catch(e) {}
       } catch(e) {}
     }
+
+    // Scraggle — a critter was kept, the Hall should know
+    try {
+      var scraggle = {
+        emoji: "✨",
+        signal: critter.name.toLowerCase() + " kept",
+        source: "critter-crank",
+        arrivedAt: Date.now(),
+      };
+      var sRaw = localStorage.getItem("baseline-session/scraggles");
+      var scraggles = sRaw ? JSON.parse(sRaw) : [];
+      scraggles.push(scraggle);
+      localStorage.setItem("baseline-session/scraggles", JSON.stringify(scraggles));
+    } catch(e) {}
   }
 
   function releaseFromCollection(id) {
