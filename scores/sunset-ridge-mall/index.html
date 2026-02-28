@@ -539,9 +539,13 @@ function generateFloor(seed) {
   const paletteOrder = [...STORE_PALETTES].sort(() => rand() - 0.5);
   const numStores = 3 + Math.floor(rand() * 5);
 
+  // Compute spine row BEFORE placing stores so stores can't straddle and break it
+  const midY = Math.floor(H / 2);
+
   for (let si = 0; si < numStores; si++) {
     const sw = 2 + Math.floor(rand() * 4), sh = 2 + Math.floor(rand() * 4);
     const sx = 1 + Math.floor(rand() * (W - sw - 2)), sy = 1 + Math.floor(rand() * (H - sh - 2));
+    if (sy <= midY && sy + sh > midY) continue; // don't straddle the corridor spine
     let ok = true;
     for (let y = sy-1; y <= sy+sh && ok; y++)
       for (let x = sx-1; x <= sx+sw && ok; x++)
@@ -553,7 +557,6 @@ function generateFloor(seed) {
       for (let x = sx; x < sx + sw; x++) { grid[y][x] = T.STORE; storeMap[y][x] = idx; }
   }
 
-  const midY = Math.floor(H / 2);
   for (let x = 0; x < W; x++) if (grid[midY][x] === T.EMPTY) grid[midY][x] = T.CORRIDOR;
   stores.forEach(s => {
     const cx = s.x + Math.floor(s.w / 2), cy = s.y + Math.floor(s.h / 2);
@@ -947,6 +950,7 @@ function buildScene(scene, fd, onlyTiles = null) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (grid[y][x]===T.EMPTY) continue;
     if (!shouldBuild(x,y)) continue;
+    if (x === fd.escalatorX && y === fd.escalatorY) continue; // keep escalator tile clear
     const pr = rng(fd.seed*137+y*31+x);
     const chance = grid[y][x]===T.CORRIDOR?0.10:0.16;
     if (pr()<chance) {
@@ -1588,7 +1592,10 @@ function rideEscalator() {
     // New floor
     G.player.floor++;
     G.player.dir = 0;
-    G.fd = generateFloor(G.fd.seed * 7919 + G.player.floor * 3571);
+    // Keep seed arithmetic in 32-bit integer space to avoid float64 precision loss
+    const baseSeed = G.fd.seed >>> 0;
+    const nextSeed = (Math.imul(baseSeed, 7919) + Math.imul(G.player.floor, 3571)) >>> 0;
+    G.fd = generateFloor(nextSeed || 1);
     G.player.px = G.fd.startX;
     G.player.py = G.fd.startY;
 
