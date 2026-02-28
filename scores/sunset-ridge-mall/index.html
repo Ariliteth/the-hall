@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sunset Ridge Mall</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #111;
+    overflow: hidden;
+    font-family: 'Arial Black', sans-serif;
+  }
+
+  #mount {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #mount canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* ── BORDER FLASH ── */
+  #hud-border {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-sizing: border-box;
+    border: 5px solid transparent;
+    transition: border-color 0.1s;
+    z-index: 10;
+  }
+  #hud-border.red  { border-color: rgba(255,60,60,0.75); }
+  #hud-border.green { border-color: rgba(0,255,150,0.75); }
+
+  /* ── MALL NAME ── */
+  #hud-mall-name {
+    position: absolute;
+    top: 10px; left: 14px;
+    background: rgba(0,0,0,0.65);
+    color: #FF9EC8;
+    padding: 6px 12px;
+    border: 2px solid #FF9EC8;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 8px #FF9EC8;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* ── FLOOR / DIR ── */
+  #hud-floor-dir {
+    position: absolute;
+    top: 10px; right: 14px;
+    background: rgba(0,0,0,0.65);
+    color: #FFE640;
+    padding: 6px 12px;
+    border: 1px solid #FFE640;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-align: right;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #hud-store-name {
+    position: absolute;
+    top: 42px; right: 14px;
+    background: rgba(0,0,0,0.65);
+    color: #FF9EC8;
+    padding: 4px 12px;
+    border: 1px solid rgba(255,158,200,0.4);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-align: right;
+    pointer-events: none;
+    z-index: 10;
+    display: none;
+  }
+
+  /* ── QUEST NOTE ── */
+  #hud-quest {
+    position: absolute;
+    top: 56px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20,15,5,0.9);
+    border: 2px solid #FFDD88;
+    color: #FFDD88;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-align: center;
+    pointer-events: none;
+    max-width: 260px;
+    box-shadow: 0 0 12px rgba(255,221,136,0.27);
+    z-index: 10;
+    display: none;
+  }
+
+  /* ── COMPASS ── */
+  #hud-compass {
+    position: absolute;
+    top: 50%; right: 14px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    z-index: 10;
+  }
+  .compass-dir {
+    color: rgba(255,230,100,0.3);
+    font-size: 12px;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .compass-dir.active {
+    color: #FFE640;
+    font-size: 18px;
+    text-shadow: 0 0 8px #FFE640;
+  }
+
+  /* ── STATS ── */
+  #hud-stats {
+    position: absolute;
+    top: 60px; left: 14px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,220,80,0.35);
+    padding: 6px 10px;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 10;
+    display: none;
+  }
+  .stats-label {
+    font-size: 9px;
+    color: rgba(255,220,80,0.5);
+    letter-spacing: 2px;
+    margin-bottom: 3px;
+    font-family: monospace;
+  }
+  .stat-row {
+    font-size: 10px;
+    color: #FFE640;
+    font-family: monospace;
+    letter-spacing: 1px;
+  }
+
+  /* ── HAND CARDS ── */
+  #hud-left-hand {
+    position: absolute;
+    bottom: 140px; left: 10px;
+    z-index: 10;
+  }
+  #hud-right-hand {
+    position: absolute;
+    bottom: 140px; right: 10px;
+    z-index: 10;
+  }
+
+  .item-card {
+    min-width: 100px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-family: monospace;
+  }
+  .item-card.empty {
+    background: rgba(0,0,0,0.45);
+    border: 2px dashed rgba(255,220,80,0.25);
+    color: rgba(255,220,80,0.3);
+    font-size: 10px;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+  .item-card.empty .card-icon { font-size: 14px; }
+  .item-card.filled {
+    background: rgba(0,0,0,0.8);
+  }
+  .card-hand-label { font-size: 9px; color: rgba(255,255,255,0.4); letter-spacing: 1px; margin-bottom: 3px; }
+  .card-swatch { width: 28px; height: 28px; border-radius: 4px; margin-bottom: 4px; }
+  .card-prefix { font-size: 9px; color: #AAFFAA; }
+  .card-name { font-size: 11px; color: #FFFFFF; font-weight: bold; line-height: 1.3; }
+  .card-suffix { font-size: 9px; color: #AAAAFF; }
+  .card-rarity { margin-top: 3px; font-size: 9px; letter-spacing: 1px; }
+  .card-stat { font-size: 9px; color: #CCCCCC; }
+  .card-crafted { font-size: 8px; color: #FFEE88; }
+
+  /* ── BUMP PROMPT ── */
+  #hud-bump-prompt {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+    display: none;
+    text-align: center;
+    font-family: monospace;
+    font-size: 12px;
+  }
+  .bump-box {
+    background: rgba(0,0,0,0.88);
+    border-radius: 10px;
+    padding: 14px 22px;
+    color: white;
+  }
+  .bump-box.atm { border: 2px solid #00FFCC; }
+  .bump-box.phone { border: 2px solid #4466FF; min-width: 200px; max-width: 240px; }
+  .bump-box.item { min-width: 180px; }
+  .bump-box.error { border: 2px solid #FF4444; color: #FF4444; }
+
+  /* ── PHONE MSG ── */
+  #hud-phone-msg {
+    position: absolute;
+    top: 38%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,10,30,0.95);
+    color: white;
+    padding: 16px 22px;
+    border-radius: 10px;
+    font-family: monospace;
+    font-size: 12px;
+    text-align: center;
+    pointer-events: none;
+    max-width: 280px;
+    z-index: 10;
+    display: none;
+  }
+  .phone-msg-label { font-size: 10px; color: #4466FF; margin-bottom: 6px; }
+  .phone-msg-text { line-height: 1.6; }
+
+  /* ── ACQUIRED FLASH ── */
+  #hud-acquired {
+    position: absolute;
+    top: 64px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.92);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    text-align: center;
+    pointer-events: none;
+    white-space: nowrap;
+    max-width: 80vw;
+    z-index: 10;
+    display: none;
+  }
+
+  /* ── WORLD EVENT ── */
+  #hud-world-event {
+    position: absolute;
+    bottom: 200px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.9);
+    border: 2px solid #FFAA44;
+    color: #FFAA44;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 10;
+    display: none;
+  }
+
+  /* ── CONTROLS ── */
+  #controls {
+    position: absolute;
+    bottom: 20px; left: 0; right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    z-index: 10;
+    pointer-events: none;
+  }
+  #controls-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: all;
+  }
+  #controls-row {
+    display: flex;
+    gap: 6px;
+  }
+  .ctrl-btn {
+    width: 52px; height: 52px;
+    background: rgba(255,230,100,0.13);
+    border: 2px solid rgba(255,220,80,0.6);
+    border-radius: 10px;
+    color: #FFE640;
+    font-family: 'Arial Black', sans-serif;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  #controls-hint {
+    position: absolute;
+    bottom: 118px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.45);
+    color: rgba(255,230,100,0.5);
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 3px 10px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 10;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body>
+<div id="mount">
+  <div id="hud-border"></div>
+  <div id="hud-mall-name">🛍 SUNSET RIDGE MALL</div>
+  <div id="hud-floor-dir">FLOOR 1 · N</div>
+  <div id="hud-store-name"></div>
+  <div id="hud-quest"></div>
+  <div id="hud-compass">
+    <div class="compass-dir active" data-d="N">N</div>
+    <div class="compass-dir" data-d="E">E</div>
+    <div class="compass-dir" data-d="S">S</div>
+    <div class="compass-dir" data-d="W">W</div>
+  </div>
+  <div id="hud-stats"></div>
+  <div id="hud-left-hand"></div>
+  <div id="hud-right-hand"></div>
+  <div id="hud-bump-prompt"></div>
+  <div id="hud-phone-msg"></div>
+  <div id="hud-acquired"></div>
+  <div id="hud-world-event"></div>
+  <div id="controls">
+    <div id="controls-inner">
+      <button class="ctrl-btn" id="btn-fwd">▲</button>
+      <div id="controls-row">
+        <button class="ctrl-btn" id="btn-left">◄</button>
+        <button class="ctrl-btn" id="btn-back">▼</button>
+        <button class="ctrl-btn" id="btn-right">►</button>
+      </div>
+    </div>
+  </div>
+  <div id="controls-hint">WASD / ARROWS · FACE + FORWARD TO INTERACT</div>
+</div>
+
+<script>
+'use strict';
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const CELL = 6, WALL_H = 3.8, PLAYER_H = 1.6;
+const T = { EMPTY: 0, CORRIDOR: 1, STORE: 2 };
+
+const STORE_PALETTES = [
+  { floor:"#C8508C", wall:"#FF2D78", ceil:"#FFB3D9", name:"XCESS" },
+  { floor:"#1A3A6B", wall:"#00CFFF", ceil:"#B3EEFF", name:"SPORT PLUS" },
+  { floor:"#2B1A4F", wall:"#9B59B6", ceil:"#DDB3FF", name:"PHASE" },
+  { floor:"#4A1A00", wall:"#FF6600", ceil:"#FFD9B3", name:"SUNCOAST" },
+  { floor:"#004A1A", wall:"#27AE60", ceil:"#B3FFD1", name:"NATURE CO" },
+  { floor:"#1A0000", wall:"#CC0000", ceil:"#FFB3B3", name:"BLAZE" },
+  { floor:"#4A3A00", wall:"#FFD700", ceil:"#FFF5B3", name:"GOLDENROD" },
+  { floor:"#003A4A", wall:"#008080", ceil:"#B3FFFF", name:"PACIFIC" },
+];
+const CORRIDOR_PALETTE = { floor:"#D4A76A", wall:"#F5ECD7", ceil:"#F0EDE0" };
+
+const RARITY_COLORS = { common:"#AAAAAA", uncommon:"#44DD44", rare:"#4488FF", legendary:"#FF9900" };
+const RARITY_ORDER = ["common","uncommon","rare","legendary"];
+
+const PREFIXES = [
+  {name:"Glittery",stat:"STYLE",val:2},{name:"Chunky",stat:"BULK",val:3},
+  {name:"Blessed",stat:"LUCK",val:2},{name:"Hyped",stat:"CLOUT",val:2},
+  {name:"Mellow",stat:"CHILL",val:3},{name:"Vintage",stat:"VIBES",val:4},
+  {name:"Clearance",stat:"LUCK",val:-1},{name:"Limited",stat:"CLOUT",val:5},
+  {name:"Frosted",stat:"STYLE",val:3},{name:"Worn",stat:"BULK",val:-1},
+];
+const SUFFIXES = [
+  {name:"of the Mall",stat:"VIBES",val:2},{name:"of the Ancients",stat:"BULK",val:3},
+  {name:"of Attitude",stat:"CLOUT",val:3},{name:"of Serenity",stat:"CHILL",val:2},
+  {name:"of Fortune",stat:"LUCK",val:4},{name:"of the Season",stat:"STYLE",val:2},
+  {name:"of Excess",stat:"VIBES",val:5},{name:"of Mystery",stat:"LUCK",val:3},
+];
+const ITEM_BASES = [
+  {name:"Keychain",color:"#FFD700"},{name:"Cap",color:"#FF6699"},
+  {name:"Tee",color:"#66CCFF"},{name:"Hoodie",color:"#9966FF"},
+  {name:"Bracelet",color:"#FF9900"},{name:"Poster",color:"#FF3366"},
+  {name:"Tape",color:"#44DDAA"},{name:"Pin",color:"#FFEE44"},
+  {name:"Shades",color:"#33AAFF"},{name:"Wallet",color:"#CC4400"},
+  {name:"Beanie",color:"#AA44FF"},{name:"Bag",color:"#FF6644"},
+  {name:"Charm",color:"#FFAADD"},{name:"Plushie",color:"#88DDFF"},
+  {name:"Sticker",color:"#AAFF44"},
+];
+const BASE_STATS = ["VIBES","BULK","STYLE","LUCK","CLOUT","CHILL"];
+const DOLLAR_COLORS = ["#FF3366","#33AAFF","#FFEE00","#44DD88","#FF9900","#CC44FF"];
+
+const DIRS = [{dx:0,dz:-1,f:'N'},{dx:1,dz:0,f:'E'},{dx:0,dz:1,f:'S'},{dx:-1,dz:0,f:'W'}];
+const DIR_ANGLE = [0, Math.PI/2, Math.PI, -Math.PI/2];
+const DIR_LABELS = ["N","E","S","W"];
+const FACE_ARROW = {N:"↑",S:"↓",E:"→",W:"←"};
+
+// ── RNG ───────────────────────────────────────────────────────────────────────
+function rng(seed) {
+  let s = (seed ^ 0xDEADBEEF) >>> 0;
+  return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 0x100000000; };
+}
+
+// ── ITEMS ─────────────────────────────────────────────────────────────────────
+function generateItem(seed) {
+  const r = rng(seed);
+  const base = ITEM_BASES[Math.floor(r() * ITEM_BASES.length)];
+  const roll = r();
+  const rarity = roll < 0.55 ? "common" : roll < 0.82 ? "uncommon" : roll < 0.96 ? "rare" : "legendary";
+  const affixCount = rarity === "common" ? 0 : rarity === "uncommon" ? 1 : 2;
+  const prefix = affixCount > 0 ? PREFIXES[Math.floor(r() * PREFIXES.length)] : null;
+  const suffix = affixCount > 1 ? SUFFIXES[Math.floor(r() * SUFFIXES.length)] : null;
+  const stats = {};
+  BASE_STATS.forEach(s => { if (r() < 0.5) stats[s] = 1 + Math.floor(r() * 4); });
+  if (!Object.keys(stats).length) stats[BASE_STATS[Math.floor(r() * BASE_STATS.length)]] = 1;
+  return { id: seed, name: base.name, color: base.color, rarity, prefix, suffix, stats, isDollar: false };
+}
+
+function generateDollar(seed) {
+  const r = rng(seed);
+  const color = DOLLAR_COLORS[Math.floor(r() * DOLLAR_COLORS.length)];
+  const roll = r();
+  const rarity = roll < 0.5 ? "common" : roll < 0.8 ? "uncommon" : roll < 0.95 ? "rare" : "legendary";
+  const stats = {};
+  BASE_STATS.forEach(s => { if (r() < 0.35) stats[s] = 1 + Math.floor(r() * 3); });
+  return { id: `dollar_${seed}`, name: "Mall Dollar", color, rarity, prefix: null, suffix: null, stats, isDollar: true };
+}
+
+function craftItemWithDollar(item, dollar) {
+  const newStats = { ...item.stats };
+  Object.entries(dollar.stats || {}).forEach(([k, v]) => {
+    newStats[k] = (newStats[k] || 0) + Math.ceil(v / 2);
+  });
+  let newRarity = item.rarity;
+  const dollarRarityIdx = RARITY_ORDER.indexOf(dollar.rarity);
+  const itemRarityIdx = RARITY_ORDER.indexOf(item.rarity);
+  if (dollarRarityIdx > itemRarityIdx && Math.random() < 0.4) {
+    newRarity = RARITY_ORDER[Math.min(3, itemRarityIdx + 1)];
+  }
+  let newPrefix = item.prefix;
+  if (!newPrefix && dollarRarityIdx >= 2) {
+    newPrefix = PREFIXES[Math.floor(rng(typeof dollar.id === 'string' ? parseInt(dollar.id.replace('dollar_','')) + 1 : dollar.id + 1)() * PREFIXES.length)];
+  }
+  return { ...item, stats: newStats, rarity: newRarity, prefix: newPrefix, crafted: true };
+}
+
+function itemDisplayName(item) {
+  if (!item) return "";
+  let n = item.name;
+  if (item.prefix) n = item.prefix.name + " " + n;
+  if (item.suffix) n = n + " " + item.suffix.name;
+  return n;
+}
+
+// ── QUESTS ────────────────────────────────────────────────────────────────────
+const QUEST_GIVERS = [
+  "Aunt Carol","Uncle Dave","Your Cousin Jess","Grandma Pat","Your Neighbor Tim",
+  "Old Friend Mira","Your Roommate","Mom","Dad","Your Sister","Your Brother",
+  "A Kid Named Rory","Someone Called Bex","Your Old Coach",
+];
+const QUEST_TEMPLATES = [
+  g => ({ giver:g, stat:"VIBES",  min:2, msg:`${g} needs something with good VIBES. At least +2.` }),
+  g => ({ giver:g, stat:"CHILL",  min:3, msg:`${g} is stressed. Find something CHILL, +3 or better.` }),
+  g => ({ giver:g, stat:"STYLE",  min:2, msg:`${g} has a date. Needs STYLE. Anything +2 or more.` }),
+  g => ({ giver:g, stat:"LUCK",   min:2, msg:`${g} says they need more LUCK. Even a little.` }),
+  g => ({ giver:g, stat:"CLOUT",  min:2, msg:`${g} wants CLOUT. Send something impressive.` }),
+  g => ({ giver:g, stat:"BULK",   min:3, msg:`${g} is moving. Needs something with BULK.` }),
+  g => ({ giver:g, stat:"VIBES",  min:4, msg:`${g} said, and I quote: "max VIBES only."` }),
+  g => ({ giver:g, stat:"STYLE",  min:4, msg:`${g} is going to a reunion. STYLE +4 minimum, no excuses.` }),
+];
+
+function generateQuest(seed) {
+  const r = rng(seed);
+  const giver = QUEST_GIVERS[Math.floor(r() * QUEST_GIVERS.length)];
+  const template = QUEST_TEMPLATES[Math.floor(r() * QUEST_TEMPLATES.length)];
+  return { ...template(giver), id: seed, complete: false };
+}
+
+function questMatchesItem(quest, item) {
+  if (!quest || !item || item.isDollar) return false;
+  const statVal = item.stats?.[quest.stat] || 0;
+  const prefixVal = item.prefix?.stat === quest.stat ? (item.prefix.val || 0) : 0;
+  const suffixVal = item.suffix?.stat === quest.stat ? (item.suffix.val || 0) : 0;
+  return (statVal + prefixVal + suffixVal) >= quest.min;
+}
+
+const PAYPHONE_BABBLE = [
+  "...anyway how are you doing, you sound tired—",
+  "—I already TOLD you, the cat is FINE—",
+  "—did you see what they're doing to the old Sears—",
+  "—just pick up something nice, you know what I like—",
+  "—hello? hello? can you hear me? HELLO—",
+  "—the signal here is terrible, I'm at the mall—",
+  "—your father says hi, I'm saying hi too—",
+  "—honestly just get something, anything, just think of me—",
+];
+
+// ── MAP GENERATOR ─────────────────────────────────────────────────────────────
+function generateFloor(seed) {
+  const rand = rng(seed);
+  const W = 12 + Math.floor(rand() * 9), H = 12 + Math.floor(rand() * 9);
+  const grid = Array.from({ length: H }, () => new Array(W).fill(T.EMPTY));
+  const storeMap = Array.from({ length: H }, () => new Array(W).fill(-1));
+  const stores = [];
+  const paletteOrder = [...STORE_PALETTES].sort(() => rand() - 0.5);
+  const numStores = 3 + Math.floor(rand() * 5);
+
+  for (let si = 0; si < numStores; si++) {
+    const sw = 2 + Math.floor(rand() * 4), sh = 2 + Math.floor(rand() * 4);
+    const sx = 1 + Math.floor(rand() * (W - sw - 2)), sy = 1 + Math.floor(rand() * (H - sh - 2));
+    let ok = true;
+    for (let y = sy-1; y <= sy+sh && ok; y++)
+      for (let x = sx-1; x <= sx+sw && ok; x++)
+        if (y >= 0 && y < H && x >= 0 && x < W && grid[y][x] !== T.EMPTY) ok = false;
+    if (!ok) continue;
+    const idx = stores.length;
+    stores.push({ palette: paletteOrder[si % paletteOrder.length], x: sx, y: sy, w: sw, h: sh });
+    for (let y = sy; y < sy + sh; y++)
+      for (let x = sx; x < sx + sw; x++) { grid[y][x] = T.STORE; storeMap[y][x] = idx; }
+  }
+
+  const midY = Math.floor(H / 2);
+  for (let x = 0; x < W; x++) if (grid[midY][x] === T.EMPTY) grid[midY][x] = T.CORRIDOR;
+  stores.forEach(s => {
+    const cx = s.x + Math.floor(s.w / 2), cy = s.y + Math.floor(s.h / 2);
+    for (let y = Math.min(cy, midY); y <= Math.max(cy, midY); y++)
+      if (grid[y][cx] === T.EMPTY) grid[y][cx] = T.CORRIDOR;
+  });
+  const rand2 = rng(seed + 1);
+  for (let i = 0; i < W * 2; i++) {
+    const x = 1 + Math.floor(rand2() * (W - 2)), y = 1 + Math.floor(rand2() * (H - 2));
+    if (grid[y][x] === T.CORRIDOR) {
+      const dx = Math.floor(rand2() * 3) - 1, dz = Math.floor(rand2() * 3) - 1;
+      const nx = x + dx, ny = y + dz;
+      if (nx > 0 && nx < W-1 && ny > 0 && ny < H-1 && grid[ny][nx] === T.EMPTY)
+        grid[ny][nx] = T.CORRIDOR;
+    }
+  }
+
+  const doors = new Set();
+  stores.forEach(s => {
+    let dc = 0;
+    for (let y = s.y; y < s.y + s.h && dc < 2; y++)
+      for (let x = s.x; x < s.x + s.w && dc < 2; x++)
+        for (const [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]])
+          if (ny >= 0 && ny < H && nx >= 0 && nx < W && grid[ny][nx] === T.CORRIDOR) {
+            doors.add(`${x},${y}:${nx},${ny}`); doors.add(`${nx},${ny}:${x},${y}`); dc++; break;
+          }
+  });
+
+  let startX = 0, startY = midY;
+  for (let x = 0; x < W; x++) { if (grid[midY][x] === T.CORRIDOR) { startX = x; break; } }
+
+  // Wall entities: ATMs + Payphones
+  const wallEntities = [];
+  const weRand = rng(seed + 99);
+  let atmCount = 0, phoneCount = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (grid[y][x] !== T.CORRIDOR) continue;
+      const roll = weRand();
+      if (roll < 0.93) continue;
+      const candidates = [];
+      if (y === 0 || grid[y-1][x] === T.EMPTY) candidates.push('N');
+      if (y === H-1 || grid[y+1][x] === T.EMPTY) candidates.push('S');
+      if (x === W-1 || grid[y][x+1] === T.EMPTY) candidates.push('E');
+      if (x === 0 || grid[y][x-1] === T.EMPTY) candidates.push('W');
+      if (!candidates.length) continue;
+      const face = candidates[Math.floor(weRand() * candidates.length)];
+      const type = atmCount < 2 ? 'atm' : phoneCount < 2 ? 'payphone' : null;
+      if (!type) continue;
+      wallEntities.push({ tileX: x, tileY: y, face, type, id: `${type}_${x}_${y}` });
+      if (type === 'atm') atmCount++; else phoneCount++;
+    }
+  }
+
+  // Payphone fallback — ensure at least one payphone exists
+  if (phoneCount === 0) {
+    outer: for (let y = 1; y < H-1; y++) {
+      for (let x = 1; x < W-1; x++) {
+        if (grid[y][x] !== T.CORRIDOR) continue;
+        const candidates = [];
+        if (grid[y-1]?.[x] === T.EMPTY) candidates.push('N');
+        if (grid[y+1]?.[x] === T.EMPTY) candidates.push('S');
+        if (grid[y]?.[x+1] === T.EMPTY) candidates.push('E');
+        if (grid[y]?.[x-1] === T.EMPTY) candidates.push('W');
+        if (candidates.length) {
+          wallEntities.push({ tileX: x, tileY: y, face: candidates[0], type: 'payphone', id: `phone_fallback_${x}_${y}` });
+          break outer;
+        }
+      }
+    }
+  }
+
+  // Loose items
+  const looseItems = [];
+  const itemRand = rng(seed + 333);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (grid[y][x] === T.EMPTY) continue;
+      const chance = grid[y][x] === T.STORE ? 0.12 : 0.04;
+      if (itemRand() < chance) {
+        const itemSeed = seed * 1000 + y * 100 + x;
+        const item = generateItem(itemSeed);
+        const or = rng(itemSeed + 7);
+        const ox = (or() - 0.5) * CELL * 0.55, oz = (or() - 0.5) * CELL * 0.55;
+        const requiredFace = Math.abs(ox) > Math.abs(oz) ? (ox > 0 ? 'E' : 'W') : (oz > 0 ? 'S' : 'N');
+        looseItems.push({ tileX: x, tileY: y, item, offsetX: ox, offsetZ: oz, requiredFace, id: `item_${x}_${y}` });
+      }
+    }
+  }
+
+  return { grid, storeMap, stores, doors, W, H, startX, startY, wallEntities, looseItems, seed };
+}
+
+// ── WORLD MUTATION ────────────────────────────────────────────────────────────
+function mutateWorld(fd, questSeed) {
+  const { grid, storeMap, W, H, stores, doors, wallEntities, looseItems } = fd;
+  const r = rng(questSeed + 4242);
+
+  const edgeTiles = [];
+  for (let y = 1; y < H-1; y++) {
+    for (let x = 1; x < W-1; x++) {
+      if (grid[y][x] !== T.CORRIDOR) continue;
+      for (const [dx, dz] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+        const nx = x+dx, ny = y+dz;
+        if (nx > 0 && nx < W-1 && ny > 0 && ny < H-1 && grid[ny][nx] === T.EMPTY) {
+          edgeTiles.push({ x, y, nx, ny, dx, dz }); break;
+        }
+      }
+    }
+  }
+  if (!edgeTiles.length) return null;
+
+  const edge = edgeTiles[Math.floor(r() * edgeTiles.length)];
+  const newTiles = [];
+
+  let cx = edge.nx, cy = edge.ny;
+  const len = 3 + Math.floor(r() * 3);
+  for (let i = 0; i < len; i++) {
+    // Bounds check before array access
+    if (cx <= 0 || cx >= W-1 || cy <= 0 || cy >= H-1) break;
+    if (grid[cy][cx] !== T.EMPTY) break;
+    grid[cy][cx] = T.CORRIDOR;
+    newTiles.push({ x: cx, y: cy });
+    cx += edge.dx; cy += edge.dz;
+  }
+  if (!newTiles.length) return null;
+
+  const addRoom = r() < 0.65;
+  if (addRoom) {
+    const pick = newTiles[Math.floor(r() * newTiles.length)];
+    const perp = edge.dx === 0 ? [1, 0] : [0, 1];
+    const side = r() < 0.5 ? 1 : -1;
+    const rw = 2 + Math.floor(r() * 2), rh = 2 + Math.floor(r() * 2);
+    const rx = pick.x + perp[0] * side;
+    const ry = pick.y + perp[1] * side;
+    if (rx > 0 && rx+rw < W && ry > 0 && ry+rh < H) {
+      let ok = true;
+      for (let dy = -1; dy <= rh && ok; dy++)
+        for (let dx2 = -1; dx2 <= rw && ok; dx2++) {
+          // Bounds check before access
+          const ty = ry+dy, tx = rx+dx2;
+          if (ty < 0 || ty >= H || tx < 0 || tx >= W) { ok = false; break; }
+          if (grid[ty][tx] !== T.EMPTY) ok = false;
+        }
+      if (ok) {
+        const palette = STORE_PALETTES[Math.floor(r() * STORE_PALETTES.length)];
+        const idx = stores.length;
+        stores.push({ palette, x: rx, y: ry, w: rw, h: rh, isBackRoom: true });
+        for (let dy = 0; dy < rh; dy++)
+          for (let dx2 = 0; dx2 < rw; dx2++) {
+            grid[ry+dy][rx+dx2] = T.STORE;
+            storeMap[ry+dy][rx+dx2] = idx;
+            newTiles.push({ x: rx+dx2, y: ry+dy });
+          }
+        doors.add(`${pick.x},${pick.y}:${rx},${ry}`);
+        doors.add(`${rx},${ry}:${pick.x},${pick.y}`);
+        const itemSeed = questSeed * 777 + rx * 13 + ry;
+        const item = generateItem(itemSeed);
+        const or = rng(itemSeed + 3);
+        item.rarity = item.rarity === "common" ? "uncommon" : item.rarity;
+        const ox = (or() - 0.5) * CELL * 0.4, oz = (or() - 0.5) * CELL * 0.4;
+        const requiredFace = Math.abs(ox) > Math.abs(oz) ? (ox > 0 ? 'E' : 'W') : (oz > 0 ? 'S' : 'N');
+        looseItems.push({ tileX: rx, tileY: ry, item, offsetX: ox, offsetZ: oz, requiredFace, id: `reward_${rx}_${ry}` });
+      }
+    }
+  }
+
+  const last = newTiles[newTiles.length - 1];
+  const wallFaces = [];
+  for (const [dx, dz, f] of [[0,-1,'N'],[0,1,'S'],[1,0,'E'],[-1,0,'W']]) {
+    const nx = last.x+dx, ny = last.y+dz;
+    if (ny < 0||ny>=H||nx<0||nx>=W||grid[ny][nx]===T.EMPTY) wallFaces.push(f);
+  }
+  if (wallFaces.length) {
+    wallEntities.push({ tileX: last.x, tileY: last.y, face: wallFaces[0], type: 'payphone', id: `phone_reward_${last.x}_${last.y}` });
+  }
+
+  return newTiles;
+}
+
+// ── TEXTURES ──────────────────────────────────────────────────────────────────
+const texCache = {};
+function makeTex(key, draw, w = 256, h = 256) {
+  if (texCache[key]) return texCache[key];
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  draw(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c); texCache[key] = t; return t;
+}
+function floorTex(color) {
+  return makeTex(`f${color}`, (ctx, w, h) => {
+    ctx.fillStyle = color; ctx.fillRect(0, 0, w, h);
+    const t = 64;
+    for (let y = 0; y < h; y += t) for (let x = 0; x < w; x += t) {
+      if (((x/t)+(y/t)) % 2 === 0) { ctx.fillStyle="rgba(0,0,0,0.1)"; ctx.save(); ctx.translate(x+t/2,y+t/2); ctx.rotate(Math.PI/4); ctx.fillRect(-t*.38,-t*.38,t*.76,t*.76); ctx.restore(); }
+      ctx.strokeStyle="rgba(0,0,0,0.18)"; ctx.lineWidth=1; ctx.save(); ctx.translate(x+t/2,y+t/2); ctx.rotate(Math.PI/4); ctx.strokeRect(-t*.38,-t*.38,t*.76,t*.76); ctx.restore();
+    }
+  });
+}
+function wallTex(color) {
+  return makeTex(`w${color}`, (ctx, w, h) => {
+    ctx.fillStyle=color; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle="rgba(255,255,255,0.07)"; for(let x=0;x<w;x+=28)ctx.fillRect(x,0,14,h);
+    ctx.strokeStyle="rgba(0,0,0,0.12)"; ctx.lineWidth=1; for(let y=0;y<h;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  });
+}
+function ceilTex(color) {
+  return makeTex(`c${color}`, (ctx, w, h) => {
+    ctx.fillStyle=color; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle="rgba(0,0,0,0.1)"; ctx.lineWidth=1.5;
+    for(let x=0;x<=w;x+=48){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+    for(let y=0;y<=h;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+    ctx.fillStyle="rgba(255,255,255,0.14)"; for(let x=0;x<w;x+=48)for(let y=0;y<h;y+=48)ctx.fillRect(x+4,y+4,40,40);
+  });
+}
+function doorTex() {
+  return makeTex("door", (ctx, w, h) => {
+    ctx.fillStyle="#C8A060"; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle="#8B6030"; ctx.lineWidth=4; ctx.strokeRect(6,6,w-12,h-12); ctx.strokeRect(w*.2,h*.05,w*.6,h*.9);
+    ctx.fillStyle="#FFD700"; ctx.beginPath(); ctx.arc(w*.72,h*.52,6,0,Math.PI*2); ctx.fill();
+  });
+}
+function atmTex() {
+  return makeTex("atm", (ctx, w, h) => {
+    ctx.fillStyle="#223344"; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle="#00FFCC"; ctx.lineWidth=3; ctx.strokeRect(4,4,w-8,h-8);
+    ctx.fillStyle="#001122"; ctx.fillRect(w*.1,h*.08,w*.8,h*.35);
+    ctx.fillStyle="#00FF88"; ctx.font=`bold ${w*.12}px monospace`; ctx.textAlign="center"; ctx.fillText("ATM",w/2,h*.28);
+    ctx.font=`${w*.07}px monospace`; ctx.fillStyle="#00CCAA"; ctx.fillText("$MALL CASH$",w/2,h*.38);
+    ctx.fillStyle="#334455"; ctx.fillRect(w*.15,h*.5,w*.7,h*.38);
+    for(let ky=0;ky<3;ky++)for(let kx=0;kx<3;kx++){ctx.fillStyle="#445566"; ctx.fillRect(w*.18+kx*w*.22,h*.53+ky*h*.11,w*.18,h*.09);}
+    ctx.fillStyle="#00FFCC"; ctx.fillRect(w*.2,h*.9,w*.6,h*.04);
+  });
+}
+function phoneTex() {
+  return makeTex("phone", (ctx, w, h) => {
+    ctx.fillStyle="#3355AA"; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle="#AACCFF"; ctx.lineWidth=3; ctx.strokeRect(4,4,w-8,h-8);
+    ctx.fillStyle="#223377"; ctx.fillRect(w*.1,h*.05,w*.8,h*.3);
+    ctx.fillStyle="#FFDD44"; ctx.font=`bold ${w*.09}px monospace`; ctx.textAlign="center";
+    ctx.fillText("PAYPHONE",w/2,h*.17);
+    ctx.fillStyle="#AACCFF"; ctx.font=`${w*.07}px monospace`; ctx.fillText("25¢",w/2,h*.28);
+    // Handset outline (using strokeRect instead of roundRect for compat)
+    ctx.strokeStyle="#AACCFF"; ctx.lineWidth=4;
+    ctx.strokeRect(w*.2, h*.38, w*.6, h*.22);
+    // Cord
+    ctx.strokeStyle="#334488"; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(w*.35,h*.6); ctx.bezierCurveTo(w*.2,h*.75,w*.8,h*.7,w*.65,h*.85); ctx.stroke();
+    // Keypad
+    ctx.fillStyle="#1A2855"; ctx.fillRect(w*.15,h*.62,w*.7,h*.3);
+    for(let ky=0;ky<3;ky++)for(let kx=0;kx<3;kx++){ctx.fillStyle="#2A3A66"; ctx.fillRect(w*.18+kx*w*.21,h*.65+ky*h*.08,w*.17,h*.06);}
+  });
+}
+
+// ── SCENE BUILDER ─────────────────────────────────────────────────────────────
+function buildScene(scene, fd, onlyTiles = null) {
+  if (!onlyTiles) {
+    const toRemove = [];
+    scene.children.forEach(c => { if (!(c.isAmbientLight)) toRemove.push(c); });
+    toRemove.forEach(c => scene.remove(c));
+  }
+
+  const { grid, storeMap, stores, doors, W, H, wallEntities, looseItems } = fd;
+
+  function mat(color, map) { return new THREE.MeshLambertMaterial({ color: color||0xffffff, ...(map?{map}:{}) }); }
+  function addBox(sx, sy, sz, px, py, pz, m) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz), m);
+    mesh.position.set(px,py,pz); scene.add(mesh); return mesh;
+  }
+  function getPal(x, y) {
+    if (grid[y][x] === T.CORRIDOR) return CORRIDOR_PALETTE;
+    const si = storeMap[y][x]; return si >= 0 ? stores[si].palette : CORRIDOR_PALETTE;
+  }
+  const wx = gx => gx*CELL+CELL/2, wz = gy => gy*CELL+CELL/2;
+  const passable = (x,y) => y>=0&&y<H&&x>=0&&x<W&&grid[y][x]!==T.EMPTY;
+
+  const tilesToBuild = onlyTiles ? new Set(onlyTiles.map(t => `${t.x},${t.y}`)) : null;
+  const shouldBuild = (x, y) => !tilesToBuild || tilesToBuild.has(`${x},${y}`);
+
+  const extendedTiles = tilesToBuild ? new Set(tilesToBuild) : null;
+  if (onlyTiles && extendedTiles) {
+    onlyTiles.forEach(t => {
+      [[0,-1],[0,1],[-1,0],[1,0]].forEach(([dx,dz]) => extendedTiles.add(`${t.x+dx},${t.y+dz}`));
+    });
+  }
+  const shouldBuildWall = (x, y) => !extendedTiles || extendedTiles.has(`${x},${y}`);
+
+  // Floors + ceilings
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!passable(x,y)) continue;
+    if (!shouldBuild(x,y)) continue;
+    const p = getPal(x,y);
+    const ft = floorTex(p.floor); ft.wrapS=ft.wrapT=THREE.RepeatWrapping; ft.repeat.set(1,1);
+    const ct = ceilTex(p.ceil); ct.wrapS=ct.wrapT=THREE.RepeatWrapping; ct.repeat.set(1,1);
+    addBox(CELL,.08,CELL,wx(x),0,wz(y),mat(0xffffff,ft));
+    addBox(CELL,.08,CELL,wx(x),WALL_H,wz(y),mat(0xffffff,ct));
+  }
+
+  // Walls
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!passable(x,y)) continue;
+    if (!shouldBuildWall(x,y)) continue;
+    const p = getPal(x,y);
+    const wt = wallTex(p.wall); wt.wrapS=wt.wrapT=THREE.RepeatWrapping; wt.repeat.set(1,.8);
+    [[0,-1,"x"],[0,1,"x"],[-1,0,"z"],[1,0,"z"]].forEach(([dx,dz,axis]) => {
+      const nx=x+dx, ny=y+dz;
+      const ewx=wx(x)+dx*CELL/2, ewz=wz(y)+dz*CELL/2;
+      if (!passable(nx,ny)) {
+        addBox(axis==="x"?CELL:.15,WALL_H,axis==="x"?.15:CELL,ewx,WALL_H/2,ewz,mat(0xffffff,wt));
+      } else if (grid[ny][nx]!==grid[y][x]&&!doors.has(`${x},${y}:${nx},${ny}`)&&(x<nx||y<ny)) {
+        const isStoreFront=(grid[y][x]===T.CORRIDOR&&grid[ny][nx]===T.STORE)||(grid[y][x]===T.STORE&&grid[ny][nx]===T.CORRIDOR);
+        if (isStoreFront) {
+          // Non-door storefront glass — whole wall panel, very translucent
+          const gm=new THREE.MeshLambertMaterial({color:0xCCE8FF,transparent:true,opacity:0.15,side:THREE.DoubleSide,depthWrite:false});
+          const gp=new THREE.Mesh(new THREE.BoxGeometry(axis==="x"?CELL:0.06,WALL_H,axis==="x"?0.06:CELL),gm);
+          gp.position.set(ewx,WALL_H/2,ewz); scene.add(gp);
+        } else {
+          const p2=getPal(nx,ny); const wt2=wallTex(p2.wall); wt2.wrapS=wt2.wrapT=THREE.RepeatWrapping; wt2.repeat.set(1,.8);
+          addBox(axis==="x"?CELL:.18,WALL_H,axis==="x"?.18:CELL,ewx,WALL_H/2,ewz,mat(0xffffff,wt2));
+        }
+      } else if (grid[ny][nx]!==grid[y][x]&&doors.has(`${x},${y}:${nx},${ny}`)) {
+        const isX=axis==="x";
+        // Full storefront glass panel — same as non-door glass, but with door insert
+        const gm=new THREE.MeshLambertMaterial({color:0xCCE8FF,transparent:true,opacity:0.15,side:THREE.DoubleSide,depthWrite:false});
+        const gp=new THREE.Mesh(new THREE.BoxGeometry(isX?CELL:0.06,WALL_H,isX?0.06:CELL),gm);
+        gp.position.set(ewx,WALL_H/2,ewz); scene.add(gp);
+        // Door insert — narrower, slightly more opaque, sits slightly proud of the glass
+        const dw=CELL*0.42;
+        const dm=new THREE.MeshLambertMaterial({color:0x99BBCC,transparent:true,opacity:0.5,side:THREE.DoubleSide,depthWrite:false});
+        const dp=new THREE.Mesh(new THREE.BoxGeometry(isX?dw:0.1,WALL_H*0.84,isX?0.1:dw),dm);
+        dp.position.set(ewx,WALL_H*0.42,ewz); scene.add(dp);
+        // Metal door frame — vertical jambs + header
+        const tr=mat(0xBBBBBB);
+        const jo=dw/2+0.05;
+        addBox(isX?0.07:0.1,WALL_H*0.86,isX?0.1:0.07, ewx+(isX?-jo:0), WALL_H*0.43, ewz+(isX?0:-jo), tr);
+        addBox(isX?0.07:0.1,WALL_H*0.86,isX?0.1:0.07, ewx+(isX? jo:0), WALL_H*0.43, ewz+(isX?0: jo), tr);
+        addBox(isX?dw+0.14:0.1,0.07,isX?0.1:dw+0.14, ewx, WALL_H*0.85+0.035, ewz, tr);
+      }
+    });
+  }
+
+  // Props
+  const CORRIDOR_PROPS=["bench","plant","trashcan","kiosk","fountain"];
+  const STORE_PROPS=["shelf","rack","display","counter","mannequin"];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (grid[y][x]===T.EMPTY) continue;
+    if (!shouldBuild(x,y)) continue;
+    const pr = rng(fd.seed*137+y*31+x);
+    const chance = grid[y][x]===T.CORRIDOR?0.10:0.16;
+    if (pr()<chance) {
+      const p=getPal(x,y); const ac=parseInt((p.wall||"#888888").replace("#",""),16);
+      const props=grid[y][x]===T.CORRIDOR?CORRIDOR_PROPS:STORE_PROPS;
+      // Occasionally place two distinct props per tile for organic clustering
+      const count = pr() < 0.28 ? 2 : 1;
+      for (let pi=0; pi<count; pi++) {
+        const type=props[Math.floor(pr()*props.length)];
+        // Wider scatter: up to ±62% of cell width, independent per prop
+        const ox=(pr()-0.5)*CELL*0.62, oz=(pr()-0.5)*CELL*0.62;
+        spawnProp(type,wx(x)+ox,wz(y)+oz,ac,scene,addBox,mat);
+      }
+    }
+  }
+
+  // Wall entities
+  wallEntities.forEach(we => {
+    if (onlyTiles && !tilesToBuild.has(`${we.tileX},${we.tileY}`)) return;
+    const { tileX, tileY, face, type } = we;
+    const cx = wx(tileX), cz = wz(tileY);
+    const offset = CELL/2-0.12;
+    const positions = {
+      N:{px:cx,pz:cz-offset,ry:0}, S:{px:cx,pz:cz+offset,ry:Math.PI},
+      E:{px:cx+offset,pz:cz,ry:-Math.PI/2}, W:{px:cx-offset,pz:cz,ry:Math.PI/2},
+    };
+    const fo = positions[face];
+    if (type === 'atm') {
+      const at=atmTex();
+      const atm=new THREE.Mesh(new THREE.BoxGeometry(0.9,2.1,0.22),mat(0x223344,at));
+      atm.position.set(fo.px,1.05,fo.pz); atm.rotation.y=fo.ry; scene.add(atm);
+      const gl=new THREE.PointLight(0x00FFCC,0.8,4); gl.position.set(fo.px,2.5,fo.pz); scene.add(gl);
+    } else if (type === 'payphone') {
+      const pt=phoneTex();
+      const phone=new THREE.Mesh(new THREE.BoxGeometry(0.75,1.8,0.18),mat(0x3355AA,pt));
+      phone.position.set(fo.px,0.9,fo.pz); phone.rotation.y=fo.ry; scene.add(phone);
+      const recv=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.45,0.12),mat(0x1A2244));
+      recv.position.set(fo.px+(face==='N'||face==='S'?0.45:0),0.75,fo.pz+(face==='E'||face==='W'?0.3:0));
+      scene.add(recv);
+      const pl=new THREE.PointLight(0x4466FF,0.6,3); pl.position.set(fo.px,2.0,fo.pz); scene.add(pl);
+    }
+  });
+
+  // Loose items
+  looseItems.forEach(li => {
+    if (onlyTiles && !tilesToBuild.has(`${li.tileX},${li.tileY}`)) return;
+    const { tileX, tileY, item, offsetX, offsetZ } = li;
+    const ix=wx(tileX)+offsetX, iz=wz(tileY)+offsetZ;
+    const icolor=parseInt(item.color.replace("#",""),16);
+    addBox(0.35,0.06,0.35,ix,0.52,iz,mat(0x999999));
+    const im=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.24,0.24),mat(icolor));
+    im.position.set(ix,0.69,iz); scene.add(im);
+    const rc=parseInt(RARITY_COLORS[item.rarity].replace("#",""),16);
+    const rl=new THREE.PointLight(rc,0.5,2.2); rl.position.set(ix,1.1,iz); scene.add(rl);
+  });
+
+  // Ceiling lights
+  for (let y = 0; y < H; y+=2) for (let x = 0; x < W; x+=2) {
+    if (!passable(x,y)) continue;
+    if (!shouldBuild(x,y)) continue;
+    const p=getPal(x,y);
+    const col=p===CORRIDOR_PALETTE?0xFFFDE0:new THREE.Color(p.ceil).getHex();
+    const light=new THREE.PointLight(col,0.75,CELL*3.5);
+    light.position.set(wx(x),WALL_H-.2,wz(y)); scene.add(light);
+  }
+}
+
+function spawnProp(type, wx, wz, ac, scene, addBox, mat) {
+  switch(type) {
+    case"bench": addBox(1.8,.12,.5,wx,.45,wz,mat(0x8B6B3D)); addBox(.1,.4,.5,wx-.8,.2,wz,mat(0x6B4B2D)); addBox(.1,.4,.5,wx+.8,.2,wz,mat(0x6B4B2D)); break;
+    case"plant": { addBox(.4,.4,.4,wx,.2,wz,mat(0xC8A060)); addBox(.1,.8,.1,wx,.85,wz,mat(0x5C3D1E)); const g=new THREE.SphereGeometry(.4,7,7); const m=new THREE.Mesh(g,mat(0x2D7B2D)); m.position.set(wx,1.5,wz); scene.add(m); break; }
+    case"trashcan": addBox(.35,.7,.35,wx,.35,wz,mat(0x444444)); break;
+    case"kiosk": addBox(1.2,.9,.7,wx,.45,wz,mat(ac)); addBox(1.0,.05,.5,wx,.93,wz,mat(0xCCCCCC)); break;
+    case"fountain": { const bm=new THREE.Mesh(new THREE.CylinderGeometry(.9,1,.4,12),mat(0xC8B89A)); bm.position.set(wx,.2,wz); scene.add(bm); const wm=new THREE.Mesh(new THREE.CylinderGeometry(.75,.75,.06,12),mat(0x5BA8C4)); wm.position.set(wx,.45,wz); scene.add(wm); break; }
+    case"shelf": addBox(1.4,1.5,.35,wx,.75,wz,mat(ac)); [.5,1.0,1.45].forEach(h=>addBox(1.2,.06,.3,wx,h,wz,mat(0xEEEEEE))); break;
+    case"rack": addBox(.06,1.3,.06,wx-.6,.65,wz,mat(0x999999)); addBox(.06,1.3,.06,wx+.6,.65,wz,mat(0x999999)); addBox(1.2,.06,.06,wx,1.25,wz,mat(0xCCCCCC)); for(let i=-.45;i<=.45;i+=.3){const hm=new THREE.Mesh(new THREE.BoxGeometry(.2,.5,.06),mat(ac)); hm.position.set(wx+i,1,wz); scene.add(hm);} break;
+    case"display": addBox(.9,.06,.9,wx,.7,wz,mat(0xDDDDDD)); addBox(.06,.65,.06,wx,.37,wz,mat(0xAAAAAA)); addBox(.7,.06,.7,wx,.06,wz,mat(0xCCCCCC)); break;
+    case"counter": addBox(1.6,.9,.5,wx,.45,wz,mat(ac)); addBox(1.7,.06,.6,wx,.93,wz,mat(0xEEEEEE)); break;
+    case"mannequin": addBox(.35,.55,.25,wx,1.15,wz,mat(ac)); addBox(.18,.3,.18,wx,1.7,wz,mat(0xF5DEB3)); addBox(.08,.3,.08,wx+.22,1,wz,mat(0xF5DEB3)); addBox(.08,.3,.08,wx-.22,1,wz,mat(0xF5DEB3)); addBox(.08,.6,.08,wx+.12,.4,wz,mat(0xF5DEB3)); addBox(.08,.6,.08,wx-.12,.4,wz,mat(0xF5DEB3)); addBox(.3,.06,.3,wx,.03,wz,mat(0x555555)); break;
+  }
+}
+
+// ── GLOBAL STATE ──────────────────────────────────────────────────────────────
+const G = {
+  player: { px: 0, py: 0, dir: 0, floor: 1 },
+  fd: null,
+  hands: [null, null],
+  playerStats: {},
+  activeQuest: null,
+  questLog: [],
+  moving: false,
+  bumpMode: null,
+};
+
+// Three.js module-level refs
+let renderer, scene, camera;
+let borderTO = null, acquiredTO = null, worldEventTO = null;
+
+// ── CAMERA ────────────────────────────────────────────────────────────────────
+function snapCamera() {
+  if (!camera || !G.fd) return;
+  const { px, py, dir } = G.player;
+  camera.position.set(px*CELL+CELL/2, PLAYER_H, py*CELL+CELL/2);
+  camera.rotation.set(0, -DIR_ANGLE[dir], 0);
+}
+
+// ── HUD RENDERER ──────────────────────────────────────────────────────────────
+function renderHUD() {
+  const { player, fd, hands, playerStats, activeQuest, bumpMode } = G;
+  const dirLabel = DIR_LABELS[player.dir];
+
+  // Floor / dir
+  document.getElementById('hud-floor-dir').textContent = `FLOOR ${player.floor} · ${dirLabel}`;
+
+  // Store name
+  const storeEl = document.getElementById('hud-store-name');
+  if (fd && fd.grid[player.py]?.[player.px] === T.STORE) {
+    const si = fd.storeMap[player.py][player.px];
+    if (si >= 0) {
+      const s = fd.stores[si];
+      storeEl.textContent = s.palette.name + (s.isBackRoom ? ' (back room)' : '');
+      storeEl.style.display = 'block';
+    } else { storeEl.style.display = 'none'; }
+  } else { storeEl.style.display = 'none'; }
+
+  // Quest note
+  const questEl = document.getElementById('hud-quest');
+  if (activeQuest) {
+    questEl.textContent = '📝 ' + activeQuest.msg;
+    questEl.style.display = 'block';
+  } else { questEl.style.display = 'none'; }
+
+  // Compass
+  document.querySelectorAll('.compass-dir').forEach(el => {
+    el.classList.toggle('active', el.dataset.d === dirLabel);
+  });
+
+  // Stats
+  const statsEl = document.getElementById('hud-stats');
+  const statKeys = Object.keys(playerStats);
+  if (statKeys.length > 0) {
+    let html = '<div class="stats-label">STATS</div>';
+    statKeys.forEach(k => {
+      const total = (hands[0]?.stats?.[k] || 0) + (hands[1]?.stats?.[k] || 0);
+      html += `<div class="stat-row">${k} ${total > 0 ? '+' + total : 0}</div>`;
+    });
+    statsEl.innerHTML = html;
+    statsEl.style.display = 'block';
+  } else { statsEl.style.display = 'none'; }
+
+  // Hand cards
+  renderHandCard('hud-left-hand', hands[0], 'L HAND');
+  renderHandCard('hud-right-hand', hands[1], 'R HAND');
+
+  // Bump prompt
+  renderBumpPrompt();
+}
+
+function renderHandCard(id, item, label) {
+  const el = document.getElementById(id);
+  if (!item) {
+    el.innerHTML = `<div class="item-card empty"><div class="card-hand-label">${label}</div><div class="card-icon">——</div></div>`;
+    return;
+  }
+  const rc = RARITY_COLORS[item.rarity];
+  let statRows = Object.entries(item.stats || {}).map(([k,v]) => `<div class="card-stat">${k} +${v}</div>`).join('');
+  el.innerHTML = `<div class="item-card filled" style="border:2px solid ${rc};box-shadow:0 0 10px ${rc}55;">
+    <div class="card-hand-label">${label}${item.crafted ? ' ✨' : ''}</div>
+    <div class="card-swatch" style="background:${item.color};box-shadow:0 0 8px ${item.color}88;"></div>
+    ${item.prefix ? `<div class="card-prefix">${item.prefix.name}</div>` : ''}
+    <div class="card-name">${item.name}</div>
+    ${item.suffix ? `<div class="card-suffix">${item.suffix.name}</div>` : ''}
+    <div class="card-rarity" style="color:${rc};">${item.rarity.toUpperCase()}</div>
+    ${statRows}
+  </div>`;
+}
+
+function renderBumpPrompt() {
+  const el = document.getElementById('hud-bump-prompt');
+  const bm = G.bumpMode;
+  if (!bm) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+
+  const { target } = bm;
+
+  if (target.kind === 'atm') {
+    el.innerHTML = `<div class="bump-box atm">
+      <div style="font-size:16px;margin-bottom:4px;">💳 ATM</div>
+      <div style="font-size:11px;color:#AAFFCC;">Move forward to withdraw</div>
+    </div>`;
+    return;
+  }
+
+  if (target.kind === 'phone') {
+    const hasMatch = G.hands.some(h => h && questMatchesItem(G.activeQuest, h));
+    let inner = '';
+    if (G.activeQuest) {
+      inner = `<div style="color:#FFDD44;font-size:11px;margin-bottom:4px;">Active quest: ${G.activeQuest.giver}</div>
+        <div style="font-size:10px;color:${hasMatch ? '#44FF88' : '#AAAAAA'};">
+          ${hasMatch ? '✓ You have what they need! Forward to deliver.' : "You don't have the right item yet."}
+        </div>`;
+    } else {
+      inner = `<div style="font-size:11px;color:#AACCFF;">Forward to call — someone might need something.</div>`;
+    }
+    el.innerHTML = `<div class="bump-box phone">
+      <div style="font-size:16px;margin-bottom:6px;">📞 PAYPHONE</div>
+      ${inner}
+    </div>`;
+    return;
+  }
+
+  if (target.kind === 'item') {
+    const li = target.entity;
+    const item = li.item;
+    const rc = RARITY_COLORS[item.rarity];
+    const facingCorrectly = DIRS[G.player.dir].f === li.requiredFace;
+    const questMatch = G.activeQuest && questMatchesItem(G.activeQuest, item);
+    el.innerHTML = `<div class="bump-box item" style="border:2px solid ${questMatch ? '#44FF88' : rc};">
+      ${questMatch ? '<div style="color:#44FF88;font-size:10px;margin-bottom:4px;">📝 QUEST MATCH</div>' : ''}
+      <div style="color:${rc};font-weight:bold;font-size:14px;margin-bottom:4px;">${itemDisplayName(item)}</div>
+      <div style="font-size:10px;color:#AAAAAA;margin-bottom:6px;">${item.rarity.toUpperCase()}</div>
+      ${facingCorrectly
+        ? '<div style="color:#00FF99;font-size:11px;">Forward to buy · costs 1 💳</div>'
+        : `<div style="color:#FFCC44;font-size:11px;">Face ${FACE_ARROW[li.requiredFace]} to buy</div>`}
+    </div>`;
+    return;
+  }
+
+  if (target.kind === 'error') {
+    el.innerHTML = `<div class="bump-box error">⚠ ${target.msg}</div>`;
+  }
+}
+
+// ── FLASH HELPERS ─────────────────────────────────────────────────────────────
+function flashBorder(color, ms = 300) {
+  const el = document.getElementById('hud-border');
+  el.className = '';
+  if (color) {
+    el.classList.add(color);
+    if (borderTO) clearTimeout(borderTO);
+    if (ms > 0) borderTO = setTimeout(() => { el.className = ''; }, ms);
+  }
+}
+
+function showAcquired(msg, color, ms = 2500) {
+  const el = document.getElementById('hud-acquired');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.border = `2px solid ${color || '#00FF99'}`;
+  if (acquiredTO) clearTimeout(acquiredTO);
+  acquiredTO = setTimeout(() => { el.style.display = 'none'; }, ms);
+}
+
+function showWorldEvent(msg, ms = 4000) {
+  const el = document.getElementById('hud-world-event');
+  el.textContent = msg;
+  el.style.display = 'block';
+  if (worldEventTO) clearTimeout(worldEventTO);
+  worldEventTO = setTimeout(() => { el.style.display = 'none'; }, ms);
+}
+
+function showPhoneMsg(text, borderColor, ms = 4000) {
+  const el = document.getElementById('hud-phone-msg');
+  el.style.border = `2px solid ${borderColor}`;
+  el.style.boxShadow = `0 0 20px ${borderColor}44`;
+  el.innerHTML = `<div class="phone-msg-label">📞 PAYPHONE</div>
+    <div class="phone-msg-text" style="color:${borderColor};">${text}</div>`;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, ms);
+}
+
+// ── ITEM PICKUP ───────────────────────────────────────────────────────────────
+function learnAndPickup(item) {
+  // Add stat keys to playerStats
+  Object.keys(item.stats || {}).forEach(k => {
+    if (!(k in G.playerStats)) G.playerStats[k] = 0;
+  });
+  // Put in first empty hand
+  if (!G.hands[0]) { G.hands[0] = item; }
+  else if (!G.hands[1]) { G.hands[1] = item; }
+  // If both full, replace whichever had a dollar (or just ignore — both full)
+}
+
+// ── INTERACTION ───────────────────────────────────────────────────────────────
+function handlePhoneBump() {
+  // Check if holding a quest-matching item
+  const matchIdx = G.hands.findIndex(h => h && questMatchesItem(G.activeQuest, h));
+  if (G.activeQuest && matchIdx >= 0) {
+    const delivered = G.hands[matchIdx];
+    G.hands[matchIdx] = null;
+
+    const replyMsgs = [
+      `${G.activeQuest.giver}: Oh this is PERFECT, thank you so much!!`,
+      `${G.activeQuest.giver}: ...wow. This is exactly what I needed.`,
+      `${G.activeQuest.giver}: I can't believe you found this. You're the best.`,
+      `${G.activeQuest.giver}: *long pause* ...yeah okay this works. Thanks.`,
+    ];
+    const reply = replyMsgs[Math.floor(rng(Date.now())() * replyMsgs.length)];
+    showPhoneMsg(reply, '#44FF88', 4000);
+
+    G.questLog.push({ ...G.activeQuest, complete: true, delivered: itemDisplayName(delivered) });
+
+    // Scraggle
+    window.parent.postMessage({ type: 'scraggle', emoji: '🛍', text: `Quest completed for ${G.activeQuest.giver}` }, '*');
+
+    G.activeQuest = null;
+
+    // World mutation
+    const newTiles = mutateWorld(G.fd, Date.now());
+    if (newTiles && newTiles.length) {
+      buildScene(scene, G.fd, newTiles);
+
+      // Direction hint — which way is the new entrance from the player?
+      const entrance = newTiles[0];
+      const ddx = entrance.x - G.player.px;
+      const ddy = entrance.y - G.player.py;
+      let dirHint;
+      if (Math.abs(ddx) >= Math.abs(ddy)) dirHint = ddx >= 0 ? 'EAST' : 'WEST';
+      else dirHint = ddy >= 0 ? 'SOUTH' : 'NORTH';
+
+      // Pulsing beacon at the entrance — warm orange light, fades out after ~5s
+      const bx = entrance.x * CELL + CELL / 2;
+      const bz = entrance.y * CELL + CELL / 2;
+      const beacon = new THREE.PointLight(0xFF9944, 4, CELL * 6);
+      beacon.position.set(bx, WALL_H - 0.4, bz);
+      scene.add(beacon);
+      let pulseCount = 0;
+      const pulse = () => {
+        pulseCount++;
+        beacon.intensity = pulseCount % 2 === 0 ? 4 : 0.4;
+        if (pulseCount < 10) setTimeout(pulse, 450);
+        else scene.remove(beacon);
+      };
+      setTimeout(pulse, 1200);
+
+      setTimeout(() => showWorldEvent(`🗺 NEW AREA OPENED · HEAD ${dirHint} · FOLLOW THE LIGHT`, 5500), 1000);
+    }
+    renderHUD();
+    return;
+  }
+
+  // New quest or babble
+  if (!G.activeQuest) {
+    G.activeQuest = generateQuest(Date.now());
+    showPhoneMsg(G.activeQuest.msg, '#FFDD44', 5000);
+  } else {
+    const babble = PAYPHONE_BABBLE[Math.floor(rng(Date.now())() * PAYPHONE_BABBLE.length)];
+    const who = G.activeQuest.giver.split(" ")[0];
+    showPhoneMsg(`${who}: "${babble}"`, '#AACCFF', 3500);
+  }
+  renderHUD();
+}
+
+function doConfirmBump() {
+  if (!G.bumpMode) return;
+  const { target } = G.bumpMode;
+  G.bumpMode = null;
+
+  if (target.kind === 'atm') {
+    const dollar = generateDollar(Date.now());
+    learnAndPickup(dollar);
+    showAcquired(`💳 ${dollar.rarity.toUpperCase()} Mall Dollar dispensed!`, '#00FFCC');
+    flashBorder('green', 500);
+    renderHUD();
+    return;
+  }
+
+  if (target.kind === 'phone') {
+    handlePhoneBump();
+    return;
+  }
+
+  if (target.kind === 'item') {
+    // Need a dollar
+    const dollarIdx = G.hands.findIndex(h => h && h.isDollar);
+    if (dollarIdx < 0) {
+      G.bumpMode = { target: { kind: 'error', msg: 'Need a Mall Dollar first!' } };
+      flashBorder('red', 600);
+      renderHUD();
+      setTimeout(() => {
+        G.bumpMode = null;
+        renderHUD();
+      }, 1800);
+      return;
+    }
+    const dollar = G.hands[dollarIdx];
+    G.hands[dollarIdx] = null;
+    const craftedItem = craftItemWithDollar(target.entity.item, dollar);
+    learnAndPickup(craftedItem);
+
+    // Remove from looseItems
+    const idx = G.fd.looseItems.indexOf(target.entity);
+    if (idx >= 0) G.fd.looseItems.splice(idx, 1);
+    buildScene(scene, G.fd);
+
+    const wasUpgraded = craftedItem.rarity !== target.entity.item.rarity;
+    flashBorder('green', 500);
+    showAcquired(
+      wasUpgraded
+        ? `✨ ${itemDisplayName(craftedItem)} — UPGRADED to ${craftedItem.rarity.toUpperCase()}!`
+        : `Got: ${itemDisplayName(craftedItem)}`,
+      RARITY_COLORS[craftedItem.rarity]
+    );
+    renderHUD();
+  }
+}
+
+function tryMove(fwd) {
+  if (!G.fd || G.moving) return;
+
+  if (G.bumpMode) {
+    if (fwd) doConfirmBump();
+    else {
+      G.bumpMode = null;
+      flashBorder('', 0);
+      document.getElementById('hud-border').className = '';
+      renderHUD();
+    }
+    return;
+  }
+
+  const d = DIRS[G.player.dir];
+  const dx = fwd ? d.dx : -d.dx, dz = fwd ? d.dz : -d.dz;
+  const nx = G.player.px + dx, ny = G.player.py + dz;
+  const { fd } = G;
+  const outOfBounds = ny < 0 || ny >= fd.H || nx < 0 || nx >= fd.W || fd.grid[ny][nx] === T.EMPTY;
+  const wallBlocked = !outOfBounds && fd.grid[ny][nx] !== fd.grid[G.player.py][G.player.px] && !fd.doors.has(`${G.player.px},${G.player.py}:${nx},${ny}`);
+
+  if (fwd && (outOfBounds || wallBlocked)) {
+    // Check for ATM
+    const atm = fd.wallEntities.find(e => e.type === 'atm' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
+    if (atm) {
+      G.bumpMode = { target: { kind: 'atm', entity: atm } };
+      flashBorder('green', -1);
+      renderHUD();
+      return;
+    }
+    // Check for payphone
+    const phone = fd.wallEntities.find(e => e.type === 'payphone' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
+    if (phone) {
+      G.bumpMode = { target: { kind: 'phone', entity: phone } };
+      flashBorder('green', -1);
+      renderHUD();
+      return;
+    }
+    flashBorder('red');
+    return;
+  }
+  if (!fwd && (outOfBounds || wallBlocked)) { flashBorder('red'); return; }
+
+  // Move
+  G.player.px = nx; G.player.py = ny;
+  const tx = nx*CELL+CELL/2, tz = ny*CELL+CELL/2;
+  const sx2 = camera.position.x, sz2 = camera.position.z;
+  G.moving = true;
+  const t0 = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - t0) / 180);
+    const e = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    camera.position.x = sx2 + (tx - sx2) * e;
+    camera.position.z = sz2 + (tz - sz2) * e;
+    if (t < 1) { requestAnimationFrame(tick); }
+    else {
+      G.moving = false;
+      // Check for loose items on landing
+      const items = fd.looseItems.filter(li => li.tileX === G.player.px && li.tileY === G.player.py);
+      if (items.length) {
+        const match = items.find(li => li.requiredFace === DIRS[G.player.dir].f) || items[0];
+        G.bumpMode = { target: { kind: 'item', entity: match } };
+        flashBorder('green', -1);
+      }
+      renderHUD();
+    }
+  };
+  requestAnimationFrame(tick);
+}
+
+function tryTurn(right) {
+  if (G.moving) return;
+  const newDir = (G.player.dir + (right ? 1 : 3)) % 4;
+
+  // Update bump mode for item facing
+  if (G.bumpMode?.target.kind === 'item') {
+    const items = G.fd.looseItems.filter(li => li.tileX === G.player.px && li.tileY === G.player.py);
+    const match = items.find(li => li.requiredFace === DIRS[newDir].f);
+    if (match) {
+      G.bumpMode = { target: { kind: 'item', entity: match } };
+    } else {
+      G.bumpMode = null;
+      document.getElementById('hud-border').className = '';
+    }
+  } else if (G.bumpMode) {
+    G.bumpMode = null;
+    document.getElementById('hud-border').className = '';
+  }
+
+  G.player.dir = newDir;
+  const target = -DIR_ANGLE[newDir];
+  let start = camera.rotation.y;
+  let diff = target - start;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  G.moving = true;
+  const t0 = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - t0) / 140);
+    const e = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    camera.rotation.y = start + diff * e;
+    if (t < 1) { requestAnimationFrame(tick); }
+    else { camera.rotation.y = target; G.moving = false; renderHUD(); }
+  };
+  requestAnimationFrame(tick);
+}
+
+function handleKey(e) {
+  if (e.code === 'ArrowUp'    || e.code === 'KeyW') tryMove(true);
+  if (e.code === 'ArrowDown'  || e.code === 'KeyS') tryMove(false);
+  if (e.code === 'ArrowLeft'  || e.code === 'KeyA') tryTurn(false);
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') tryTurn(true);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function init() {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  const mount = document.getElementById('mount');
+  mount.insertBefore(renderer.domElement, mount.firstChild);
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color('#C8B89A');
+  scene.fog = new THREE.Fog('#C8B89A', CELL*4, CELL*11);
+  scene.add(new THREE.AmbientLight(0xFFF8E7, 0.55));
+
+  camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 200);
+  camera.position.y = PLAYER_H;
+
+  G.fd = generateFloor(Date.now());
+  G.player.px = G.fd.startX;
+  G.player.py = G.fd.startY;
+  buildScene(scene, G.fd);
+  snapCamera();
+
+  // Render loop
+  (function loop() { requestAnimationFrame(loop); renderer.render(scene, camera); })();
+
+  // Input
+  window.addEventListener('keydown', handleKey);
+
+  // Resize
+  window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  });
+
+  // Touch controls
+  document.getElementById('btn-fwd').addEventListener('pointerdown',  e => { e.preventDefault(); tryMove(true); });
+  document.getElementById('btn-back').addEventListener('pointerdown', e => { e.preventDefault(); tryMove(false); });
+  document.getElementById('btn-left').addEventListener('pointerdown', e => { e.preventDefault(); tryTurn(false); });
+  document.getElementById('btn-right').addEventListener('pointerdown',e => { e.preventDefault(); tryTurn(true); });
+
+  // Hub integration
+  window.parent.postMessage({ type: 'hub:minimize' }, '*');
+
+  renderHUD();
+}
+
+init();
+</script>
+</body>
+</html>
