@@ -465,6 +465,12 @@ function craftItemWithDollar(item, dollar) {
   Object.entries(dollar.stats || {}).forEach(([k, v]) => {
     newStats[k] = (newStats[k] || 0) + Math.ceil(v / 2);
   });
+  // Signature infusion — hidden stat fragments bleed into crafted items (60% chance per stat)
+  Object.entries(G.hiddenStats || {}).forEach(([k, v]) => {
+    if (v > 0 && Math.random() < 0.6) {
+      newStats[k] = (newStats[k] || 0) + Math.ceil(v * 0.5);
+    }
+  });
   let newRarity = item.rarity;
   const dollarRarityIdx = RARITY_ORDER.indexOf(dollar.rarity);
   const itemRarityIdx = RARITY_ORDER.indexOf(item.rarity);
@@ -595,7 +601,7 @@ function generateFloor(seed) {
   // Wall entities: ATMs + Payphones
   const wallEntities = [];
   const weRand = rng(seed + 99);
-  let atmCount = 0, phoneCount = 0;
+  let atmCount = 0, phoneCount = 0, shippitCount = 0;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       if (grid[y][x] !== T.CORRIDOR) continue;
@@ -609,10 +615,10 @@ function generateFloor(seed) {
       if (x === 0 || grid[y][x-1] === T.EMPTY) candidates.push('W');
       if (!candidates.length) continue;
       const face = candidates[Math.floor(weRand() * candidates.length)];
-      const type = atmCount < 2 ? 'atm' : phoneCount < 2 ? 'payphone' : null;
+      const type = atmCount < 2 ? 'atm' : phoneCount < 2 ? 'payphone' : shippitCount < 1 ? 'shippit' : null;
       if (!type) continue;
       wallEntities.push({ tileX: x, tileY: y, face, type, id: `${type}_${x}_${y}` });
-      if (type === 'atm') atmCount++; else phoneCount++;
+      if (type === 'atm') atmCount++; else if (type === 'payphone') phoneCount++; else shippitCount++;
     }
   }
 
@@ -952,7 +958,7 @@ function buildScene(scene, fd, onlyTiles = null) {
     if (!shouldBuild(x,y)) continue;
     if (x === fd.escalatorX && y === fd.escalatorY) continue; // keep escalator tile clear
     const pr = rng(fd.seed*137+y*31+x);
-    const chance = grid[y][x]===T.CORRIDOR?0.10:0.16;
+    const chance = grid[y][x]===T.CORRIDOR?0.14:0.22;
     if (pr()<chance) {
       const p=getPal(x,y); const ac=parseInt((p.wall||"#888888").replace("#",""),16);
       const props=grid[y][x]===T.CORRIDOR?CORRIDOR_PROPS:STORE_PROPS;
@@ -991,6 +997,16 @@ function buildScene(scene, fd, onlyTiles = null) {
       recv.position.set(fo.px+(face==='N'||face==='S'?0.45:0),0.75,fo.pz+(face==='E'||face==='W'?0.3:0));
       scene.add(recv);
       const pl=new THREE.PointLight(0x4466FF,0.6,3); pl.position.set(fo.px,2.0,fo.pz); scene.add(pl);
+    } else if (type === 'shippit') {
+      // SHIP-IT return counter — white desk, purple screen
+      const base=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.88,0.3),mat(0xF0EBF8));
+      base.position.set(fo.px,0.44,fo.pz); base.rotation.y=fo.ry; scene.add(base);
+      const screen=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.4,0.07),mat(0x4422AA));
+      screen.position.set(fo.px,1.0,fo.pz); screen.rotation.y=fo.ry; scene.add(screen);
+      const glow=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.24,0.06),mat(0xCC88FF));
+      glow.position.set(fo.px,1.02,fo.pz); glow.rotation.y=fo.ry; scene.add(glow);
+      const spl=new THREE.PointLight(0xAA33FF,0.75,CELL*3);
+      spl.position.set(fo.px,2.2,fo.pz); scene.add(spl);
     }
   });
 
@@ -1136,6 +1152,7 @@ const G = {
   fd: null,
   hands: [null, null],
   playerStats: {},
+  hiddenStats: {}, // stat fragments retained from shipped items — your signature
   activeQuest: null,
   questLog: [],
   moving: false,
@@ -1194,6 +1211,14 @@ function renderHUD() {
       const total = (hands[0]?.stats?.[k] || 0) + (hands[1]?.stats?.[k] || 0);
       html += `<div class="stat-row">${k} ${total > 0 ? '+' + total : 0}</div>`;
     });
+    // Signature — hidden stat fragments accumulated from shipped items
+    const hiddenKeys = Object.keys(G.hiddenStats || {}).filter(k => G.hiddenStats[k] > 0);
+    if (hiddenKeys.length) {
+      html += `<div class="stats-label" style="margin-top:6px;padding-top:4px;border-top:1px solid rgba(187,68,255,0.3);color:#CC88FF;">SIGNATURE</div>`;
+      hiddenKeys.forEach(k => {
+        html += `<div class="stat-row" style="color:#CC88FF;">${k} +${G.hiddenStats[k]}</div>`;
+      });
+    }
     statsEl.innerHTML = html;
     statsEl.style.display = 'block';
   } else { statsEl.style.display = 'none'; }
@@ -1276,6 +1301,27 @@ function renderBumpPrompt() {
     return;
   }
 
+  if (target.kind === 'ship') {
+    const { selectedHand } = target;
+    const item = G.hands[selectedHand];
+    el.innerHTML = `<div class="bump-box" style="border:2px solid #AA33FF;background:rgba(40,10,60,0.88);">
+      <div style="font-size:14px;margin-bottom:4px;">📦 SHIP-IT</div>
+      <div style="font-size:9px;color:#9966CC;margin-bottom:8px;">TURN to switch hand · BACK to cancel</div>
+      ${[0,1].map(i => {
+        const it = G.hands[i]; const sel = i === selectedHand;
+        const rc = it ? RARITY_COLORS[it.rarity] : '#333';
+        const gained = it ? Object.entries(computeHiddenGains(it)).map(([k,v]) => `+${v} ${k}`).join(' ') : '';
+        return `<div style="border:1px solid ${sel?'#AA33FF':'#2a2a2a'};border-radius:4px;padding:4px 7px;margin-bottom:4px;background:${sel?'rgba(170,51,255,0.18)':'transparent'};">
+          <span style="font-size:9px;color:${sel?'#CC88FF':'#444'};">${i===0?'◄ L HAND':'R HAND ►'}</span>
+          ${it ? `<div style="color:${rc};font-size:11px;">${itemDisplayName(it)}</div>` : '<div style="color:#333;font-size:11px;">empty</div>'}
+          ${sel && gained ? `<div style="color:#9955CC;font-size:9px;margin-top:2px;">retains: ${gained}</div>` : ''}
+        </div>`;
+      }).join('')}
+      <div style="font-size:10px;color:${item?'#88FFCC':'#444'};margin-top:4px;">${item?'FORWARD to ship':'nothing to ship'}</div>
+    </div>`;
+    return;
+  }
+
   if (target.kind === 'error') {
     el.innerHTML = `<div class="bump-box error">⚠ ${target.msg}</div>`;
   }
@@ -1332,6 +1378,15 @@ function learnAndPickup(item) {
 }
 
 // ── INTERACTION ───────────────────────────────────────────────────────────────
+function computeHiddenGains(item) {
+  const gains = {};
+  Object.entries(item?.stats || {}).forEach(([k, v]) => {
+    const g = Math.round(v * 0.4);
+    if (g > 0) gains[k] = g;
+  });
+  return gains;
+}
+
 function handlePhoneBump() {
   // Check if holding a quest-matching item
   const matchIdx = G.hands.findIndex(h => h && questMatchesItem(G.activeQuest, h));
@@ -1420,6 +1475,28 @@ function doConfirmBump() {
     return;
   }
 
+  if (target.kind === 'ship') {
+    const { selectedHand } = target;
+    const item = G.hands[selectedHand];
+    if (!item) { G.bumpMode = null; renderHUD(); return; }
+    // Retain ~40% of each stat as hidden signature
+    const gained = [];
+    Object.entries(item.stats || {}).forEach(([k, v]) => {
+      const g = Math.round(v * 0.4);
+      if (g > 0) { G.hiddenStats[k] = (G.hiddenStats[k] || 0) + g; gained.push(`+${g} ${k}`); }
+    });
+    G.hands[selectedHand] = null;
+    G.bumpMode = null;
+    window.parent.postMessage({ type: 'scraggle', emoji: '📦', text: `shipped ${itemDisplayName(item)}` }, '*');
+    flashBorder('green', 600);
+    showAcquired(
+      gained.length ? `📦 SHIPPED · ${gained.join(' ')} retained` : `📦 SHIPPED`,
+      '#AA33FF', 3500
+    );
+    renderHUD();
+    return;
+  }
+
   if (target.kind === 'item') {
     // Need a dollar
     const dollarIdx = G.hands.findIndex(h => h && h.isDollar);
@@ -1493,6 +1570,16 @@ function tryMove(fwd) {
       renderHUD();
       return;
     }
+    // Check for Ship-It station
+    const shippit = fd.wallEntities.find(e => e.type === 'shippit' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
+    if (shippit) {
+      if (!G.hands[0] && !G.hands[1]) { flashBorder('red', 400); showAcquired('📦 Nothing to ship!', '#AA33FF', 1800); return; }
+      const selectedHand = G.hands[0] ? 0 : 1;
+      G.bumpMode = { target: { kind: 'ship', entity: shippit, selectedHand } };
+      flashBorder('green', -1);
+      renderHUD();
+      return;
+    }
     flashBorder('red');
     return;
   }
@@ -1533,6 +1620,12 @@ function tryMove(fwd) {
 
 function tryTurn(right) {
   if (G.moving) return;
+  // Ship-It: turn toggles selected hand without rotating the player
+  if (G.bumpMode?.target.kind === 'ship') {
+    G.bumpMode.target.selectedHand = 1 - G.bumpMode.target.selectedHand;
+    renderHUD();
+    return;
+  }
   const newDir = (G.player.dir + (right ? 1 : 3)) % 4;
 
   // Update bump mode for item facing
