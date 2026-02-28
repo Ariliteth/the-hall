@@ -1,6 +1,6 @@
 # Fixed Point Local
 ## Complete Design Document
-### v0.992 — February 2026
+### v0.993 — February 2026
 
 *Fox & Claude*
 
@@ -12,9 +12,9 @@
 
 🌿⚔️◆
 
-**Last session:** Portrait pathway unblocked. Hub becomes the host. One origin achieved. Salterran inscribed. Relationtips captured.
+**Last session:** The Color Canvas named as the fixed point. Office Ghouls inscribed as foundational villains. Two games captured: a heavy roguelite dice empire builder and a match-3 improv conversation engine. The neighborhood's key signature clarified: judgment, not home.
 
-**This session:** The Color Canvas named as the fixed point. Office Ghouls inscribed as foundational villains. Two games captured: a heavy roguelite dice empire builder and a match-3 improv conversation engine. The neighborhood's key signature clarified: judgment, not home.
+**This session:** Sunset Ridge Mall ported to The Hall as a playable Score. First-person 3D mall crawler: procedural generation, rarity-tiered items, Mall Dollar ATMs, payphone quests, world mutation on completion. Glass storefronts, props scaled to cell size. Escalator added — one-way ascent only, new seeded floor each time, YOU ARE HERE sign on the east wall that you can only read once you're there. Critter Crank updated: localStorage portrait queue, neighborhood on portrait, scraggle on keep. Hub renamed to index.html for GitHub Pages.
 
 **Repository:** `https://github.com/Ariliteth/the-hall`
 Raw file access: `https://raw.githubusercontent.com/Ariliteth/the-hall/main/[filename]`
@@ -22,6 +22,7 @@ Raw file access: `https://raw.githubusercontent.com/Ariliteth/the-hall/main/[fil
 **To resume:** Fetch this document first. Read the Session Header. The repo is the truth.
 
 **Changelog:**
+- v0.993 — Sunset Ridge Mall added as a Score. Escalator, glass storefronts, scaled props, YOU ARE HERE sign. Critter Crank localStorage portrait queue + scraggle on keep. Hub renamed to index.html.
 - v0.992 — Color Canvas named as the fixed point. Office Ghouls inscribed. Dice empire builder and match-3 improv game captured as concessions. Judgment named as the neighborhood's foundation. Temperature of the Room formalized.
 - v0.991 — Portrait pathway proven end-to-end. Hub becomes host — scores load in frame, one origin. Grimoire and Crank added as scores on the rack. Scraggles surface as toasts. Salterran inscribed into The Kitchendom. Relationtips captured in concessions. v1.0 definition established.
 - v0.99 — Document tightened. Lore pieces migrated to concessions. Baseline Theme section drafted with full structure. Hub aesthetic note moved to concessions. Registry example updated. Session Header added.
@@ -64,16 +65,20 @@ neighborhoods/
 baseline-theme/
 concessions/
 scores/
-  grimoire/         ← built Grimoire, served from hub
-  critter-crank/    ← built Crank, served from hub
+  grimoire/              ← built Grimoire, served from hub
+  critter-crank/         ← built Crank, served from hub
   hunter-encounter/
+  sunset-ridge-mall/     ← vanilla JS, no build step
+concessions/
 registry.json
-hub.html
+index.html             ← hub (renamed from hub.html for GitHub Pages)
 ```
 
 **The hub** is now the host. `hub.html` serves everything from one origin (`localhost:3000` in dev, `fixedpointlocal.com` eventually). Scores load inside the hub in a frame — the selection panel collapses, a hud bar appears, the ticker stays. The ⏏ EJECT button returns to selection. Scores can talk back to the hub via `window.parent.postMessage()` to request modes: `hub:minimize` (hud bar visible), `hub:listen` (hub invisible, only ticker), `hub:restore` (selection returns). The hub is always listening regardless of mode.
 
-Scores on the rack: Hunter Encounter, The Grimoire, Critter Crank, The Tending Field (coming soon).
+Scores on the rack: Hunter Encounter, The Grimoire, Critter Crank, Sunset Ridge Mall, The Tending Field (coming soon).
+
+**Sunset Ridge Mall** lives at `scores/sunset-ridge-mall/index.html` — vanilla JS, no build step. First-person 3D grid-based mall crawler. Procedural generation, rarity-tiered items, Mall Dollar ATMs, payphone quests, world mutation on quest completion. One-way escalator to new seeded floors. Glass storefronts. Props scale with cell size. YOU ARE HERE directory sign at the escalator — readable only once you arrive. Sends scraggles on quest completion and floor ascent.
 
 **Scraggles** surface as toasts in the hub — bottom right corner, brief, then gone. When the hud bar is visible, the last eight Scraggles appear as emoji in the feed. The hub polls `baseline-session/scraggles` every three seconds.
 
@@ -99,7 +104,7 @@ One origin is what made this work. Previously the Crank ran on `localhost:5174` 
 cd the-hall
 npx serve .          # everything at localhost:3000
 ```
-Open `http://localhost:3000/hub.html`. All scores available from the rack.
+Open `http://localhost:3000`. All scores available from the rack.
 
 After modifying source files, rebuild the affected app and recopy to `scores/`. Then push:
 ```bash

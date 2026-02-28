@@ -350,37 +350,39 @@ window.parent.postMessage({
 
 ---
 
-## What's Planned / Not Yet Built
+## What's Built
 
-- **Floor transitions** — stairs or escalator to a new seeded floor, map screen between floors
-- **Mall name as seed** — entering a mall name generates a deterministic mall
-- **Parking lot / mall selection screen** — drive to a specific named mall
-- **Shopping lists as JSON** — `mall-config.json` feeds store themes and item tables
-- **Multiple active quests** — expand from one at a time
-- **Item dropping** — swap items between hands, drop to floor
-- **Inventory / bag** — bag item as a container
-- **Stat display improvements** — show running totals with item contributions clearly
-- **Escalator/map screen** — transition between floors with visual floor map
+As of February 2026, the score is live at `scores/sunset-ridge-mall/index.html` — vanilla JS, no build step, served from The Hall's hub at `localhost:3000`. Committed to `Ariliteth/the-hall`.
+
+- **Grid-based first-person 3D** — Three.js r128, snap-step movement, 90° turns, FOV 70, cell size CELL=6
+- **Procedural floor generation** — stores, corridors, ATMs, payphones, loose items on pedestals
+- **Items** — rarity tiers (common/uncommon/rare/legendary), prefix/suffix affixes, per-stat bonuses, rarity-colored glow
+- **Mall Dollars** — dispensed from ATMs, required to purchase items, stat bonuses applied on craft
+- **Payphone quests** — stat-minimum delivery missions with randomized givers and babble lines
+- **World mutation** — quest completion extends the map with new corridors and a back room; directional toast + pulsing orange beacon mark the entrance
+- **Escalator** — fixed at the far end of the main corridor spine. Step onto it, screen fades to warm pale white, new floor generates from a deterministic seed (`seed * 7919 + floor * 3571`). One-way only. Hands, stats, and active quest carry over. Floor counter increments in HUD.
+- **YOU ARE HERE sign** — mall directory panel on the east wall of the escalator tile. Reads clearly only once you are standing at the escalator. Fine print: MANAGEMENT NOT RESPONSIBLE.
+- **Glass storefronts** — all corridor/store boundaries render as translucent glass panels. Door positions add a slightly more opaque insert with metal frame jambs and header. Store lighting bleeds through.
+- **Props scaled to cell size** — `const S = CELL / 4` inside `spawnProp` keeps mannequins, racks, shelves, fountains, and plants proportional to the corridor regardless of CELL value.
+- **Hub integration** — sends `hub:minimize` on load, `scraggle` on quest completion and floor ascent.
+
+## What's Planned
+
+- **Mall name as seed** — typing "Sunset Ridge Mall" at an entry screen generates a deterministic, shareable layout
+- **Parking lot / mall selection screen** — choose your mall before entering
+- **Shopping lists as JSON** — external `mall-config.json` feeds store themes and item tables per floor
+- **Multiple active quests** — carry more than one at a time
+- **Item dropping / swapping** — put things down, trade between hands
+- **Inventory / bag** — carry more than two items
+- **Critter Kiosk** — critters from Critter Crank surface as purchasable entities in mall pet shops, reading from `baseline-session/portraits-queue`
+- **ATM guarantee** — currently intentional: a floor with no ATM is a window-shopping floor. Revisit when quest complexity increases.
+- **Map screen** — floor layout visible on escalator transition or via a kiosk
 
 ---
 
 ## Reference Implementation
 
-The working reference code is in `mall-walker.jsx`. It is React/JSX and **will not run directly in The Hall** due to the artifact renderer bug described above. Use it as behavioral reference only — all logic, generation algorithms, and interaction rules are correct and tested.
-
-Key functions to port (module-level, pure, no React):
-- `rng(seed)` — seeded RNG
-- `generateFloor(seed)` → FloorData
-- `generateItem(seed)` → Item
-- `generateDollar(seed)` → Item
-- `craftItemWithDollar(item, dollar)` → Item
-- `generateQuest(seed)` → Quest
-- `questMatchesItem(quest, item)` → boolean
-- `mutateWorld(fd, questSeed)` → newTiles[]
-- `buildScene(scene, fd, onlyTiles?)` — Three.js scene construction
-- `spawnProp(type, x, z, accentColor, scene, ...)` — prop geometry
-
-All of these are self-contained with no React dependencies and can be copied directly.
+The original reference code is in `concessions/mall-walker.jsx`. It is React/JSX and will not run directly in The Hall. The canonical implementation is now `scores/sunset-ridge-mall/index.html` — the ported vanilla JS version. The JSX is kept as a historical artifact and behavioral reference only.
 
 ---
 

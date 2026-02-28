@@ -329,6 +329,17 @@
     z-index: 10;
     font-family: monospace;
   }
+
+  /* ── ESCALATOR FADE ── */
+  #escalator-overlay {
+    position: absolute;
+    inset: 0;
+    background: #EEEEDD;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+    transition: opacity 0.7s ease;
+  }
 </style>
 </head>
 <body>
@@ -362,6 +373,7 @@
     </div>
   </div>
   <div id="controls-hint">WASD / ARROWS · FACE + FORWARD TO INTERACT</div>
+  <div id="escalator-overlay"></div>
 </div>
 
 <script>
@@ -573,6 +585,10 @@ function generateFloor(seed) {
   let startX = 0, startY = midY;
   for (let x = 0; x < W; x++) { if (grid[midY][x] === T.CORRIDOR) { startX = x; break; } }
 
+  // Escalator — fixed at far end of main spine (rightmost corridor tile on midY)
+  let escalatorX = startX, escalatorY = midY;
+  for (let x = W-1; x >= 0; x--) { if (grid[midY][x] === T.CORRIDOR) { escalatorX = x; break; } }
+
   // Wall entities: ATMs + Payphones
   const wallEntities = [];
   const weRand = rng(seed + 99);
@@ -580,6 +596,7 @@ function generateFloor(seed) {
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       if (grid[y][x] !== T.CORRIDOR) continue;
+      if (x === escalatorX && y === escalatorY) continue; // escalator tile reserved
       const roll = weRand();
       if (roll < 0.93) continue;
       const candidates = [];
@@ -632,7 +649,7 @@ function generateFloor(seed) {
     }
   }
 
-  return { grid, storeMap, stores, doors, W, H, startX, startY, wallEntities, looseItems, seed };
+  return { grid, storeMap, stores, doors, W, H, startX, startY, escalatorX, escalatorY, wallEntities, looseItems, seed };
 }
 
 // ── WORLD MUTATION ────────────────────────────────────────────────────────────
@@ -795,6 +812,48 @@ function phoneTex() {
   });
 }
 
+function youAreHereTex() {
+  return makeTex('yah', (ctx, w, h) => {
+    // Background — the color of a mall directory that has been there since 1987
+    ctx.fillStyle = '#2A2A5A'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#1A1A3A'; ctx.fillRect(6, 6, w-12, h-12);
+    // Header bar
+    ctx.fillStyle = '#CC4444'; ctx.fillRect(6, 6, w-12, h*0.18);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${w*0.09}px monospace`; ctx.textAlign = 'center';
+    ctx.fillText('MALL DIRECTORY', w/2, h*0.155);
+    // Fake grid of store boxes — the map you can't actually use
+    ctx.strokeStyle = '#445588'; ctx.lineWidth = 1;
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 5; col++) {
+        const bx = w*0.08 + col*w*0.175, by = h*0.22 + row*h*0.13;
+        ctx.fillStyle = (row===2&&col===1) ? '#443300' : '#1E1E44';
+        ctx.fillRect(bx, by, w*0.15, h*0.10);
+        ctx.strokeRect(bx, by, w*0.15, h*0.10);
+      }
+    }
+    // YOU ARE HERE dot — on the map, hard to read from a distance
+    ctx.fillStyle = '#FF4400';
+    ctx.beginPath(); ctx.arc(w*0.255, h*0.445, w*0.025, 0, Math.PI*2); ctx.fill();
+    // Small label next to the dot
+    ctx.fillStyle = '#FF8844'; ctx.font = `${w*0.055}px monospace`;
+    ctx.textAlign = 'left'; ctx.fillText('YOU', w*0.295, h*0.445);
+    ctx.fillText('ARE', w*0.295, h*0.49);
+    ctx.fillText('HERE', w*0.295, h*0.535);
+    // Escalator label
+    ctx.fillStyle = '#8899FF'; ctx.textAlign = 'center';
+    ctx.font = `${w*0.065}px monospace`;
+    ctx.fillText('ESCALATOR', w/2, h*0.72);
+    ctx.fillStyle = '#FFEE88';
+    ctx.font = `bold ${w*0.08}px monospace`;
+    ctx.fillText('UPPER LEVEL ▲', w/2, h*0.81);
+    // Fine print
+    ctx.fillStyle = '#446688'; ctx.font = `${w*0.05}px monospace`;
+    ctx.fillText('HOURS: ALWAYS OPEN', w/2, h*0.91);
+    ctx.fillText('MANAGEMENT NOT RESPONSIBLE', w/2, h*0.965);
+  });
+}
+
 // ── SCENE BUILDER ─────────────────────────────────────────────────────────────
 function buildScene(scene, fd, onlyTiles = null) {
   if (!onlyTiles) {
@@ -883,7 +942,7 @@ function buildScene(scene, fd, onlyTiles = null) {
   }
 
   // Props
-  const CORRIDOR_PROPS=["bench","plant","trashcan","kiosk","fountain"];
+  const CORRIDOR_PROPS=["bench","plant","plant","trashcan","kiosk","fountain","fountain","plant"];
   const STORE_PROPS=["shelf","rack","display","counter","mannequin"];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (grid[y][x]===T.EMPTY) continue;
@@ -953,20 +1012,117 @@ function buildScene(scene, fd, onlyTiles = null) {
     const light=new THREE.PointLight(col,0.75,CELL*3.5);
     light.position.set(wx(x),WALL_H-.2,wz(y)); scene.add(light);
   }
+
+  // ── ESCALATOR ── fixed at far end of main spine
+  if (!onlyTiles || tilesToBuild.has(`${fd.escalatorX},${fd.escalatorY}`)) {
+    const ex = wx(fd.escalatorX), ez = wz(fd.escalatorY);
+    const S = CELL / 4;
+
+    // Steps ascending west→east (player approaches from west, steps go up toward east wall)
+    const stepCount = 6;
+    for (let s = 0; s < stepCount; s++) {
+      const t = s / (stepCount - 1);
+      const sh = 0.18 + t * WALL_H * 0.55;   // height rises
+      const sx = ex - CELL*0.38 + t * CELL*0.7; // offset along X
+      addBox(CELL*0.13, 0.1, CELL*0.58, sx, sh, ez, mat(0xDDCCBB));
+    }
+    // Side handrails — thin diagonal suggestion
+    for (const zOff of [-CELL*0.28, CELL*0.28]) {
+      addBox(CELL*0.72, 0.08, 0.07, ex-CELL*0.02, WALL_H*0.38, ez+zOff, mat(0xBBBBBB));
+    }
+    // Escalator housing base
+    addBox(CELL*0.75, 0.12, CELL*0.62, ex-CELL*0.02, 0.06, ez, mat(0x999988));
+
+    // LED sign — "▲ UP ▲", glowing above the steps
+    const ledTex = makeTex('esc-led', (ctx, w, h) => {
+      ctx.fillStyle='#001122'; ctx.fillRect(0,0,w,h);
+      ctx.fillStyle='#00FFAA'; ctx.font=`bold ${h*0.5}px monospace`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('▲  UP  ▲', w/2, h/2);
+    }, 256, 64);
+    const ledPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(CELL*0.55, 0.38),
+      new THREE.MeshBasicMaterial({ map: ledTex, side: THREE.DoubleSide })
+    );
+    ledPlane.position.set(ex, WALL_H - 0.35, ez);
+    ledPlane.rotation.y = -Math.PI / 2; // face west toward approaching player
+    scene.add(ledPlane);
+
+    // Glow light at the escalator opening
+    const escLight = new THREE.PointLight(0x88FFCC, 1.8, CELL * 4);
+    escLight.position.set(ex, WALL_H * 0.6, ez);
+    scene.add(escLight);
+
+    // YOU ARE HERE — flat sign on the east wall, facing the player
+    // Only render if there's actually a wall to the east
+    const yahPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(CELL * 0.72, WALL_H * 0.48),
+      new THREE.MeshBasicMaterial({ map: youAreHereTex(), side: THREE.DoubleSide })
+    );
+    yahPlane.position.set(ex + CELL*0.46, WALL_H * 0.52, ez);
+    yahPlane.rotation.y = -Math.PI / 2; // face west
+    scene.add(yahPlane);
+  }
 }
 
 function spawnProp(type, wx, wz, ac, scene, addBox, mat) {
+  const S = CELL / 4; // scale with cell — CELL=6 → S=1.5, props fill the space
   switch(type) {
-    case"bench": addBox(1.8,.12,.5,wx,.45,wz,mat(0x8B6B3D)); addBox(.1,.4,.5,wx-.8,.2,wz,mat(0x6B4B2D)); addBox(.1,.4,.5,wx+.8,.2,wz,mat(0x6B4B2D)); break;
-    case"plant": { addBox(.4,.4,.4,wx,.2,wz,mat(0xC8A060)); addBox(.1,.8,.1,wx,.85,wz,mat(0x5C3D1E)); const g=new THREE.SphereGeometry(.4,7,7); const m=new THREE.Mesh(g,mat(0x2D7B2D)); m.position.set(wx,1.5,wz); scene.add(m); break; }
-    case"trashcan": addBox(.35,.7,.35,wx,.35,wz,mat(0x444444)); break;
-    case"kiosk": addBox(1.2,.9,.7,wx,.45,wz,mat(ac)); addBox(1.0,.05,.5,wx,.93,wz,mat(0xCCCCCC)); break;
-    case"fountain": { const bm=new THREE.Mesh(new THREE.CylinderGeometry(.9,1,.4,12),mat(0xC8B89A)); bm.position.set(wx,.2,wz); scene.add(bm); const wm=new THREE.Mesh(new THREE.CylinderGeometry(.75,.75,.06,12),mat(0x5BA8C4)); wm.position.set(wx,.45,wz); scene.add(wm); break; }
-    case"shelf": addBox(1.4,1.5,.35,wx,.75,wz,mat(ac)); [.5,1.0,1.45].forEach(h=>addBox(1.2,.06,.3,wx,h,wz,mat(0xEEEEEE))); break;
-    case"rack": addBox(.06,1.3,.06,wx-.6,.65,wz,mat(0x999999)); addBox(.06,1.3,.06,wx+.6,.65,wz,mat(0x999999)); addBox(1.2,.06,.06,wx,1.25,wz,mat(0xCCCCCC)); for(let i=-.45;i<=.45;i+=.3){const hm=new THREE.Mesh(new THREE.BoxGeometry(.2,.5,.06),mat(ac)); hm.position.set(wx+i,1,wz); scene.add(hm);} break;
-    case"display": addBox(.9,.06,.9,wx,.7,wz,mat(0xDDDDDD)); addBox(.06,.65,.06,wx,.37,wz,mat(0xAAAAAA)); addBox(.7,.06,.7,wx,.06,wz,mat(0xCCCCCC)); break;
-    case"counter": addBox(1.6,.9,.5,wx,.45,wz,mat(ac)); addBox(1.7,.06,.6,wx,.93,wz,mat(0xEEEEEE)); break;
-    case"mannequin": addBox(.35,.55,.25,wx,1.15,wz,mat(ac)); addBox(.18,.3,.18,wx,1.7,wz,mat(0xF5DEB3)); addBox(.08,.3,.08,wx+.22,1,wz,mat(0xF5DEB3)); addBox(.08,.3,.08,wx-.22,1,wz,mat(0xF5DEB3)); addBox(.08,.6,.08,wx+.12,.4,wz,mat(0xF5DEB3)); addBox(.08,.6,.08,wx-.12,.4,wz,mat(0xF5DEB3)); addBox(.3,.06,.3,wx,.03,wz,mat(0x555555)); break;
+    case "bench":
+      addBox(1.8*S,.12*S,.5*S, wx,.45*S,wz, mat(0x8B6B3D));
+      addBox(.1*S,.4*S,.5*S, wx-.8*S,.2*S,wz, mat(0x6B4B2D));
+      addBox(.1*S,.4*S,.5*S, wx+.8*S,.2*S,wz, mat(0x6B4B2D));
+      break;
+    case "plant": {
+      addBox(.4*S,.4*S,.4*S, wx,.2*S,wz, mat(0xC8A060));
+      addBox(.1*S,.8*S,.1*S, wx,.85*S,wz, mat(0x5C3D1E));
+      const pg=new THREE.SphereGeometry(.4*S,8,8);
+      const pm=new THREE.Mesh(pg,mat(0x2D7B2D)); pm.position.set(wx,1.5*S,wz); scene.add(pm);
+      break; }
+    case "trashcan":
+      addBox(.35*S,.7*S,.35*S, wx,.35*S,wz, mat(0x444444));
+      break;
+    case "kiosk":
+      addBox(1.2*S,.9*S,.7*S, wx,.45*S,wz, mat(ac));
+      addBox(1.0*S,.05*S,.5*S, wx,.93*S,wz, mat(0xCCCCCC));
+      break;
+    case "fountain": {
+      const fb=new THREE.Mesh(new THREE.CylinderGeometry(.9*S,1*S,.4*S,12),mat(0xC8B89A));
+      fb.position.set(wx,.2*S,wz); scene.add(fb);
+      const fw=new THREE.Mesh(new THREE.CylinderGeometry(.75*S,.75*S,.06*S,12),mat(0x5BA8C4));
+      fw.position.set(wx,.45*S,wz); scene.add(fw);
+      break; }
+    case "shelf":
+      addBox(1.4*S,1.5*S,.35*S, wx,.75*S,wz, mat(ac));
+      [.5*S,1.0*S,1.45*S].forEach(h=>addBox(1.2*S,.06*S,.3*S,wx,h,wz,mat(0xEEEEEE)));
+      break;
+    case "rack":
+      addBox(.06*S,1.3*S,.06*S, wx-.6*S,.65*S,wz, mat(0x999999));
+      addBox(.06*S,1.3*S,.06*S, wx+.6*S,.65*S,wz, mat(0x999999));
+      addBox(1.2*S,.06*S,.06*S, wx,1.25*S,wz, mat(0xCCCCCC));
+      for(let i=-.45*S; i<=.45*S; i+=.3*S) {
+        const hm=new THREE.Mesh(new THREE.BoxGeometry(.2*S,.5*S,.06*S),mat(ac));
+        hm.position.set(wx+i,1*S,wz); scene.add(hm);
+      }
+      break;
+    case "display":
+      addBox(.9*S,.06*S,.9*S, wx,.7*S,wz, mat(0xDDDDDD));
+      addBox(.06*S,.65*S,.06*S, wx,.37*S,wz, mat(0xAAAAAA));
+      addBox(.7*S,.06*S,.7*S, wx,.06*S,wz, mat(0xCCCCCC));
+      break;
+    case "counter":
+      addBox(1.6*S,.9*S,.5*S, wx,.45*S,wz, mat(ac));
+      addBox(1.7*S,.06*S,.6*S, wx,.93*S,wz, mat(0xEEEEEE));
+      break;
+    case "mannequin":
+      addBox(.35*S,.55*S,.25*S, wx,1.15*S,wz, mat(ac));
+      addBox(.18*S,.3*S,.18*S, wx,1.7*S,wz, mat(0xF5DEB3));
+      addBox(.08*S,.3*S,.08*S, wx+.22*S,1*S,wz, mat(0xF5DEB3));
+      addBox(.08*S,.3*S,.08*S, wx-.22*S,1*S,wz, mat(0xF5DEB3));
+      addBox(.08*S,.6*S,.08*S, wx+.12*S,.4*S,wz, mat(0xF5DEB3));
+      addBox(.08*S,.6*S,.08*S, wx-.12*S,.4*S,wz, mat(0xF5DEB3));
+      addBox(.3*S,.06*S,.3*S, wx,.03*S,wz, mat(0x555555));
+      break;
   }
 }
 
@@ -1352,6 +1508,12 @@ function tryMove(fwd) {
     if (t < 1) { requestAnimationFrame(tick); }
     else {
       G.moving = false;
+      // Escalator — ride up if player lands on it
+      if (G.player.px === fd.escalatorX && G.player.py === fd.escalatorY) {
+        setTimeout(rideEscalator, 400);
+        renderHUD();
+        return;
+      }
       // Check for loose items on landing
       const items = fd.looseItems.filter(li => li.tileX === G.player.px && li.tileY === G.player.py);
       if (items.length) {
@@ -1407,6 +1569,40 @@ function handleKey(e) {
   if (e.code === 'ArrowDown'  || e.code === 'KeyS') tryMove(false);
   if (e.code === 'ArrowLeft'  || e.code === 'KeyA') tryTurn(false);
   if (e.code === 'ArrowRight' || e.code === 'KeyD') tryTurn(true);
+}
+
+// ── ESCALATOR ─────────────────────────────────────────────────────────────────
+function rideEscalator() {
+  if (G.moving) return;
+  G.moving = true;
+  G.bumpMode = null;
+
+  // Scraggle — the Hall knows you went up
+  window.parent.postMessage({ type: 'scraggle', emoji: '🛍', text: `ascending to floor ${G.player.floor + 1}` }, '*');
+
+  const overlay = document.getElementById('escalator-overlay');
+  // Fade to warm white
+  overlay.style.opacity = '1';
+
+  setTimeout(() => {
+    // New floor
+    G.player.floor++;
+    G.player.dir = 0;
+    G.fd = generateFloor(G.fd.seed * 7919 + G.player.floor * 3571);
+    G.player.px = G.fd.startX;
+    G.player.py = G.fd.startY;
+
+    // Rebuild scene and snap camera
+    buildScene(scene, G.fd);
+    snapCamera();
+    renderHUD();
+
+    // Fade back in
+    setTimeout(() => {
+      overlay.style.opacity = '0';
+      setTimeout(() => { G.moving = false; }, 750);
+    }, 300);
+  }, 750);
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
