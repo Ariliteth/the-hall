@@ -417,6 +417,65 @@ const STORE_PALETTES = [
     extraPrefixes:[{name:"Serene",stat:"CHILL",val:3},{name:"Flowing",stat:"VIBES",val:3},{name:"Oceanic",stat:"CHILL",val:4}],
     extraSuffixes:[{name:"of the Deep",stat:"VIBES",val:4},{name:"of Still Waters",stat:"CHILL",val:3}] },
 ];
+// Special stores — appear floor 7+, max 1 per floor, seeded selection
+// Each has itemBases so their products are store-specific named goods
+const SPECIAL_STORE_PALETTES = [
+  { floor:"#5A3800", wall:"#C87A00", ceil:"#FFE8B0", name:"ARWHEN",
+    tagline:"Time is the item", favStats:["CHILL","STYLE"],
+    itemBases:[{name:"Watch",color:"#C8A060"},{name:"Pocket Watch",color:"#CC8800"},{name:"Sundial",color:"#D4A76A"},{name:"Timer",color:"#AA7744"},{name:"Clock",color:"#888866"}],
+    extraPrefixes:[{name:"Whispering",stat:"CHILL",val:3},{name:"Perpetual",stat:"CHILL",val:4}],
+    extraSuffixes:[{name:"of Whispers",stat:"CHILL",val:3},{name:"of Ticking",stat:"STYLE",val:2}] },
+  { floor:"#4A3800", wall:"#E8C870", ceil:"#FFF5E0", name:"DOUGH",
+    tagline:"Every day, a deal", favStats:["CHILL","VIBES"],
+    itemBases:[{name:"Calendar",color:"#DDB870"},{name:"Day Planner",color:"#CC9944"},{name:"Page",color:"#EED890"},{name:"Schedule",color:"#D4AA66"},{name:"Year",color:"#CCAA44"}],
+    extraPrefixes:[{name:"Glorious",stat:"VIBES",val:3},{name:"Dated",stat:"CHILL",val:2}],
+    extraSuffixes:[{name:"of Thrift",stat:"CHILL",val:3},{name:"of the Month",stat:"VIBES",val:2}] },
+  { floor:"#004455", wall:"#00CCEE", ceil:"#AAFFFF", name:"MOIST",
+    tagline:"Stay wet.", favStats:["VIBES","LUCK"],
+    itemBases:[{name:"Squirter",color:"#22CCDD"},{name:"Sprayer",color:"#44DDEE"},{name:"Mister",color:"#88EEFF"},{name:"Nozzle",color:"#00AABB"},{name:"Splasher",color:"#33CCCC"}],
+    extraPrefixes:[{name:"Torrential",stat:"VIBES",val:4},{name:"Pressurized",stat:"BULK",val:2}],
+    extraSuffixes:[{name:"of Sliding",stat:"LUCK",val:3},{name:"of the Deluge",stat:"VIBES",val:3}] },
+  { floor:"#2A0000", wall:"#880022", ceil:"#FFB3C8", name:"SANG",
+    tagline:"You heard it here.", favStats:["VIBES","CLOUT"],
+    itemBases:[{name:"Record",color:"#222222"},{name:"B-Side",color:"#331122"},{name:"Single",color:"#442233"},{name:"EP",color:"#663344"},{name:"Remix",color:"#551133"}],
+    extraPrefixes:[{name:"Kickin'",stat:"VIBES",val:4},{name:"Deep Cut",stat:"CLOUT",val:3}],
+    extraSuffixes:[{name:"of Legend",stat:"CLOUT",val:4},{name:"of the B-Side",stat:"VIBES",val:3}] },
+  { floor:"#4A2200", wall:"#FF8800", ceil:"#FFE4B0", name:"FEAT.",
+    tagline:"Nobody does it alone.", favStats:["VIBES","BULK"],
+    itemBases:[{name:"Record",color:"#AA5500"},{name:"Collab",color:"#BB6600"},{name:"Feature",color:"#CC7700"},{name:"Track",color:"#DD8800"},{name:"Drop",color:"#EE9900"}],
+    extraPrefixes:[{name:"Booming",stat:"BULK",val:3},{name:"Guest",stat:"VIBES",val:3}],
+    extraSuffixes:[{name:"ft Your Mom",stat:"VIBES",val:4},{name:"ft Carol",stat:"VIBES",val:3},{name:"ft Big T",stat:"BULK",val:3},{name:"ft DJ Wren",stat:"VIBES",val:3},{name:"ft the Mall",stat:"CLOUT",val:5}] },
+  { floor:"#3A2800", wall:"#CC9966", ceil:"#FFE8CC", name:"FÜSS",
+    tagline:"For the forgotten limb.", favStats:["STYLE","LUCK"],
+    itemBases:[{name:"Anklet",color:"#CCAA77"},{name:"Toe Ring",color:"#DDC088"},{name:"Step",color:"#BB9966"},{name:"Sole",color:"#AA8855"},{name:"Foot",color:"#EED0A0"}],
+    extraPrefixes:[{name:"Toeless",stat:"LUCK",val:3},{name:"Barefoot",stat:"CHILL",val:2}],
+    extraSuffixes:[{name:"by the Foot",stat:"STYLE",val:3},{name:"of the Arch",stat:"LUCK",val:2}] },
+  { floor:"#0A1A3A", wall:"#4A7AAA", ceil:"#C8DEFF", name:"C·C JEANS",
+    tagline:"500 washes guaranteed.", favStats:["STYLE","BULK"],
+    itemBases:[{name:"Capri",color:"#5A8ABB"},{name:"Pair",color:"#3A6A99"},{name:"Hem",color:"#6A9ACC"},{name:"Leg",color:"#4A7AAA"},{name:"Cuff",color:"#2A5A88"}],
+    extraPrefixes:[{name:"Chase",stat:"BULK",val:3},{name:"Cropped",stat:"STYLE",val:3}],
+    extraSuffixes:[{name:"No. 1 of 500",stat:"STYLE",val:4},{name:"of 500",stat:"BULK",val:3}] },
+  { floor:"#1A0033", wall:"#8855CC", ceil:"#DDB3FF", name:"LOTUS",
+    tagline:"Breathe it in.", favStats:["CHILL","VIBES"],
+    itemBases:[{name:"Incense",color:"#7744AA"},{name:"Stick",color:"#8855BB"},{name:"Cone",color:"#9966CC"},{name:"Smoke",color:"#AAAACC"},{name:"Ember",color:"#CC6633"}],
+    extraPrefixes:[{name:"Trippy",stat:"VIBES",val:3},{name:"Sandalwood",stat:"CHILL",val:3}],
+    extraSuffixes:[{name:"of Awakening",stat:"CHILL",val:4},{name:"of Drift",stat:"VIBES",val:3}] },
+  { floor:"#2A1800", wall:"#886644", ceil:"#D4AA88", name:"BEANS",
+    tagline:"Just beans.", favStats:["BULK","CHILL"],
+    itemBases:[{name:"Bean",color:"#775533"},{name:"Bag",color:"#998866"},{name:"Can",color:"#888888"},{name:"Pod",color:"#668844"},{name:"Handful",color:"#BB9966"}],
+    extraPrefixes:[{name:"Roasted",stat:"BULK",val:3},{name:"Soaked",stat:"CHILL",val:2}],
+    extraSuffixes:[{name:"of Comfort",stat:"CHILL",val:3},{name:"of the Field",stat:"BULK",val:2}] },
+  { floor:"#1A1A22", wall:"#AAAACC", ceil:"#EEEEFF", name:"IMPORTÉ",
+    tagline:"From somewhere better.", favStats:["STYLE","CLOUT"],
+    itemBases:[{name:"Frame",color:"#888899"},{name:"Lens",color:"#AABBCC"},{name:"Shade",color:"#667788"},{name:"Monocle",color:"#CCBBAA"},{name:"Glass",color:"#CCDDEE"}],
+    extraPrefixes:[{name:"Engraved",stat:"STYLE",val:4},{name:"Imported",stat:"CLOUT",val:3}],
+    extraSuffixes:[{name:"of Individuality",stat:"CLOUT",val:3},{name:"of the Continent",stat:"STYLE",val:4}] },
+  { floor:"#003300", wall:"#007700", ceil:"#CCFFCC", name:"TOUCHBACK",
+    tagline:"Return what matters.", favStats:["BULK","CLOUT"],
+    itemBases:[{name:"Jersey",color:"#228833"},{name:"Number",color:"#EEEEEE"},{name:"Patch",color:"#CC8800"},{name:"Name",color:"#FFCCAA"},{name:"Throwback",color:"#117722"}],
+    extraPrefixes:[{name:"Returned",stat:"CLOUT",val:3},{name:"Retired",stat:"CLOUT",val:4}],
+    extraSuffixes:[{name:"of Triumph",stat:"BULK",val:4},{name:"of the End Zone",stat:"CLOUT",val:3}] },
+];
 const CORRIDOR_PALETTE = { floor:"#D4A76A", wall:"#F5ECD7", ceil:"#F0EDE0" };
 
 const RARITY_COLORS = { common:"#AAAAAA", uncommon:"#44DD44", rare:"#4488FF", legendary:"#FF9900" };
@@ -800,6 +859,17 @@ function generateFloor(seed, floorNum = 1) {
     }
   }
 
+  // Special store injection — floor-depth gated, max 1 per floor, fully seeded
+  if (stores.length && floorNum > 6) {
+    const specChance = floorNum > 20 ? 1.0 : floorNum > 13 ? 0.55 : 0.35;
+    const specRand = rng(seed + 4747 + floorNum);
+    if (specRand() < specChance) {
+      const specIdx = Math.floor(specRand() * SPECIAL_STORE_PALETTES.length);
+      const replaceIdx = Math.floor(specRand() * stores.length);
+      stores[replaceIdx].palette = SPECIAL_STORE_PALETTES[specIdx];
+    }
+  }
+
   // Loose items
   const looseItems = [];
   const itemRand = rng(seed + 333);
@@ -824,6 +894,11 @@ function generateFloor(seed, floorNum = 1) {
           }
           if (pal?.extraSuffixes?.length && !item.suffix && itemRand() < 0.3) {
             item.suffix = pal.extraSuffixes[Math.floor(itemRand() * pal.extraSuffixes.length)];
+          }
+          // Store-specific item type — rename the item to match the store's goods
+          if (pal?.itemBases?.length && itemRand() < 0.7) {
+            const nb = pal.itemBases[Math.floor(itemRand() * pal.itemBases.length)];
+            item.name = nb.name; item.color = nb.color;
           }
         }
         const or = rng(itemSeed + 7);
@@ -2161,8 +2236,7 @@ function tryMove(fwd) {
     const samplerEnt = fd.wallEntities.find(e => e.type === 'sampler' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
     if (samplerEnt) {
       if (samplerEnt.used) {
-        showAcquired('🍴 Out of samples!', '#886644', 1800);
-        flashBorder('red', 500);
+        // already sampled — act like wall decoration, no prompt, no warning
       } else {
         G.bumpMode = { target: { kind: 'sampler', entity: samplerEnt } };
         flashBorder('green', -1);
