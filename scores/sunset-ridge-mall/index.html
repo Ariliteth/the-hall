@@ -445,6 +445,20 @@ const ITEM_BASES = [
   {name:"Charm",color:"#FFAADD"},{name:"Plushie",color:"#88DDFF"},
   {name:"Sticker",color:"#AAFF44"},
 ];
+// Car items — rare finds that unlock the Emergent Exit
+const CAR_BASES = [
+  {name:"Car Keys",color:"#88AACC",isCar:true},
+  {name:"Beater",color:"#887766",isCar:true},
+  {name:"New Car Smell",color:"#AADDBB",isCar:true},
+  {name:"Parking Pass",color:"#DDCC88",isCar:true},
+];
+// Mall world names seeded by the Car item's id
+const MALL_NAMES = [
+  "Sunset Ridge Mall","Pinecrest Galleria","Westfield Commons",
+  "Lakeside Plaza","Harbor Point Mall","Crossroads Center",
+  "Northbrook Court","The Promenade","Valley View Mall",
+  "Ridgeview Place","Cedar Point Shops","The Galleria at Noon",
+];
 const BASE_STATS = ["VIBES","BULK","STYLE","LUCK","CLOUT","CHILL"];
 const DOLLAR_COLORS = ["#FF3366","#33AAFF","#FFEE00","#44DD88","#FF9900","#CC44FF"];
 
@@ -472,6 +486,12 @@ function rng(seed) {
 // ── ITEMS ─────────────────────────────────────────────────────────────────────
 function generateItem(seed) {
   const r = rng(seed);
+  // Rare 3% chance: the item is a Car (unlocks Emergent Exit)
+  if (r() < 0.03) {
+    const carBase = CAR_BASES[Math.floor(r() * CAR_BASES.length)];
+    return { id: seed, name: carBase.name, color: carBase.color, rarity: 'rare',
+      prefix: null, suffix: null, stats: { VIBES: 3, CLOUT: 2 }, isDollar: false, isCar: true };
+  }
   const base = ITEM_BASES[Math.floor(r() * ITEM_BASES.length)];
   const roll = r();
   const rarity = roll < 0.55 ? "common" : roll < 0.82 ? "uncommon" : roll < 0.96 ? "rare" : "legendary";
@@ -482,6 +502,16 @@ function generateItem(seed) {
   BASE_STATS.forEach(s => { if (r() < 0.5) stats[s] = 1 + Math.floor(r() * 4); });
   if (!Object.keys(stats).length) stats[BASE_STATS[Math.floor(r() * BASE_STATS.length)]] = 1;
   return { id: seed, name: base.name, color: base.color, rarity, prefix, suffix, stats, isDollar: false };
+}
+
+// Combine two items into a crafted Mall Dollar at the ATM
+function craftDollarFromItems(a, b) {
+  const combined = { ...a.stats };
+  Object.entries(b.stats || {}).forEach(([k, v]) => { combined[k] = Math.ceil(((combined[k] || 0) + v) / 2); });
+  const rarityIdx = Math.min(3, Math.max(RARITY_ORDER.indexOf(a.rarity), RARITY_ORDER.indexOf(b.rarity)));
+  const color = DOLLAR_COLORS[Math.floor(rng(a.id + (b.id || 0))() * DOLLAR_COLORS.length)];
+  return { id: `dollar_crafted_${Date.now()}`, name: "Mall Dollar", color,
+    rarity: RARITY_ORDER[rarityIdx], prefix: null, suffix: null, stats: combined, isDollar: true };
 }
 
 function generateDollar(seed) {
@@ -631,6 +661,8 @@ function generateFoodCourtFloor(seed, floorNum) {
   // ATM + payphone in the atrium
   wallEntities.push({ tileX: W - 4, tileY: atTop, face: 'N', type: 'atm', id: 'fc_atm' });
   wallEntities.push({ tileX: W - 4, tileY: atBot, face: 'S', type: 'payphone', id: 'fc_phone' });
+  // Emergent Exit — on the south wall near the west end (opposite of escalator)
+  wallEntities.push({ tileX: 3, tileY: atBot, face: 'S', type: 'emergentexit', id: 'exit' });
 
   return { grid, storeMap, stores, doors, W, H, startX, startY, startDir,
     escalatorX, escalatorY, wallEntities, looseItems, seed, spineY: midY,
@@ -1181,7 +1213,7 @@ function buildScene(scene, fd, onlyTiles = null) {
   }
 
   // Props
-  const CORRIDOR_PROPS=["bench","plant","plant","trashcan","kiosk","fountain","fountain","plant"];
+  const CORRIDOR_PROPS=["bench","plant","plant","kiosk","fountain","fountain","plant","bench"];
   const STORE_PROPS=["shelf","rack","display","counter","mannequin"];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (grid[y][x]===T.EMPTY) continue;
@@ -1276,6 +1308,33 @@ function buildScene(scene, fd, onlyTiles = null) {
       addBox(0.06, 0.55, 0.06, fo.px-0.42, 0.38, fo.pz, mat(0xBBBBBB)); // post L
       addBox(0.06, 0.55, 0.06, fo.px+0.42, 0.38, fo.pz, mat(0xBBBBBB)); // post R
       const sl = new THREE.PointLight(0xFFDDAA, 0.5, CELL*2); sl.position.set(fo.px, 1.8, fo.pz); scene.add(sl);
+    } else if (type === 'emergentexit') {
+      // Emergent Exit — push-bar door with glowing green EXIT sign
+      // Door frame
+      addBox(0.12, WALL_H*0.88, 0.18, fo.px - 0.82, WALL_H*0.44, fo.pz, mat(0x446644)); // jamb L
+      addBox(0.12, WALL_H*0.88, 0.18, fo.px + 0.82, WALL_H*0.44, fo.pz, mat(0x446644)); // jamb R
+      addBox(1.76, 0.12, 0.18, fo.px, WALL_H*0.88, fo.pz, mat(0x446644)); // header
+      // Door panel — dark green metal
+      addBox(1.52, WALL_H*0.85, 0.1, fo.px, WALL_H*0.425, fo.pz, mat(0x1A3322));
+      // Push bar
+      addBox(1.1, 0.07, 0.14, fo.px, WALL_H*0.38, fo.pz+0.06, mat(0xCCDDCC));
+      // EXIT sign — glowing green box above door
+      const exitGlow = new THREE.MeshBasicMaterial({ color: 0x00FF44 });
+      const exitSign = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.12), exitGlow);
+      exitSign.position.set(fo.px, WALL_H*0.88 + 0.15, fo.pz); scene.add(exitSign);
+      // Small text "EXIT" in white on the sign face
+      const exitTex = makeTex('exit_sign', (ctx, w, h) => {
+        ctx.fillStyle = '#00CC33'; ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#FFFFFF'; ctx.font = `bold ${h*0.62}px monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('EXIT', w/2, h/2);
+      }, 256, 64);
+      const exitLabel = new THREE.Mesh(new THREE.PlaneGeometry(0.88, 0.21),
+        new THREE.MeshBasicMaterial({ map: exitTex, transparent: true }));
+      exitLabel.position.set(fo.px, WALL_H*0.88 + 0.15, fo.pz + 0.07); scene.add(exitLabel);
+      // Pulsing green glow
+      const el2 = new THREE.PointLight(0x00FF44, 0.9, CELL*3);
+      el2.position.set(fo.px, WALL_H*0.88 + 0.2, fo.pz); scene.add(el2);
+      flickerLights.push({ light: el2, base: 0.9, speed: 0.002 + Math.random()*0.003, phase: Math.random()*Math.PI*2 });
     }
   });
 
@@ -1439,6 +1498,7 @@ const G = {
   moving: false,
   bumpMode: null,
   atmVisited: false, // track first-time ATM approach for the hint
+  mallName: "Sunset Ridge Mall", // current mall world name
 };
 
 // Three.js module-level refs
@@ -1459,6 +1519,10 @@ function snapCamera() {
 function renderHUD() {
   const { player, fd, hands, playerStats, activeQuest, bumpMode } = G;
   const dirLabel = DIR_LABELS[player.dir];
+
+  // Mall name
+  const mallIcon = fd?.isFoodCourt ? '🍴' : '🛍';
+  document.getElementById('hud-mall-name').textContent = `${mallIcon} ${(G.mallName || 'SUNSET RIDGE MALL').toUpperCase()}`;
 
   // Floor / dir
   document.getElementById('hud-floor-dir').textContent = `FLOOR ${player.floor} · ${dirLabel}`;
@@ -1546,14 +1610,27 @@ function renderBumpPrompt() {
   const { target } = bm;
 
   if (target.kind === 'atm') {
-    const firstTime = !G.atmVisited;
-    el.innerHTML = `<div class="bump-box atm">
-      <div style="font-size:16px;margin-bottom:4px;">💳 ATM</div>
-      ${firstTime
-        ? `<div style="font-size:11px;color:#FFDD88;margin-bottom:4px;font-style:italic;">"It's dangerous to go alone.<br>Take this."</div>
-           <div style="font-size:10px;color:#AAFFCC;">Forward to withdraw a Mall Dollar</div>`
-        : `<div style="font-size:11px;color:#AAFFCC;">Forward to withdraw a Mall Dollar</div>`}
-    </div>`;
+    const itemsInHands = G.hands.filter(h => h && !h.isDollar && !h.isCar);
+    const canCraft = itemsInHands.length >= 2;
+    const firstTime = !G.atmVisited && !canCraft;
+    if (canCraft) {
+      el.innerHTML = `<div class="bump-box atm">
+        <div style="font-size:14px;margin-bottom:4px;">💳 ATM · CRAFT</div>
+        <div style="font-size:10px;color:#FFDD88;margin-bottom:6px;">Combine 2 items into a Mall Dollar</div>
+        <div style="font-size:10px;color:#AAFFCC;margin-bottom:2px;">${itemDisplayName(itemsInHands[0])}</div>
+        <div style="font-size:10px;color:#999;margin-bottom:2px;">+</div>
+        <div style="font-size:10px;color:#AAFFCC;margin-bottom:6px;">${itemDisplayName(itemsInHands[1])}</div>
+        <div style="font-size:10px;color:#00FFCC;">Forward to combine 💳</div>
+      </div>`;
+    } else {
+      el.innerHTML = `<div class="bump-box atm">
+        <div style="font-size:16px;margin-bottom:4px;">💳 ATM</div>
+        ${firstTime
+          ? `<div style="font-size:11px;color:#FFDD88;margin-bottom:4px;font-style:italic;">"It's dangerous to go alone.<br>Take this."</div>
+             <div style="font-size:10px;color:#AAFFCC;">Forward to withdraw a Mall Dollar</div>`
+          : `<div style="font-size:11px;color:#AAFFCC;">Forward to withdraw a Mall Dollar</div>`}
+      </div>`;
+    }
     return;
   }
 
@@ -1610,6 +1687,22 @@ function renderBumpPrompt() {
         <div style="font-size:9px;color:#8899AA;margin-bottom:8px;">FROM ${(kHood||'???').toUpperCase()}</div>
         <div style="font-size:9px;color:#44FF88;">FORWARD to wave hello 👋</div>
       ` : `<div style="font-size:9px;color:#2A4055;margin:4px 0;">NO RECENT VISITORS</div>`}
+    </div>`;
+    return;
+  }
+
+  if (target.kind === 'emergentexit') {
+    const carItem = G.hands.find(h => h?.isCar);
+    const destSeed = carItem ? (carItem.id >>> 0) + 1 : 0;
+    const destName = carItem ? MALL_NAMES[destSeed % MALL_NAMES.length] : null;
+    el.innerHTML = `<div class="bump-box" style="border:2px solid #00FF44;background:rgba(5,20,10,0.96);">
+      <div style="font-size:9px;color:#00FF44;letter-spacing:2px;margin-bottom:6px;">🚗 EMERGENT EXIT</div>
+      ${carItem
+        ? `<div style="font-size:11px;color:#AAFFCC;margin-bottom:4px;">Driving to:</div>
+           <div style="font-size:14px;color:#FFFFFF;font-weight:bold;margin-bottom:6px;">${destName}</div>
+           <div style="font-size:10px;color:#88FFAA;">FORWARD to drive through 🚗</div>`
+        : `<div style="font-size:11px;color:#668866;margin-bottom:4px;">The door is heavy.</div>
+           <div style="font-size:10px;color:#446644;">You'll need a car to leave.</div>`}
     </div>`;
     return;
   }
@@ -1791,10 +1884,23 @@ function doConfirmBump() {
 
   if (target.kind === 'atm') {
     G.atmVisited = true;
-    const dollar = generateDollar(Date.now());
-    learnAndPickup(dollar);
-    showAcquired(`💳 ${dollar.rarity.toUpperCase()} Mall Dollar dispensed!`, '#00FFCC');
-    flashBorder('green', 500);
+    const itemsInHands = G.hands.map((h, i) => ({ h, i })).filter(({ h }) => h && !h.isDollar && !h.isCar);
+    if (itemsInHands.length >= 2) {
+      // Craft a Mall Dollar from two items — consume both
+      const a = itemsInHands[0], b = itemsInHands[1];
+      const dollar = craftDollarFromItems(a.h, b.h);
+      G.hands[a.i] = null;
+      G.hands[b.i] = null;
+      learnAndPickup(dollar);
+      showAcquired(`💳 CRAFTED a ${dollar.rarity.toUpperCase()} Mall Dollar!`, '#00FFCC', 3000);
+      flashBorder('green', 600);
+      window.parent.postMessage({ type: 'scraggle', emoji: '💳', text: `crafted a Mall Dollar at the ATM in Sunset Ridge Mall` }, '*');
+    } else {
+      const dollar = generateDollar(Date.now());
+      learnAndPickup(dollar);
+      showAcquired(`💳 ${dollar.rarity.toUpperCase()} Mall Dollar dispensed!`, '#00FFCC');
+      flashBorder('green', 500);
+    }
     renderHUD();
     return;
   }
@@ -1820,15 +1926,42 @@ function doConfirmBump() {
     return;
   }
 
+  if (target.kind === 'emergentexit') {
+    const carIdx = G.hands.findIndex(h => h?.isCar);
+    if (carIdx < 0) { G.bumpMode = null; flashBorder('red', 500); renderHUD(); return; }
+    const car = G.hands[carIdx];
+    const destSeed = ((car.id >>> 0) + 1) || Math.floor(Math.random() * 0xFFFFFF);
+    const destName = MALL_NAMES[destSeed % MALL_NAMES.length];
+    G.hands[carIdx] = null; // consume the car
+    G.bumpMode = null;
+    // Drive — full fade, new seed world from floor 1
+    G.mallName = destName;
+    G.player.floor = 1;
+    document.getElementById('hud-mall-name').textContent = `🚗 ${destName.toUpperCase()}`;
+    const overlay = document.getElementById('escalator-overlay');
+    overlay.style.opacity = '1';
+    setTimeout(() => {
+      G.fd = generateFloor(destSeed, 1);
+      G.player.px = G.fd.startX; G.player.py = G.fd.startY;
+      G.player.dir = G.fd.startDir ?? 1;
+      buildScene(scene, G.fd); snapCamera(); renderHUD();
+      window.parent.postMessage({ type: 'scraggle', emoji: '🚗', text: `drove to ${destName}` }, '*');
+      showAcquired(`🚗 Welcome to ${destName}`, '#00FF44', 4000);
+      setTimeout(() => { overlay.style.opacity = '0'; setTimeout(() => { G.moving = false; }, 750); }, 300);
+    }, 900);
+    G.moving = true;
+    return;
+  }
+
   if (target.kind === 'sampler') {
+    target.entity.used = true; // one sample per cart
     const pick = FOOD_ITEMS[Math.floor(Date.now() / 1000) % FOOD_ITEMS.length];
-    // Give as a hand item (food item type) — it has stats and counts as an item
     const foodItem = { ...pick, id: `food_${Date.now()}`, rarity: 'uncommon',
       prefix: null, suffix: null, isDollar: false, isFood: true };
     learnAndPickup(foodItem);
-    showAcquired(`🍴 Sample of ${pick.name} obtained!`, '#FF9933', 2500);
+    showAcquired(`🍴 Sample of ${pick.name}!`, '#FF9933', 2500);
     flashBorder('green', 500);
-    window.parent.postMessage({ type: 'scraggle', emoji: '🍴', text: `got a free sample at Sunset Ridge Mall Food Court` }, '*');
+    window.parent.postMessage({ type: 'scraggle', emoji: '🍴', text: `got a free sample at the Sunset Ridge Food Court` }, '*');
     renderHUD();
     return;
   }
@@ -1953,12 +2086,25 @@ function tryMove(fwd) {
       renderHUD();
       return;
     }
+    // Check for Emergent Exit
+    const exitEnt = fd.wallEntities.find(e => e.type === 'emergentexit' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
+    if (exitEnt) {
+      G.bumpMode = { target: { kind: 'emergentexit', entity: exitEnt } };
+      flashBorder('green', -1);
+      renderHUD();
+      return;
+    }
     // Check for food court sampler
     const samplerEnt = fd.wallEntities.find(e => e.type === 'sampler' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
     if (samplerEnt) {
-      G.bumpMode = { target: { kind: 'sampler', entity: samplerEnt } };
-      flashBorder('green', -1);
-      renderHUD();
+      if (samplerEnt.used) {
+        showAcquired('🍴 Out of samples!', '#886644', 1800);
+        flashBorder('red', 500);
+      } else {
+        G.bumpMode = { target: { kind: 'sampler', entity: samplerEnt } };
+        flashBorder('green', -1);
+        renderHUD();
+      }
       return;
     }
     flashBorder('red');
