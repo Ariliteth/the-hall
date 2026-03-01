@@ -131,7 +131,9 @@ Floor gating: 35% chance floor 7+, 55% floor 14+, 100% floor 21+
 
 | Hash | Description |
 |---|---|
-| `(next)` | Ra (cheerleading), item provenance, silent bench |
+| `(next)` | ??? |
+| `bfd782d` | Sound system, enhanced bench (CHILL tiers, audio) |
+| `3272515` | Ra (cheerleading), item provenance, silent bench |
 | `87bbe3c` | Staff rooms, U-SEEN regulars, quest reward escalation |
 | `77d6227` | Special stores: 11 shops appear deeper in the mall |
 | `82db6ef` | Trashcans of permanence |
@@ -157,8 +159,16 @@ Floor gating: 35% chance floor 7+, 55% floor 14+, 100% floor 21+
   Hand card shows tiny footnote: `f7 · SANG`, `f12 · Pinecrest Galleria`, `f3 · STAFF ONLY`.
   Mall name only shown if item is from a *different* mall (carried through Emergent Exit).
 - **Silent bench** ✓ — backing into a wall while standing on a bench tile absorbs the red flash.
-  Shows a 1.4s world-event whisper: "you sat for a moment." / "comfortable." / "quiet here."
-  No prompt, no bumpMode, no input required. The bench doesn't tell you it's there.
+  Depth scales with `benchSits` counter and total CHILL stat.
+  Five tiers: casual → settling → drifting → deep ease → full peace.
+  CHILL ≥ 8: rare chance for "the bench is also quite chill."
+  Plays a soft filtered tone (C3–E3) on each sit. Bench depth resets on escalator/drive.
+- **Sound system** ✓ — Web Audio API, no library. Lazy init on first keypress (autoplay policy).
+  **Mall muzak:** C2+G2 bass drone (triangle oscillators) + two generative pentatonic pad voices
+  at independent tempos, all routed through a low-pass filter for that muffled mall warmth.
+  **Sound effects:** pickup (ascending chime), atm (mechanical beeps), ship (departing tone),
+  perm (soft low thud), bench (filtered low sine, random pitch each sit), escalator (freq glide).
+  **🔊 toggle button** in HUD bottom-left. State: muted/unmuted survives turns but resets on reload.
 
 ### Minor interactions (design notes from Fox)
 - **Principle:** these must not interrupt flow. They are environmental, not mechanical.
