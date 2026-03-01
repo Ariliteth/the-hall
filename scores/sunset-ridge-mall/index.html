@@ -1213,7 +1213,7 @@ function buildScene(scene, fd, onlyTiles = null) {
   }
 
   // Props
-  const CORRIDOR_PROPS=["bench","plant","plant","kiosk","fountain","fountain","plant","bench"];
+  const CORRIDOR_PROPS=["bench","plant","plant","trashcan","kiosk","fountain","fountain","plant"];
   const STORE_PROPS=["shelf","rack","display","counter","mannequin"];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (grid[y][x]===T.EMPTY) continue;
@@ -1499,6 +1499,7 @@ const G = {
   bumpMode: null,
   atmVisited: false, // track first-time ATM approach for the hint
   mallName: "Sunset Ridge Mall", // current mall world name
+  permStats: {}, // permanently retained stats from trashcan discards
 };
 
 // Three.js module-level refs
@@ -1557,10 +1558,19 @@ function renderHUD() {
   if (statKeys.length > 0) {
     let html = '<div class="stats-label">STATS</div>';
     statKeys.forEach(k => {
-      const total = (hands[0]?.stats?.[k] || 0) + (hands[1]?.stats?.[k] || 0);
+      const total = (G.permStats?.[k] || 0) + (hands[0]?.stats?.[k] || 0) + (hands[1]?.stats?.[k] || 0);
       const pips = statEmoji(k, total);
       html += `<div class="stat-row" title="${k} +${total}" style="font-size:13px;letter-spacing:1px;">${pips || '·'}</div>`;
     });
+    // Permanent — stats retained forever via trashcan discards
+    const permKeys = Object.keys(G.permStats || {}).filter(k => G.permStats[k] > 0);
+    if (permKeys.length) {
+      html += `<div class="stats-label" style="margin-top:6px;padding-top:4px;border-top:1px solid rgba(100,200,70,0.3);color:#AACCAA;">PERMANENT</div>`;
+      permKeys.forEach(k => {
+        const ppips = statEmoji(k, G.permStats[k]);
+        html += `<div class="stat-row" title="${k} +${G.permStats[k]} (permanent)" style="color:#88CC44;font-size:12px;opacity:0.9;letter-spacing:1px;">${ppips || '·'}</div>`;
+      });
+    }
     // Signature — hidden stat fragments accumulated from shipped items
     const hiddenKeys = Object.keys(G.hiddenStats || {}).filter(k => G.hiddenStats[k] > 0);
     if (hiddenKeys.length) {
@@ -1735,6 +1745,32 @@ function renderBumpPrompt() {
         </div>`;
       }).join('')}
       <div style="font-size:10px;color:${item?'#88FFCC':'#444'};margin-top:4px;">${item?'FORWARD to ship':'nothing to ship'}</div>
+    </div>`;
+    return;
+  }
+
+  if (target.kind === 'trashcan') {
+    const { selectedHand } = target;
+    const item = G.hands[selectedHand];
+    const permGains = item ? Object.entries(item.stats || {})
+      .map(([k, v]) => ({ k, v: Math.round(v * 0.25) }))
+      .filter(g => g.v > 0) : [];
+    el.innerHTML = `<div class="bump-box" style="border:2px solid #88AA66;background:rgba(15,25,10,0.92);">
+      <div style="font-size:14px;margin-bottom:4px;">🗑 TRASHCAN</div>
+      <div style="font-size:9px;color:#668844;margin-bottom:8px;">TURN to switch hand · BACK to cancel</div>
+      ${[0,1].map(i => {
+        const it = G.hands[i]; const sel = i === selectedHand;
+        const rc = it ? RARITY_COLORS[it.rarity] : '#333';
+        return `<div style="border:1px solid ${sel?'#88AA66':'#2a2a2a'};border-radius:4px;padding:4px 7px;margin-bottom:4px;background:${sel?'rgba(100,160,70,0.15)':'transparent'};">
+          <span style="font-size:9px;color:${sel?'#AACCAA':'#444'};">${i===0?'◄ L HAND':'R HAND ►'}</span>
+          ${it ? `<div style="color:${rc};font-size:11px;">${itemDisplayName(it)}</div>` : '<div style="color:#333;font-size:11px;">empty</div>'}
+        </div>`;
+      }).join('')}
+      ${item && permGains.length ? `
+        <div style="font-size:9px;color:#AAFFAA;margin-top:4px;border-top:1px solid rgba(100,160,70,0.3);padding-top:4px;">
+          PERMANENTLY RETAINS:<br>${permGains.map(({k,v}) => `${statEmoji(k,v)} ${k} +${v}`).join('  ')}
+        </div>` : ''}
+      <div style="font-size:10px;color:${item?'#88FF44':'#444'};margin-top:6px;">${item?'FORWARD to discard':'nothing to discard'}</div>
     </div>`;
     return;
   }
@@ -1988,6 +2024,33 @@ function doConfirmBump() {
     return;
   }
 
+  if (target.kind === 'trashcan') {
+    const { selectedHand } = target;
+    const item = G.hands[selectedHand];
+    if (!item) { renderHUD(); return; }
+    // Permanently retain ~25% of each stat (rounded)
+    const gained = [];
+    Object.entries(item.stats || {}).forEach(([k, v]) => {
+      if (!(k in G.playerStats)) G.playerStats[k] = 0;
+      const g = Math.round(v * 0.25);
+      if (g > 0) {
+        G.permStats[k] = (G.permStats[k] || 0) + g;
+        gained.push(`+${g} ${STAT_EMOJI[k] || k}`);
+      }
+    });
+    G.hands[selectedHand] = null;
+    flashBorder('green', 600);
+    showAcquired(
+      gained.length
+        ? `🗑 DISCARDED · ${gained.join(' ')} permanent`
+        : `🗑 DISCARDED`,
+      '#88CC44', 3500
+    );
+    window.parent.postMessage({ type: 'scraggle', emoji: '🗑', text: `permanently discarded ${itemDisplayName(item)} at ${G.mallName}` }, '*');
+    renderHUD();
+    return;
+  }
+
   if (target.kind === 'item') {
     // Need a dollar
     const dollarIdx = G.hands.findIndex(h => h && h.isDollar);
@@ -2139,6 +2202,19 @@ function tryMove(fwd) {
         G.bumpMode = { target: { kind: 'item', entity: match } };
         flashBorder('green', -1);
       }
+      // Check for trashcan prop on landing (only if holding something)
+      if (!G.bumpMode && fd.grid[G.player.py]?.[G.player.px] === T.CORRIDOR && (G.hands[0] || G.hands[1])) {
+        const tpr = rng(fd.seed*137+G.player.py*31+G.player.px);
+        if (tpr() < 0.14) {
+          tpr(); // consume count-check call to stay in sync with buildScene
+          const ttype = CORRIDOR_PROPS[Math.floor(tpr() * CORRIDOR_PROPS.length)];
+          if (ttype === 'trashcan') {
+            const defHand = G.hands[0] ? 0 : 1;
+            G.bumpMode = { target: { kind: 'trashcan', selectedHand: defHand } };
+            flashBorder('green', -1);
+          }
+        }
+      }
       renderHUD();
     }
   };
@@ -2150,6 +2226,13 @@ function tryTurn(right) {
   // Ship-It: turn toggles selected hand without rotating the player
   if (G.bumpMode?.target.kind === 'ship') {
     G.bumpMode.target.selectedHand = 1 - G.bumpMode.target.selectedHand;
+    renderHUD();
+    return;
+  }
+  // Trashcan: turn toggles selected hand without rotating the player
+  if (G.bumpMode?.target.kind === 'trashcan') {
+    const other = 1 - G.bumpMode.target.selectedHand;
+    if (G.hands[other]) G.bumpMode.target.selectedHand = other;
     renderHUD();
     return;
   }
