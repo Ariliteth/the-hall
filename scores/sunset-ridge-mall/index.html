@@ -476,6 +476,33 @@ const SPECIAL_STORE_PALETTES = [
     extraPrefixes:[{name:"Returned",stat:"CLOUT",val:3},{name:"Retired",stat:"CLOUT",val:4}],
     extraSuffixes:[{name:"of Triumph",stat:"BULK",val:4},{name:"of the End Zone",stat:"CLOUT",val:3}] },
 ];
+// Staff Room — spawns as a quest reward after 2+ deliveries on the same floor
+const STAFF_ROOM_PALETTE = {
+  floor:"#3A3A2A", wall:"#999988", ceil:"#DDDDCC",
+  name:"STAFF ONLY", tagline:"You're not supposed to be here.",
+  favStats:["LUCK","CHILL"],
+  itemBases:[
+    {name:"Lanyard",        color:"#88AACC"},
+    {name:"Name Tag",       color:"#DDDD88"},
+    {name:"Donut",          color:"#CC9966"},
+    {name:"Clipboard",      color:"#BBAA88"},
+    {name:"Walkie",         color:"#888888"},
+    {name:"Leftovers",      color:"#99AA77"},
+    {name:"Staff Key",      color:"#FFCC44"},
+    {name:"Break Room Key", color:"#CC8833"},
+  ],
+  extraPrefixes:[
+    {name:"Employee",   stat:"CLOUT",val:2},
+    {name:"Spare",      stat:"LUCK", val:3},
+    {name:"Lost",       stat:"LUCK", val:4},
+    {name:"Manager's",  stat:"CLOUT",val:5},
+  ],
+  extraSuffixes:[
+    {name:"of the Break Room",   stat:"CHILL",val:4},
+    {name:"of Overtime",         stat:"BULK", val:2},
+    {name:"of the Back Office",  stat:"LUCK", val:3},
+  ],
+};
 const CORRIDOR_PALETTE = { floor:"#D4A76A", wall:"#F5ECD7", ceil:"#F0EDE0" };
 
 const RARITY_COLORS = { common:"#AAAAAA", uncommon:"#44DD44", rare:"#4488FF", legendary:"#FF9900" };
@@ -520,6 +547,27 @@ const MALL_NAMES = [
 ];
 const BASE_STATS = ["VIBES","BULK","STYLE","LUCK","CLOUT","CHILL"];
 const DOLLAR_COLORS = ["#FF3366","#33AAFF","#FFEE00","#44DD88","#FF9900","#CC44FF"];
+
+// Mall regulars — appear at U-SEEN kiosk when the Hall queue is empty
+// Rotate every 30 minutes so the board feels alive
+const MALL_REGULARS = [
+  {name:"Bev",            neighborhood:"Bath & Beyond"},
+  {name:"Old Man Gerald", neighborhood:"Fountain Level"},
+  {name:"The Sunglasses Kid", neighborhood:"Unknown"},
+  {name:"Marcia",         neighborhood:"Senior Walk"},
+  {name:"Chip",           neighborhood:"Food Court"},
+  {name:"Double Stroller Mom", neighborhood:"Near Parking"},
+  {name:"Pager Guy",      neighborhood:"Somewhere Beeping"},
+  {name:"Carol",          neighborhood:"Always Here"},
+  {name:"Phil",           neighborhood:"Back Hallway"},
+  {name:"Nana Del",       neighborhood:"The Mall"},
+  {name:"Terri",          neighborhood:"Suncoast"},
+  {name:"The Kiosk Man",  neighborhood:"The Kiosk"},
+];
+function getMallRegular() {
+  const idx = Math.floor(Date.now() / (1000 * 60 * 30)) % MALL_REGULARS.length;
+  return MALL_REGULARS[idx];
+}
 
 // Stat emoji display — each pip = 1 of that stat; overflow emoji = +5
 const STAT_EMOJI    = { VIBES:'🌊', BULK:'💪', STYLE:'✨', LUCK:'🍀', CLOUT:'👑', CHILL:'🧊' };
@@ -946,7 +994,14 @@ function mutateWorld(fd, questSeed) {
   }
   if (!newTiles.length) return null;
 
-  const addRoom = r() < 0.65;
+  // After 2+ quests on the same floor, chance to spawn a Staff Room instead of a back room
+  const qCount = G.questsCompletedThisFloor || 0;
+  let isStaffRoom = false;
+  if (qCount >= 2) {
+    const staffChance = qCount >= 3 ? 0.70 : 0.45;
+    isStaffRoom = r() < staffChance;
+  }
+  const addRoom = isStaffRoom || r() < 0.65;
   if (addRoom) {
     const pick = newTiles[Math.floor(r() * newTiles.length)];
     const perp = edge.dx === 0 ? [1, 0] : [0, 1];
@@ -964,9 +1019,9 @@ function mutateWorld(fd, questSeed) {
           if (grid[ty][tx] !== T.EMPTY) ok = false;
         }
       if (ok) {
-        const palette = STORE_PALETTES[Math.floor(r() * STORE_PALETTES.length)];
+        const palette = isStaffRoom ? STAFF_ROOM_PALETTE : STORE_PALETTES[Math.floor(r() * STORE_PALETTES.length)];
         const idx = stores.length;
-        stores.push({ palette, x: rx, y: ry, w: rw, h: rh, isBackRoom: true });
+        stores.push({ palette, x: rx, y: ry, w: rw, h: rh, isBackRoom: !isStaffRoom, isStaffRoom });
         for (let dy = 0; dy < rh; dy++)
           for (let dx2 = 0; dx2 < rw; dx2++) {
             grid[ry+dy][rx+dx2] = T.STORE;
@@ -978,7 +1033,24 @@ function mutateWorld(fd, questSeed) {
         const itemSeed = questSeed * 777 + rx * 13 + ry;
         const item = generateItem(itemSeed);
         const or = rng(itemSeed + 3);
-        item.rarity = item.rarity === "common" ? "uncommon" : item.rarity;
+        if (isStaffRoom) {
+          // Staff room: guaranteed uncommon–legendary, staff-themed item + affixes
+          const sr = rng(itemSeed + 13);
+          const rr = sr();
+          item.rarity = rr < 0.35 ? 'uncommon' : rr < 0.80 ? 'rare' : 'legendary';
+          const nb = STAFF_ROOM_PALETTE.itemBases[Math.floor(sr() * STAFF_ROOM_PALETTE.itemBases.length)];
+          item.name = nb.name; item.color = nb.color;
+          ['LUCK','CHILL'].forEach(stat => {
+            if (sr() < 0.6) item.stats[stat] = (item.stats[stat] || 0) + 1 + Math.floor(sr() * 2);
+          });
+          if (!item.prefix && sr() < 0.65)
+            item.prefix = STAFF_ROOM_PALETTE.extraPrefixes[Math.floor(sr() * STAFF_ROOM_PALETTE.extraPrefixes.length)];
+          if (!item.suffix && sr() < 0.55)
+            item.suffix = STAFF_ROOM_PALETTE.extraSuffixes[Math.floor(sr() * STAFF_ROOM_PALETTE.extraSuffixes.length)];
+          window.parent.postMessage({ type: 'scraggle', emoji: '🔑', text: `found a staff area at ${G.mallName}` }, '*');
+        } else {
+          item.rarity = item.rarity === "common" ? "uncommon" : item.rarity;
+        }
         const ox = (or() - 0.5) * CELL * 0.4, oz = (or() - 0.5) * CELL * 0.4;
         const requiredFace = Math.abs(ox) > Math.abs(oz) ? (ox > 0 ? 'E' : 'W') : (oz > 0 ? 'S' : 'N');
         looseItems.push({ tileX: rx, tileY: ry, item, offsetX: ox, offsetZ: oz, requiredFace, id: `reward_${rx}_${ry}` });
@@ -1575,6 +1647,7 @@ const G = {
   atmVisited: false, // track first-time ATM approach for the hint
   mallName: "Sunset Ridge Mall", // current mall world name
   permStats: {}, // permanently retained stats from trashcan discards
+  questsCompletedThisFloor: 0, // resets on escalator/drive — gates staff room unlock
 };
 
 // Three.js module-level refs
@@ -1755,23 +1828,22 @@ function renderBumpPrompt() {
   }
 
   if (target.kind === 'kiosk') {
-    let kName = null, kHood = null;
+    let kName = null, kHood = null, kIsRegular = false;
     try {
       const kRaw = localStorage.getItem('baseline-session/portraits-queue');
       const kQ = kRaw ? JSON.parse(kRaw) : [];
       if (Array.isArray(kQ) && kQ.length) { kName = kQ[kQ.length-1].name; kHood = kQ[kQ.length-1].neighborhood; }
     } catch(e) {}
+    if (!kName) { const reg = getMallRegular(); kName = reg.name; kHood = reg.neighborhood; kIsRegular = true; }
     el.innerHTML = `<div class="bump-box" style="border:2px solid #44AAFF;background:rgba(8,17,30,0.96);">
       <div style="font-size:9px;color:#FF7700;letter-spacing:2px;margin-bottom:2px;">● COMMUNITY BOARD ●</div>
       <div style="font-size:15px;color:#FFDD00;font-weight:bold;line-height:1.1;">U-SEEN</div>
       <div style="font-size:11px;color:#FF8800;">U-HALL</div>
       <div style="font-size:9px;color:#44CCFF;margin-bottom:8px;">HAPPY EVENT</div>
-      ${kName ? `
-        <div style="font-size:9px;color:#88FF88;margin-bottom:2px;">B-HERE :</div>
-        <div style="font-size:14px;color:#FFFFFF;font-weight:bold;">${kName}</div>
-        <div style="font-size:9px;color:#8899AA;margin-bottom:8px;">FROM ${(kHood||'???').toUpperCase()}</div>
-        <div style="font-size:9px;color:#44FF88;">FORWARD to wave hello 👋</div>
-      ` : `<div style="font-size:9px;color:#2A4055;margin:4px 0;">NO RECENT VISITORS</div>`}
+      <div style="font-size:9px;color:${kIsRegular?'#556677':'#88FF88'};margin-bottom:2px;">${kIsRegular?'REGULAR':'B-HERE'} :</div>
+      <div style="font-size:14px;color:${kIsRegular?'#AABBCC':'#FFFFFF'};font-weight:bold;">${kName}</div>
+      <div style="font-size:9px;color:${kIsRegular?'#445566':'#8899AA'};margin-bottom:8px;">FROM ${(kHood||'THE MALL').toUpperCase()}</div>
+      <div style="font-size:9px;color:${kIsRegular?'#3388BB':'#44FF88'};">FORWARD to wave hello 👋</div>
     </div>`;
     return;
   }
@@ -1941,6 +2013,8 @@ function handlePhoneBump() {
     window.parent.postMessage({ type: 'scraggle', emoji: qEmoji, text: `sent ${shortGiver} a ${itemDisplayName(delivered)} from Sunset Ridge Mall` }, '*');
 
     G.activeQuest = null;
+    G.questsCompletedThisFloor = (G.questsCompletedThisFloor || 0) + 1;
+    const isStaffOpening = G.questsCompletedThisFloor >= 2;
 
     // World mutation
     const newTiles = mutateWorld(G.fd, Date.now());
@@ -1970,7 +2044,12 @@ function handlePhoneBump() {
       };
       setTimeout(pulse, 1200);
 
-      setTimeout(() => showWorldEvent(`🗺 NEW AREA OPENED · HEAD ${dirHint} · FOLLOW THE LIGHT`, 5500), 1000);
+      setTimeout(() => showWorldEvent(
+        isStaffOpening
+          ? `🔑 STAFF AREA · HEAD ${dirHint} · FOLLOW THE LIGHT`
+          : `🗺 NEW AREA OPENED · HEAD ${dirHint} · FOLLOW THE LIGHT`,
+        5500
+      ), 1000);
     }
     renderHUD();
     return;
@@ -2022,15 +2101,18 @@ function doConfirmBump() {
   }
 
   if (target.kind === 'kiosk') {
-    let kName = null, kHood = null;
+    let kName = null, kHood = null, kIsRegular = false;
     try {
       const kRaw = localStorage.getItem('baseline-session/portraits-queue');
       const kQ = kRaw ? JSON.parse(kRaw) : [];
       if (Array.isArray(kQ) && kQ.length) { kName = kQ[kQ.length-1].name; kHood = kQ[kQ.length-1].neighborhood; }
     } catch(e) {}
+    if (!kName) { const reg = getMallRegular(); kName = reg.name; kHood = reg.neighborhood; kIsRegular = true; }
     G.bumpMode = null;
-    if (kName) {
-      window.parent.postMessage({ type: 'scraggle', emoji: '👋', text: `waved at ${kName} from ${kHood || 'somewhere'} at Sunset Ridge Mall` }, '*');
+    if (kIsRegular) {
+      showAcquired(`👋 Waved at ${kName}!`, '#3388BB', 2500);
+    } else {
+      window.parent.postMessage({ type: 'scraggle', emoji: '👋', text: `waved at ${kName} from ${kHood || 'somewhere'} at ${G.mallName}` }, '*');
       showAcquired(`👋 Waved at ${kName}!`, '#44AAFF', 2500);
     }
     renderHUD();
@@ -2048,6 +2130,7 @@ function doConfirmBump() {
     // Drive — full fade, new seed world from floor 1
     G.mallName = destName;
     G.player.floor = 1;
+    G.questsCompletedThisFloor = 0; // new mall, new floor
     document.getElementById('hud-mall-name').textContent = `🚗 ${destName.toUpperCase()}`;
     const overlay = document.getElementById('escalator-overlay');
     overlay.style.opacity = '1';
@@ -2357,6 +2440,7 @@ function rideEscalator() {
   if (G.moving) return;
   G.moving = true;
   G.bumpMode = null;
+  G.questsCompletedThisFloor = 0; // new floor, fresh slate
 
   // Scraggle — the Hall knows you went up
   if (Math.random() < 0.25) window.parent.postMessage({ type: 'scraggle', emoji: '🛍', text: `ascending to floor ${G.player.floor + 1} of Sunset Ridge Mall` }, '*');
