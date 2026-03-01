@@ -424,6 +424,16 @@ const ITEM_BASES = [
 const BASE_STATS = ["VIBES","BULK","STYLE","LUCK","CLOUT","CHILL"];
 const DOLLAR_COLORS = ["#FF3366","#33AAFF","#FFEE00","#44DD88","#FF9900","#CC44FF"];
 
+// Stat emoji display — each pip = 1 of that stat; overflow emoji = +5
+const STAT_EMOJI    = { VIBES:'🌊', BULK:'💪', STYLE:'✨', LUCK:'🍀', CLOUT:'👑', CHILL:'🧊' };
+const STAT_OVERFLOW = { VIBES:'🎵', BULK:'🦁', STYLE:'🎀', LUCK:'⭐', CLOUT:'🏆', CHILL:'❄️' };
+function statEmoji(k, v) {
+  if (!v || v <= 0) return '';
+  const pip = STAT_EMOJI[k] || '●', over = STAT_OVERFLOW[k] || '⬆';
+  if (v <= 5) return pip.repeat(v);
+  return over.repeat(Math.floor(v / 5)) + (v % 5 ? pip.repeat(v % 5) : '');
+}
+
 const DIRS = [{dx:0,dz:-1,f:'N'},{dx:1,dz:0,f:'E'},{dx:0,dz:1,f:'S'},{dx:-1,dz:0,f:'W'}];
 const DIR_ANGLE = [0, Math.PI/2, Math.PI, -Math.PI/2];
 const DIR_LABELS = ["N","E","S","W"];
@@ -597,6 +607,8 @@ function generateFloor(seed) {
 
   let startX = 0, startY = midY;
   for (let x = 0; x < W; x++) { if (grid[midY][x] === T.CORRIDOR) { startX = x; break; } }
+  // Always spawn facing East — leftmost corridor tile, corridor runs east-west
+  const startDir = 1;
 
   // Escalator — fixed at far end of main spine (rightmost corridor tile on midY)
   let escalatorX = startX, escalatorY = midY;
@@ -623,6 +635,25 @@ function generateFloor(seed) {
       if (!type) continue;
       wallEntities.push({ tileX: x, tileY: y, face, type, id: `${type}_${x}_${y}` });
       if (type === 'atm') atmCount++; else if (type === 'payphone') phoneCount++; else if (type === 'shippit') shippitCount++; else kioskCount++;
+    }
+  }
+
+  // ATM fallback — ensure at least one ATM exists per floor
+  if (atmCount === 0) {
+    outerAtm: for (let y = 1; y < H-1; y++) {
+      for (let x = 1; x < W-1; x++) {
+        if (grid[y][x] !== T.CORRIDOR) continue;
+        const candidates = [];
+        if (grid[y-1]?.[x] === T.EMPTY) candidates.push('N');
+        if (grid[y+1]?.[x] === T.EMPTY) candidates.push('S');
+        if (grid[y]?.[x+1] === T.EMPTY) candidates.push('E');
+        if (grid[y]?.[x-1] === T.EMPTY) candidates.push('W');
+        if (candidates.length) {
+          wallEntities.push({ tileX: x, tileY: y, face: candidates[0], type: 'atm', id: `atm_fallback_${x}_${y}` });
+          atmCount++;
+          break outerAtm;
+        }
+      }
     }
   }
 
@@ -662,7 +693,7 @@ function generateFloor(seed) {
     }
   }
 
-  return { grid, storeMap, stores, doors, W, H, startX, startY, escalatorX, escalatorY, wallEntities, looseItems, seed, spineY: midY };
+  return { grid, storeMap, stores, doors, W, H, startX, startY, startDir, escalatorX, escalatorY, wallEntities, looseItems, seed, spineY: midY };
 }
 
 // ── WORLD MUTATION ────────────────────────────────────────────────────────────
@@ -1047,7 +1078,7 @@ function buildScene(scene, fd, onlyTiles = null) {
       const at=atmTex();
       const atm=new THREE.Mesh(new THREE.BoxGeometry(0.9,2.1,0.22),mat(0x223344,at));
       atm.position.set(fo.px,1.05,fo.pz); atm.rotation.y=fo.ry; scene.add(atm);
-      const gl=new THREE.PointLight(0x00FFCC,0.8,4); gl.position.set(fo.px,2.5,fo.pz); scene.add(gl);
+      const gl=new THREE.PointLight(0x00FFCC,1.2,CELL*2.2); gl.position.set(fo.px,1.8,fo.pz); scene.add(gl);
     } else if (type === 'payphone') {
       const pt=phoneTex();
       const phone=new THREE.Mesh(new THREE.BoxGeometry(0.75,1.8,0.18),mat(0x3355AA,pt));
@@ -1246,6 +1277,7 @@ const G = {
 // Three.js module-level refs
 let renderer, scene, camera;
 let flickerLights = []; // store lights that buzz/flicker in animation loop
+let personalLight = null; // soft glow carried by player when holding items
 let borderTO = null, acquiredTO = null, worldEventTO = null;
 
 // ── CAMERA ────────────────────────────────────────────────────────────────────
@@ -1294,14 +1326,16 @@ function renderHUD() {
     let html = '<div class="stats-label">STATS</div>';
     statKeys.forEach(k => {
       const total = (hands[0]?.stats?.[k] || 0) + (hands[1]?.stats?.[k] || 0);
-      html += `<div class="stat-row">${k} ${total > 0 ? '+' + total : 0}</div>`;
+      const pips = statEmoji(k, total);
+      html += `<div class="stat-row" title="${k} +${total}" style="font-size:13px;letter-spacing:1px;">${pips || '·'}</div>`;
     });
     // Signature — hidden stat fragments accumulated from shipped items
     const hiddenKeys = Object.keys(G.hiddenStats || {}).filter(k => G.hiddenStats[k] > 0);
     if (hiddenKeys.length) {
       html += `<div class="stats-label" style="margin-top:6px;padding-top:4px;border-top:1px solid rgba(187,68,255,0.3);color:#CC88FF;">SIGNATURE</div>`;
       hiddenKeys.forEach(k => {
-        html += `<div class="stat-row" style="color:#CC88FF;">${k} +${G.hiddenStats[k]}</div>`;
+        const spips = statEmoji(k, G.hiddenStats[k]);
+        html += `<div class="stat-row" title="${k} +${G.hiddenStats[k]}" style="color:#CC88FF;font-size:12px;opacity:0.8;letter-spacing:1px;">${spips || '·'}</div>`;
       });
     }
     statsEl.innerHTML = html;
@@ -1822,13 +1856,13 @@ function rideEscalator() {
   setTimeout(() => {
     // New floor
     G.player.floor++;
-    G.player.dir = 0;
     // Keep seed arithmetic in 32-bit integer space to avoid float64 precision loss
     const baseSeed = G.fd.seed >>> 0;
     const nextSeed = (Math.imul(baseSeed, 7919) + Math.imul(G.player.floor, 3571)) >>> 0;
     G.fd = generateFloor(nextSeed || 1);
     G.player.px = G.fd.startX;
     G.player.py = G.fd.startY;
+    G.player.dir = G.fd.startDir ?? 1; // face into the corridor
 
     // Rebuild scene and snap camera
     buildScene(scene, G.fd);
@@ -1955,12 +1989,17 @@ function init() {
   scene.fog = new THREE.Fog('#C8B89A', CELL*4, CELL*11);
   scene.add(new THREE.AmbientLight(0xFFF8E7, 0.55));
 
+  // Soft personal light — glows when carrying items, follows camera
+  personalLight = new THREE.PointLight(0xFFEECC, 0, CELL * 1.8);
+  scene.add(personalLight);
+
   camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 200);
   camera.position.y = PLAYER_H;
 
   G.fd = generateFloor(Date.now());
   G.player.px = G.fd.startX;
   G.player.py = G.fd.startY;
+  G.player.dir = G.fd.startDir ?? 1; // face East into the corridor
   buildScene(scene, G.fd);
   snapCamera();
   startPASystem();
@@ -1971,6 +2010,22 @@ function init() {
     flickerLights.forEach(fl => {
       fl.light.intensity = fl.base * (0.55 + 0.45 * Math.sin(ts * fl.speed + fl.phase));
     });
+    // Personal glow — pulses gently when you're carrying items
+    if (personalLight) {
+      const heldItems = G.hands.filter(h => h && !h.isDollar);
+      if (heldItems.length > 0) {
+        personalLight.position.copy(camera.position);
+        // Each item contributes a little light; flickers at slightly different rates
+        const pulse = heldItems.reduce((sum, item, i) =>
+          sum + 0.12 * (0.65 + 0.35 * Math.sin(ts * 0.0025 + i * 1.7)), 0);
+        personalLight.intensity = pulse;
+        // Tint based on first held item's rarity
+        const rc = { common: 0xFFEECC, uncommon: 0xCCEEFF, rare: 0xDDBBFF, legendary: 0xFFDD55 };
+        personalLight.color.setHex(rc[heldItems[0].rarity] ?? 0xFFEECC);
+      } else {
+        personalLight.intensity = 0;
+      }
+    }
     renderer.render(scene, camera);
   })();
 
