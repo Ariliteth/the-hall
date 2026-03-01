@@ -380,7 +380,7 @@
 'use strict';
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
-const CELL = 6, WALL_H = 3.8, PLAYER_H = 1.6;
+const CELL = 6, WALL_H = 5.0, PLAYER_H = 1.6;
 const T = { EMPTY: 0, CORRIDOR: 1, STORE: 2 };
 
 const STORE_PALETTES = [
@@ -551,7 +551,7 @@ function generateFloor(seed) {
   for (let si = 0; si < numStores; si++) {
     const sw = 2 + Math.floor(rand() * 4), sh = 2 + Math.floor(rand() * 4);
     const sx = 1 + Math.floor(rand() * (W - sw - 2)), sy = 1 + Math.floor(rand() * (H - sh - 2));
-    if (sy <= midY && sy + sh > midY) continue; // don't straddle the corridor spine
+    if (sy <= midY && sy + sh >= midY) continue; // don't touch either spine row (midY-1 or midY)
     let ok = true;
     for (let y = sy-1; y <= sy+sh && ok; y++)
       for (let x = sx-1; x <= sx+sw && ok; x++)
@@ -563,7 +563,11 @@ function generateFloor(seed) {
       for (let x = sx; x < sx + sw; x++) { grid[y][x] = T.STORE; storeMap[y][x] = idx; }
   }
 
-  for (let x = 0; x < W; x++) if (grid[midY][x] === T.EMPTY) grid[midY][x] = T.CORRIDOR;
+  // Two-row atrium spine: lower row (midY) and upper row (midY-1)
+  for (let x = 0; x < W; x++) {
+    if (grid[midY][x] === T.EMPTY) grid[midY][x] = T.CORRIDOR;
+    if (midY > 0 && grid[midY-1][x] === T.EMPTY) grid[midY-1][x] = T.CORRIDOR;
+  }
   stores.forEach(s => {
     const cx = s.x + Math.floor(s.w / 2), cy = s.y + Math.floor(s.h / 2);
     for (let y = Math.min(cy, midY); y <= Math.max(cy, midY); y++)
@@ -658,7 +662,7 @@ function generateFloor(seed) {
     }
   }
 
-  return { grid, storeMap, stores, doors, W, H, startX, startY, escalatorX, escalatorY, wallEntities, looseItems, seed };
+  return { grid, storeMap, stores, doors, W, H, startX, startY, escalatorX, escalatorY, wallEntities, looseItems, seed, spineY: midY };
 }
 
 // ── WORLD MUTATION ────────────────────────────────────────────────────────────
@@ -866,12 +870,14 @@ function youAreHereTex() {
 // ── SCENE BUILDER ─────────────────────────────────────────────────────────────
 function buildScene(scene, fd, onlyTiles = null) {
   if (!onlyTiles) {
+    flickerLights.length = 0;
     const toRemove = [];
     scene.children.forEach(c => { if (!(c.isAmbientLight)) toRemove.push(c); });
     toRemove.forEach(c => scene.remove(c));
   }
 
   const { grid, storeMap, stores, doors, W, H, wallEntities, looseItems } = fd;
+  const spineY = fd.spineY ?? Math.floor(fd.H / 2);
 
   function mat(color, map) { return new THREE.MeshLambertMaterial({ color: color||0xffffff, ...(map?{map}:{}) }); }
   function addBox(sx, sy, sz, px, py, pz, m) {
@@ -896,15 +902,25 @@ function buildScene(scene, fd, onlyTiles = null) {
   }
   const shouldBuildWall = (x, y) => !extendedTiles || extendedTiles.has(`${x},${y}`);
 
+  // Shared glass material for skylight ceiling panels
+  const skyGlass = new THREE.MeshLambertMaterial({ color: 0xBBDDFF, transparent: true, opacity: 0.38, side: THREE.DoubleSide, depthWrite: false });
+
   // Floors + ceilings
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!passable(x,y)) continue;
     if (!shouldBuild(x,y)) continue;
     const p = getPal(x,y);
     const ft = floorTex(p.floor); ft.wrapS=ft.wrapT=THREE.RepeatWrapping; ft.repeat.set(1,1);
-    const ct = ceilTex(p.ceil); ct.wrapS=ct.wrapT=THREE.RepeatWrapping; ct.repeat.set(1,1);
     addBox(CELL,.08,CELL,wx(x),0,wz(y),mat(0xffffff,ft));
-    addBox(CELL,.08,CELL,wx(x),WALL_H,wz(y),mat(0xffffff,ct));
+    const isSpine = grid[y][x] === T.CORRIDOR && (y === spineY || y === spineY - 1);
+    if (isSpine) {
+      // Glass skylight panel — replaces solid ceiling on the atrium spine
+      const gp = new THREE.Mesh(new THREE.BoxGeometry(CELL, .04, CELL), skyGlass);
+      gp.position.set(wx(x), WALL_H, wz(y)); scene.add(gp);
+    } else {
+      const ct = ceilTex(p.ceil); ct.wrapS=ct.wrapT=THREE.RepeatWrapping; ct.repeat.set(1,1);
+      addBox(CELL,.08,CELL,wx(x),WALL_H,wz(y),mat(0xffffff,ct));
+    }
   }
 
   // Walls
@@ -1028,9 +1044,21 @@ function buildScene(scene, fd, onlyTiles = null) {
     if (!passable(x,y)) continue;
     if (!shouldBuild(x,y)) continue;
     const p=getPal(x,y);
-    const col=p===CORRIDOR_PALETTE?0xFFFDE0:new THREE.Color(p.ceil).getHex();
-    const light=new THREE.PointLight(col,0.75,CELL*3.5);
-    light.position.set(wx(x),WALL_H-.2,wz(y)); scene.add(light);
+    const isSpineTile = grid[y][x] === T.CORRIDOR && (y === spineY || y === spineY - 1);
+    if (isSpineTile) {
+      // Sky light floods through glass ceiling — cool white, wide radius
+      const skyL = new THREE.PointLight(0xDDEEFF, 1.5, CELL * 6);
+      skyL.position.set(wx(x), WALL_H - 0.1, wz(y)); scene.add(skyL);
+    } else {
+      const col=p===CORRIDOR_PALETTE?0xFFFDE0:new THREE.Color(p.ceil).getHex();
+      const intensity = p===CORRIDOR_PALETTE ? 0.9 : 0.75;
+      const light=new THREE.PointLight(col, intensity, CELL*3.5);
+      light.position.set(wx(x),WALL_H-.2,wz(y)); scene.add(light);
+      // Store lights have a chance to buzz and flicker
+      if (p !== CORRIDOR_PALETTE && Math.random() < 0.22) {
+        flickerLights.push({ light, base: 0.75, speed: 0.003 + Math.random() * 0.012, phase: Math.random() * Math.PI * 2 });
+      }
+    }
   }
 
   // ── ESCALATOR ── fixed at far end of main spine
@@ -1161,6 +1189,7 @@ const G = {
 
 // Three.js module-level refs
 let renderer, scene, camera;
+let flickerLights = []; // store lights that buzz/flicker in animation loop
 let borderTO = null, acquiredTO = null, worldEventTO = null;
 
 // ── CAMERA ────────────────────────────────────────────────────────────────────
@@ -1728,7 +1757,13 @@ function init() {
   snapCamera();
 
   // Render loop
-  (function loop() { requestAnimationFrame(loop); renderer.render(scene, camera); })();
+  (function loop(ts = 0) {
+    requestAnimationFrame(loop);
+    flickerLights.forEach(fl => {
+      fl.light.intensity = fl.base * (0.55 + 0.45 * Math.sin(ts * fl.speed + fl.phase));
+    });
+    renderer.render(scene, camera);
+  })();
 
   // Input
   window.addEventListener('keydown', handleKey);
