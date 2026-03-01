@@ -475,6 +475,11 @@ const SPECIAL_STORE_PALETTES = [
     itemBases:[{name:"Jersey",color:"#228833"},{name:"Number",color:"#EEEEEE"},{name:"Patch",color:"#CC8800"},{name:"Name",color:"#FFCCAA"},{name:"Throwback",color:"#117722"}],
     extraPrefixes:[{name:"Returned",stat:"CLOUT",val:3},{name:"Retired",stat:"CLOUT",val:4}],
     extraSuffixes:[{name:"of Triumph",stat:"BULK",val:4},{name:"of the End Zone",stat:"CLOUT",val:3}] },
+  { floor:"#3A0000", wall:"#DD2200", ceil:"#FFEEAA", name:"RA",
+    tagline:"Go. Go. Go.", favStats:["VIBES","CLOUT"],
+    itemBases:[{name:"Pom Pom",color:"#FFDD00"},{name:"Megaphone",color:"#FF4400"},{name:"Spirit Stick",color:"#FFAA00"},{name:"Cheer",color:"#FF3366"},{name:"Banner",color:"#FFEE55"}],
+    extraPrefixes:[{name:"Spirited",stat:"VIBES",val:4},{name:"Rallying",stat:"CLOUT",val:3},{name:"Go Go",stat:"VIBES",val:3}],
+    extraSuffixes:[{name:"of the Squad",stat:"CLOUT",val:4},{name:"of Spirit",stat:"VIBES",val:3},{name:"of the Cheer",stat:"VIBES",val:2}] },
 ];
 // Staff Room — spawns as a quest reward after 2+ deliveries on the same floor
 const STAFF_ROOM_PALETTE = {
@@ -1748,6 +1753,16 @@ function renderHandCard(id, item, label) {
   }
   const rc = RARITY_COLORS[item.rarity];
   let statRows = Object.entries(item.stats || {}).map(([k,v]) => `<div class="card-stat">${k} +${v}</div>`).join('');
+  // Provenance footnote — store name if bought in a store, or floor+other-mall if carried across drive
+  let provLine = '';
+  if (item.foundFloor) {
+    const loc = item.foundStore
+      ? item.foundStore
+      : (item.foundMall && item.foundMall !== G.mallName)
+          ? item.foundMall.split(' ').slice(0, 2).join(' ')
+          : null;
+    provLine = `<div style="font-size:7px;color:#444;margin-top:3px;opacity:0.55;letter-spacing:0.5px;text-align:right;">f${item.foundFloor}${loc ? ' · ' + loc : ''}</div>`;
+  }
   el.innerHTML = `<div class="item-card filled" style="border:2px solid ${rc};box-shadow:0 0 10px ${rc}55;">
     <div class="card-hand-label">${label}${item.crafted ? ' ✨' : ''}</div>
     <div class="card-swatch" style="background:${item.color};box-shadow:0 0 8px ${item.color}88;"></div>
@@ -1756,6 +1771,7 @@ function renderHandCard(id, item, label) {
     ${item.suffix ? `<div class="card-suffix">${item.suffix.name}</div>` : ''}
     <div class="card-rarity" style="color:${rc};">${item.rarity.toUpperCase()}</div>
     ${statRows}
+    ${provLine}
   </div>`;
 }
 
@@ -1967,6 +1983,13 @@ function showPhoneMsg(text, borderColor, ms = 4000) {
 
 // ── ITEM PICKUP ───────────────────────────────────────────────────────────────
 function learnAndPickup(item) {
+  // Stamp provenance — floor, mall, and store if the player is inside one
+  if (!item.foundFloor) {
+    item.foundFloor = G.player.floor;
+    item.foundMall = G.mallName || 'Sunset Ridge Mall';
+    const si = G.fd?.storeMap?.[G.player.py]?.[G.player.px];
+    if (si >= 0 && G.fd.stores[si]) item.foundStore = G.fd.stores[si].palette.name;
+  }
   // Add stat keys to playerStats
   Object.keys(item.stats || {}).forEach(k => {
     if (!(k in G.playerStats)) G.playerStats[k] = 0;
@@ -2330,7 +2353,29 @@ function tryMove(fwd) {
     flashBorder('red');
     return;
   }
-  if (!fwd && (outOfBounds || wallBlocked)) { flashBorder('red'); return; }
+  if (!fwd && (outOfBounds || wallBlocked)) {
+    // Silent bench — backing into a wall while on a bench tile absorbs the flash
+    if (fd.grid[G.player.py]?.[G.player.px] === T.CORRIDOR) {
+      const bpr = rng(fd.seed*137+G.player.py*31+G.player.px);
+      if (bpr() < 0.14) {
+        bpr(); // count check (stay in sync with buildScene)
+        const btype = CORRIDOR_PROPS[Math.floor(bpr() * CORRIDOR_PROPS.length)];
+        if (btype === 'bench') {
+          const BENCH_LINES = [
+            'you sat for a moment.',
+            'the bench creaks faintly.',
+            'comfortable.',
+            'you rest your feet briefly.',
+            'a moment to breathe.',
+            'quiet here.',
+          ];
+          showWorldEvent(BENCH_LINES[Math.floor(rng(Date.now())() * BENCH_LINES.length)], 1400);
+          return; // no red flash
+        }
+      }
+    }
+    flashBorder('red'); return;
+  }
 
   // Move
   G.player.px = nx; G.player.py = ny;

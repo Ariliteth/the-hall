@@ -131,6 +131,7 @@ Floor gating: 35% chance floor 7+, 55% floor 14+, 100% floor 21+
 
 | Hash | Description |
 |---|---|
+| `(next)` | Ra (cheerleading), item provenance, silent bench |
 | `87bbe3c` | Staff rooms, U-SEEN regulars, quest reward escalation |
 | `77d6227` | Special stores: 11 shops appear deeper in the mall |
 | `82db6ef` | Trashcans of permanence |
@@ -149,19 +150,40 @@ Floor gating: 35% chance floor 7+, 55% floor 14+, 100% floor 21+
 
 ## On the Horizon
 
-### Low-hanging / likely next
-- **Ra** — Fox noticed DOUGH + FÜSS rhymed with Skyrim's FUS RO DAH. A third store ("Ra"?) could be a mystical/power store: shout-themed items, "Ancient", "Booming", "of the Voice" affixes. Closes the triangle.
-- **Bench + fountain minor interactions** — toss a coin in the fountain (LUCK +1, one-time per fountain); sit on a bench (brief PA joke about resting). Purely atmospheric.
-- **Coffee machine in Staff Room** — a wall entity in STAFF ONLY rooms; gives a small one-time CHILL boost and a scraggle. The break room feeling deepened.
-- **Quest giver follow-up** — after delivery, ~30% chance a second payphone call comes in from the same giver with a babble line or a thank-you item hint
+### Implemented
+- **Ra** ✓ — cheerleading store. Pom Poms, Megaphones, Spirit Sticks, Cheers, Banners.
+  Gold and red. "Go. Go. Go." VIBES + CLOUT favored. "of the Squad" suffix (+4 CLOUT).
+- **Named item provenance** ✓ — `foundFloor`, `foundMall`, `foundStore` stamped at pickup.
+  Hand card shows tiny footnote: `f7 · SANG`, `f12 · Pinecrest Galleria`, `f3 · STAFF ONLY`.
+  Mall name only shown if item is from a *different* mall (carried through Emergent Exit).
+- **Silent bench** ✓ — backing into a wall while standing on a bench tile absorbs the red flash.
+  Shows a 1.4s world-event whisper: "you sat for a moment." / "comfortable." / "quiet here."
+  No prompt, no bumpMode, no input required. The bench doesn't tell you it's there.
+
+### Minor interactions (design notes from Fox)
+- **Principle:** these must not interrupt flow. They are environmental, not mechanical.
+  No green border, no bumpMode prompt. Brief world-event text at most (or nothing at all).
+- **Fountain** — possible: toss a coin (one-time, slight LUCK flicker). Silent.
+- **Coffee machine in Staff Room** — wall entity in STAFF ONLY; one-time CHILL boost.
+- **Quest giver follow-up** — after delivery, ~30% chance a second call comes from same giver
 
 ### Medium scope
-- **Down escalator** — some floors could have both up and down, creating a web rather than a strict tower. Would require tracking visited floors.
-- **Parking garage floor** — pre-exit floor type: darker, lower ceiling, more cars on the ground, leading to the Emergent Exit as a guaranteed feature (not just food court)
-- **Quest chains** — same giver across multiple floors; building toward something bigger
-- **Mall map kiosk** — a wall entity that renders a rough text/canvas map of the current floor's corridor layout
+- **Down escalators** — random count per floor (0–2), seeded. Going down could access
+  different room/floor pools (darker palettes? different special store weights?). Design intent:
+  creates a web, not a strict tower. Visited-floor tracking needed.
+- **Parking garage floor** — darker, lower ceiling, concrete pillars with colored shapes
+  (each level has its own shape/color so you can navigate). Safe feeling. Cars on the ground.
+  Emergent Exit guaranteed (not just food court). Guaranteed car item spawn.
+- **Ship-It receipt board** — a wall entity that shows a scrolling log of shipped items
+  (name, rarity, floor, store). Could appear near Ship-It stations or in Staff Rooms.
+- **Quest chains** — same giver across multiple floors; building toward a larger delivery
+- **Mall map kiosk** — rough canvas map of current floor's corridor layout
 
 ### Bigger / later
-- **The Management Office** — a special floor that opens after enough Staff Rooms found; legendary item guaranteed, something narratively conclusive-feeling
-- **Seasonal PA events** — holiday lines, grand opening days, clearance weeks (could be driven by real date)
-- **Named item provenance** — items remember where they were found (floor, store, mall name) and show it in the hand card as a tiny footnote
+- **The Management Office** — unlocks after enough Staff Rooms found; legendary item guaranteed;
+  narratively conclusive-feeling. The escalator goes somewhere different.
+- **Sunset Ridge Mall as its own Hall neighborhood** — the mall world is rich enough
+  to warrant its own presence in The Hall ecosystem.
+- **Seasonal PA events** — holiday lines, grand opening days, clearance weeks (real date)
+- **Named item full provenance record** — items already remember where they came from.
+  Future: the Ship-It log / receipt board shows the trail of items that passed through.
