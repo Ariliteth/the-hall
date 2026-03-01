@@ -384,14 +384,38 @@ const CELL = 6, WALL_H = 5.0, PLAYER_H = 1.6;
 const T = { EMPTY: 0, CORRIDOR: 1, STORE: 2 };
 
 const STORE_PALETTES = [
-  { floor:"#C8508C", wall:"#FF2D78", ceil:"#FFB3D9", name:"XCESS" },
-  { floor:"#1A3A6B", wall:"#00CFFF", ceil:"#B3EEFF", name:"SPORT PLUS" },
-  { floor:"#2B1A4F", wall:"#9B59B6", ceil:"#DDB3FF", name:"PHASE" },
-  { floor:"#4A1A00", wall:"#FF6600", ceil:"#FFD9B3", name:"SUNCOAST" },
-  { floor:"#004A1A", wall:"#27AE60", ceil:"#B3FFD1", name:"NATURE CO" },
-  { floor:"#1A0000", wall:"#CC0000", ceil:"#FFB3B3", name:"BLAZE" },
-  { floor:"#4A3A00", wall:"#FFD700", ceil:"#FFF5B3", name:"GOLDENROD" },
-  { floor:"#003A4A", wall:"#008080", ceil:"#B3FFFF", name:"PACIFIC" },
+  { floor:"#C8508C", wall:"#FF2D78", ceil:"#FFB3D9", name:"XCESS",
+    tagline:"More of Everything, Always", favStats:["STYLE","CLOUT"],
+    extraPrefixes:[{name:"Excessive",stat:"STYLE",val:4},{name:"Over-the-Top",stat:"CLOUT",val:3},{name:"Maximum",stat:"STYLE",val:3}],
+    extraSuffixes:[{name:"of Excess",stat:"CLOUT",val:4},{name:"of the Moment",stat:"STYLE",val:3}] },
+  { floor:"#1A3A6B", wall:"#00CFFF", ceil:"#B3EEFF", name:"SPORT PLUS",
+    tagline:"Go Hard or Go Home", favStats:["BULK","CHILL"],
+    extraPrefixes:[{name:"Athletic",stat:"BULK",val:3},{name:"Pro-Grade",stat:"BULK",val:4},{name:"Recovery",stat:"CHILL",val:3}],
+    extraSuffixes:[{name:"of Champions",stat:"BULK",val:4},{name:"of the Circuit",stat:"CHILL",val:3}] },
+  { floor:"#2B1A4F", wall:"#9B59B6", ceil:"#DDB3FF", name:"PHASE",
+    tagline:"Between Here and There", favStats:["VIBES","STYLE"],
+    extraPrefixes:[{name:"Ethereal",stat:"VIBES",val:3},{name:"Phased",stat:"STYLE",val:2},{name:"Liminal",stat:"VIBES",val:4}],
+    extraSuffixes:[{name:"of the Transition",stat:"VIBES",val:4},{name:"of Both Worlds",stat:"STYLE",val:3}] },
+  { floor:"#4A1A00", wall:"#FF6600", ceil:"#FFD9B3", name:"SUNCOAST",
+    tagline:"Good Vibes Only", favStats:["VIBES","LUCK"],
+    extraPrefixes:[{name:"Sunkissed",stat:"VIBES",val:3},{name:"Coastal",stat:"LUCK",val:2},{name:"Drifter",stat:"VIBES",val:2}],
+    extraSuffixes:[{name:"of the Shore",stat:"LUCK",val:3},{name:"of Summer",stat:"VIBES",val:4}] },
+  { floor:"#004A1A", wall:"#27AE60", ceil:"#B3FFD1", name:"NATURE CO",
+    tagline:"Return to Form", favStats:["CHILL","LUCK"],
+    extraPrefixes:[{name:"Organic",stat:"CHILL",val:3},{name:"Grown",stat:"LUCK",val:2},{name:"Rooted",stat:"CHILL",val:4}],
+    extraSuffixes:[{name:"of the Forest",stat:"CHILL",val:4},{name:"of the Earth",stat:"LUCK",val:3}] },
+  { floor:"#1A0000", wall:"#CC0000", ceil:"#FFB3B3", name:"BLAZE",
+    tagline:"This Is Not a Drill", favStats:["CLOUT","BULK"],
+    extraPrefixes:[{name:"Fierce",stat:"CLOUT",val:3},{name:"Blazing",stat:"BULK",val:3},{name:"Scorched",stat:"CLOUT",val:4}],
+    extraSuffixes:[{name:"of Fire",stat:"CLOUT",val:4},{name:"of the Inferno",stat:"BULK",val:3}] },
+  { floor:"#4A3A00", wall:"#FFD700", ceil:"#FFF5B3", name:"GOLDENROD",
+    tagline:"You Deserve This", favStats:["LUCK","STYLE"],
+    extraPrefixes:[{name:"Golden",stat:"LUCK",val:3},{name:"Ornate",stat:"STYLE",val:3},{name:"Gilded",stat:"LUCK",val:4}],
+    extraSuffixes:[{name:"of Gold",stat:"LUCK",val:4},{name:"of the Sun",stat:"STYLE",val:3}] },
+  { floor:"#003A4A", wall:"#008080", ceil:"#B3FFFF", name:"PACIFIC",
+    tagline:"Deep Calm", favStats:["CHILL","VIBES"],
+    extraPrefixes:[{name:"Serene",stat:"CHILL",val:3},{name:"Flowing",stat:"VIBES",val:3},{name:"Oceanic",stat:"CHILL",val:4}],
+    extraSuffixes:[{name:"of the Deep",stat:"VIBES",val:4},{name:"of Still Waters",stat:"CHILL",val:3}] },
 ];
 const CORRIDOR_PALETTE = { floor:"#D4A76A", wall:"#F5ECD7", ceil:"#F0EDE0" };
 
@@ -521,7 +545,17 @@ const QUEST_TEMPLATES = [
 
 function generateQuest(seed) {
   const r = rng(seed);
-  const giver = QUEST_GIVERS[Math.floor(r() * QUEST_GIVERS.length)];
+  // Mix in names from The Hall's portraits queue — 40% chance if available
+  let giverPool = [...QUEST_GIVERS];
+  try {
+    const raw = localStorage.getItem('baseline-session/portraits-queue');
+    const q = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(q) && q.length) {
+      const hallNames = q.map(e => e.name).filter(Boolean).slice(-6); // most recent 6
+      if (hallNames.length && r() < 0.4) giverPool = [...hallNames, ...giverPool];
+    }
+  } catch(e) {}
+  const giver = giverPool[Math.floor(r() * giverPool.length)];
   const template = QUEST_TEMPLATES[Math.floor(r() * QUEST_TEMPLATES.length)];
   return { ...template(giver), id: seed, complete: false };
 }
@@ -545,8 +579,67 @@ const PAYPHONE_BABBLE = [
   "—honestly just get something, anything, just think of me—",
 ];
 
+// ── FOOD COURT GENERATOR ──────────────────────────────────────────────────────
+const FOOD_COURT_PALETTE = { floor:"#F5E6C8", wall:"#E8D5A3", ceil:"#FFF8E8", name:"FOOD COURT" };
+const FOOD_ITEMS = [
+  {name:"Pretzel",color:"#D4823A",stats:{VIBES:2,CHILL:1}},
+  {name:"Orange Julius",color:"#FF8C00",stats:{VIBES:3,STYLE:1}},
+  {name:"Soft Pretzel",color:"#C8682A",stats:{BULK:2,CHILL:2}},
+  {name:"Cinnamon Roll",color:"#D4A060",stats:{CHILL:3,VIBES:2}},
+  {name:"Lemonade",color:"#FFEE44",stats:{VIBES:2,LUCK:1}},
+  {name:"Nachos",color:"#FF9900",stats:{BULK:1,CLOUT:2}},
+  {name:"Gyro",color:"#D4B87A",stats:{BULK:3,CHILL:1}},
+  {name:"Cookie",color:"#C49A3C",stats:{VIBES:2,STYLE:1}},
+];
+
+function generateFoodCourtFloor(seed, floorNum) {
+  const rand = rng(seed);
+  const W = 18 + Math.floor(rand() * 5), H = 14 + Math.floor(rand() * 4);
+  const grid = Array.from({ length: H }, () => new Array(W).fill(T.EMPTY));
+  const storeMap = Array.from({ length: H }, () => new Array(W).fill(-1));
+  const stores = [], doors = new Set(), wallEntities = [], looseItems = [];
+
+  // Wide central atrium — 4 rows (midY-1 through midY+2)
+  const midY = Math.floor(H / 2);
+  const atTop = midY - 1, atBot = midY + 2;
+  for (let y = atTop; y <= atBot; y++)
+    for (let x = 0; x < W; x++) grid[y][x] = T.CORRIDOR;
+
+  // Escalator at east end
+  const escalatorX = W - 2, escalatorY = midY;
+
+  // Start at west end
+  const startX = 1, startY = midY, startDir = 1;
+
+  // Wall entities — sample givers along north/south walls, statues at ends
+  // Beef'd statue (west): entity in corridor
+  wallEntities.push({ tileX: 2, tileY: atTop, face: 'N', type: 'statue_beefd', id: 'beefd' });
+  wallEntities.push({ tileX: 2, tileY: atBot, face: 'S', type: 'statue_cheesnts', id: 'cheesnts' });
+
+  // Sample givers — 3-4 along the wide corridor north/south walls
+  const samplerCount = 3 + Math.floor(rand() * 2);
+  for (let i = 0; i < samplerCount; i++) {
+    const sx = 4 + Math.floor(rand() * (W - 8));
+    const face = rand() < 0.5 ? 'N' : 'S';
+    const ty = face === 'N' ? atTop : atBot;
+    const alreadyThere = wallEntities.some(e => e.tileX === sx && e.tileY === ty);
+    if (!alreadyThere) {
+      wallEntities.push({ tileX: sx, tileY: ty, face, type: 'sampler', id: `sampler_${sx}_${ty}` });
+    }
+  }
+
+  // ATM + payphone in the atrium
+  wallEntities.push({ tileX: W - 4, tileY: atTop, face: 'N', type: 'atm', id: 'fc_atm' });
+  wallEntities.push({ tileX: W - 4, tileY: atBot, face: 'S', type: 'payphone', id: 'fc_phone' });
+
+  return { grid, storeMap, stores, doors, W, H, startX, startY, startDir,
+    escalatorX, escalatorY, wallEntities, looseItems, seed, spineY: midY,
+    isFoodCourt: true, floorNum };
+}
+
 // ── MAP GENERATOR ─────────────────────────────────────────────────────────────
-function generateFloor(seed) {
+function generateFloor(seed, floorNum = 1) {
+  if (floorNum > 1 && floorNum % 7 === 0) return generateFoodCourtFloor(seed, floorNum);
   const rand = rng(seed);
   const W = 12 + Math.floor(rand() * 9), H = 12 + Math.floor(rand() * 9);
   const grid = Array.from({ length: H }, () => new Array(W).fill(T.EMPTY));
@@ -685,6 +778,22 @@ function generateFloor(seed) {
       if (itemRand() < chance) {
         const itemSeed = seed * 1000 + y * 100 + x;
         const item = generateItem(itemSeed);
+        // Store identity: boost favoured stats + apply store-exclusive affixes
+        if (grid[y][x] === T.STORE) {
+          const si = storeMap[y][x];
+          const pal = si >= 0 ? stores[si].palette : null;
+          if (pal?.favStats) {
+            pal.favStats.forEach(stat => {
+              if (itemRand() < 0.6) item.stats[stat] = (item.stats[stat] || 0) + 1 + Math.floor(itemRand() * 2);
+            });
+          }
+          if (pal?.extraPrefixes?.length && !item.prefix && itemRand() < 0.4) {
+            item.prefix = pal.extraPrefixes[Math.floor(itemRand() * pal.extraPrefixes.length)];
+          }
+          if (pal?.extraSuffixes?.length && !item.suffix && itemRand() < 0.3) {
+            item.suffix = pal.extraSuffixes[Math.floor(itemRand() * pal.extraSuffixes.length)];
+          }
+        }
         const or = rng(itemSeed + 7);
         const ox = (or() - 0.5) * CELL * 0.55, oz = (or() - 0.5) * CELL * 0.55;
         const requiredFace = Math.abs(ox) > Math.abs(oz) ? (ox > 0 ? 'E' : 'W') : (oz > 0 ? 'S' : 'N');
@@ -824,6 +933,22 @@ function doorTex() {
     ctx.fillStyle="#FFD700"; ctx.beginPath(); ctx.arc(w*.72,h*.52,6,0,Math.PI*2); ctx.fill();
   });
 }
+function signTex(name, wallColor) {
+  return makeTex(`sign_${name}`, (ctx, w, h) => {
+    // Background — store wall color, slightly darkened
+    const c = parseInt((wallColor||'#444444').replace('#',''), 16);
+    const r = Math.min(255, ((c>>16)&0xFF) * 0.7 | 0);
+    const g = Math.min(255, ((c>>8)&0xFF) * 0.7 | 0);
+    const b = Math.min(255, (c&0xFF) * 0.7 | 0);
+    ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 4; ctx.strokeRect(4, 4, w-8, h-8);
+    ctx.fillStyle = '#FFFFFF'; ctx.font = `bold ${h * 0.45}px "Arial Black", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 6;
+    ctx.fillText(name, w/2, h/2);
+  }, 512, 128);
+}
+
 function atmTex() {
   return makeTex("atm", (ctx, w, h) => {
     ctx.fillStyle="#223344"; ctx.fillRect(0,0,w,h);
@@ -1036,6 +1161,21 @@ function buildScene(scene, fd, onlyTiles = null) {
         addBox(isX?0.07:0.1,WALL_H*0.86,isX?0.1:0.07, ewx+(isX?-jo:0), WALL_H*0.43, ewz+(isX?0:-jo), tr);
         addBox(isX?0.07:0.1,WALL_H*0.86,isX?0.1:0.07, ewx+(isX? jo:0), WALL_H*0.43, ewz+(isX?0: jo), tr);
         addBox(isX?dw+0.14:0.1,0.07,isX?0.1:dw+0.14, ewx, WALL_H*0.85+0.035, ewz, tr);
+        // Store sign above the door — show store name on a backlit panel
+        {
+          const storeNX = isX ? nx : (grid[ny][nx] === T.STORE ? nx : x);
+          const storeNY = isX ? (grid[ny][nx] === T.STORE ? ny : y) : ny;
+          const si = storeMap[storeNY]?.[storeNX] ?? -1;
+          const pal = si >= 0 ? stores[si].palette : null;
+          if (pal) {
+            const st = signTex(pal.name, pal.wall);
+            const sm = new THREE.MeshBasicMaterial({ map: st, side: THREE.DoubleSide });
+            const sw2 = dw + 0.1, sh2 = 0.38;
+            const sg = new THREE.Mesh(new THREE.BoxGeometry(isX?sw2:0.08, sh2, isX?0.08:sw2), sm);
+            sg.position.set(ewx, WALL_H*0.85+0.035+sh2/2+0.06, ewz);
+            scene.add(sg);
+          }
+        }
       }
     });
   }
@@ -1110,6 +1250,32 @@ function buildScene(scene, fd, onlyTiles = null) {
       addBox(0.45, 0.1, 0.38, fo.px, 0.05, fo.pz, mat(0x223344));
       const kl = new THREE.PointLight(0x44AAFF, 0.6, CELL * 2.5);
       kl.position.set(fo.px, 2.4, fo.pz); scene.add(kl);
+    } else if (type === 'statue_beefd') {
+      // Beef'd — the great beef mascot, patron of the food court
+      addBox(1.1, 0.35, 1.1, fo.px, 0.175, fo.pz, mat(0x886644)); // plinth
+      addBox(0.85, 0.9, 0.85, fo.px, 0.35+0.45, fo.pz, mat(0x8B3A10)); // body (dark beefy brown)
+      addBox(0.7, 0.5, 0.7, fo.px, 0.35+0.9+0.25, fo.pz, mat(0x6B2A08)); // head
+      addBox(0.2, 0.25, 0.2, fo.px-0.35, 0.35+0.5, fo.pz, mat(0x7A3010)); // left arm
+      addBox(0.2, 0.25, 0.2, fo.px+0.35, 0.35+0.5, fo.pz, mat(0x7A3010)); // right arm
+      const bl = new THREE.PointLight(0xFF6622, 0.7, CELL*2.5); bl.position.set(fo.px, 2.8, fo.pz); scene.add(bl);
+    } else if (type === 'statue_cheesnts') {
+      // Cheesn'ts — the great cheese mascot, patron of the food court
+      addBox(1.1, 0.35, 1.1, fo.px, 0.175, fo.pz, mat(0x886644)); // plinth
+      addBox(0.9, 0.75, 0.9, fo.px, 0.35+0.375, fo.pz, mat(0xFFDD00)); // body (cheese yellow)
+      addBox(0.15, 0.15, 0.15, fo.px-0.38, 0.35+0.375, fo.pz, mat(0xFFCC00)); // left bump
+      addBox(0.15, 0.15, 0.15, fo.px+0.38, 0.35+0.45, fo.pz, mat(0xFFCC00)); // right bump
+      addBox(0.15, 0.15, 0.15, fo.px, 0.35+0.65, fo.pz-0.38, mat(0xFFCC00)); // front bump
+      addBox(0.65, 0.45, 0.65, fo.px, 0.35+0.75+0.225, fo.pz, mat(0xFFBB00)); // head
+      const cl = new THREE.PointLight(0xFFEE44, 0.8, CELL*2.5); cl.position.set(fo.px, 2.8, fo.pz); scene.add(cl);
+    } else if (type === 'sampler') {
+      // Sample giver — a small cart with a striped awning
+      addBox(0.9, 0.7, 0.5, fo.px, 0.35, fo.pz, mat(0xEEDDB8)); // cart body
+      addBox(1.0, 0.05, 0.6, fo.px, 0.72, fo.pz, mat(0xCC3333)); // awning
+      addBox(1.0, 0.05, 0.6, fo.px, 0.78, fo.pz, mat(0xFFFFFF)); // awning stripe
+      addBox(1.0, 0.05, 0.6, fo.px, 0.84, fo.pz, mat(0xCC3333)); // awning stripe
+      addBox(0.06, 0.55, 0.06, fo.px-0.42, 0.38, fo.pz, mat(0xBBBBBB)); // post L
+      addBox(0.06, 0.55, 0.06, fo.px+0.42, 0.38, fo.pz, mat(0xBBBBBB)); // post R
+      const sl = new THREE.PointLight(0xFFDDAA, 0.5, CELL*2); sl.position.set(fo.px, 1.8, fo.pz); scene.add(sl);
     }
   });
 
@@ -1272,6 +1438,7 @@ const G = {
   questLog: [],
   moving: false,
   bumpMode: null,
+  atmVisited: false, // track first-time ATM approach for the hint
 };
 
 // Three.js module-level refs
@@ -1302,7 +1469,8 @@ function renderHUD() {
     const si = fd.storeMap[player.py][player.px];
     if (si >= 0) {
       const s = fd.stores[si];
-      storeEl.textContent = s.palette.name + (s.isBackRoom ? ' (back room)' : '');
+      const tag = s.palette.tagline ? ` · ${s.palette.tagline}` : '';
+      storeEl.innerHTML = `<span style="font-weight:bold">${s.palette.name}</span><span style="opacity:0.6;font-size:0.75em">${s.isBackRoom ? ' (back room)' : tag}</span>`;
       storeEl.style.display = 'block';
     } else { storeEl.style.display = 'none'; }
   } else { storeEl.style.display = 'none'; }
@@ -1378,9 +1546,13 @@ function renderBumpPrompt() {
   const { target } = bm;
 
   if (target.kind === 'atm') {
+    const firstTime = !G.atmVisited;
     el.innerHTML = `<div class="bump-box atm">
       <div style="font-size:16px;margin-bottom:4px;">💳 ATM</div>
-      <div style="font-size:11px;color:#AAFFCC;">Move forward to withdraw</div>
+      ${firstTime
+        ? `<div style="font-size:11px;color:#FFDD88;margin-bottom:4px;font-style:italic;">"It's dangerous to go alone.<br>Take this."</div>
+           <div style="font-size:10px;color:#AAFFCC;">Forward to withdraw a Mall Dollar</div>`
+        : `<div style="font-size:11px;color:#AAFFCC;">Forward to withdraw a Mall Dollar</div>`}
     </div>`;
     return;
   }
@@ -1438,6 +1610,17 @@ function renderBumpPrompt() {
         <div style="font-size:9px;color:#8899AA;margin-bottom:8px;">FROM ${(kHood||'???').toUpperCase()}</div>
         <div style="font-size:9px;color:#44FF88;">FORWARD to wave hello 👋</div>
       ` : `<div style="font-size:9px;color:#2A4055;margin:4px 0;">NO RECENT VISITORS</div>`}
+    </div>`;
+    return;
+  }
+
+  if (target.kind === 'sampler') {
+    const pick = FOOD_ITEMS[Math.floor(Date.now() / 1000) % FOOD_ITEMS.length];
+    el.innerHTML = `<div class="bump-box" style="border:2px solid #FF9933;background:rgba(40,20,5,0.95);">
+      <div style="font-size:9px;color:#FF9933;letter-spacing:2px;margin-bottom:4px;">🍴 FREE SAMPLE</div>
+      <div style="font-size:15px;color:#FFE8B0;font-weight:bold;margin-bottom:4px;">${pick.name}</div>
+      <div style="font-size:10px;color:#FFCC88;margin-bottom:6px;">${Object.entries(pick.stats).map(([k,v])=>statEmoji(k,v)).join(' ')}</div>
+      <div style="font-size:9px;color:#FF9933;">FORWARD to take a sample 🙏</div>
     </div>`;
     return;
   }
@@ -1546,8 +1729,12 @@ function handlePhoneBump() {
 
     G.questLog.push({ ...G.activeQuest, complete: true, delivered: itemDisplayName(delivered) });
 
-    // Scraggle
-    window.parent.postMessage({ type: 'scraggle', emoji: '🛍', text: `Quest completed for ${G.activeQuest.giver}` }, '*');
+    // Scraggle — pick an emoji that matches the quest's stat
+    const questStatEmoji = { VIBES:'🌊', BULK:'💪', STYLE:'✨', LUCK:'🍀', CLOUT:'👑', CHILL:'🧊' };
+    const qEmoji = questStatEmoji[G.activeQuest.stat] || '🛍';
+    const giver = G.activeQuest.giver;
+    const shortGiver = giver.replace(/^(Your |A |An |Old )/i,'').split(' ')[0]; // "Mom", "Carol", "Mira"
+    window.parent.postMessage({ type: 'scraggle', emoji: qEmoji, text: `sent ${shortGiver} a ${itemDisplayName(delivered)} from Sunset Ridge Mall` }, '*');
 
     G.activeQuest = null;
 
@@ -1603,6 +1790,7 @@ function doConfirmBump() {
   G.bumpMode = null;
 
   if (target.kind === 'atm') {
+    G.atmVisited = true;
     const dollar = generateDollar(Date.now());
     learnAndPickup(dollar);
     showAcquired(`💳 ${dollar.rarity.toUpperCase()} Mall Dollar dispensed!`, '#00FFCC');
@@ -1628,6 +1816,19 @@ function doConfirmBump() {
       window.parent.postMessage({ type: 'scraggle', emoji: '👋', text: `waved at ${kName} from ${kHood || 'somewhere'} at Sunset Ridge Mall` }, '*');
       showAcquired(`👋 Waved at ${kName}!`, '#44AAFF', 2500);
     }
+    renderHUD();
+    return;
+  }
+
+  if (target.kind === 'sampler') {
+    const pick = FOOD_ITEMS[Math.floor(Date.now() / 1000) % FOOD_ITEMS.length];
+    // Give as a hand item (food item type) — it has stats and counts as an item
+    const foodItem = { ...pick, id: `food_${Date.now()}`, rarity: 'uncommon',
+      prefix: null, suffix: null, isDollar: false, isFood: true };
+    learnAndPickup(foodItem);
+    showAcquired(`🍴 Sample of ${pick.name} obtained!`, '#FF9933', 2500);
+    flashBorder('green', 500);
+    window.parent.postMessage({ type: 'scraggle', emoji: '🍴', text: `got a free sample at Sunset Ridge Mall Food Court` }, '*');
     renderHUD();
     return;
   }
@@ -1752,6 +1953,14 @@ function tryMove(fwd) {
       renderHUD();
       return;
     }
+    // Check for food court sampler
+    const samplerEnt = fd.wallEntities.find(e => e.type === 'sampler' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
+    if (samplerEnt) {
+      G.bumpMode = { target: { kind: 'sampler', entity: samplerEnt } };
+      flashBorder('green', -1);
+      renderHUD();
+      return;
+    }
     flashBorder('red');
     return;
   }
@@ -1859,7 +2068,7 @@ function rideEscalator() {
     // Keep seed arithmetic in 32-bit integer space to avoid float64 precision loss
     const baseSeed = G.fd.seed >>> 0;
     const nextSeed = (Math.imul(baseSeed, 7919) + Math.imul(G.player.floor, 3571)) >>> 0;
-    G.fd = generateFloor(nextSeed || 1);
+    G.fd = generateFloor(nextSeed || 1, G.player.floor);
     G.player.px = G.fd.startX;
     G.player.py = G.fd.startY;
     G.player.dir = G.fd.startDir ?? 1; // face into the corridor
@@ -1868,6 +2077,14 @@ function rideEscalator() {
     buildScene(scene, G.fd);
     snapCamera();
     renderHUD();
+
+    // Food court arrival announcement
+    if (G.fd.isFoodCourt) {
+      setTimeout(() => {
+        showAcquired('🍴 FOOD COURT · FLOOR ' + G.player.floor, '#FF9933', 3500);
+        window.parent.postMessage({ type: 'scraggle', emoji: '🍴', text: `arrived at the Sunset Ridge Food Court on floor ${G.player.floor}` }, '*');
+      }, 400);
+    }
 
     // Fade back in
     setTimeout(() => {
@@ -1899,6 +2116,9 @@ const PA_GENERIC = [
   'Reminder: smoking is not permitted anywhere inside the mall.',
   'Guest services can assist with gift wrapping through the end of the season.',
   'Attention shoppers — we hope you\'re having a wonderful visit today.',
+  'The Food Court is open. Beef\'d and Cheesn\'ts thank you for your continued support.',
+  'Reminder: free samples are available while supplies last. Limit one per visit.',
+  'The statues in the Food Court are not load-bearing. Please do not climb them.',
 ];
 
 function startPASystem() {
