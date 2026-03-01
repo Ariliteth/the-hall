@@ -1046,8 +1046,8 @@ function buildScene(scene, fd, onlyTiles = null) {
     const p=getPal(x,y);
     const isSpineTile = grid[y][x] === T.CORRIDOR && (y === spineY || y === spineY - 1);
     if (isSpineTile) {
-      // Sky light floods through glass ceiling — cool white, wide radius
-      const skyL = new THREE.PointLight(0xDDEEFF, 1.5, CELL * 6);
+      // Sky light filters through glass ceiling — cool white, gentle fill
+      const skyL = new THREE.PointLight(0xDDEEFF, 0.55, CELL * 4);
       skyL.position.set(wx(x), WALL_H - 0.1, wz(y)); scene.add(skyL);
     } else {
       const col=p===CORRIDOR_PALETTE?0xFFFDE0:new THREE.Color(p.ceil).getHex();
@@ -1557,6 +1557,13 @@ function doConfirmBump() {
         : `Got: ${itemDisplayName(craftedItem)}`,
       RARITY_COLORS[craftedItem.rarity]
     );
+    // Scraggle for notable finds
+    if (craftedItem.rarity === 'legendary') {
+      const verb = wasUpgraded ? 'crafted' : 'found';
+      window.parent.postMessage({ type: 'scraggle', emoji: '✨', text: `${verb} a legendary ${itemDisplayName(craftedItem)} at Sunset Ridge Mall` }, '*');
+    } else if (craftedItem.rarity === 'rare' && Math.random() < 0.45) {
+      window.parent.postMessage({ type: 'scraggle', emoji: '🌟', text: `found ${itemDisplayName(craftedItem)} at Sunset Ridge Mall` }, '*');
+    }
     renderHUD();
   }
 }
@@ -1704,7 +1711,7 @@ function rideEscalator() {
   G.bumpMode = null;
 
   // Scraggle — the Hall knows you went up
-  window.parent.postMessage({ type: 'scraggle', emoji: '🛍', text: `ascending to floor ${G.player.floor + 1}` }, '*');
+  if (Math.random() < 0.25) window.parent.postMessage({ type: 'scraggle', emoji: '🛍', text: `ascending to floor ${G.player.floor + 1} of Sunset Ridge Mall` }, '*');
 
   const overlay = document.getElementById('escalator-overlay');
   // Fade to warm white
