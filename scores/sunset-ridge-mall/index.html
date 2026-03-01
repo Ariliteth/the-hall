@@ -340,6 +340,33 @@
     z-index: 50;
     transition: opacity 0.7s ease;
   }
+
+  /* ── AUDIO TOGGLE ── */
+  #hud-audio-toggle {
+    position: absolute;
+    bottom: 20px; left: 14px;
+    background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,220,80,0.4);
+    border-radius: 8px;
+    color: rgba(255,220,80,0.65);
+    font-size: 15px;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  #hud-audio-toggle:hover {
+    border-color: rgba(255,220,80,0.8);
+    color: #FFE640;
+  }
+  #hud-audio-toggle.muted {
+    color: rgba(255,220,80,0.2);
+    border-color: rgba(255,220,80,0.15);
+  }
 </style>
 </head>
 <body>
@@ -362,6 +389,7 @@
   <div id="hud-phone-msg"></div>
   <div id="hud-acquired"></div>
   <div id="hud-world-event"></div>
+  <button id="hud-audio-toggle" onclick="toggleAudio()" title="Toggle sound">🔊</button>
   <div id="controls">
     <div id="controls-inner">
       <button class="ctrl-btn" id="btn-fwd">▲</button>
@@ -1653,6 +1681,7 @@ const G = {
   mallName: "Sunset Ridge Mall", // current mall world name
   permStats: {}, // permanently retained stats from trashcan discards
   questsCompletedThisFloor: 0, // resets on escalator/drive — gates staff room unlock
+  benchSits: 0, // counts bench presses this session — deepens messages with CHILL
 };
 
 // Three.js module-level refs
@@ -1660,6 +1689,160 @@ let renderer, scene, camera;
 let flickerLights = []; // store lights that buzz/flicker in animation loop
 let personalLight = null; // soft glow carried by player when holding items
 let borderTO = null, acquiredTO = null, worldEventTO = null;
+
+// Audio module-level refs — created lazily on first user gesture
+let audioCtx = null, muzakMaster = null, audioReady = false, audioMuted = false;
+
+// ── AUDIO ─────────────────────────────────────────────────────────────────────
+function noteToFreq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+
+function initAudio() {
+  if (audioReady) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    muzakMaster = audioCtx.createGain();
+    muzakMaster.gain.value = 0.22;
+    muzakMaster.connect(audioCtx.destination);
+    startMallMuzak();
+    audioReady = true;
+  } catch(e) {}
+}
+
+function toggleAudio() {
+  audioMuted = !audioMuted;
+  const btn = document.getElementById('hud-audio-toggle');
+  if (btn) {
+    btn.textContent = audioMuted ? '🔇' : '🔊';
+    btn.classList.toggle('muted', audioMuted);
+  }
+  if (muzakMaster && audioCtx) {
+    muzakMaster.gain.setTargetAtTime(audioMuted ? 0 : 0.22, audioCtx.currentTime, 0.3);
+  }
+}
+
+function startMallMuzak() {
+  if (!audioCtx || !muzakMaster) return;
+
+  // Low-pass filter — muffled mall speaker warmth
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 900;
+  lp.Q.value = 0.7;
+  lp.connect(muzakMaster);
+
+  // Bass drone — C2 (65.41 Hz) and G2 (98 Hz), triangle wave, always on
+  [[65.41, 0.09], [98.0, 0.055]].forEach(([freq, gain]) => {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    g.gain.value = gain;
+    osc.connect(g);
+    g.connect(lp);
+    osc.start();
+  });
+
+  // Two pentatonic pad voices — generative, staggered, slowly evolving
+  // C major pentatonic spanning 3 octaves
+  const PENTA = [48, 50, 52, 55, 57, 60, 62, 64, 67, 69, 72];
+
+  function makePadVoice(gainVal, startOffset, beatSecs) {
+    const voiceGain = audioCtx.createGain();
+    voiceGain.gain.value = gainVal;
+    voiceGain.connect(lp);
+    let nextT = audioCtx.currentTime + startOffset;
+    function schedule() {
+      while (nextT < audioCtx.currentTime + 2.5) {
+        const note = PENTA[Math.floor(Math.random() * PENTA.length)];
+        const dur = beatSecs * (0.7 + Math.random() * 0.85);
+        const osc = audioCtx.createOscillator();
+        const env = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = noteToFreq(note);
+        osc.connect(env);
+        env.connect(voiceGain);
+        env.gain.setValueAtTime(0, nextT);
+        env.gain.linearRampToValueAtTime(1, nextT + Math.min(0.45, dur * 0.3));
+        env.gain.setTargetAtTime(0, nextT + dur * 0.55, dur * 0.28);
+        osc.start(nextT);
+        osc.stop(nextT + dur + 0.7);
+        nextT += beatSecs * (0.5 + Math.random() * 0.75);
+      }
+      setTimeout(schedule, 500);
+    }
+    schedule();
+  }
+
+  makePadVoice(0.065, 0.1, 2.6);  // medium-slow voice
+  makePadVoice(0.04,  1.8, 4.1);  // slow second voice, offset
+}
+
+function playSound(type) {
+  if (!audioCtx || audioMuted) return;
+  const now = audioCtx.currentTime;
+  const out = muzakMaster;
+
+  // Helper: quick single tone with exponential decay
+  const beep = (freq, start, dur, gainVal, shape) => {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = shape || 'sine';
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(gainVal, now + start);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+    osc.connect(g);
+    g.connect(out);
+    osc.start(now + start);
+    osc.stop(now + start + dur + 0.05);
+  };
+
+  if (type === 'pickup') {
+    // Bright ascending chime
+    beep(880,  0,    0.13, 0.20);
+    beep(1320, 0.11, 0.20, 0.15);
+  } else if (type === 'perm') {
+    // Soft low thud — permanence
+    beep(220, 0,    0.28, 0.16, 'triangle');
+    beep(165, 0.06, 0.32, 0.10, 'triangle');
+  } else if (type === 'ship') {
+    // Departing double-tone
+    beep(660, 0,    0.09, 0.11);
+    beep(880, 0.09, 0.22, 0.09);
+  } else if (type === 'error') {
+    // Brief descending buzz
+    beep(220, 0,    0.08, 0.13, 'sawtooth');
+    beep(165, 0.07, 0.10, 0.10, 'sawtooth');
+  } else if (type === 'atm') {
+    // Two quick mechanical beeps
+    beep(1047, 0,   0.07, 0.12);
+    beep(1319, 0.1, 0.07, 0.10);
+  } else if (type === 'bench') {
+    // Very soft low sustained tone — a breath of stillness
+    const osc = audioCtx.createOscillator();
+    const g   = audioCtx.createGain();
+    const lp  = audioCtx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 420;
+    osc.type = 'sine';
+    osc.frequency.value = noteToFreq(48 + Math.floor(Math.random() * 5)); // C3–E3
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.11, now + 0.45);
+    g.gain.setTargetAtTime(0, now + 0.9, 0.55);
+    osc.connect(lp); lp.connect(g); g.connect(out);
+    osc.start(now); osc.stop(now + 2.8);
+  } else if (type === 'escalator') {
+    // Slow ascending glide — going up
+    const osc = audioCtx.createOscillator();
+    const g   = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.linearRampToValueAtTime(440, now + 1.3);
+    g.gain.setValueAtTime(0.11, now);
+    g.gain.setTargetAtTime(0, now + 1.0, 0.32);
+    osc.connect(g); g.connect(out);
+    osc.start(now); osc.stop(now + 2.0);
+  }
+}
 
 // ── CAMERA ────────────────────────────────────────────────────────────────────
 function snapCamera() {
@@ -2114,6 +2297,7 @@ function doConfirmBump() {
       showAcquired(`💳 ${dollar.rarity.toUpperCase()} Mall Dollar dispensed!`, '#00FFCC');
       flashBorder('green', 500);
     }
+    playSound('atm');
     renderHUD();
     return;
   }
@@ -2154,6 +2338,7 @@ function doConfirmBump() {
     G.mallName = destName;
     G.player.floor = 1;
     G.questsCompletedThisFloor = 0; // new mall, new floor
+    G.benchSits = 0; // reset bench depth on new mall
     document.getElementById('hud-mall-name').textContent = `🚗 ${destName.toUpperCase()}`;
     const overlay = document.getElementById('escalator-overlay');
     overlay.style.opacity = '1';
@@ -2201,6 +2386,7 @@ function doConfirmBump() {
       gained.length ? `📦 SHIPPED · ${gained.join(' ')} retained` : `📦 SHIPPED`,
       '#AA33FF', 3500
     );
+    playSound('ship');
     renderHUD();
     return;
   }
@@ -2228,6 +2414,7 @@ function doConfirmBump() {
       '#88CC44', 3500
     );
     window.parent.postMessage({ type: 'scraggle', emoji: '🗑', text: `permanently discarded ${itemDisplayName(item)} at ${G.mallName}` }, '*');
+    playSound('perm');
     renderHUD();
     return;
   }
@@ -2270,6 +2457,7 @@ function doConfirmBump() {
     } else if (craftedItem.rarity === 'rare' && Math.random() < 0.45) {
       window.parent.postMessage({ type: 'scraggle', emoji: '🌟', text: `found ${itemDisplayName(craftedItem)} at Sunset Ridge Mall` }, '*');
     }
+    playSound('pickup');
     renderHUD();
   }
 }
@@ -2361,15 +2549,34 @@ function tryMove(fwd) {
         bpr(); // count check (stay in sync with buildScene)
         const btype = CORRIDOR_PROPS[Math.floor(bpr() * CORRIDOR_PROPS.length)];
         if (btype === 'bench') {
-          const BENCH_LINES = [
-            'you sat for a moment.',
-            'the bench creaks faintly.',
-            'comfortable.',
-            'you rest your feet briefly.',
-            'a moment to breathe.',
-            'quiet here.',
+          G.benchSits++;
+          const totalChill = (G.permStats?.CHILL || 0)
+            + (G.hands[0]?.stats?.CHILL || 0)
+            + (G.hands[1]?.stats?.CHILL || 0);
+          const depth = Math.min(4,
+            Math.floor((G.benchSits - 1) / 2) + Math.floor(totalChill / 4));
+          const BENCH_TIERS = [
+            // 0 — first sits, surface calm
+            ['you sat for a moment.', 'comfortable.', 'quiet here.',
+             'a moment to breathe.', 'the bench creaks faintly.', 'you rest your feet briefly.'],
+            // 1 — settling in
+            ['the mall feels smaller from here.', 'nobody seems to notice you.',
+             'something about this spot.', 'the lights hum a little.'],
+            // 2 — drifting
+            ["you've been walking a while.", 'the corridor sounds softer.',
+             'the fluorescent hum settles.', 'time moves differently on a bench.'],
+            // 3 — deep ease
+            ['the mall is still here. so are you.', 'nothing pressing.',
+             'the bench holds your weight like it was waiting.'],
+            // 4 — full peace
+            ['the bench is quite chill.', 'everything is fine. you are in the mall.',
+             'the mall breathes around you.'],
           ];
-          showWorldEvent(BENCH_LINES[Math.floor(rng(Date.now())() * BENCH_LINES.length)], 1400);
+          const pool = (totalChill >= 8 && Math.random() < 0.3)
+            ? ['the bench is also quite chill.', ...BENCH_TIERS[depth]]
+            : BENCH_TIERS[depth];
+          showWorldEvent(pool[Math.floor(rng(Date.now())() * pool.length)], 1400 + depth * 200);
+          playSound('bench');
           return; // no red flash
         }
       }
@@ -2474,6 +2681,7 @@ function tryTurn(right) {
 }
 
 function handleKey(e) {
+  initAudio(); // lazy-start audio on first keypress (satisfies autoplay policy)
   if (e.code === 'ArrowUp'    || e.code === 'KeyW') tryMove(true);
   if (e.code === 'ArrowDown'  || e.code === 'KeyS') tryMove(false);
   if (e.code === 'ArrowLeft'  || e.code === 'KeyA') tryTurn(false);
@@ -2486,6 +2694,8 @@ function rideEscalator() {
   G.moving = true;
   G.bumpMode = null;
   G.questsCompletedThisFloor = 0; // new floor, fresh slate
+  G.benchSits = 0; // reset bench depth on floor change
+  playSound('escalator');
 
   // Scraggle — the Hall knows you went up
   if (Math.random() < 0.25) window.parent.postMessage({ type: 'scraggle', emoji: '🛍', text: `ascending to floor ${G.player.floor + 1} of Sunset Ridge Mall` }, '*');
@@ -2692,10 +2902,10 @@ function init() {
   });
 
   // Touch controls
-  document.getElementById('btn-fwd').addEventListener('pointerdown',  e => { e.preventDefault(); tryMove(true); });
-  document.getElementById('btn-back').addEventListener('pointerdown', e => { e.preventDefault(); tryMove(false); });
-  document.getElementById('btn-left').addEventListener('pointerdown', e => { e.preventDefault(); tryTurn(false); });
-  document.getElementById('btn-right').addEventListener('pointerdown',e => { e.preventDefault(); tryTurn(true); });
+  document.getElementById('btn-fwd').addEventListener('pointerdown',  e => { e.preventDefault(); initAudio(); tryMove(true); });
+  document.getElementById('btn-back').addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); tryMove(false); });
+  document.getElementById('btn-left').addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); tryTurn(false); });
+  document.getElementById('btn-right').addEventListener('pointerdown',e => { e.preventDefault(); initAudio(); tryTurn(true); });
 
   // Hub integration
   window.parent.postMessage({ type: 'hub:minimize' }, '*');
