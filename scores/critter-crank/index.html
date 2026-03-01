@@ -12,5 +12,6 @@
 </head>
 <body>
   <div id="root"></div>
+  <script>if (window.parent !== window) window.parent.postMessage({ type: 'hub:minimize' }, '*');</script>
 </body>
 </html>

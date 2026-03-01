@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Tending Field</title>
+  <style>
+    :root {
+      --soil:      #1e1a12;
+      --grass:     #242e18;
+      --sky:       #14182e;
+      --bark:      #3a3020;
+      --amber:     #c8820a;
+      --leaf:      #5a7a3a;
+      --bone:      #c8c0a8;
+      --glow:      rgba(200,180,100,0.12);
+      --dim:       rgba(200,192,168,0.35);
+      --modal-bg:  rgba(14,12,8,0.93);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      background: var(--sky);
+      color: var(--bone);
+      font-family: 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* ── Caravan bar ───────────────────────────────────── */
+    #caravan-bar {
+      flex-shrink: 0;
+      height: 44px;
+      background: var(--soil);
+      border-bottom: 1px solid var(--bark);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 10px;
+    }
+    #caravan-label {
+      font-size: 9px;
+      color: var(--amber);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      min-width: 68px;
+    }
+    #caravan-track {
+      flex: 1;
+      height: 5px;
+      background: var(--bark);
+      border-radius: 3px;
+      position: relative;
+      overflow: visible;
+    }
+    #caravan-fill {
+      height: 100%;
+      background: var(--amber);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 1s linear;
+    }
+    #caravan-icon {
+      position: absolute;
+      top: 50%;
+      left: 0%;
+      transform: translate(-50%, -50%);
+      font-size: 16px;
+      line-height: 1;
+      transition: left 1s linear;
+      pointer-events: none;
+    }
+    #trader-label {
+      font-size: 10px;
+      color: var(--leaf);
+      letter-spacing: 0.07em;
+      min-width: 110px;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Main area ──────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 12px 10px;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── Loading overlay ─────────────────────────────────── */
+    #loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--sky);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      font-size: 11px;
+      color: var(--dim);
+      letter-spacing: 0.14em;
+      transition: opacity 0.6s;
+    }
+
+    /* ── Field grid ──────────────────────────────────────── */
+    #field-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 7px;
+      width: min(420px, 96vw);
+    }
+    .tile {
+      background: var(--soil);
+      border: 1px solid var(--bark);
+      border-radius: 7px;
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.14s, background 0.14s;
+      padding: 4px;
+      min-height: 54px;
+      overflow: hidden;
+    }
+    .tile:hover { border-color: var(--amber); background: var(--bark); }
+    .tile.empty .tile-plus { color: var(--dim); font-size: 18px; }
+    .tile.planted .tile-emoji { font-size: 26px; line-height: 1; }
+    .tile.planted .tile-label {
+      font-size: 7px;
+      color: var(--leaf);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+    .tile.entity-tile .tile-emoji { font-size: 20px; line-height: 1; }
+    .tile.entity-tile .tile-initials {
+      font-size: 6px;
+      color: var(--bone);
+      opacity: 0.6;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      margin-top: 1px;
+    }
+    .tile.entity-tile .tile-subtag {
+      font-size: 6px;
+      color: var(--amber);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+    .tile.has-bonus { border-color: var(--leaf); }
+    .tile.stub-entity .tile-emoji { opacity: 0.4; }
+
+    /* ── Event flash ──────────────────────────────────────── */
+    #event-flash {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+    .float-emoji {
+      font-size: 22px;
+      animation: floatUp 1.8s ease-out forwards;
+    }
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-70px); }
+    }
+
+    /* ── Bottom UI ────────────────────────────────────────── */
+    #bottom-ui {
+      width: min(420px, 96vw);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    #bank-display {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-height: 26px;
+      align-items: center;
+    }
+    .bank-label, .jars-label {
+      font-size: 9px;
+      color: var(--dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-right: 2px;
+      white-space: nowrap;
+    }
+    .bank-chip {
+      background: var(--bark);
+      border-radius: 10px;
+      padding: 2px 7px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .bank-chip-count { font-size: 9px; color: var(--amber); }
+    .bank-empty { font-size: 10px; color: var(--dim); font-style: italic; }
+    #jars-section { display: flex; align-items: center; gap: 8px; }
+    #jars-display { display: flex; gap: 5px; }
+    .jar {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--bark);
+      border-radius: 6px;
+      background: var(--soil);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+    }
+    .jar.filled { border-color: var(--amber); background: var(--glow); }
+    .jar.empty-slot { opacity: 0.28; }
+
+    /* ── Modals ────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--modal-bg);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-box {
+      background: var(--soil);
+      border: 1px solid var(--bark);
+      border-radius: 10px;
+      padding: 18px;
+      width: min(380px, 95vw);
+      max-height: 88vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal-title {
+      font-size: 10px;
+      color: var(--amber);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--bark);
+      padding-bottom: 10px;
+    }
+    .modal-section-label {
+      font-size: 9px;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    /* plant options */
+    #plant-options {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+    }
+    .plant-option {
+      background: var(--grass);
+      border: 1px solid var(--bark);
+      border-radius: 6px;
+      padding: 8px 4px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      transition: border-color 0.12s;
+    }
+    .plant-option:hover { border-color: var(--amber); }
+    .plant-option-emoji { font-size: 20px; }
+    .plant-option-name {
+      font-size: 7px;
+      color: var(--bone);
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+
+    /* entity list */
+    #entity-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .entity-option {
+      background: var(--grass);
+      border: 1px solid var(--bark);
+      border-radius: 4px;
+      padding: 6px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: border-color 0.12s;
+    }
+    .entity-option:hover { border-color: var(--leaf); }
+    .entity-option-emoji { font-size: 15px; }
+    .entity-option-info { flex: 1; min-width: 0; }
+    .entity-option-name {
+      font-size: 10px;
+      color: var(--bone);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .entity-option-tags {
+      font-size: 8px;
+      color: var(--dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .entity-option.placed { opacity: 0.38; cursor: default; pointer-events: none; }
+    .entity-loading { font-size: 10px; color: var(--dim); font-style: italic; }
+
+    /* modal buttons */
+    .modal-cancel-btn {
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-family: inherit;
+      font-size: 9px;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 0;
+      transition: color 0.12s;
+      align-self: flex-start;
+    }
+    .modal-cancel-btn:hover { color: var(--bone); }
+    .modal-clear-btn {
+      background: none;
+      border: 1px solid var(--bark);
+      border-radius: 4px;
+      padding: 5px 10px;
+      color: var(--dim);
+      font-family: inherit;
+      font-size: 9px;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .modal-clear-btn:hover { border-color: var(--bone); color: var(--bone); }
+
+    /* ── Trade modal ─────────────────────────────────────── */
+    .trader-hero { display: flex; align-items: center; gap: 14px; }
+    .trader-emoji-big { font-size: 38px; }
+    .trader-info { display: flex; flex-direction: column; gap: 3px; }
+    .trader-name-disp { font-size: 13px; color: var(--bone); }
+    .trader-brings-disp { font-size: 10px; color: var(--leaf); }
+    .trade-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 4px;
+      border-top: 1px solid var(--bark);
+      border-bottom: 1px solid var(--bark);
+    }
+    .trade-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .trade-col-label { font-size: 8px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
+    .trade-offer-emoji { font-size: 26px; }
+    .trade-arrow { font-size: 18px; color: var(--amber); }
+    .trade-want-detail { font-size: 12px; color: var(--bone); }
+    .trade-have-detail { font-size: 10px; }
+    .trade-have-detail.can-trade  { color: var(--leaf); }
+    .trade-have-detail.cant-trade { color: #9a5555; }
+    #trade-timer-display { font-size: 9px; color: var(--dim); text-align: center; letter-spacing: 0.08em; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .modal-btn {
+      background: var(--grass);
+      border: 1px solid var(--leaf);
+      border-radius: 6px;
+      padding: 7px 14px;
+      color: var(--bone);
+      font-family: inherit;
+      font-size: 10px;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .modal-btn:hover:not(:disabled) { background: var(--bark); border-color: var(--amber); }
+    .modal-btn:disabled { opacity: 0.3; cursor: default; }
+    .modal-btn.secondary { border-color: var(--bark); }
+
+    /* ── Ticker ───────────────────────────────────────────── */
+    #ticker {
+      flex-shrink: 0;
+      height: 26px;
+      background: var(--soil);
+      border-top: 1px solid var(--bark);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+    }
+    #ticker-inner {
+      white-space: nowrap;
+      display: inline-block;
+      animation: tickerScroll 52s linear infinite;
+      font-size: 9px;
+      color: var(--dim);
+      letter-spacing: 0.13em;
+    }
+    @keyframes tickerScroll {
+      0%   { transform: translateX(100vw); }
+      100% { transform: translateX(-100%); }
+    }
+  </style>
+</head>
+<body>
+  <script>if (window.parent !== window) window.parent.postMessage({ type: 'hub:minimize' }, '*');</script>
+
+  <!-- Caravan bar -->
+  <div id="caravan-bar">
+    <div id="caravan-label">Caravan</div>
+    <div id="caravan-track">
+      <div id="caravan-fill"></div>
+      <div id="caravan-icon">🛖</div>
+    </div>
+    <div id="trader-label"></div>
+  </div>
+
+  <!-- Main content -->
+  <div id="main">
+    <div id="loading-overlay">ATTENDING TO THE FIELD...</div>
+    <div id="event-flash"></div>
+    <div id="field-grid"></div>
+    <div id="bottom-ui">
+      <div id="bank-display">
+        <span class="bank-label">Bank</span>
+        <span class="bank-empty">empty harvest</span>
+      </div>
+      <div id="jars-section">
+        <span class="jars-label">Jars</span>
+        <div id="jars-display"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plant / entity selection modal -->
+  <div class="modal-overlay hidden" id="plant-modal">
+    <div class="modal-box">
+      <div class="modal-title" id="plant-modal-title">TEND THIS TILE</div>
+      <div class="modal-section-label">Plants</div>
+      <div id="plant-options"></div>
+      <div class="modal-section-label">Invite an Entity</div>
+      <div id="entity-list"></div>
+      <div id="clear-tile-row"></div>
+      <button class="modal-cancel-btn" id="plant-modal-cancel">← cancel</button>
+    </div>
+  </div>
+
+  <!-- Trade modal -->
+  <div class="modal-overlay hidden" id="trade-modal">
+    <div class="modal-box">
+      <div class="modal-title">A TRADER HAS ARRIVED</div>
+      <div class="trader-hero">
+        <div class="trader-emoji-big" id="trader-emoji-big"></div>
+        <div class="trader-info">
+          <div class="trader-name-disp" id="trader-name-disp"></div>
+          <div class="trader-brings-disp" id="trader-brings-disp"></div>
+        </div>
+      </div>
+      <div class="trade-row">
+        <div class="trade-col">
+          <div class="trade-col-label">They offer</div>
+          <div class="trade-offer-emoji" id="trade-offer-emoji"></div>
+        </div>
+        <div class="trade-arrow">⇄</div>
+        <div class="trade-col">
+          <div class="trade-col-label">They seek</div>
+          <div class="trade-want-detail" id="trade-want-detail"></div>
+          <div class="trade-have-detail" id="trade-have-detail"></div>
+        </div>
+      </div>
+      <div id="trade-timer-display"></div>
+      <div class="modal-btns">
+        <button class="modal-btn secondary" id="trade-pass-btn">Let them pass</button>
+        <button class="modal-btn" id="trade-btn" disabled>Exchange</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticker -->
+  <div id="ticker">
+    <div id="ticker-inner">
+      ★ ATTEND GENTLY ★ THE FIELD IS PATIENT ★ A CARAVAN IS ALWAYS ON ITS WAY ★
+      FIELD CREW EN ROUTE ★ CARAVAN APPROACHING ★ SOMETHING GROWS IN THE DARK ★
+      TRADER INCOMING ★ WHAT GROWS IN TWILIGHT STAYS IN TWILIGHT ★ A COIN FOR THE CARAVAN ★
+      ATTEND GENTLY ★ THE FIELD IS PATIENT ★ A CARAVAN IS ALWAYS ON ITS WAY ★
+      FIELD CREW EN ROUTE ★ CARAVAN APPROACHING ★ SOMETHING GROWS IN THE DARK ★
+      TRADER INCOMING ★ WHAT GROWS IN TWILIGHT STAYS IN TWILIGHT ★ A COIN FOR THE CARAVAN ★
+    </div>
+  </div>
+
+  <script>
+  // ── Constants ──────────────────────────────────────────────────
+  const HALL_REPO     = 'Ariliteth/the-hall';
+  const HALL_BRANCH   = 'main';
+  const CYCLE_SECONDS = 90;
+  const COLS          = 5;
+  const ROWS          = 4;
+  const TILE_COUNT    = COLS * ROWS;
+  const TRADER_MS     = 15000; // ms trader lingers before auto-departing
+
+  const PLANTS = [
+    { id: 'ryegrass',    name: 'Ryegrass',    emoji: '🌿', produces: ['🌿','🌿'], rare: null, rareChance: 0,   affinity: ['growth','wandering','patience'] },
+    { id: 'moonspore',   name: 'Moonspore',   emoji: '🍄', produces: ['🍄'],       rare: '🌙', rareChance: 0.1, affinity: ['curious','seeking','subtle']    },
+    { id: 'brightbloom', name: 'Brightbloom', emoji: '🌸', produces: ['🌸','🌸'], rare: null, rareChance: 0,   affinity: ['tasteful','warm','joy']          },
+    { id: 'hearthweed',  name: 'Hearthweed',  emoji: '🔥', produces: ['🔥'],       rare: null, rareChance: 0,   affinity: ['fierce','territorial','bold']    },
+    { id: 'silkfern',    name: 'Silkfern',    emoji: '✨', produces: ['✨'],       rare: null, rareChance: 0,   affinity: ['quiet','ancient','memory']       },
+  ];
+
+  const TAG_EMOJI = {
+    curious: '🔍', territorial: '🏔️', loud: '📢', growth: '🌱', ancient: '🗿',
+    tasteful: '✨', relentless: '⚡', proud: '👑', quiet: '🌑', wandering: '🌀',
+    seeking: '🔎', fierce: '🔥', bold: '🔆', subtle: '🌫️', warm: '☀️',
+    patience: '⏳', memory: '🪞', joy: '🎈', heavy: '🪨', swift: '💨',
+    predator: '🦅', mysterious: '🔮', strange: '🌀', hungry: '🍖',
+  };
+  const CATEGORY_EMOJI = {
+    spirit: '💫', item: '📦', location: '🗺️', tendency: '🌀', action: '⚡',
+  };
+
+  const TRADERS = [
+    { id: 'salt',         name: 'The Salt Merchant',          emoji: '🧂', want: [{ e: '🌿', n: 2 }] },
+    { id: 'moon',         name: 'The Moon Peddler',           emoji: '🌙', want: [{ e: '🍄', n: 2 }] },
+    { id: 'ember',        name: 'The Ember Dealer',           emoji: '🕯️', want: [{ e: '🔥', n: 2 }] },
+    { id: 'silk',         name: 'The Silk Road Traveler',     emoji: '🎐', want: [{ e: '✨', n: 2 }] },
+    { id: 'cartographer', name: 'The Wandering Cartographer', emoji: '🗺️', want: [{ e: '🌿', n: 1 }, { e: '🌸', n: 1 }] },
+    { id: 'naturalist',   name: 'The Naturalist',             emoji: '🔭', want: [{ e: '🌸', n: 3 }] },
+    { id: 'strange',      name: 'The Strange Visitor',        emoji: '🪬', want: 'any3' },
+  ];
+
+  // ── State ──────────────────────────────────────────────────────
+  let G = {
+    field:    Array(TILE_COUNT).fill(null), // null | { kind:'plant'|'entity', data }
+    bank:     {},                           // { '🌿': 3, ... }
+    jars:     [],                           // [{ emoji, label }] max 6
+    caravan:  { progress: 0, traderIdx: 0, arrived: false, trader: null },
+    entities: [],
+    loading:  true,
+    firstHarvestDone: false,
+  };
+
+  let timerInterval        = null;
+  let traderDismissTimer   = null;
+  let traderCountdownTimer = null;
+  let traderLingerEnd      = 0;
+  let selectedTileIdx      = -1;
+
+  // ── Persistence ─────────────────────────────────────────────────
+  function save() {
+    try {
+      const fieldData = G.field.map(t => {
+        if (!t) return null;
+        if (t.kind === 'plant') {
+          const id = t.data ? t.data.id : t.plantId;
+          return { kind: 'plant', plantId: id };
+        }
+        if (t.kind === 'entity') {
+          const slug         = t.data ? t.data.slug         : t.slug;
+          const neighborhood = t.data ? t.data.neighborhood : t.neighborhood;
+          return { kind: 'entity', slug, neighborhood };
+        }
+        return null;
+      });
+      localStorage.setItem('tending-field/field',     JSON.stringify(fieldData));
+      localStorage.setItem('tending-field/bank',      JSON.stringify(G.bank));
+      localStorage.setItem('tending-field/jars',      JSON.stringify(G.jars));
+      localStorage.setItem('tending-field/progress',  String(G.caravan.progress));
+      localStorage.setItem('tending-field/traderIdx', String(G.caravan.traderIdx));
+    } catch (e) { console.warn('Save failed', e); }
+  }
+
+  function loadSaved() {
+    try {
+      const fieldRaw = localStorage.getItem('tending-field/field');
+      if (fieldRaw) G.field = JSON.parse(fieldRaw);
+      const bankRaw  = localStorage.getItem('tending-field/bank');
+      if (bankRaw)  G.bank  = JSON.parse(bankRaw);
+      const jarsRaw  = localStorage.getItem('tending-field/jars');
+      if (jarsRaw)  G.jars  = JSON.parse(jarsRaw);
+      const prog = localStorage.getItem('tending-field/progress');
+      if (prog !== null) G.caravan.progress = Math.min(parseFloat(prog) || 0, 0.98);
+      const tidx = localStorage.getItem('tending-field/traderIdx');
+      if (tidx !== null) G.caravan.traderIdx = parseInt(tidx) || 0;
+    } catch (e) { console.warn('Load failed', e); }
+  }
+
+  // ── Entity emoji derivation ────────────────────────────────────
+  function entityEmoji(entity) {
+    for (const tag of (entity.tags || [])) {
+      if (TAG_EMOJI[tag]) return TAG_EMOJI[tag];
+    }
+    return CATEGORY_EMOJI[entity.category] || '🌀';
+  }
+
+  // ── Registry / entity fetching ─────────────────────────────────
+  async function fetchRegistry() {
+    const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/registry.json`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('registry unavailable');
+      return await res.json();
+    } catch (e) {
+      console.warn('Registry fetch failed, using fallback', e);
+      return {
+        neighborhoods: {
+          greengarden:    { entities: ['chunxly'] },
+          kitchendom:     { entities: ['briny-broadswordfish', 'noble-knightshade'] },
+          mucklerbuckler: { entities: ['scalescream', 'mudhull'] },
+        },
+      };
+    }
+  }
+
+  function parseTuning(md, slug, neighborhood) {
+    const nameLine = md.split('\n').find(l => l.startsWith('# '));
+    const name     = nameLine ? nameLine.replace('# ', '').trim() : slug;
+    const catMatch  = md.match(/\*\*Category:\*\*\s*(.+)/);
+    const category  = catMatch  ? catMatch[1].trim().toLowerCase()  : 'spirit';
+    const tagsMatch = md.match(/\*\*Tags:\*\*\s*(.+)/);
+    const tags      = tagsMatch
+      ? tagsMatch[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+      : [];
+    return { name, category, tags, slug, neighborhood };
+  }
+
+  async function fetchTuning(neighborhood, slug) {
+    const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/neighborhoods/${neighborhood}/entities/${slug}/tuning.md`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Could not fetch ${slug}`);
+    return parseTuning(await res.text(), slug, neighborhood);
+  }
+
+  async function loadEntities() {
+    const registry = await fetchRegistry();
+    const entities = [];
+    for (const [neighborhood, entry] of Object.entries(registry.neighborhoods)) {
+      const slugs = Array.isArray(entry) ? entry : (entry.entities || []);
+      for (const slug of slugs) {
+        try {
+          const e = await fetchTuning(neighborhood, slug);
+          e.derivedEmoji = entityEmoji(e);
+          entities.push(e);
+        } catch (err) {
+          console.warn(`Could not load entity: ${slug}`, err);
+        }
+      }
+    }
+    return entities;
+  }
+
+  // ── Adjacency helpers ──────────────────────────────────────────
+  function getNeighbors(idx) {
+    const row = Math.floor(idx / COLS);
+    const col = idx % COLS;
+    const ns  = [];
+    if (row > 0)      ns.push((row - 1) * COLS + col);
+    if (row < ROWS-1) ns.push((row + 1) * COLS + col);
+    if (col > 0)      ns.push(row * COLS + (col - 1));
+    if (col < COLS-1) ns.push(row * COLS + (col + 1));
+    return ns;
+  }
+
+  function hasBonusAdjacency(plantIdx) {
+    const tile = G.field[plantIdx];
+    if (!tile || tile.kind !== 'plant' || !tile.data) return false;
+    for (const ni of getNeighbors(plantIdx)) {
+      const n = G.field[ni];
+      if (!n || n.kind !== 'entity' || !n.data) continue;
+      if (tile.data.affinity.some(a => (n.data.tags || []).includes(a))) return true;
+    }
+    return false;
+  }
+
+  // ── Harvest ────────────────────────────────────────────────────
+  function addToBank(emoji, count = 1) {
+    G.bank[emoji] = (G.bank[emoji] || 0) + count;
+  }
+
+  function gatherHarvest() {
+    const gained = {};
+    for (let i = 0; i < TILE_COUNT; i++) {
+      const tile = G.field[i];
+      if (!tile || !tile.data) continue;
+
+      if (tile.kind === 'plant') {
+        const plant = tile.data;
+        // Moonspore rare check
+        let produce = [...plant.produces];
+        if (plant.rare && Math.random() < plant.rareChance) {
+          produce = [plant.rare];
+        }
+        for (const e of produce) {
+          addToBank(e);
+          gained[e] = (gained[e] || 0) + 1;
+        }
+        // Adjacency bonus: each entity neighbor with matching affinity tag → +1 base produce
+        for (const ni of getNeighbors(i)) {
+          const nbr = G.field[ni];
+          if (!nbr || nbr.kind !== 'entity' || !nbr.data) continue;
+          if (plant.affinity.some(a => (nbr.data.tags || []).includes(a))) {
+            const bonus = produce[0];
+            addToBank(bonus);
+            gained[bonus] = (gained[bonus] || 0) + 1;
+          }
+        }
+      }
+
+      if (tile.kind === 'entity') {
+        const e = tile.data.derivedEmoji || entityEmoji(tile.data);
+        addToBank(e);
+        gained[e] = (gained[e] || 0) + 1;
+      }
+    }
+    return gained;
+  }
+
+  // ── Hub messaging ──────────────────────────────────────────────
+  function hubMsg(type, extra = {}) {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type, ...extra }, '*');
+    }
+  }
+
+  // ── Caravan timer ──────────────────────────────────────────────
+  function startCaravan() {
+    stopCaravan();
+    timerInterval = setInterval(tick, 1000);
+  }
+
+  function stopCaravan() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  }
+
+  function tick() {
+    if (G.caravan.arrived) return;
+    G.caravan.progress += 1 / CYCLE_SECONDS;
+    if (G.caravan.progress >= 1) {
+      G.caravan.progress = 1;
+      G.caravan.arrived  = true;
+      stopCaravan();
+      onCaravanArrival();
+    }
+    renderCaravan();
+    save();
+  }
+
+  function onCaravanArrival() {
+    const gained = gatherHarvest();
+    renderBank();
+    save();
+    flashHarvest(gained);
+
+    if (!G.firstHarvestDone && Object.keys(gained).length > 0) {
+      G.firstHarvestDone = true;
+      const topEmoji = Object.keys(gained)[0] || '🌿';
+      hubMsg('hub:scraggle', { emoji: topEmoji, signal: 'first harvest gathered at the tending field' });
+    }
+
+    const trader = TRADERS[G.caravan.traderIdx % TRADERS.length];
+    G.caravan.trader = trader;
+    setTimeout(() => {
+      showTradeModal(trader);
+      hubMsg('hub:scraggle', { emoji: '🛖', signal: `${trader.name} approaches the tending field` });
+    }, 1500);
+  }
+
+  function advanceCaravan() {
+    G.caravan.progress  = 0;
+    G.caravan.arrived   = false;
+    G.caravan.trader    = null;
+    G.caravan.traderIdx = (G.caravan.traderIdx + 1) % TRADERS.length;
+    renderCaravan();
+    save();
+    startCaravan();
+  }
+
+  // ── Trade logic ────────────────────────────────────────────────
+  function canTrade(trader) {
+    if (trader.want === 'any3') {
+      return Object.values(G.bank).filter(c => c > 0).length >= 3;
+    }
+    return trader.want.every(({ e, n }) => (G.bank[e] || 0) >= n);
+  }
+
+  function executeTrade(trader) {
+    if (!canTrade(trader)) return false;
+    if (trader.want === 'any3') {
+      const types = Object.entries(G.bank).filter(([, c]) => c > 0).slice(0, 3);
+      for (const [e] of types) {
+        G.bank[e]--;
+        if (G.bank[e] <= 0) delete G.bank[e];
+      }
+    } else {
+      for (const { e, n } of trader.want) {
+        G.bank[e] -= n;
+        if (G.bank[e] <= 0) delete G.bank[e];
+      }
+    }
+    if (G.jars.length < 6) {
+      G.jars.push({ emoji: trader.emoji, label: trader.name });
+    }
+    return true;
+  }
+
+  function traderLeave(traded) {
+    clearTimeout(traderDismissTimer);
+    clearInterval(traderCountdownTimer);
+    hideTradeModal();
+    if (!traded) {
+      // Leave a small consolation token
+      addToBank('🌿');
+      renderBank();
+    }
+    renderJars();
+    renderBank();
+    save();
+    advanceCaravan();
+  }
+
+  // ── Render functions ───────────────────────────────────────────
+  function renderCaravan() {
+    const pct    = Math.min(G.caravan.progress * 100, 100);
+    const trader = TRADERS[G.caravan.traderIdx % TRADERS.length];
+    document.getElementById('caravan-fill').style.width = pct + '%';
+    document.getElementById('caravan-icon').style.left  = pct + '%';
+    document.getElementById('trader-label').textContent = G.caravan.arrived
+      ? `${trader.emoji} ${trader.name}`
+      : `next: ${trader.name}`;
+  }
+
+  function renderField() {
+    const grid = document.getElementById('field-grid');
+    grid.innerHTML = '';
+    for (let i = 0; i < TILE_COUNT; i++) {
+      const tile = G.field[i];
+      const div  = document.createElement('div');
+      div.className  = 'tile';
+      div.dataset.idx = i;
+
+      if (!tile) {
+        div.classList.add('empty');
+        const plus = document.createElement('span');
+        plus.className   = 'tile-plus';
+        plus.textContent = '+';
+        div.appendChild(plus);
+
+      } else if (tile.kind === 'plant') {
+        div.classList.add('planted');
+        if (hasBonusAdjacency(i)) div.classList.add('has-bonus');
+        const em = document.createElement('span');
+        em.className   = 'tile-emoji';
+        em.textContent = tile.data ? tile.data.emoji : '🌿';
+        const lbl = document.createElement('span');
+        lbl.className   = 'tile-label';
+        lbl.textContent = tile.data ? tile.data.name : (tile.plantId || '');
+        div.appendChild(em);
+        div.appendChild(lbl);
+
+      } else if (tile.kind === 'entity') {
+        div.classList.add('entity-tile');
+        if (!tile.data) div.classList.add('stub-entity');
+        const em = document.createElement('span');
+        em.className   = 'tile-emoji';
+        em.textContent = tile.data ? (tile.data.derivedEmoji || entityEmoji(tile.data)) : '🌀';
+        const init = document.createElement('span');
+        init.className   = 'tile-initials';
+        init.textContent = tile.data
+          ? tile.data.name.slice(0, 9).toUpperCase()
+          : (tile.slug || '...').slice(0, 9).toUpperCase();
+        const sub = document.createElement('span');
+        sub.className   = 'tile-subtag';
+        sub.textContent = tile.data ? (tile.data.tags || []).slice(0, 2).join(', ') : '';
+        div.appendChild(em);
+        div.appendChild(init);
+        div.appendChild(sub);
+      }
+
+      div.addEventListener('click', () => openPlantModal(i));
+      grid.appendChild(div);
+    }
+  }
+
+  function renderBank() {
+    const display = document.getElementById('bank-display');
+    const chips   = Object.entries(G.bank).filter(([, c]) => c > 0);
+    display.innerHTML = '<span class="bank-label">Bank</span>';
+    if (chips.length === 0) {
+      const em = document.createElement('span');
+      em.className   = 'bank-empty';
+      em.textContent = 'empty harvest';
+      display.appendChild(em);
+    } else {
+      for (const [emoji, count] of chips) {
+        const chip = document.createElement('span');
+        chip.className = 'bank-chip';
+        chip.innerHTML = `${emoji}<span class="bank-chip-count">×${count}</span>`;
+        display.appendChild(chip);
+      }
+    }
+  }
+
+  function renderJars() {
+    const display = document.getElementById('jars-display');
+    display.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const jar = document.createElement('div');
+      jar.className = 'jar';
+      if (i < G.jars.length) {
+        jar.classList.add('filled');
+        jar.textContent = G.jars[i].emoji;
+        jar.title       = G.jars[i].label;
+      } else {
+        jar.classList.add('empty-slot');
+        jar.textContent = '·';
+      }
+      display.appendChild(jar);
+    }
+  }
+
+  function flashHarvest(gained) {
+    const flash   = document.getElementById('event-flash');
+    const entries = Object.entries(gained);
+    if (entries.length === 0) return;
+    let delay = 0;
+    for (const [emoji, count] of entries) {
+      const cap = Math.min(count, 5);
+      for (let i = 0; i < cap; i++) {
+        setTimeout(() => {
+          const span = document.createElement('span');
+          span.className   = 'float-emoji';
+          span.textContent = emoji;
+          span.style.marginLeft = `${(Math.random() * 30 - 15)}px`;
+          flash.appendChild(span);
+          setTimeout(() => span.remove(), 2200);
+        }, delay);
+        delay += 90;
+      }
+    }
+  }
+
+  // ── Plant/entity modal ─────────────────────────────────────────
+  function openPlantModal(tileIdx) {
+    if (G.caravan.arrived) return; // tile edits locked during trader visit
+    selectedTileIdx = tileIdx;
+    const tile  = G.field[tileIdx];
+    const modal = document.getElementById('plant-modal');
+    document.getElementById('plant-modal-title').textContent =
+      tile ? 'REPLACE OR CLEAR THIS TILE' : 'TEND THIS TILE';
+
+    // Plant options
+    const opts = document.getElementById('plant-options');
+    opts.innerHTML = '';
+    for (const plant of PLANTS) {
+      const btn = document.createElement('div');
+      btn.className = 'plant-option';
+      btn.innerHTML = `<span class="plant-option-emoji">${plant.emoji}</span>
+                       <span class="plant-option-name">${plant.name}</span>`;
+      btn.addEventListener('click', () => {
+        G.field[tileIdx] = { kind: 'plant', data: plant };
+        save(); renderField(); closePlantModal();
+      });
+      opts.appendChild(btn);
+    }
+
+    // Entity list
+    const list   = document.getElementById('entity-list');
+    list.innerHTML = '';
+    const placed = new Set(
+      G.field.filter(Boolean)
+             .filter(t => t.kind === 'entity')
+             .map(t => t.data ? t.data.slug : t.slug)
+    );
+
+    if (G.loading || G.entities.length === 0) {
+      const msg = document.createElement('div');
+      msg.className   = 'entity-loading';
+      msg.textContent = G.loading ? 'Loading entities...' : 'No entities available.';
+      list.appendChild(msg);
+    } else {
+      for (const entity of G.entities) {
+        const row = document.createElement('div');
+        row.className = 'entity-option' + (placed.has(entity.slug) ? ' placed' : '');
+        row.innerHTML = `
+          <span class="entity-option-emoji">${entity.derivedEmoji || entityEmoji(entity)}</span>
+          <div class="entity-option-info">
+            <div class="entity-option-name">${entity.name}</div>
+            <div class="entity-option-tags">${(entity.tags || []).join(', ')}</div>
+          </div>`;
+        if (!placed.has(entity.slug)) {
+          row.addEventListener('click', () => {
+            G.field[tileIdx] = { kind: 'entity', data: entity };
+            save(); renderField(); closePlantModal();
+          });
+        }
+        list.appendChild(row);
+      }
+    }
+
+    // Clear tile
+    const clearRow = document.getElementById('clear-tile-row');
+    clearRow.innerHTML = '';
+    if (tile) {
+      const btn = document.createElement('button');
+      btn.className   = 'modal-clear-btn';
+      btn.textContent = 'Clear this tile';
+      btn.addEventListener('click', () => {
+        G.field[tileIdx] = null;
+        save(); renderField(); closePlantModal();
+      });
+      clearRow.appendChild(btn);
+    }
+
+    modal.classList.remove('hidden');
+  }
+
+  function closePlantModal() {
+    document.getElementById('plant-modal').classList.add('hidden');
+    selectedTileIdx = -1;
+  }
+
+  document.getElementById('plant-modal-cancel').addEventListener('click', closePlantModal);
+  document.getElementById('plant-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closePlantModal();
+  });
+
+  // ── Trade modal ────────────────────────────────────────────────
+  function showTradeModal(trader) {
+    document.getElementById('trade-modal').classList.remove('hidden');
+    document.getElementById('trader-emoji-big').textContent   = trader.emoji;
+    document.getElementById('trader-name-disp').textContent   = trader.name;
+    document.getElementById('trader-brings-disp').textContent = `brings ${trader.emoji}`;
+    document.getElementById('trade-offer-emoji').textContent  = trader.emoji;
+
+    const wantText = trader.want === 'any3'
+      ? '3 different kinds'
+      : trader.want.map(({ e, n }) => `${n}×${e}`).join(' + ');
+    document.getElementById('trade-want-detail').textContent = wantText;
+
+    const able    = canTrade(trader);
+    const haveEl  = document.getElementById('trade-have-detail');
+    haveEl.textContent = able ? 'you have enough ✓' : 'not enough in bank';
+    haveEl.className   = 'trade-have-detail ' + (able ? 'can-trade' : 'cant-trade');
+    document.getElementById('trade-btn').disabled = !able;
+
+    traderLingerEnd = Date.now() + TRADER_MS;
+    updateTraderCountdown();
+    traderCountdownTimer = setInterval(updateTraderCountdown, 1000);
+    traderDismissTimer   = setTimeout(() => traderLeave(false), TRADER_MS);
+  }
+
+  function updateTraderCountdown() {
+    const remaining = Math.max(0, Math.ceil((traderLingerEnd - Date.now()) / 1000));
+    const el = document.getElementById('trade-timer-display');
+    if (el) el.textContent = remaining > 0 ? `departs in ${remaining}s` : 'departing…';
+  }
+
+  function hideTradeModal() {
+    document.getElementById('trade-modal').classList.add('hidden');
+    clearTimeout(traderDismissTimer);
+    clearInterval(traderCountdownTimer);
+  }
+
+  document.getElementById('trade-btn').addEventListener('click', () => {
+    const trader = G.caravan.trader;
+    if (!trader || !canTrade(trader)) return;
+    if (executeTrade(trader)) {
+      hubMsg('hub:scraggle', { emoji: trader.emoji, signal: `traded with ${trader.name} at the tending field` });
+      traderLeave(true);
+    }
+  });
+
+  document.getElementById('trade-pass-btn').addEventListener('click', () => traderLeave(false));
+
+  // ── Init ───────────────────────────────────────────────────────
+  async function init() {
+    loadSaved();
+
+    // Hydrate plant tiles immediately (entities need network)
+    G.field = G.field.map(t => {
+      if (!t) return null;
+      if (t.kind === 'plant') {
+        const plant = PLANTS.find(p => p.id === t.plantId);
+        return plant ? { kind: 'plant', data: plant } : null;
+      }
+      return t; // entity stubs stay as-is until loadEntities() runs
+    });
+
+    renderCaravan();
+    renderField();
+    renderBank();
+    renderJars();
+
+    // Load entities from registry
+    G.entities = await loadEntities();
+
+    // Hydrate saved entity stubs with full entity data
+    G.field = G.field.map(t => {
+      if (!t || t.kind !== 'entity' || t.data) return t; // skip if already hydrated or null
+      const entity = G.entities.find(e => e.slug === t.slug && e.neighborhood === t.neighborhood);
+      return entity ? { kind: 'entity', data: entity } : null;
+    });
+
+    G.loading = false;
+
+    const overlay = document.getElementById('loading-overlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.remove(), 700);
+
+    renderField(); // re-render with full entity data
+    startCaravan();
+  }
+
+  init();
+  </script>
+</body>
+</html>

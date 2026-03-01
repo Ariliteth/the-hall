@@ -761,12 +761,14 @@
               </div>
             </div>
 
-            <div class="score-card soon" data-score="tending-field">
+            <div class="score-card" data-score="tending-field"
+                 data-url="scores/tending-field/index.html" onclick="selectScore(this)">
               <div class="score-title">THE TENDING FIELD</div>
-              <div class="score-desc">A critter arrives. An entity is already there. You are not playing either of them.</div>
+              <div class="score-desc">Plant seeds. Invite entities. Wait. A caravan is always on its way.</div>
               <div class="score-meta">
-                <span class="score-tag">Observation</span>
-                <span class="score-tag">Coming Soon</span>
+                <span class="score-tag">Idle</span>
+                <span class="score-tag">Persistent</span>
+                <span class="score-tag">Greengarden</span>
               </div>
             </div>
 
@@ -844,7 +846,7 @@ const KNOWN_THEMES = [
 
 let registry            = null;
 let selectedScore       = "hunter-encounter";
-let selectedScoreUrl    = "scores/hunter-encounter/index.html";
+let selectedScoreUrl    = "neighborhoods/mucklerbuckler/scores/hunter-encounter/index.html";
 let activeThemes        = new Set();
 let activeNeighborhoods = new Set();
 let scoreRunning        = false;
@@ -917,7 +919,8 @@ function handleScoreMessage(e) {
       if (msg.name) document.getElementById('hud-score-name').textContent = msg.name;
       break;
     case 'hub:scraggle':
-      receiveScraggle(msg.emoji || '✦', msg.signal || '');
+    case 'scraggle':
+      receiveScraggle(msg.emoji || '✦', msg.signal || msg.text || '');
       break;
   }
 }
@@ -1084,7 +1087,8 @@ function renderThemes() {
   if (registry) {
     for (const [slug, entry] of Object.entries(registry.neighborhoods)) {
       if (!Array.isArray(entry) && entry.theme) {
-        themes.push({ slug: entry.theme, name: formatNeighborhoodName(slug), desc: `The ${formatNeighborhoodName(slug)} conducts.` });
+        const tName = formatNeighborhoodName(slug);
+        themes.push({ slug: entry.theme, name: tName, desc: `${tName} conducts.` });
       }
     }
   }

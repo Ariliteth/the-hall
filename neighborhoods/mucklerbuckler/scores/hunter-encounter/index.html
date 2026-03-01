@@ -1212,7 +1212,14 @@ const ACTIONS = [
 let MONSTERS = [];
 let G = {};
 
+function hubMsg(type, extra) {
+  if (window.parent !== window) {
+    window.parent.postMessage({ type, ...extra }, '*');
+  }
+}
+
 async function initGame() {
+  hubMsg('hub:minimize');
   // Show loading state
   document.getElementById('monster-name').textContent = '...';
   document.getElementById('monster-art').textContent = '🌀';
@@ -1943,10 +1950,12 @@ function endGame(won) {
     title.textContent = 'HUNT COMPLETE';
     title.className = 'win';
     sub.textContent = `${G.monster.name} subdued after ${G.turn} turns. The crew got everything on tape.`;
+    hubMsg('hub:scraggle', { emoji: '🎬', signal: `subdued ${G.monster.name} in ${G.turn} turns — crew got everything on tape` });
   } else {
     title.textContent = 'CARTED';
     title.className = 'lose';
     sub.textContent = `The ${G.monster.name} wins this round. The medic is on his way.`;
+    hubMsg('hub:scraggle', { emoji: '🚑', signal: `carted by ${G.monster.name} after ${G.turn} turns — medic incoming` });
   }
 }
 

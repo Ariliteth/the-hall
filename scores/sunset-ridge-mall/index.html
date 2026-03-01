@@ -1682,6 +1682,7 @@ const G = {
   permStats: {}, // permanently retained stats from trashcan discards
   questsCompletedThisFloor: 0, // resets on escalator/drive — gates staff room unlock
   benchSits: 0, // counts bench presses this session — deepens messages with CHILL
+  usedFountains: new Set(), // tracks fountain tiles used this session (floor:x:y)
 };
 
 // Three.js module-level refs
@@ -2621,6 +2622,23 @@ function tryMove(fwd) {
             const defHand = G.hands[0] ? 0 : 1;
             G.bumpMode = { target: { kind: 'trashcan', selectedHand: defHand } };
             flashBorder('green', -1);
+          }
+        }
+      }
+      // Check for fountain prop on landing — one-time coin toss per fountain
+      if (!G.bumpMode && fd.grid[G.player.py]?.[G.player.px] === T.CORRIDOR) {
+        const fpr = rng(fd.seed*137+G.player.py*31+G.player.px);
+        if (fpr() < 0.14) {
+          fpr(); // consume count-check call to stay in sync with buildScene
+          const ftype = CORRIDOR_PROPS[Math.floor(fpr() * CORRIDOR_PROPS.length)];
+          if (ftype === 'fountain') {
+            const fkey = `${G.player.floor}:${G.player.px}:${G.player.py}`;
+            if (!G.usedFountains.has(fkey)) {
+              G.usedFountains.add(fkey);
+              if (!('LUCK' in G.playerStats)) G.playerStats.LUCK = 0;
+              G.permStats.LUCK = (G.permStats.LUCK || 0) + 1;
+              showWorldEvent('a coin in the fountain.', 2200);
+            }
           }
         }
       }

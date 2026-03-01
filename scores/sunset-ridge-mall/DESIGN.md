@@ -131,7 +131,7 @@ Floor gating: 35% chance floor 7+, 55% floor 14+, 100% floor 21+
 
 | Hash | Description |
 |---|---|
-| `(next)` | ??? |
+| `(next)` | Fountain coin toss; hub bolt-tightening across all scores |
 | `bfd782d` | Sound system, enhanced bench (CHILL tiers, audio) |
 | `3272515` | Ra (cheerleading), item provenance, silent bench |
 | `87bbe3c` | Staff rooms, U-SEEN regulars, quest reward escalation |
@@ -173,7 +173,8 @@ Floor gating: 35% chance floor 7+, 55% floor 14+, 100% floor 21+
 ### Minor interactions (design notes from Fox)
 - **Principle:** these must not interrupt flow. They are environmental, not mechanical.
   No green border, no bumpMode prompt. Brief world-event text at most (or nothing at all).
-- **Fountain** — possible: toss a coin (one-time, slight LUCK flicker). Silent.
+- **Fountain** ✓ — landing on a fountain tile tosses a coin (one-time per fountain per session).
+  Adds +1 to permanent LUCK. Shows world-event: "a coin in the fountain." No border, no sound.
 - **Coffee machine in Staff Room** — wall entity in STAFF ONLY; one-time CHILL boost.
 - **Quest giver follow-up** — after delivery, ~30% chance a second call comes from same giver
 
