@@ -605,7 +605,7 @@ function generateFloor(seed) {
   // Wall entities: ATMs + Payphones
   const wallEntities = [];
   const weRand = rng(seed + 99);
-  let atmCount = 0, phoneCount = 0, shippitCount = 0;
+  let atmCount = 0, phoneCount = 0, shippitCount = 0, kioskCount = 0;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       if (grid[y][x] !== T.CORRIDOR) continue;
@@ -619,10 +619,10 @@ function generateFloor(seed) {
       if (x === 0 || grid[y][x-1] === T.EMPTY) candidates.push('W');
       if (!candidates.length) continue;
       const face = candidates[Math.floor(weRand() * candidates.length)];
-      const type = atmCount < 2 ? 'atm' : phoneCount < 2 ? 'payphone' : shippitCount < 1 ? 'shippit' : null;
+      const type = atmCount < 2 ? 'atm' : phoneCount < 2 ? 'payphone' : shippitCount < 1 ? 'shippit' : kioskCount < 1 ? 'kiosk' : null;
       if (!type) continue;
       wallEntities.push({ tileX: x, tileY: y, face, type, id: `${type}_${x}_${y}` });
-      if (type === 'atm') atmCount++; else if (type === 'payphone') phoneCount++; else shippitCount++;
+      if (type === 'atm') atmCount++; else if (type === 'payphone') phoneCount++; else if (type === 'shippit') shippitCount++; else kioskCount++;
     }
   }
 
@@ -867,6 +867,49 @@ function youAreHereTex() {
   });
 }
 
+function kioskTex(name, neighborhood) {
+  const key = `kiosk_${name || 'empty'}_${neighborhood || ''}`;
+  return makeTex(key, (ctx, w, h) => {
+    ctx.fillStyle = '#08111E'; ctx.fillRect(0, 0, w, h);
+    // Top band
+    ctx.fillStyle = '#FF7700'; ctx.fillRect(0, 0, w, h * 0.09);
+    ctx.fillStyle = '#0A1522'; ctx.font = `bold ${h * 0.065}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('● COMMUNITY BOARD ●', w / 2, h * 0.047);
+    // U-SEEN
+    ctx.fillStyle = '#FFDD00'; ctx.font = `bold ${h * 0.135}px monospace`;
+    ctx.textBaseline = 'alphabetic'; ctx.fillText('U-SEEN', w / 2, h * 0.22);
+    // U-HALL
+    ctx.fillStyle = '#FF8800'; ctx.font = `bold ${h * 0.095}px monospace`;
+    ctx.fillText('U-HALL', w / 2, h * 0.32);
+    // divider
+    ctx.strokeStyle = '#1A2D3E'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(w * 0.08, h * 0.365); ctx.lineTo(w * 0.92, h * 0.365); ctx.stroke();
+    // HAPPY EVENT
+    ctx.fillStyle = '#44CCFF'; ctx.font = `bold ${h * 0.085}px monospace`;
+    ctx.fillText('HAPPY EVENT', w / 2, h * 0.455);
+    // B-HERE
+    ctx.fillStyle = '#88FF88'; ctx.font = `bold ${h * 0.075}px monospace`;
+    ctx.fillText('B-HERE :', w / 2, h * 0.545);
+    // divider
+    ctx.strokeStyle = '#1A2D3E';
+    ctx.beginPath(); ctx.moveTo(w * 0.08, h * 0.585); ctx.lineTo(w * 0.92, h * 0.585); ctx.stroke();
+    if (name) {
+      ctx.fillStyle = '#FFFFFF'; ctx.font = `bold ${h * 0.10}px monospace`;
+      ctx.fillText((name.length > 11 ? name.slice(0, 11) + '…' : name), w / 2, h * 0.695);
+      ctx.fillStyle = '#8899AA'; ctx.font = `${h * 0.07}px monospace`;
+      ctx.fillText(`FROM ${(neighborhood || '???').toUpperCase()}`, w / 2, h * 0.795);
+    } else {
+      ctx.fillStyle = '#2A4055'; ctx.font = `${h * 0.075}px monospace`;
+      ctx.fillText('NO RECENT', w / 2, h * 0.69); ctx.fillText('VISITORS', w / 2, h * 0.79);
+    }
+    // footer
+    ctx.fillStyle = '#0D1F2E'; ctx.fillRect(0, h * 0.875, w, h * 0.125);
+    ctx.fillStyle = '#2A4055'; ctx.font = `${h * 0.055}px monospace`;
+    ctx.fillText('SUNSET RIDGE COMMUNITY', w / 2, h * 0.95);
+  }, 256, 512);
+}
+
 // ── SCENE BUILDER ─────────────────────────────────────────────────────────────
 function buildScene(scene, fd, onlyTiles = null) {
   if (!onlyTiles) {
@@ -1023,6 +1066,19 @@ function buildScene(scene, fd, onlyTiles = null) {
       glow.position.set(fo.px,1.02,fo.pz); glow.rotation.y=fo.ry; scene.add(glow);
       const spl=new THREE.PointLight(0xAA33FF,0.75,CELL*3);
       spl.position.set(fo.px,2.2,fo.pz); scene.add(spl);
+    } else if (type === 'kiosk') {
+      // U-SEEN community kiosk — reads creature from portraits queue
+      let kName = null, kHood = null;
+      try {
+        const kRaw = localStorage.getItem('baseline-session/portraits-queue');
+        const kQ = kRaw ? JSON.parse(kRaw) : [];
+        if (Array.isArray(kQ) && kQ.length) { kName = kQ[kQ.length-1].name; kHood = kQ[kQ.length-1].neighborhood; }
+      } catch(e) {}
+      const kb = new THREE.Mesh(new THREE.BoxGeometry(0.88, 1.9, 0.2), mat(0x08111E, kioskTex(kName, kHood)));
+      kb.position.set(fo.px, 0.95, fo.pz); kb.rotation.y = fo.ry; scene.add(kb);
+      addBox(0.45, 0.1, 0.38, fo.px, 0.05, fo.pz, mat(0x223344));
+      const kl = new THREE.PointLight(0x44AAFF, 0.6, CELL * 2.5);
+      kl.position.set(fo.px, 2.4, fo.pz); scene.add(kl);
     }
   });
 
@@ -1330,6 +1386,28 @@ function renderBumpPrompt() {
     return;
   }
 
+  if (target.kind === 'kiosk') {
+    let kName = null, kHood = null;
+    try {
+      const kRaw = localStorage.getItem('baseline-session/portraits-queue');
+      const kQ = kRaw ? JSON.parse(kRaw) : [];
+      if (Array.isArray(kQ) && kQ.length) { kName = kQ[kQ.length-1].name; kHood = kQ[kQ.length-1].neighborhood; }
+    } catch(e) {}
+    el.innerHTML = `<div class="bump-box" style="border:2px solid #44AAFF;background:rgba(8,17,30,0.96);">
+      <div style="font-size:9px;color:#FF7700;letter-spacing:2px;margin-bottom:2px;">● COMMUNITY BOARD ●</div>
+      <div style="font-size:15px;color:#FFDD00;font-weight:bold;line-height:1.1;">U-SEEN</div>
+      <div style="font-size:11px;color:#FF8800;">U-HALL</div>
+      <div style="font-size:9px;color:#44CCFF;margin-bottom:8px;">HAPPY EVENT</div>
+      ${kName ? `
+        <div style="font-size:9px;color:#88FF88;margin-bottom:2px;">B-HERE :</div>
+        <div style="font-size:14px;color:#FFFFFF;font-weight:bold;">${kName}</div>
+        <div style="font-size:9px;color:#8899AA;margin-bottom:8px;">FROM ${(kHood||'???').toUpperCase()}</div>
+        <div style="font-size:9px;color:#44FF88;">FORWARD to wave hello 👋</div>
+      ` : `<div style="font-size:9px;color:#2A4055;margin:4px 0;">NO RECENT VISITORS</div>`}
+    </div>`;
+    return;
+  }
+
   if (target.kind === 'ship') {
     const { selectedHand } = target;
     const item = G.hands[selectedHand];
@@ -1504,6 +1582,22 @@ function doConfirmBump() {
     return;
   }
 
+  if (target.kind === 'kiosk') {
+    let kName = null, kHood = null;
+    try {
+      const kRaw = localStorage.getItem('baseline-session/portraits-queue');
+      const kQ = kRaw ? JSON.parse(kRaw) : [];
+      if (Array.isArray(kQ) && kQ.length) { kName = kQ[kQ.length-1].name; kHood = kQ[kQ.length-1].neighborhood; }
+    } catch(e) {}
+    G.bumpMode = null;
+    if (kName) {
+      window.parent.postMessage({ type: 'scraggle', emoji: '👋', text: `waved at ${kName} from ${kHood || 'somewhere'} at Sunset Ridge Mall` }, '*');
+      showAcquired(`👋 Waved at ${kName}!`, '#44AAFF', 2500);
+    }
+    renderHUD();
+    return;
+  }
+
   if (target.kind === 'ship') {
     const { selectedHand } = target;
     const item = G.hands[selectedHand];
@@ -1612,6 +1706,14 @@ function tryMove(fwd) {
       if (!G.hands[0] && !G.hands[1]) { flashBorder('red', 400); showAcquired('📦 Nothing to ship!', '#AA33FF', 1800); return; }
       const selectedHand = G.hands[0] ? 0 : 1;
       G.bumpMode = { target: { kind: 'ship', entity: shippit, selectedHand } };
+      flashBorder('green', -1);
+      renderHUD();
+      return;
+    }
+    // Check for U-SEEN kiosk
+    const kioskEnt = fd.wallEntities.find(e => e.type === 'kiosk' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
+    if (kioskEnt) {
+      G.bumpMode = { target: { kind: 'kiosk', entity: kioskEnt } };
       flashBorder('green', -1);
       renderHUD();
       return;
@@ -1741,6 +1843,105 @@ function rideEscalator() {
   }, 750);
 }
 
+// ── PA ANNOUNCEMENT SYSTEM ────────────────────────────────────────────────────
+const PA_GENERIC = [
+  'Attention shoppers — a reminder that all sales are final.',
+  'The food court will be closing in thirty minutes.',
+  'Will the owner of a lost cart please return to guest services.',
+  'Attention: the escalator between floors is operating normally.',
+  'Thank you for shopping at Sunset Ridge Mall.',
+  'Reminder: the mall closes at nine. Please make your final selections.',
+  'Security to the east corridor. Security to the east corridor.',
+  'A reminder that strollers are available at the guest services desk.',
+  'Attention shoppers — today only, all items on the atrium level are fifteen percent off.',
+  'Lost and found is located near the main entrance. Please claim your belongings.',
+  'The fountain on the main level is for decoration only. Please do not enter.',
+  'Shoppers are reminded to keep the corridors clear at all times.',
+  'Attention: a vehicle with license plate ending in seven-seven-four is blocking the east exit.',
+  'The pay phones on each floor are available for local calls.',
+  'Please report any suspicious activity to mall security immediately.',
+  'A warm Sunset Ridge welcome to all visitors today.',
+  'The ATMs on each level are maintained for your convenience.',
+  'Reminder: smoking is not permitted anywhere inside the mall.',
+  'Guest services can assist with gift wrapping through the end of the season.',
+  'Attention shoppers — we hope you\'re having a wonderful visit today.',
+];
+
+function startPASystem() {
+  const pa = document.getElementById('hud-phone-msg');
+  if (!pa) return;
+
+  function fire() {
+    // Try to pull a scraggle from The Hall for flavour
+    let hallLine = null;
+    try {
+      const raw = localStorage.getItem('baseline-session/scraggles');
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr) && arr.length) {
+        const pick = arr[Math.floor(Math.random() * arr.length)];
+        if (pick && pick.text) hallLine = pick.text;
+      }
+    } catch(e) {}
+
+    // Don't interrupt an active payphone conversation
+    if (G.bumpMode?.target?.kind === 'payphone') {
+      setTimeout(fire, 30000 + Math.random() * 30000);
+      return;
+    }
+
+    let msg;
+    if (hallLine && Math.random() < 0.35) {
+      // Weave a hall scraggle into a PA message
+      const templates = [
+        `Attention shoppers — a message for our community: "${hallLine}"`,
+        `This is a public service announcement: "${hallLine}"`,
+        `We'd like to share a note from the network: "${hallLine}"`,
+      ];
+      msg = templates[Math.floor(Math.random() * templates.length)];
+    } else {
+      msg = PA_GENERIC[Math.floor(Math.random() * PA_GENERIC.length)];
+    }
+
+    // Display as a brief overlay
+    pa.innerHTML = `<div style="
+      background:rgba(0,0,0,0.72);
+      color:#FFE8B0;
+      font-size:0.78rem;
+      font-family:'Courier New',monospace;
+      padding:7px 14px;
+      border-left:3px solid #FFCC44;
+      max-width:420px;
+      letter-spacing:0.04em;
+      line-height:1.5;
+    ">📢 ${msg}</div>`;
+    pa.style.display = 'flex';
+    pa.style.alignItems = 'flex-end';
+    pa.style.justifyContent = 'center';
+    pa.style.pointerEvents = 'none';
+
+    // Hide after 6 seconds
+    setTimeout(() => {
+      // Only hide if not showing a payphone convo
+      if (!G.bumpMode?.target?.kind?.includes?.('phone')) {
+        pa.style.display = 'none';
+        pa.innerHTML = '';
+      }
+    }, 6200);
+
+    // Occasionally send a scraggle to the hub
+    if (Math.random() < 0.08) {
+      window.parent.postMessage({ type: 'scraggle', emoji: '📢', text: `heard a PA announcement at Sunset Ridge Mall` }, '*');
+    }
+
+    // Schedule next announcement: 50–110 seconds
+    const next = 50000 + Math.random() * 60000;
+    setTimeout(fire, next);
+  }
+
+  // First announcement after 18–35 seconds
+  setTimeout(fire, 18000 + Math.random() * 17000);
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function init() {
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -1762,6 +1963,7 @@ function init() {
   G.player.py = G.fd.startY;
   buildScene(scene, G.fd);
   snapCamera();
+  startPASystem();
 
   // Render loop
   (function loop(ts = 0) {
