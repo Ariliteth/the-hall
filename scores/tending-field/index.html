@@ -6,24 +6,24 @@
   <title>The Tending Field</title>
   <style>
     :root {
-      --soil:      #1e1a12;
-      --grass:     #242e18;
-      --sky:       #14182e;
-      --bark:      #3a3020;
-      --amber:     #c8820a;
-      --leaf:      #5a7a3a;
-      --bone:      #c8c0a8;
-      --glow:      rgba(200,180,100,0.12);
-      --dim:       rgba(200,192,168,0.35);
-      --modal-bg:  rgba(14,12,8,0.93);
+      --deep:      #080e1a;
+      --mid:       #0c1424;
+      --surface:   #101c30;
+      --kelp:      #0e2018;
+      --brine:     #0a1828;
+      --glow:      #3a9a7a;
+      --moon:      #7aaec8;
+      --amber:     #c8920a;
+      --bone:      #b8c4cc;
+      --dim:       rgba(140,170,190,0.32);
+      --bark:      #182030;
+      --bio:       rgba(60,180,140,0.14);
+      --modal-bg:  rgba(5,8,14,0.95);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      height: 100%;
-      overflow: hidden;
-    }
+    html, body { height: 100%; overflow: hidden; }
     body {
-      background: var(--sky);
+      background: var(--deep);
       color: var(--bone);
       font-family: 'Courier New', monospace;
       display: flex;
@@ -31,415 +31,303 @@
       user-select: none;
     }
 
-    /* ── Caravan bar ───────────────────────────────────── */
+    /* ── Background canvas ─────────────────────────────────── */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Caravan bar ───────────────────────────────────────── */
     #caravan-bar {
-      flex-shrink: 0;
-      height: 44px;
-      background: var(--soil);
+      position: relative; z-index: 2;
+      flex-shrink: 0; height: 44px;
+      background: rgba(8,14,26,0.92);
       border-bottom: 1px solid var(--bark);
-      display: flex;
-      align-items: center;
-      padding: 0 14px;
-      gap: 10px;
+      display: flex; align-items: center;
+      padding: 0 14px; gap: 10px;
     }
     #caravan-label {
-      font-size: 9px;
-      color: var(--amber);
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      white-space: nowrap;
-      min-width: 68px;
+      font-size: 9px; color: var(--glow);
+      letter-spacing: 0.14em; text-transform: uppercase;
+      white-space: nowrap; min-width: 66px;
     }
     #caravan-track {
-      flex: 1;
-      height: 5px;
-      background: var(--bark);
-      border-radius: 3px;
-      position: relative;
-      overflow: visible;
+      flex: 1; height: 4px;
+      background: var(--bark); border-radius: 2px;
+      position: relative; overflow: visible;
     }
     #caravan-fill {
-      height: 100%;
-      background: var(--amber);
-      border-radius: 3px;
-      width: 0%;
+      height: 100%; background: var(--glow);
+      border-radius: 2px; width: 0%;
       transition: width 1s linear;
+      box-shadow: 0 0 6px var(--glow);
     }
     #caravan-icon {
-      position: absolute;
-      top: 50%;
-      left: 0%;
+      position: absolute; top: 50%; left: 0%;
       transform: translate(-50%, -50%);
-      font-size: 16px;
-      line-height: 1;
+      font-size: 16px; line-height: 1;
       transition: left 1s linear;
       pointer-events: none;
+      filter: drop-shadow(0 0 4px var(--glow));
     }
     #trader-label {
-      font-size: 10px;
-      color: var(--leaf);
-      letter-spacing: 0.07em;
-      min-width: 110px;
-      text-align: right;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 10px; color: var(--moon);
+      letter-spacing: 0.07em; min-width: 110px;
+      text-align: right; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
     }
 
-    /* ── Main area ──────────────────────────────────────── */
+    /* ── Main ──────────────────────────────────────────────── */
     #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      position: relative; z-index: 1;
+      flex: 1; display: flex;
+      flex-direction: column; align-items: center;
       justify-content: center;
       padding: 14px 12px 10px;
-      gap: 14px;
-      position: relative;
-      overflow: hidden;
-      min-height: 0;
+      overflow: hidden; min-height: 0;
     }
 
-    /* ── Loading overlay ─────────────────────────────────── */
+    /* ── Loading ───────────────────────────────────────────── */
     #loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: var(--sky);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 50;
-      font-size: 11px;
-      color: var(--dim);
-      letter-spacing: 0.14em;
-      transition: opacity 0.6s;
+      position: absolute; inset: 0;
+      background: var(--deep);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 50; font-size: 11px; color: var(--dim);
+      letter-spacing: 0.14em; transition: opacity 0.8s;
     }
 
-    /* ── Field grid ──────────────────────────────────────── */
+    /* ── Field section ─────────────────────────────────────── */
+    #field-section {
+      position: relative;
+      width: min(420px, 96vw);
+    }
     #field-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 7px;
-      width: min(420px, 96vw);
+      gap: 9px; width: 100%; padding: 4px;
     }
+    #particle-canvas {
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 3;
+    }
+    #click-layer {
+      position: absolute; inset: 0;
+      z-index: 4; cursor: pointer;
+    }
+
+    /* ── Tiles ─────────────────────────────────────────────── */
     .tile {
-      background: var(--soil);
+      background: var(--brine);
       border: 1px solid var(--bark);
-      border-radius: 7px;
-      aspect-ratio: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: border-color 0.14s, background 0.14s;
-      padding: 4px;
-      min-height: 54px;
+      border-radius: 8px; aspect-ratio: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 4px; min-height: 54px;
       overflow: hidden;
+      transition: border-color 0.25s, box-shadow 0.25s;
+      position: relative;
     }
-    .tile:hover { border-color: var(--amber); background: var(--bark); }
-    .tile.empty .tile-plus { color: var(--dim); font-size: 18px; }
-    .tile.planted .tile-emoji { font-size: 26px; line-height: 1; }
+    .tile.has-bonus {
+      border-color: var(--glow);
+      box-shadow: 0 0 6px var(--bio);
+    }
+    .tile.kiwi-glow {
+      border-color: var(--moon);
+      animation: kiwiPulse 2.2s ease-in-out infinite;
+    }
+    @keyframes kiwiPulse {
+      0%,100% { box-shadow: 0 0 6px rgba(120,180,210,0.2); }
+      50%      { box-shadow: 0 0 16px rgba(120,180,210,0.55); }
+    }
+    .tile.empty .tile-plus { color: var(--dim); font-size: 16px; }
+    .tile.planted .tile-emoji { font-size: 24px; line-height: 1; }
     .tile.planted .tile-label {
-      font-size: 7px;
-      color: var(--leaf);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-top: 2px;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      width: 100%;
+      font-size: 7px; color: var(--glow);
+      text-transform: uppercase; letter-spacing: 0.04em;
+      margin-top: 2px; text-align: center;
+      white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; width: 100%;
     }
-    .tile.entity-tile .tile-emoji { font-size: 20px; line-height: 1; }
-    .tile.entity-tile .tile-initials {
-      font-size: 6px;
-      color: var(--bone);
-      opacity: 0.6;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      width: 100%;
-      margin-top: 1px;
+    .tile.entity-tile .tile-emoji { font-size: 19px; line-height: 1; }
+    .tile.entity-tile .tile-name {
+      font-size: 6px; color: var(--bone); opacity: 0.6;
+      text-align: center; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      width: 100%; margin-top: 1px;
     }
-    .tile.entity-tile .tile-subtag {
-      font-size: 6px;
-      color: var(--amber);
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      width: 100%;
+    .tile.entity-tile .tile-tags {
+      font-size: 6px; color: var(--moon);
+      text-align: center; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; width: 100%;
     }
-    .tile.has-bonus { border-color: var(--leaf); }
-    .tile.stub-entity .tile-emoji { opacity: 0.4; }
+    .tile.stub { opacity: 0.4; }
 
-    /* ── Event flash ──────────────────────────────────────── */
-    #event-flash {
-      position: absolute;
-      top: 40%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 10;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: center;
+    /* ── Particle count tooltip ────────────────────────────── */
+    .particle-tooltip {
+      position: fixed;
+      background: rgba(8,14,26,0.92);
+      border: 1px solid var(--glow);
+      border-radius: 6px; padding: 4px 9px;
+      font-size: 12px; pointer-events: none;
+      z-index: 200; white-space: nowrap;
+      animation: tooltipFade 2.1s ease-out forwards;
     }
-    .float-emoji {
-      font-size: 22px;
-      animation: floatUp 1.8s ease-out forwards;
-    }
-    @keyframes floatUp {
-      0%   { opacity: 1; transform: translateY(0); }
-      100% { opacity: 0; transform: translateY(-70px); }
+    @keyframes tooltipFade {
+      0%,55% { opacity: 1; transform: translateY(0); }
+      100%   { opacity: 0; transform: translateY(-14px); }
     }
 
-    /* ── Bottom UI ────────────────────────────────────────── */
-    #bottom-ui {
-      width: min(420px, 96vw);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+    /* ── Float prompt ──────────────────────────────────────── */
+    #float-prompt {
+      position: absolute; bottom: -60px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(8,14,26,0.94);
+      border: 1px solid var(--moon);
+      border-radius: 10px; padding: 11px 18px;
+      font-size: 10px; color: var(--bone);
+      letter-spacing: 0.08em; text-align: center;
+      z-index: 10; display: flex;
+      flex-direction: column; gap: 9px;
+      min-width: 230px;
+      box-shadow: 0 0 22px rgba(120,180,210,0.18);
+      transition: bottom 0.6s ease-out, opacity 0.6s;
+      opacity: 0;
     }
-    #bank-display {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      min-height: 26px;
-      align-items: center;
+    #float-prompt.visible {
+      bottom: 8px; opacity: 1;
     }
-    .bank-label, .jars-label {
-      font-size: 9px;
-      color: var(--dim);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      margin-right: 2px;
-      white-space: nowrap;
+    .float-message { color: var(--moon); font-size: 11px; line-height: 1.5; }
+    .float-btns { display: flex; gap: 8px; justify-content: center; }
+    .float-btn {
+      background: none; border: 1px solid var(--bark);
+      border-radius: 4px; padding: 4px 11px;
+      color: var(--dim); font-family: inherit;
+      font-size: 9px; cursor: pointer;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      transition: border-color 0.12s, color 0.12s;
     }
-    .bank-chip {
-      background: var(--bark);
-      border-radius: 10px;
-      padding: 2px 7px;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 3px;
-    }
-    .bank-chip-count { font-size: 9px; color: var(--amber); }
-    .bank-empty { font-size: 10px; color: var(--dim); font-style: italic; }
-    #jars-section { display: flex; align-items: center; gap: 8px; }
-    #jars-display { display: flex; gap: 5px; }
-    .jar {
-      width: 30px;
-      height: 30px;
-      border: 1px solid var(--bark);
-      border-radius: 6px;
-      background: var(--soil);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 15px;
-    }
-    .jar.filled { border-color: var(--amber); background: var(--glow); }
-    .jar.empty-slot { opacity: 0.28; }
+    .float-btn:hover { border-color: var(--moon); color: var(--bone); }
+    .float-btn.primary { border-color: var(--glow); color: var(--glow); }
 
     /* ── Modals ────────────────────────────────────────────── */
     .modal-overlay {
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background: var(--modal-bg);
       z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
+      display: flex; align-items: center;
+      justify-content: center; padding: 16px;
     }
     .modal-overlay.hidden { display: none; }
     .modal-box {
-      background: var(--soil);
+      background: var(--surface);
       border: 1px solid var(--bark);
-      border-radius: 10px;
-      padding: 18px;
+      border-radius: 10px; padding: 18px;
       width: min(380px, 95vw);
-      max-height: 88vh;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      max-height: 88vh; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 12px;
     }
     .modal-title {
-      font-size: 10px;
-      color: var(--amber);
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      border-bottom: 1px solid var(--bark);
-      padding-bottom: 10px;
+      font-size: 10px; color: var(--glow);
+      letter-spacing: 0.14em; text-transform: uppercase;
+      border-bottom: 1px solid var(--bark); padding-bottom: 10px;
     }
     .modal-section-label {
-      font-size: 9px;
-      color: var(--dim);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
+      font-size: 9px; color: var(--dim);
+      text-transform: uppercase; letter-spacing: 0.12em;
     }
-
-    /* plant options */
-    #plant-options {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 5px;
-    }
+    #plant-options { display: grid; grid-template-columns: repeat(5,1fr); gap: 5px; }
     .plant-option {
-      background: var(--grass);
-      border: 1px solid var(--bark);
-      border-radius: 6px;
-      padding: 8px 4px;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
+      background: var(--kelp); border: 1px solid var(--bark);
+      border-radius: 6px; padding: 8px 4px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
       transition: border-color 0.12s;
     }
-    .plant-option:hover { border-color: var(--amber); }
+    .plant-option:hover { border-color: var(--glow); }
     .plant-option-emoji { font-size: 20px; }
-    .plant-option-name {
-      font-size: 7px;
-      color: var(--bone);
-      text-align: center;
-      letter-spacing: 0.04em;
-    }
-
-    /* entity list */
+    .plant-option-name { font-size: 7px; color: var(--bone); text-align: center; }
     #entity-list {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      max-height: 180px;
-      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 4px;
+      max-height: 180px; overflow-y: auto;
     }
     .entity-option {
-      background: var(--grass);
-      border: 1px solid var(--bark);
-      border-radius: 4px;
-      padding: 6px 10px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      background: var(--kelp); border: 1px solid var(--bark);
+      border-radius: 4px; padding: 6px 10px; cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
       transition: border-color 0.12s;
     }
-    .entity-option:hover { border-color: var(--leaf); }
+    .entity-option:hover { border-color: var(--glow); }
     .entity-option-emoji { font-size: 15px; }
-    .entity-option-info { flex: 1; min-width: 0; }
+    .entity-option-info { flex:1; min-width:0; }
     .entity-option-name {
-      font-size: 10px;
-      color: var(--bone);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 10px; color: var(--bone);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .entity-option-tags {
-      font-size: 8px;
-      color: var(--dim);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 8px; color: var(--dim);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .entity-option.placed { opacity: 0.38; cursor: default; pointer-events: none; }
+    .entity-option.placed { opacity: 0.35; cursor: default; pointer-events: none; }
     .entity-loading { font-size: 10px; color: var(--dim); font-style: italic; }
-
-    /* modal buttons */
     .modal-cancel-btn {
-      background: none;
-      border: none;
-      color: var(--dim);
-      font-family: inherit;
-      font-size: 9px;
-      cursor: pointer;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 3px 0;
-      transition: color 0.12s;
-      align-self: flex-start;
+      background: none; border: none; color: var(--dim);
+      font-family: inherit; font-size: 9px; cursor: pointer;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 3px 0; transition: color 0.12s; align-self: flex-start;
     }
     .modal-cancel-btn:hover { color: var(--bone); }
     .modal-clear-btn {
-      background: none;
-      border: 1px solid var(--bark);
-      border-radius: 4px;
-      padding: 5px 10px;
-      color: var(--dim);
-      font-family: inherit;
-      font-size: 9px;
-      cursor: pointer;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      background: none; border: 1px solid var(--bark);
+      border-radius: 4px; padding: 5px 10px; color: var(--dim);
+      font-family: inherit; font-size: 9px; cursor: pointer;
+      letter-spacing: 0.1em; text-transform: uppercase;
       transition: border-color 0.12s, color 0.12s;
     }
     .modal-clear-btn:hover { border-color: var(--bone); color: var(--bone); }
-
-    /* ── Trade modal ─────────────────────────────────────── */
     .trader-hero { display: flex; align-items: center; gap: 14px; }
-    .trader-emoji-big { font-size: 38px; }
+    .trader-emoji-big { font-size: 38px; filter: drop-shadow(0 0 8px var(--glow)); }
     .trader-info { display: flex; flex-direction: column; gap: 3px; }
     .trader-name-disp { font-size: 13px; color: var(--bone); }
-    .trader-brings-disp { font-size: 10px; color: var(--leaf); }
+    .trader-brings-disp { font-size: 10px; color: var(--glow); }
     .trade-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
       padding: 10px 4px;
-      border-top: 1px solid var(--bark);
-      border-bottom: 1px solid var(--bark);
+      border-top: 1px solid var(--bark); border-bottom: 1px solid var(--bark);
     }
     .trade-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
     .trade-col-label { font-size: 8px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
     .trade-offer-emoji { font-size: 26px; }
-    .trade-arrow { font-size: 18px; color: var(--amber); }
+    .trade-arrow { font-size: 18px; color: var(--glow); }
     .trade-want-detail { font-size: 12px; color: var(--bone); }
     .trade-have-detail { font-size: 10px; }
-    .trade-have-detail.can-trade  { color: var(--leaf); }
-    .trade-have-detail.cant-trade { color: #9a5555; }
+    .trade-have-detail.can-trade  { color: var(--glow); }
+    .trade-have-detail.cant-trade { color: #9a4a4a; }
     #trade-timer-display { font-size: 9px; color: var(--dim); text-align: center; letter-spacing: 0.08em; }
     .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
     .modal-btn {
-      background: var(--grass);
-      border: 1px solid var(--leaf);
-      border-radius: 6px;
-      padding: 7px 14px;
-      color: var(--bone);
-      font-family: inherit;
-      font-size: 10px;
-      cursor: pointer;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      background: var(--kelp); border: 1px solid var(--glow);
+      border-radius: 6px; padding: 7px 14px; color: var(--bone);
+      font-family: inherit; font-size: 10px; cursor: pointer;
+      letter-spacing: 0.08em; text-transform: uppercase;
       transition: background 0.12s, border-color 0.12s;
     }
-    .modal-btn:hover:not(:disabled) { background: var(--bark); border-color: var(--amber); }
-    .modal-btn:disabled { opacity: 0.3; cursor: default; }
+    .modal-btn:hover:not(:disabled) { background: var(--bark); border-color: var(--moon); }
+    .modal-btn:disabled { opacity: 0.28; cursor: default; }
     .modal-btn.secondary { border-color: var(--bark); }
 
-    /* ── Ticker ───────────────────────────────────────────── */
+    /* ── Ticker ────────────────────────────────────────────── */
     #ticker {
-      flex-shrink: 0;
-      height: 26px;
-      background: var(--soil);
+      position: relative; z-index: 2;
+      flex-shrink: 0; height: 26px;
+      background: rgba(8,14,26,0.92);
       border-top: 1px solid var(--bark);
-      overflow: hidden;
-      display: flex;
-      align-items: center;
+      overflow: hidden; display: flex; align-items: center;
     }
     #ticker-inner {
-      white-space: nowrap;
-      display: inline-block;
-      animation: tickerScroll 52s linear infinite;
-      font-size: 9px;
-      color: var(--dim);
-      letter-spacing: 0.13em;
+      white-space: nowrap; display: inline-block;
+      animation: tickerScroll 58s linear infinite;
+      font-size: 9px; color: var(--dim); letter-spacing: 0.13em;
     }
     @keyframes tickerScroll {
       0%   { transform: translateX(100vw); }
@@ -448,9 +336,9 @@
   </style>
 </head>
 <body>
+  <canvas id="bg-canvas"></canvas>
   <script>if (window.parent !== window) window.parent.postMessage({ type: 'hub:minimize' }, '*');</script>
 
-  <!-- Caravan bar -->
   <div id="caravan-bar">
     <div id="caravan-label">Caravan</div>
     <div id="caravan-track">
@@ -460,24 +348,24 @@
     <div id="trader-label"></div>
   </div>
 
-  <!-- Main content -->
   <div id="main">
-    <div id="loading-overlay">ATTENDING TO THE FIELD...</div>
-    <div id="event-flash"></div>
-    <div id="field-grid"></div>
-    <div id="bottom-ui">
-      <div id="bank-display">
-        <span class="bank-label">Bank</span>
-        <span class="bank-empty">empty harvest</span>
-      </div>
-      <div id="jars-section">
-        <span class="jars-label">Jars</span>
-        <div id="jars-display"></div>
+    <div id="loading-overlay">ATTENDING TO THE FIELD…</div>
+
+    <div id="field-section">
+      <div id="field-grid"></div>
+      <canvas id="particle-canvas"></canvas>
+      <div id="click-layer"></div>
+    </div>
+
+    <div id="float-prompt">
+      <div class="float-message" id="float-message"></div>
+      <div class="float-btns">
+        <button class="float-btn" id="float-decline">Not yet</button>
+        <button class="float-btn primary" id="float-accept">Float the Farm</button>
       </div>
     </div>
   </div>
 
-  <!-- Plant / entity selection modal -->
   <div class="modal-overlay hidden" id="plant-modal">
     <div class="modal-box">
       <div class="modal-title" id="plant-modal-title">TEND THIS TILE</div>
@@ -490,7 +378,6 @@
     </div>
   </div>
 
-  <!-- Trade modal -->
   <div class="modal-overlay hidden" id="trade-modal">
     <div class="modal-box">
       <div class="modal-title">A TRADER HAS ARRIVED</div>
@@ -521,640 +408,993 @@
     </div>
   </div>
 
-  <!-- Ticker -->
   <div id="ticker">
     <div id="ticker-inner">
       ★ ATTEND GENTLY ★ THE FIELD IS PATIENT ★ A CARAVAN IS ALWAYS ON ITS WAY ★
-      FIELD CREW EN ROUTE ★ CARAVAN APPROACHING ★ SOMETHING GROWS IN THE DARK ★
-      TRADER INCOMING ★ WHAT GROWS IN TWILIGHT STAYS IN TWILIGHT ★ A COIN FOR THE CARAVAN ★
+      SOMETHING DRIFTS THROUGH THE DARK ★ THE WATER REMEMBERS ★
+      TRADER INCOMING ★ WHAT GLOWS IN TWILIGHT STAYS IN TWILIGHT ★ THE FIELD KNOWS ★
       ATTEND GENTLY ★ THE FIELD IS PATIENT ★ A CARAVAN IS ALWAYS ON ITS WAY ★
-      FIELD CREW EN ROUTE ★ CARAVAN APPROACHING ★ SOMETHING GROWS IN THE DARK ★
-      TRADER INCOMING ★ WHAT GROWS IN TWILIGHT STAYS IN TWILIGHT ★ A COIN FOR THE CARAVAN ★
+      SOMETHING DRIFTS THROUGH THE DARK ★ THE WATER REMEMBERS ★
+      TRADER INCOMING ★ WHAT GLOWS IN TWILIGHT STAYS IN TWILIGHT ★ THE FIELD KNOWS ★
     </div>
   </div>
 
-  <script>
-  // ── Constants ──────────────────────────────────────────────────
-  const HALL_REPO     = 'Ariliteth/the-hall';
-  const HALL_BRANCH   = 'main';
-  const CYCLE_SECONDS = 90;
-  const COLS          = 5;
-  const ROWS          = 4;
-  const TILE_COUNT    = COLS * ROWS;
-  const TRADER_MS     = 15000; // ms trader lingers before auto-departing
+<script>
+'use strict';
 
-  const PLANTS = [
-    { id: 'ryegrass',    name: 'Ryegrass',    emoji: '🌿', produces: ['🌿','🌿'], rare: null, rareChance: 0,   affinity: ['growth','wandering','patience'] },
-    { id: 'moonspore',   name: 'Moonspore',   emoji: '🍄', produces: ['🍄'],       rare: '🌙', rareChance: 0.1, affinity: ['curious','seeking','subtle']    },
-    { id: 'brightbloom', name: 'Brightbloom', emoji: '🌸', produces: ['🌸','🌸'], rare: null, rareChance: 0,   affinity: ['tasteful','warm','joy']          },
-    { id: 'hearthweed',  name: 'Hearthweed',  emoji: '🔥', produces: ['🔥'],       rare: null, rareChance: 0,   affinity: ['fierce','territorial','bold']    },
-    { id: 'silkfern',    name: 'Silkfern',    emoji: '✨', produces: ['✨'],       rare: null, rareChance: 0,   affinity: ['quiet','ancient','memory']       },
-  ];
+// ── Constants ──────────────────────────────────────────────────
+const HALL_REPO      = 'Ariliteth/the-hall';
+const HALL_BRANCH    = 'main';
+const CYCLE_SECONDS  = 90;
+const COLS = 5, ROWS = 4, TILE_COUNT = COLS * ROWS;
+const TRADER_MS      = 15000;
+const PARTICLE_MAX   = 90;
+const RELIC_MAX      = 10;
+const KIWI_THRESHOLD = 0.62;
+const KIWI_MIN_CARAVANS = 6;
 
-  const TAG_EMOJI = {
-    curious: '🔍', territorial: '🏔️', loud: '📢', growth: '🌱', ancient: '🗿',
-    tasteful: '✨', relentless: '⚡', proud: '👑', quiet: '🌑', wandering: '🌀',
-    seeking: '🔎', fierce: '🔥', bold: '🔆', subtle: '🌫️', warm: '☀️',
-    patience: '⏳', memory: '🪞', joy: '🎈', heavy: '🪨', swift: '💨',
-    predator: '🦅', mysterious: '🔮', strange: '🌀', hungry: '🍖',
-  };
-  const CATEGORY_EMOJI = {
-    spirit: '💫', item: '📦', location: '🗺️', tendency: '🌀', action: '⚡',
-  };
+// ── Aquatic plants ─────────────────────────────────────────────
+const PLANTS = [
+  { id:'kelp',    name:'Sea Kelp',      emoji:'🌿', produces:['🌿','🌿'], rare:null, rareChance:0,   affinity:['growth','wandering','patience'],  spawnRate:6  },
+  { id:'jelly',   name:'Moon Jelly',    emoji:'🪼', produces:['🪼'],       rare:'🌙', rareChance:0.1, affinity:['curious','seeking','subtle'],      spawnRate:8  },
+  { id:'coral',   name:'Coral Bloom',   emoji:'🪸', produces:['🪸','🪸'], rare:null, rareChance:0,   affinity:['tasteful','warm','joy'],           spawnRate:6  },
+  { id:'anemone', name:'Ember Anemone', emoji:'🔥', produces:['🔥'],       rare:null, rareChance:0,   affinity:['fierce','territorial','bold'],     spawnRate:10 },
+  { id:'ribbon',  name:'Ghost Ribbon',  emoji:'✨', produces:['✨'],       rare:null, rareChance:0,   affinity:['quiet','ancient','memory'],        spawnRate:9  },
+];
 
-  const TRADERS = [
-    { id: 'salt',         name: 'The Salt Merchant',          emoji: '🧂', want: [{ e: '🌿', n: 2 }] },
-    { id: 'moon',         name: 'The Moon Peddler',           emoji: '🌙', want: [{ e: '🍄', n: 2 }] },
-    { id: 'ember',        name: 'The Ember Dealer',           emoji: '🕯️', want: [{ e: '🔥', n: 2 }] },
-    { id: 'silk',         name: 'The Silk Road Traveler',     emoji: '🎐', want: [{ e: '✨', n: 2 }] },
-    { id: 'cartographer', name: 'The Wandering Cartographer', emoji: '🗺️', want: [{ e: '🌿', n: 1 }, { e: '🌸', n: 1 }] },
-    { id: 'naturalist',   name: 'The Naturalist',             emoji: '🔭', want: [{ e: '🌸', n: 3 }] },
-    { id: 'strange',      name: 'The Strange Visitor',        emoji: '🪬', want: 'any3' },
-  ];
+const TAG_EMOJI = {
+  curious:'🔍', territorial:'🏔️', loud:'📢', growth:'🌱', ancient:'🗿',
+  tasteful:'🪸', relentless:'⚡', proud:'👑', quiet:'🌑', wandering:'🌀',
+  seeking:'🔎', fierce:'🔥', bold:'🔆', subtle:'🌫️', warm:'☀️',
+  patience:'⏳', memory:'🪞', joy:'🎈', heavy:'🪨', swift:'💨',
+  predator:'🦅', mysterious:'🔮', strange:'🌀',
+};
+const CATEGORY_EMOJI = { spirit:'💫', item:'📦', location:'🗺️', tendency:'🌀', action:'⚡' };
 
-  // ── State ──────────────────────────────────────────────────────
-  let G = {
-    field:    Array(TILE_COUNT).fill(null), // null | { kind:'plant'|'entity', data }
-    bank:     {},                           // { '🌿': 3, ... }
-    jars:     [],                           // [{ emoji, label }] max 6
-    caravan:  { progress: 0, traderIdx: 0, arrived: false, trader: null },
-    entities: [],
-    loading:  true,
-    firstHarvestDone: false,
-  };
+const TRADER_AFFINITY = {
+  salt:'kelp', moon:'jelly', ember:'anemone', silk:'ribbon',
+  cartographer:'kelp', naturalist:'coral', strange:'ribbon',
+};
 
-  let timerInterval        = null;
-  let traderDismissTimer   = null;
-  let traderCountdownTimer = null;
-  let traderLingerEnd      = 0;
-  let selectedTileIdx      = -1;
+const TRADERS = [
+  { id:'salt',         name:'The Salt Merchant',          emoji:'🧂', want:[{e:'🌿',n:2}] },
+  { id:'moon',         name:'The Moon Peddler',            emoji:'🌙', want:[{e:'🪼',n:2}] },
+  { id:'ember',        name:'The Ember Dealer',            emoji:'🕯️', want:[{e:'🔥',n:2}] },
+  { id:'silk',         name:'The Silk Road Traveler',      emoji:'🎐', want:[{e:'✨',n:2}] },
+  { id:'cartographer', name:'The Wandering Cartographer',  emoji:'🗺️', want:[{e:'🌿',n:1},{e:'🪸',n:1}] },
+  { id:'naturalist',   name:'The Naturalist',              emoji:'🔭', want:[{e:'🪸',n:3}] },
+  { id:'strange',      name:'The Strange Visitor',         emoji:'🪬', want:'any3' },
+];
 
-  // ── Persistence ─────────────────────────────────────────────────
-  function save() {
-    try {
-      const fieldData = G.field.map(t => {
-        if (!t) return null;
-        if (t.kind === 'plant') {
-          const id = t.data ? t.data.id : t.plantId;
-          return { kind: 'plant', plantId: id };
-        }
-        if (t.kind === 'entity') {
-          const slug         = t.data ? t.data.slug         : t.slug;
-          const neighborhood = t.data ? t.data.neighborhood : t.neighborhood;
-          return { kind: 'entity', slug, neighborhood };
-        }
-        return null;
-      });
-      localStorage.setItem('tending-field/field',     JSON.stringify(fieldData));
-      localStorage.setItem('tending-field/bank',      JSON.stringify(G.bank));
-      localStorage.setItem('tending-field/jars',      JSON.stringify(G.jars));
-      localStorage.setItem('tending-field/progress',  String(G.caravan.progress));
-      localStorage.setItem('tending-field/traderIdx', String(G.caravan.traderIdx));
-    } catch (e) { console.warn('Save failed', e); }
+// ── State ──────────────────────────────────────────────────────
+let G = {
+  field:        Array(TILE_COUNT).fill(null),
+  caravan:      { progress:0, traderIdx:0, arrived:false, trader:null, bank:null },
+  entities:     [],
+  loading:      true,
+  caravanCount: 0,
+  kiwis:        Array(TILE_COUNT).fill(0),
+  floatAsked:   false,
+  floatCount:   null,
+  firstHarvestDone: false,
+};
+
+// Live objects (not persisted)
+let particles  = [];
+let relics     = [];
+let sparkles   = [];
+let shadow     = { x:-300, y:200, vx:0.1, vy:0.04, opacity:0, phase:'dormant', timer:0 };
+
+// Canvas
+let bgCanvas, bgCtx, pCanvas, pCtx;
+let tileRects = [];
+let spawnAccum = Array(TILE_COUNT).fill(0);
+
+// Timers
+let timerInterval = null, traderDismissTimer = null, traderCountdownTimer = null;
+let traderLingerEnd = 0;
+let lastKiwiTick = 0;
+
+// ── Canvas setup ───────────────────────────────────────────────
+function setupCanvases() {
+  bgCanvas = document.getElementById('bg-canvas');
+  bgCtx    = bgCanvas.getContext('2d');
+  pCanvas  = document.getElementById('particle-canvas');
+  pCtx     = pCanvas.getContext('2d');
+  resizeCanvases();
+  window.addEventListener('resize', () => {
+    resizeCanvases();
+    renderField();
+  });
+}
+
+function resizeCanvases() {
+  bgCanvas.width  = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+  const sec  = document.getElementById('field-section');
+  if (!sec) return;
+  const rect = sec.getBoundingClientRect();
+  pCanvas.width  = rect.width  || 420;
+  pCanvas.height = rect.height || 300;
+  initSparkles();
+  updateTileRects();
+}
+
+function updateTileRects() {
+  const sec = document.getElementById('field-section');
+  if (!sec) return;
+  const sRect = sec.getBoundingClientRect();
+  const tiles = document.querySelectorAll('.tile');
+  tileRects = Array.from(tiles).map(t => {
+    const r = t.getBoundingClientRect();
+    return {
+      x: r.left - sRect.left + r.width  / 2,
+      y: r.top  - sRect.top  + r.height / 2,
+      w: r.width, h: r.height,
+    };
+  });
+}
+
+// ── Background effects ─────────────────────────────────────────
+function initSparkles() {
+  const n = Math.max(30, Math.floor(bgCanvas.width * bgCanvas.height / 7000));
+  sparkles = Array.from({ length: n }, () => ({
+    x:     Math.random() * bgCanvas.width,
+    y:     Math.random() * bgCanvas.height,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.002 + Math.random() * 0.007,
+    size:  0.4 + Math.random() * 1.4,
+    max:   0.15 + Math.random() * 0.45,
+  }));
+}
+
+function drawBackground(dt) {
+  const w = bgCanvas.width, h = bgCanvas.height;
+  bgCtx.clearRect(0, 0, w, h);
+
+  const grad = bgCtx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, '#06091a');
+  grad.addColorStop(1, '#081420');
+  bgCtx.fillStyle = grad;
+  bgCtx.fillRect(0, 0, w, h);
+
+  for (const s of sparkles) {
+    s.phase += s.speed;
+    const a = ((Math.sin(s.phase) + 1) / 2) * s.max;
+    bgCtx.beginPath();
+    bgCtx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    bgCtx.fillStyle = `rgba(150,215,255,${a})`;
+    bgCtx.fill();
   }
 
-  function loadSaved() {
-    try {
-      const fieldRaw = localStorage.getItem('tending-field/field');
-      if (fieldRaw) G.field = JSON.parse(fieldRaw);
-      const bankRaw  = localStorage.getItem('tending-field/bank');
-      if (bankRaw)  G.bank  = JSON.parse(bankRaw);
-      const jarsRaw  = localStorage.getItem('tending-field/jars');
-      if (jarsRaw)  G.jars  = JSON.parse(jarsRaw);
-      const prog = localStorage.getItem('tending-field/progress');
-      if (prog !== null) G.caravan.progress = Math.min(parseFloat(prog) || 0, 0.98);
-      const tidx = localStorage.getItem('tending-field/traderIdx');
-      if (tidx !== null) G.caravan.traderIdx = parseInt(tidx) || 0;
-    } catch (e) { console.warn('Load failed', e); }
+  // Distant shadow
+  shadow.timer += dt;
+  if (shadow.phase === 'dormant' && shadow.timer > 25000 + Math.random() * 45000) {
+    shadow.phase = 'entering';
+    shadow.timer = 0;
+    const fromLeft = Math.random() > 0.5;
+    shadow.x  = fromLeft ? -250 : w + 250;
+    shadow.y  = h * (0.15 + Math.random() * 0.7);
+    shadow.vx = fromLeft ? (0.06 + Math.random() * 0.1) : -(0.06 + Math.random() * 0.1);
+    shadow.vy = (Math.random() - 0.5) * 0.03;
+    shadow.opacity = 0;
+  } else if (shadow.phase === 'entering') {
+    shadow.opacity = Math.min(shadow.opacity + 0.008, 1);
+    shadow.x += shadow.vx * dt / 16;
+    shadow.y += shadow.vy * dt / 16;
+    if (shadow.opacity >= 1) shadow.phase = 'crossing';
+  } else if (shadow.phase === 'crossing') {
+    shadow.x += shadow.vx * dt / 16;
+    shadow.y += shadow.vy * dt / 16;
+    if ((shadow.vx > 0 && shadow.x > w + 250) || (shadow.vx < 0 && shadow.x < -250))
+      shadow.phase = 'leaving';
+  } else if (shadow.phase === 'leaving') {
+    shadow.opacity = Math.max(shadow.opacity - 0.015, 0);
+    if (shadow.opacity <= 0) { shadow.phase = 'dormant'; shadow.timer = 0; }
   }
 
-  // ── Entity emoji derivation ────────────────────────────────────
-  function entityEmoji(entity) {
-    for (const tag of (entity.tags || [])) {
-      if (TAG_EMOJI[tag]) return TAG_EMOJI[tag];
+  if (shadow.opacity > 0) {
+    bgCtx.save();
+    bgCtx.globalAlpha = shadow.opacity * 0.16;
+    bgCtx.fillStyle = '#030610';
+    bgCtx.beginPath();
+    bgCtx.ellipse(shadow.x, shadow.y, 200, 65, Math.PI * 0.08, 0, Math.PI * 2);
+    bgCtx.fill();
+    bgCtx.restore();
+  }
+}
+
+// ── Entity emoji ───────────────────────────────────────────────
+function entityEmoji(entity) {
+  for (const tag of (entity.tags || [])) {
+    if (TAG_EMOJI[tag]) return TAG_EMOJI[tag];
+  }
+  return CATEGORY_EMOJI[entity.category] || '🌀';
+}
+
+// ── Particle system ─────────────────────────────────────────────
+function spawnParticle(tileIdx) {
+  if (particles.length >= PARTICLE_MAX) return;
+  const tile = G.field[tileIdx];
+  if (!tile?.data) return;
+  if (!tileRects[tileIdx]) return;
+
+  let emoji;
+  if (tile.kind === 'plant') {
+    const p = tile.data;
+    emoji = (p.rare && Math.random() < p.rareChance) ? p.rare : p.produces[0];
+  } else {
+    emoji = tile.data.derivedEmoji || entityEmoji(tile.data);
+  }
+
+  const tr       = tileRects[tileIdx];
+  const energetic = Math.random() < 0.12;
+  const angle    = Math.random() * Math.PI * 2;
+  const speed    = energetic ? (0.35 + Math.random() * 0.55) : (0.04 + Math.random() * 0.18);
+
+  particles.push({
+    x: tr.x + (Math.random() - 0.5) * tr.w * 0.55,
+    y: tr.y + (Math.random() - 0.5) * tr.h * 0.55,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    emoji, tileIdx, energetic,
+    opacity: 0, age: 0,
+    life: 9000 + Math.random() * 13000,
+    size: 9 + Math.random() * 5,
+  });
+}
+
+function tickParticleSpawns(dt) {
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (!G.field[i]?.data) continue;
+    const rate = G.field[i].kind === 'plant'
+      ? (G.field[i].data.spawnRate || 7)
+      : 11;
+    spawnAccum[i] += dt / 1000;
+    if (spawnAccum[i] >= rate * (0.7 + Math.random() * 0.6)) {
+      spawnParticle(i);
+      spawnAccum[i] = 0;
     }
-    return CATEGORY_EMOJI[entity.category] || '🌀';
   }
+}
 
-  // ── Registry / entity fetching ─────────────────────────────────
-  async function fetchRegistry() {
-    const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/registry.json`;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('registry unavailable');
-      return await res.json();
-    } catch (e) {
-      console.warn('Registry fetch failed, using fallback', e);
-      return {
-        neighborhoods: {
-          greengarden:    { entities: ['chunxly'] },
-          kitchendom:     { entities: ['briny-broadswordfish', 'noble-knightshade'] },
-          mucklerbuckler: { entities: ['scalescream', 'mudhull'] },
-        },
-      };
+function updateParticles(dt) {
+  const alive = [];
+  for (const p of particles) {
+    p.age += dt;
+    const t = p.age / p.life;
+    p.opacity = (t < 0.12 ? t / 0.12 : t > 0.78 ? Math.max(0, 1 - (t - 0.78) / 0.22) : 1) * 0.82;
+    if (!p.energetic && tileRects[p.tileIdx]) {
+      const h = tileRects[p.tileIdx];
+      const dx = h.x - p.x, dy = h.y - p.y;
+      const d  = Math.sqrt(dx * dx + dy * dy);
+      if (d > 28) { p.vx += dx / d * 0.0025; p.vy += dy / d * 0.0025; }
+    }
+    p.vx *= 0.992; p.vy *= 0.992;
+    p.x += p.vx * dt / 16;
+    p.y += p.vy * dt / 16;
+    if (p.age < p.life && p.opacity > 0.01) alive.push(p);
+  }
+  particles = alive;
+}
+
+function sweepParticles() {
+  // Count by emoji
+  const counts = {};
+  for (const p of particles) counts[p.emoji] = (counts[p.emoji] || 0) + 1;
+
+  // Animate toward caravan icon, then clear
+  const iconEl = document.getElementById('caravan-icon');
+  if (iconEl) {
+    const ir = iconEl.getBoundingClientRect();
+    const sr = document.getElementById('field-section').getBoundingClientRect();
+    const tx = ir.left - sr.left + ir.width  / 2;
+    const ty = ir.top  - sr.top  + ir.height / 2;
+    for (const p of particles) {
+      p.vx = (tx - p.x) / 35;
+      p.vy = (ty - p.y) / 35;
+      p.life = p.age + 550;
     }
   }
+  setTimeout(() => { particles = []; }, 620);
+  return counts;
+}
 
-  function parseTuning(md, slug, neighborhood) {
-    const nameLine = md.split('\n').find(l => l.startsWith('# '));
-    const name     = nameLine ? nameLine.replace('# ', '').trim() : slug;
-    const catMatch  = md.match(/\*\*Category:\*\*\s*(.+)/);
-    const category  = catMatch  ? catMatch[1].trim().toLowerCase()  : 'spirit';
-    const tagsMatch = md.match(/\*\*Tags:\*\*\s*(.+)/);
-    const tags      = tagsMatch
-      ? tagsMatch[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
-      : [];
-    return { name, category, tags, slug, neighborhood };
+// ── Relic system ───────────────────────────────────────────────
+function spawnRelic(trader) {
+  if (relics.length >= RELIC_MAX) {
+    relics.sort((a, b) => a.opacity - b.opacity);
+    relics.shift();
   }
+  const cx = pCanvas.width / 2, cy = pCanvas.height / 2;
+  const side = Math.floor(Math.random() * 4);
+  let x, y;
+  if      (side === 0) { x = Math.random() * pCanvas.width;  y = -24; }
+  else if (side === 1) { x = pCanvas.width + 24;              y = Math.random() * pCanvas.height; }
+  else if (side === 2) { x = Math.random() * pCanvas.width;  y = pCanvas.height + 24; }
+  else                 { x = -24;                             y = Math.random() * pCanvas.height; }
 
-  async function fetchTuning(neighborhood, slug) {
-    const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/neighborhoods/${neighborhood}/entities/${slug}/tuning.md`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Could not fetch ${slug}`);
-    return parseTuning(await res.text(), slug, neighborhood);
-  }
+  const behaviors = ['drift','drift','orbit','wander','spiral'];
+  const behavior  = behaviors[Math.floor(Math.random() * behaviors.length)];
+  const toCenter  = Math.atan2(cy - y, cx - x);
+  const angle     = toCenter + (Math.random() - 0.5) * 1.4;
+  const speed     = 0.1 + Math.random() * 0.18;
 
-  async function loadEntities() {
-    const registry = await fetchRegistry();
-    const entities = [];
-    for (const [neighborhood, entry] of Object.entries(registry.neighborhoods)) {
-      const slugs = Array.isArray(entry) ? entry : (entry.entities || []);
-      for (const slug of slugs) {
-        try {
-          const e = await fetchTuning(neighborhood, slug);
-          e.derivedEmoji = entityEmoji(e);
-          entities.push(e);
-        } catch (err) {
-          console.warn(`Could not load entity: ${slug}`, err);
-        }
+  relics.push({
+    x, y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    emoji: trader.emoji, traderId: trader.id, traderName: trader.name,
+    opacity: 0, age: 0,
+    size: 16 + Math.random() * 10,
+    behavior,
+    orbitAngle: Math.random() * Math.PI * 2,
+    orbitRadius: 38 + Math.random() * 90,
+    orbitSpeed:  (Math.random() > 0.5 ? 1 : -1) * (0.006 + Math.random() * 0.012),
+    orbitCx: cx + (Math.random() - 0.5) * pCanvas.width  * 0.35,
+    orbitCy: cy + (Math.random() - 0.5) * pCanvas.height * 0.35,
+    spiralTheta: 0,
+    life: CYCLE_SECONDS * 1000 * (3 + Math.random() * 6),
+    lastTile: -1,
+  });
+
+  seedKiwisNear(x, y, 0.05);
+}
+
+function updateRelics(dt) {
+  const cx = pCanvas.width / 2, cy = pCanvas.height / 2;
+  const alive = [];
+
+  for (const r of relics) {
+    r.age += dt;
+    const t = r.age / r.life;
+    r.opacity = (t < 0.08 ? t / 0.08 : t > 0.72 ? Math.max(0, 1 - (t - 0.72) / 0.28) : 1) * 0.88;
+
+    if (r.behavior === 'orbit') {
+      r.orbitAngle += r.orbitSpeed * dt / 16;
+      const tx = r.orbitCx + Math.cos(r.orbitAngle) * r.orbitRadius;
+      const ty = r.orbitCy + Math.sin(r.orbitAngle) * r.orbitRadius;
+      r.vx += (tx - r.x) * 0.0018;
+      r.vy += (ty - r.y) * 0.0018;
+    } else if (r.behavior === 'spiral') {
+      r.spiralTheta += 0.012 * dt / 16;
+      const rad = 20 + r.spiralTheta * 8;
+      const tx  = cx + Math.cos(r.spiralTheta) * Math.min(rad, pCanvas.width * 0.45);
+      const ty  = cy + Math.sin(r.spiralTheta) * Math.min(rad, pCanvas.height * 0.45);
+      r.vx += (tx - r.x) * 0.001;
+      r.vy += (ty - r.y) * 0.001;
+    } else {
+      const dx = cx - r.x, dy = cy - r.y;
+      const d  = Math.sqrt(dx * dx + dy * dy);
+      if (d > 18) { r.vx += dx / d * 0.0006; r.vy += dy / d * 0.0006; }
+      if (r.behavior === 'wander' && Math.random() < 0.0015 * dt / 16) {
+        r.vx += (Math.random() - 0.5) * 0.28;
+        r.vy += (Math.random() - 0.5) * 0.28;
       }
     }
-    return entities;
-  }
 
-  // ── Adjacency helpers ──────────────────────────────────────────
-  function getNeighbors(idx) {
-    const row = Math.floor(idx / COLS);
-    const col = idx % COLS;
-    const ns  = [];
-    if (row > 0)      ns.push((row - 1) * COLS + col);
-    if (row < ROWS-1) ns.push((row + 1) * COLS + col);
-    if (col > 0)      ns.push(row * COLS + (col - 1));
-    if (col < COLS-1) ns.push(row * COLS + (col + 1));
-    return ns;
-  }
+    if (t > 0.6) { r.vy -= 0.0015 * dt / 16; }
+    r.vx *= 0.989; r.vy *= 0.989;
+    r.x  += r.vx * dt / 16;
+    r.y  += r.vy * dt / 16;
 
-  function hasBonusAdjacency(plantIdx) {
-    const tile = G.field[plantIdx];
-    if (!tile || tile.kind !== 'plant' || !tile.data) return false;
-    for (const ni of getNeighbors(plantIdx)) {
-      const n = G.field[ni];
-      if (!n || n.kind !== 'entity' || !n.data) continue;
-      if (tile.data.affinity.some(a => (n.data.tags || []).includes(a))) return true;
-    }
-    return false;
-  }
-
-  // ── Harvest ────────────────────────────────────────────────────
-  function addToBank(emoji, count = 1) {
-    G.bank[emoji] = (G.bank[emoji] || 0) + count;
-  }
-
-  function gatherHarvest() {
-    const gained = {};
+    // Proximity effects
+    const affId = TRADER_AFFINITY[r.traderId];
     for (let i = 0; i < TILE_COUNT; i++) {
-      const tile = G.field[i];
-      if (!tile || !tile.data) continue;
-
-      if (tile.kind === 'plant') {
-        const plant = tile.data;
-        // Moonspore rare check
-        let produce = [...plant.produces];
-        if (plant.rare && Math.random() < plant.rareChance) {
-          produce = [plant.rare];
-        }
-        for (const e of produce) {
-          addToBank(e);
-          gained[e] = (gained[e] || 0) + 1;
-        }
-        // Adjacency bonus: each entity neighbor with matching affinity tag → +1 base produce
-        for (const ni of getNeighbors(i)) {
-          const nbr = G.field[ni];
-          if (!nbr || nbr.kind !== 'entity' || !nbr.data) continue;
-          if (plant.affinity.some(a => (nbr.data.tags || []).includes(a))) {
-            const bonus = produce[0];
-            addToBank(bonus);
-            gained[bonus] = (gained[bonus] || 0) + 1;
-          }
-        }
-      }
-
-      if (tile.kind === 'entity') {
-        const e = tile.data.derivedEmoji || entityEmoji(tile.data);
-        addToBank(e);
-        gained[e] = (gained[e] || 0) + 1;
+      if (!G.field[i]?.data || !tileRects[i]) continue;
+      const tr = tileRects[i];
+      const dx = r.x - tr.x, dy = r.y - tr.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 34 && r.lastTile !== i) {
+        r.lastTile = i;
+        const tile = G.field[i];
+        const isAffine = tile.kind === 'plant' && tile.data.id === affId;
+        if (isAffine) spawnParticle(i);
+        G.kiwis[i] = Math.min(G.kiwis[i] + (isAffine ? 0.14 : 0.04), 1);
+      } else if (dist > 50 && r.lastTile === i) {
+        r.lastTile = -1;
       }
     }
-    return gained;
-  }
 
-  // ── Hub messaging ──────────────────────────────────────────────
-  function hubMsg(type, extra = {}) {
-    if (window.parent !== window) {
-      window.parent.postMessage({ type, ...extra }, '*');
+    if (r.opacity > 0.01) {
+      alive.push(r);
+    } else {
+      seedKiwisNear(r.x, r.y, 0.09);
+      hubMsg('hub:scraggle', { emoji: r.emoji, signal: `a relic from ${r.traderName} drifted on` });
     }
   }
+  relics = alive;
+}
 
-  // ── Caravan timer ──────────────────────────────────────────────
-  function startCaravan() {
-    stopCaravan();
-    timerInterval = setInterval(tick, 1000);
+function drawAll() {
+  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+  pCtx.textAlign = 'center';
+  pCtx.textBaseline = 'middle';
+
+  for (const p of particles) {
+    pCtx.globalAlpha = p.opacity;
+    pCtx.font = `${p.size}px serif`;
+    pCtx.fillText(p.emoji, p.x, p.y);
   }
-
-  function stopCaravan() {
-    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  for (const r of relics) {
+    // Soft aura
+    pCtx.globalAlpha = r.opacity * 0.22;
+    pCtx.font = `${r.size * 1.8}px serif`;
+    pCtx.fillText(r.emoji, r.x, r.y);
+    // Core
+    pCtx.globalAlpha = r.opacity;
+    pCtx.font = `${r.size}px serif`;
+    pCtx.fillText(r.emoji, r.x, r.y);
   }
+  pCtx.globalAlpha = 1;
+}
 
-  function tick() {
+// ── Kiwi system ────────────────────────────────────────────────
+function seedKiwisNear(x, y, amount) {
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (!G.field[i] || !tileRects[i]) continue;
+    const t  = tileRects[i];
+    const dx = x - t.x, dy = y - t.y;
+    const d  = Math.sqrt(dx * dx + dy * dy);
+    if (d < 90) G.kiwis[i] = Math.min(G.kiwis[i] + amount * (1 - d / 90), 1);
+  }
+}
+
+function tickKiwis() {
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (!G.field[i]) continue;
+    G.kiwis[i] = Math.min(G.kiwis[i] + 0.003, 1);
+    if (G.kiwis[i] > 0.45) {
+      for (const ni of getNeighbors(i)) {
+        if (G.field[ni]) G.kiwis[ni] = Math.min(G.kiwis[ni] + 0.0015, 1);
+      }
+    }
+  }
+  checkFloatConsensus();
+  updateKiwiGlow();
+}
+
+function checkFloatConsensus() {
+  if (G.floatAsked || G.caravanCount < KIWI_MIN_CARAVANS) return;
+  const occupied = G.field.filter(Boolean).length;
+  if (occupied === 0) return;
+  const high = G.kiwis.filter((k, i) => G.field[i] && k > KIWI_THRESHOLD).length;
+  if (high >= Math.ceil(occupied * 0.55)) triggerFloat();
+}
+
+function triggerFloat() {
+  if (G.floatAsked) return;
+  G.floatAsked = true;
+  let maxK = 0, speaker = null;
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (G.field[i] && G.kiwis[i] > maxK) { maxK = G.kiwis[i]; speaker = G.field[i]; }
+  }
+  const name  = speaker?.data?.name || 'The field';
+  const count = 2 + Math.floor(Math.random() * 4);
+  G.floatCount = count;
+  document.getElementById('float-message').textContent =
+    `${name} thinks it's time. ${count} more caravan${count !== 1 ? 's' : ''}, they say.`;
+  document.getElementById('float-prompt').classList.add('visible');
+  save();
+}
+
+function updateKiwiGlow() {
+  const tiles = document.querySelectorAll('.tile');
+  let maxK = 0.74, maxI = -1;
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (G.field[i] && G.kiwis[i] > maxK) { maxK = G.kiwis[i]; maxI = i; }
+  }
+  tiles.forEach((t, i) => t.classList.toggle('kiwi-glow', i === maxI));
+}
+
+// ── Float the Farm ─────────────────────────────────────────────
+function floatTheFarm() {
+  document.getElementById('float-prompt').classList.remove('visible');
+  hubMsg('hub:scraggle', { emoji:'🌊', signal:'the tending field has floated away' });
+
+  const sec = document.getElementById('field-section');
+  sec.style.transition = 'opacity 3.2s, transform 4s ease-in';
+  sec.style.opacity    = '0';
+  sec.style.transform  = 'translateY(-50px)';
+
+  for (const p of particles) { p.vy -= 0.28 + Math.random() * 0.35; }
+  for (const r of relics)    { r.vy -= 0.18 + Math.random() * 0.25; }
+
+  setTimeout(resetFarm, 4800);
+}
+
+function resetFarm() {
+  G.field        = Array(TILE_COUNT).fill(null);
+  G.kiwis        = Array(TILE_COUNT).fill(0);
+  G.caravanCount = 0;
+  G.floatAsked   = false;
+  G.floatCount   = null;
+  G.caravan      = { progress:0, traderIdx:(G.caravan.traderIdx+1)%TRADERS.length, arrived:false, trader:null, bank:null };
+  particles = []; relics = []; spawnAccum = Array(TILE_COUNT).fill(0);
+
+  const sec = document.getElementById('field-section');
+  sec.style.transition = 'opacity 2s';
+  sec.style.transform  = 'translateY(0)';
+  sec.style.opacity    = '0';
+
+  renderField(); renderCaravan(); save(); startCaravan();
+  requestAnimationFrame(() => { sec.style.opacity = '1'; });
+}
+
+// ── Persistence ─────────────────────────────────────────────────
+function save() {
+  try {
+    const fd = G.field.map(t => {
+      if (!t) return null;
+      if (t.kind === 'plant')  return { kind:'plant',  plantId: t.data?.id };
+      if (t.kind === 'entity') return { kind:'entity', slug: t.data?.slug, neighborhood: t.data?.neighborhood };
+      return null;
+    });
+    localStorage.setItem('tending-field/field',        JSON.stringify(fd));
+    localStorage.setItem('tending-field/progress',     String(G.caravan.progress));
+    localStorage.setItem('tending-field/traderIdx',    String(G.caravan.traderIdx));
+    localStorage.setItem('tending-field/caravanCount', String(G.caravanCount));
+    localStorage.setItem('tending-field/kiwis',        JSON.stringify(G.kiwis));
+    localStorage.setItem('tending-field/floatAsked',   JSON.stringify(G.floatAsked));
+    localStorage.setItem('tending-field/floatCount',   JSON.stringify(G.floatCount));
+  } catch(e) { console.warn('save failed', e); }
+}
+
+function loadSaved() {
+  try {
+    const f = localStorage.getItem('tending-field/field');
+    if (f) G.field = JSON.parse(f);
+    const prog = localStorage.getItem('tending-field/progress');
+    if (prog) G.caravan.progress = Math.min(parseFloat(prog) || 0, 0.98);
+    const ti = localStorage.getItem('tending-field/traderIdx');
+    if (ti) G.caravan.traderIdx = parseInt(ti) || 0;
+    const cc = localStorage.getItem('tending-field/caravanCount');
+    if (cc) G.caravanCount = parseInt(cc) || 0;
+    const kw = localStorage.getItem('tending-field/kiwis');
+    if (kw) G.kiwis = JSON.parse(kw);
+    const fa = localStorage.getItem('tending-field/floatAsked');
+    if (fa) G.floatAsked = JSON.parse(fa);
+    const fc = localStorage.getItem('tending-field/floatCount');
+    if (fc) G.floatCount = JSON.parse(fc);
+  } catch(e) { console.warn('load failed', e); }
+}
+
+// ── Registry / entities ────────────────────────────────────────
+async function fetchRegistry() {
+  try {
+    const res = await fetch(`https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/registry.json`);
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch {
+    return { neighborhoods: {
+      greengarden:    { entities:['chunxly'] },
+      kitchendom:     { entities:['briny-broadswordfish','noble-knightshade'] },
+      mucklerbuckler: { entities:['scalescream','mudhull'] },
+    }};
+  }
+}
+
+function parseTuning(md, slug, neighborhood) {
+  const nl  = md.split('\n').find(l => l.startsWith('# '));
+  const name = nl ? nl.replace('# ', '').trim() : slug;
+  const cm   = md.match(/\*\*Category:\*\*\s*(.+)/);
+  const tm   = md.match(/\*\*Tags:\*\*\s*(.+)/);
+  return {
+    name,
+    category: cm ? cm[1].trim().toLowerCase() : 'spirit',
+    tags: tm ? tm[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [],
+    slug, neighborhood,
+  };
+}
+
+async function loadEntities() {
+  const reg = await fetchRegistry();
+  const out = [];
+  for (const [n, entry] of Object.entries(reg.neighborhoods)) {
+    const slugs = Array.isArray(entry) ? entry : (entry.entities || []);
+    for (const slug of slugs) {
+      try {
+        const url = `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/neighborhoods/${n}/entities/${slug}/tuning.md`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const e = parseTuning(await res.text(), slug, n);
+        e.derivedEmoji = entityEmoji(e);
+        out.push(e);
+      } catch {}
+    }
+  }
+  return out;
+}
+
+// ── Adjacency ──────────────────────────────────────────────────
+function getNeighbors(idx) {
+  const row = Math.floor(idx / COLS), col = idx % COLS, ns = [];
+  if (row > 0)      ns.push((row - 1) * COLS + col);
+  if (row < ROWS-1) ns.push((row + 1) * COLS + col);
+  if (col > 0)      ns.push(row * COLS + (col - 1));
+  if (col < COLS-1) ns.push(row * COLS + (col + 1));
+  return ns;
+}
+
+function hasBonusAdjacency(i) {
+  const tile = G.field[i];
+  if (!tile || tile.kind !== 'plant' || !tile.data) return false;
+  for (const ni of getNeighbors(i)) {
+    const n = G.field[ni];
+    if (n?.kind === 'entity' && n.data && tile.data.affinity.some(a => n.data.tags.includes(a))) return true;
+  }
+  return false;
+}
+
+// ── Hub ─────────────────────────────────────────────────────────
+function hubMsg(type, extra = {}) {
+  if (window.parent !== window) window.parent.postMessage({ type, ...extra }, '*');
+}
+
+// ── Caravan timer ──────────────────────────────────────────────
+function startCaravan() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
     if (G.caravan.arrived) return;
     G.caravan.progress += 1 / CYCLE_SECONDS;
     if (G.caravan.progress >= 1) {
       G.caravan.progress = 1;
       G.caravan.arrived  = true;
-      stopCaravan();
+      clearInterval(timerInterval); timerInterval = null;
       onCaravanArrival();
     }
-    renderCaravan();
-    save();
+    renderCaravan(); save();
+  }, 1000);
+}
+
+function onCaravanArrival() {
+  G.caravanCount++;
+
+  // Float countdown update
+  if (G.floatCount !== null) {
+    G.floatCount = Math.max(0, G.floatCount - 1);
+    const speaker = G.field.find(Boolean);
+    const name    = speaker?.data?.name || 'The field';
+    const msg     = G.floatCount <= 0
+      ? `${name} is ready. Are you?`
+      : `${name}: ${G.floatCount} more caravan${G.floatCount !== 1 ? 's' : ''}.`;
+    document.getElementById('float-message').textContent = msg;
+    document.getElementById('float-prompt').classList.add('visible');
   }
 
-  function onCaravanArrival() {
-    const gained = gatherHarvest();
-    renderBank();
-    save();
-    flashHarvest(gained);
+  // Kiwi: arrival excites everyone
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (G.field[i]) G.kiwis[i] = Math.min(G.kiwis[i] + 0.03, 1);
+  }
 
-    if (!G.firstHarvestDone && Object.keys(gained).length > 0) {
-      G.firstHarvestDone = true;
-      const topEmoji = Object.keys(gained)[0] || '🌿';
-      hubMsg('hub:scraggle', { emoji: topEmoji, signal: 'first harvest gathered at the tending field' });
+  const bank   = sweepParticles();
+  G.caravan.bank = bank;
+
+  if (!G.firstHarvestDone && Object.keys(bank).length > 0) {
+    G.firstHarvestDone = true;
+    hubMsg('hub:scraggle', { emoji: Object.keys(bank)[0], signal: 'first harvest gathered at the tending field' });
+  }
+
+  const trader = TRADERS[G.caravan.traderIdx % TRADERS.length];
+  G.caravan.trader = trader;
+  setTimeout(() => {
+    showTradeModal(trader, bank);
+    hubMsg('hub:scraggle', { emoji: '🛖', signal: `${trader.name} approaches the tending field` });
+  }, 900);
+}
+
+function advanceCaravan() {
+  // Kiwi: departure seeds wandering
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (G.field[i]) G.kiwis[i] = Math.min(G.kiwis[i] + 0.05, 1);
+  }
+  tickKiwis();
+
+  G.caravan.progress = 0; G.caravan.arrived = false;
+  G.caravan.trader   = null; G.caravan.bank  = null;
+  G.caravan.traderIdx = (G.caravan.traderIdx + 1) % TRADERS.length;
+  renderCaravan(); save(); startCaravan();
+}
+
+// ── Trade ──────────────────────────────────────────────────────
+function canTrade(trader, bank) {
+  if (!bank) return false;
+  if (trader.want === 'any3') return Object.values(bank).filter(c => c > 0).length >= 3;
+  return trader.want.every(({ e, n }) => (bank[e] || 0) >= n);
+}
+
+function executeTrade(trader, bank) {
+  if (!canTrade(trader, bank)) return false;
+  if (trader.want === 'any3') {
+    Object.entries(bank).filter(([, c]) => c > 0).slice(0, 3).forEach(([e]) => {
+      bank[e]--; if (bank[e] <= 0) delete bank[e];
+    });
+  } else {
+    for (const { e, n } of trader.want) { bank[e] -= n; if (bank[e] <= 0) delete bank[e]; }
+  }
+  return true;
+}
+
+function traderLeave(traded) {
+  clearTimeout(traderDismissTimer);
+  clearInterval(traderCountdownTimer);
+  hideTradeModal();
+  if (traded && G.caravan.trader) {
+    spawnRelic(G.caravan.trader);
+    hubMsg('hub:scraggle', { emoji: G.caravan.trader.emoji, signal: `traded with ${G.caravan.trader.name}` });
+  }
+  advanceCaravan();
+}
+
+// ── Render ─────────────────────────────────────────────────────
+function renderCaravan() {
+  const pct    = Math.min(G.caravan.progress * 100, 100);
+  const trader = TRADERS[G.caravan.traderIdx % TRADERS.length];
+  document.getElementById('caravan-fill').style.width = pct + '%';
+  document.getElementById('caravan-icon').style.left  = pct + '%';
+  document.getElementById('trader-label').textContent = G.caravan.arrived
+    ? `${trader.emoji} ${trader.name}`
+    : `next: ${trader.name}`;
+}
+
+function renderField() {
+  const grid = document.getElementById('field-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < TILE_COUNT; i++) {
+    const tile = G.field[i];
+    const div  = document.createElement('div');
+    div.className = 'tile';
+    if (!tile) {
+      div.classList.add('empty');
+      const plus = document.createElement('span');
+      plus.className = 'tile-plus'; plus.textContent = '+';
+      div.appendChild(plus);
+    } else if (tile.kind === 'plant') {
+      div.classList.add('planted');
+      if (hasBonusAdjacency(i)) div.classList.add('has-bonus');
+      const em  = document.createElement('span'); em.className = 'tile-emoji';  em.textContent = tile.data?.emoji || '🌿';
+      const lbl = document.createElement('span'); lbl.className = 'tile-label'; lbl.textContent = tile.data?.name || '';
+      div.appendChild(em); div.appendChild(lbl);
+    } else if (tile.kind === 'entity') {
+      div.classList.add('entity-tile');
+      if (!tile.data) div.classList.add('stub');
+      const em  = document.createElement('span'); em.className = 'tile-emoji'; em.textContent = tile.data ? (tile.data.derivedEmoji || entityEmoji(tile.data)) : '🌀';
+      const nm  = document.createElement('span'); nm.className = 'tile-name';  nm.textContent = (tile.data?.name || tile.slug || '').slice(0, 10).toUpperCase();
+      const tg  = document.createElement('span'); tg.className = 'tile-tags';  tg.textContent = (tile.data?.tags || []).slice(0, 2).join(', ');
+      div.appendChild(em); div.appendChild(nm); div.appendChild(tg);
     }
+    grid.appendChild(div);
+  }
+  requestAnimationFrame(updateTileRects);
+}
 
-    const trader = TRADERS[G.caravan.traderIdx % TRADERS.length];
-    G.caravan.trader = trader;
-    setTimeout(() => {
-      showTradeModal(trader);
-      hubMsg('hub:scraggle', { emoji: '🛖', signal: `${trader.name} approaches the tending field` });
-    }, 1500);
+// ── Click handling ─────────────────────────────────────────────
+function handleFieldClick(e) {
+  if (G.loading) return;
+
+  const sec  = document.getElementById('field-section');
+  const rect = sec.getBoundingClientRect();
+  const cx   = e.clientX - rect.left;
+  const cy   = e.clientY - rect.top;
+
+  // Check particle proximity first
+  let nearest = null, nearestD = 22;
+  for (const p of particles) {
+    const d = Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2);
+    if (d < nearestD) { nearestD = d; nearest = p; }
+  }
+  if (nearest) {
+    const count = particles.filter(p => p.emoji === nearest.emoji).length;
+    showTooltip(nearest.emoji, count, e.clientX, e.clientY);
+    return;
   }
 
-  function advanceCaravan() {
-    G.caravan.progress  = 0;
-    G.caravan.arrived   = false;
-    G.caravan.trader    = null;
-    G.caravan.traderIdx = (G.caravan.traderIdx + 1) % TRADERS.length;
-    renderCaravan();
-    save();
-    startCaravan();
-  }
+  if (G.caravan.arrived) return;
 
-  // ── Trade logic ────────────────────────────────────────────────
-  function canTrade(trader) {
-    if (trader.want === 'any3') {
-      return Object.values(G.bank).filter(c => c > 0).length >= 3;
+  // Find tile
+  let best = -1, bestD = 9999;
+  for (let i = 0; i < tileRects.length; i++) {
+    const t = tileRects[i];
+    if (!t) continue;
+    const dx = cx - t.x, dy = cy - t.y;
+    if (Math.abs(dx) < t.w / 2 + 5 && Math.abs(dy) < t.h / 2 + 5) {
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestD) { bestD = d; best = i; }
     }
-    return trader.want.every(({ e, n }) => (G.bank[e] || 0) >= n);
+  }
+  if (best >= 0) openPlantModal(best);
+}
+
+function showTooltip(emoji, count, x, y) {
+  document.querySelectorAll('.particle-tooltip').forEach(t => t.remove());
+  const tip = document.createElement('div');
+  tip.className   = 'particle-tooltip';
+  tip.textContent = `${emoji} × ${count}`;
+  tip.style.left  = (x - 18) + 'px';
+  tip.style.top   = (y - 44) + 'px';
+  document.body.appendChild(tip);
+  setTimeout(() => tip.remove(), 2200);
+}
+
+// ── Plant modal ────────────────────────────────────────────────
+function openPlantModal(idx) {
+  const tile = G.field[idx];
+  document.getElementById('plant-modal-title').textContent =
+    tile ? 'REPLACE OR CLEAR THIS TILE' : 'TEND THIS TILE';
+
+  const opts = document.getElementById('plant-options');
+  opts.innerHTML = '';
+  for (const plant of PLANTS) {
+    const btn = document.createElement('div');
+    btn.className = 'plant-option';
+    btn.innerHTML = `<span class="plant-option-emoji">${plant.emoji}</span><span class="plant-option-name">${plant.name}</span>`;
+    btn.addEventListener('click', () => {
+      G.field[idx] = { kind:'plant', data:plant };
+      spawnAccum[idx] = 0;
+      save(); renderField(); closePlantModal();
+    });
+    opts.appendChild(btn);
   }
 
-  function executeTrade(trader) {
-    if (!canTrade(trader)) return false;
-    if (trader.want === 'any3') {
-      const types = Object.entries(G.bank).filter(([, c]) => c > 0).slice(0, 3);
-      for (const [e] of types) {
-        G.bank[e]--;
-        if (G.bank[e] <= 0) delete G.bank[e];
+  const list   = document.getElementById('entity-list');
+  list.innerHTML = '';
+  const placed = new Set(G.field.filter(Boolean).filter(t => t.kind === 'entity').map(t => t.data?.slug || t.slug));
+
+  if (G.loading || G.entities.length === 0) {
+    const m = document.createElement('div');
+    m.className = 'entity-loading';
+    m.textContent = G.loading ? 'Loading entities…' : 'None available.';
+    list.appendChild(m);
+  } else {
+    for (const entity of G.entities) {
+      const row = document.createElement('div');
+      row.className = 'entity-option' + (placed.has(entity.slug) ? ' placed' : '');
+      row.innerHTML = `<span class="entity-option-emoji">${entity.derivedEmoji || entityEmoji(entity)}</span>
+        <div class="entity-option-info">
+          <div class="entity-option-name">${entity.name}</div>
+          <div class="entity-option-tags">${(entity.tags || []).join(', ')}</div>
+        </div>`;
+      if (!placed.has(entity.slug)) {
+        row.addEventListener('click', () => {
+          G.field[idx] = { kind:'entity', data:entity };
+          spawnAccum[idx] = 0;
+          save(); renderField(); closePlantModal();
+        });
       }
-    } else {
-      for (const { e, n } of trader.want) {
-        G.bank[e] -= n;
-        if (G.bank[e] <= 0) delete G.bank[e];
-      }
-    }
-    if (G.jars.length < 6) {
-      G.jars.push({ emoji: trader.emoji, label: trader.name });
-    }
-    return true;
-  }
-
-  function traderLeave(traded) {
-    clearTimeout(traderDismissTimer);
-    clearInterval(traderCountdownTimer);
-    hideTradeModal();
-    if (!traded) {
-      // Leave a small consolation token
-      addToBank('🌿');
-      renderBank();
-    }
-    renderJars();
-    renderBank();
-    save();
-    advanceCaravan();
-  }
-
-  // ── Render functions ───────────────────────────────────────────
-  function renderCaravan() {
-    const pct    = Math.min(G.caravan.progress * 100, 100);
-    const trader = TRADERS[G.caravan.traderIdx % TRADERS.length];
-    document.getElementById('caravan-fill').style.width = pct + '%';
-    document.getElementById('caravan-icon').style.left  = pct + '%';
-    document.getElementById('trader-label').textContent = G.caravan.arrived
-      ? `${trader.emoji} ${trader.name}`
-      : `next: ${trader.name}`;
-  }
-
-  function renderField() {
-    const grid = document.getElementById('field-grid');
-    grid.innerHTML = '';
-    for (let i = 0; i < TILE_COUNT; i++) {
-      const tile = G.field[i];
-      const div  = document.createElement('div');
-      div.className  = 'tile';
-      div.dataset.idx = i;
-
-      if (!tile) {
-        div.classList.add('empty');
-        const plus = document.createElement('span');
-        plus.className   = 'tile-plus';
-        plus.textContent = '+';
-        div.appendChild(plus);
-
-      } else if (tile.kind === 'plant') {
-        div.classList.add('planted');
-        if (hasBonusAdjacency(i)) div.classList.add('has-bonus');
-        const em = document.createElement('span');
-        em.className   = 'tile-emoji';
-        em.textContent = tile.data ? tile.data.emoji : '🌿';
-        const lbl = document.createElement('span');
-        lbl.className   = 'tile-label';
-        lbl.textContent = tile.data ? tile.data.name : (tile.plantId || '');
-        div.appendChild(em);
-        div.appendChild(lbl);
-
-      } else if (tile.kind === 'entity') {
-        div.classList.add('entity-tile');
-        if (!tile.data) div.classList.add('stub-entity');
-        const em = document.createElement('span');
-        em.className   = 'tile-emoji';
-        em.textContent = tile.data ? (tile.data.derivedEmoji || entityEmoji(tile.data)) : '🌀';
-        const init = document.createElement('span');
-        init.className   = 'tile-initials';
-        init.textContent = tile.data
-          ? tile.data.name.slice(0, 9).toUpperCase()
-          : (tile.slug || '...').slice(0, 9).toUpperCase();
-        const sub = document.createElement('span');
-        sub.className   = 'tile-subtag';
-        sub.textContent = tile.data ? (tile.data.tags || []).slice(0, 2).join(', ') : '';
-        div.appendChild(em);
-        div.appendChild(init);
-        div.appendChild(sub);
-      }
-
-      div.addEventListener('click', () => openPlantModal(i));
-      grid.appendChild(div);
+      list.appendChild(row);
     }
   }
 
-  function renderBank() {
-    const display = document.getElementById('bank-display');
-    const chips   = Object.entries(G.bank).filter(([, c]) => c > 0);
-    display.innerHTML = '<span class="bank-label">Bank</span>';
-    if (chips.length === 0) {
-      const em = document.createElement('span');
-      em.className   = 'bank-empty';
-      em.textContent = 'empty harvest';
-      display.appendChild(em);
-    } else {
-      for (const [emoji, count] of chips) {
-        const chip = document.createElement('span');
-        chip.className = 'bank-chip';
-        chip.innerHTML = `${emoji}<span class="bank-chip-count">×${count}</span>`;
-        display.appendChild(chip);
-      }
-    }
+  const cr = document.getElementById('clear-tile-row');
+  cr.innerHTML = '';
+  if (tile) {
+    const btn = document.createElement('button');
+    btn.className = 'modal-clear-btn'; btn.textContent = 'Clear this tile';
+    btn.addEventListener('click', () => {
+      G.field[idx] = null; G.kiwis[idx] = 0;
+      save(); renderField(); closePlantModal();
+    });
+    cr.appendChild(btn);
   }
 
-  function renderJars() {
-    const display = document.getElementById('jars-display');
-    display.innerHTML = '';
-    for (let i = 0; i < 6; i++) {
-      const jar = document.createElement('div');
-      jar.className = 'jar';
-      if (i < G.jars.length) {
-        jar.classList.add('filled');
-        jar.textContent = G.jars[i].emoji;
-        jar.title       = G.jars[i].label;
-      } else {
-        jar.classList.add('empty-slot');
-        jar.textContent = '·';
-      }
-      display.appendChild(jar);
-    }
-  }
+  document.getElementById('plant-modal').classList.remove('hidden');
+}
 
-  function flashHarvest(gained) {
-    const flash   = document.getElementById('event-flash');
-    const entries = Object.entries(gained);
-    if (entries.length === 0) return;
-    let delay = 0;
-    for (const [emoji, count] of entries) {
-      const cap = Math.min(count, 5);
-      for (let i = 0; i < cap; i++) {
-        setTimeout(() => {
-          const span = document.createElement('span');
-          span.className   = 'float-emoji';
-          span.textContent = emoji;
-          span.style.marginLeft = `${(Math.random() * 30 - 15)}px`;
-          flash.appendChild(span);
-          setTimeout(() => span.remove(), 2200);
-        }, delay);
-        delay += 90;
-      }
-    }
-  }
+function closePlantModal() {
+  document.getElementById('plant-modal').classList.add('hidden');
+}
 
-  // ── Plant/entity modal ─────────────────────────────────────────
-  function openPlantModal(tileIdx) {
-    if (G.caravan.arrived) return; // tile edits locked during trader visit
-    selectedTileIdx = tileIdx;
-    const tile  = G.field[tileIdx];
-    const modal = document.getElementById('plant-modal');
-    document.getElementById('plant-modal-title').textContent =
-      tile ? 'REPLACE OR CLEAR THIS TILE' : 'TEND THIS TILE';
+document.getElementById('plant-modal-cancel').addEventListener('click', closePlantModal);
+document.getElementById('plant-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closePlantModal(); });
 
-    // Plant options
-    const opts = document.getElementById('plant-options');
-    opts.innerHTML = '';
-    for (const plant of PLANTS) {
-      const btn = document.createElement('div');
-      btn.className = 'plant-option';
-      btn.innerHTML = `<span class="plant-option-emoji">${plant.emoji}</span>
-                       <span class="plant-option-name">${plant.name}</span>`;
-      btn.addEventListener('click', () => {
-        G.field[tileIdx] = { kind: 'plant', data: plant };
-        save(); renderField(); closePlantModal();
-      });
-      opts.appendChild(btn);
-    }
+// ── Trade modal ────────────────────────────────────────────────
+function showTradeModal(trader, bank) {
+  document.getElementById('trade-modal').classList.remove('hidden');
+  document.getElementById('trader-emoji-big').textContent   = trader.emoji;
+  document.getElementById('trader-name-disp').textContent   = trader.name;
+  document.getElementById('trader-brings-disp').textContent = `brings ${trader.emoji}`;
+  document.getElementById('trade-offer-emoji').textContent  = trader.emoji;
+  document.getElementById('trade-want-detail').textContent  = trader.want === 'any3'
+    ? '3 different kinds'
+    : trader.want.map(({ e, n }) => `${n}×${e}`).join(' + ');
 
-    // Entity list
-    const list   = document.getElementById('entity-list');
-    list.innerHTML = '';
-    const placed = new Set(
-      G.field.filter(Boolean)
-             .filter(t => t.kind === 'entity')
-             .map(t => t.data ? t.data.slug : t.slug)
-    );
+  const able   = canTrade(trader, bank);
+  const haveEl = document.getElementById('trade-have-detail');
+  haveEl.textContent = able ? 'you have enough ✓' : 'not enough';
+  haveEl.className   = 'trade-have-detail ' + (able ? 'can-trade' : 'cant-trade');
+  document.getElementById('trade-btn').disabled = !able;
 
-    if (G.loading || G.entities.length === 0) {
-      const msg = document.createElement('div');
-      msg.className   = 'entity-loading';
-      msg.textContent = G.loading ? 'Loading entities...' : 'No entities available.';
-      list.appendChild(msg);
-    } else {
-      for (const entity of G.entities) {
-        const row = document.createElement('div');
-        row.className = 'entity-option' + (placed.has(entity.slug) ? ' placed' : '');
-        row.innerHTML = `
-          <span class="entity-option-emoji">${entity.derivedEmoji || entityEmoji(entity)}</span>
-          <div class="entity-option-info">
-            <div class="entity-option-name">${entity.name}</div>
-            <div class="entity-option-tags">${(entity.tags || []).join(', ')}</div>
-          </div>`;
-        if (!placed.has(entity.slug)) {
-          row.addEventListener('click', () => {
-            G.field[tileIdx] = { kind: 'entity', data: entity };
-            save(); renderField(); closePlantModal();
-          });
-        }
-        list.appendChild(row);
-      }
-    }
-
-    // Clear tile
-    const clearRow = document.getElementById('clear-tile-row');
-    clearRow.innerHTML = '';
-    if (tile) {
-      const btn = document.createElement('button');
-      btn.className   = 'modal-clear-btn';
-      btn.textContent = 'Clear this tile';
-      btn.addEventListener('click', () => {
-        G.field[tileIdx] = null;
-        save(); renderField(); closePlantModal();
-      });
-      clearRow.appendChild(btn);
-    }
-
-    modal.classList.remove('hidden');
-  }
-
-  function closePlantModal() {
-    document.getElementById('plant-modal').classList.add('hidden');
-    selectedTileIdx = -1;
-  }
-
-  document.getElementById('plant-modal-cancel').addEventListener('click', closePlantModal);
-  document.getElementById('plant-modal').addEventListener('click', e => {
-    if (e.target === e.currentTarget) closePlantModal();
-  });
-
-  // ── Trade modal ────────────────────────────────────────────────
-  function showTradeModal(trader) {
-    document.getElementById('trade-modal').classList.remove('hidden');
-    document.getElementById('trader-emoji-big').textContent   = trader.emoji;
-    document.getElementById('trader-name-disp').textContent   = trader.name;
-    document.getElementById('trader-brings-disp').textContent = `brings ${trader.emoji}`;
-    document.getElementById('trade-offer-emoji').textContent  = trader.emoji;
-
-    const wantText = trader.want === 'any3'
-      ? '3 different kinds'
-      : trader.want.map(({ e, n }) => `${n}×${e}`).join(' + ');
-    document.getElementById('trade-want-detail').textContent = wantText;
-
-    const able    = canTrade(trader);
-    const haveEl  = document.getElementById('trade-have-detail');
-    haveEl.textContent = able ? 'you have enough ✓' : 'not enough in bank';
-    haveEl.className   = 'trade-have-detail ' + (able ? 'can-trade' : 'cant-trade');
-    document.getElementById('trade-btn').disabled = !able;
-
-    traderLingerEnd = Date.now() + TRADER_MS;
-    updateTraderCountdown();
-    traderCountdownTimer = setInterval(updateTraderCountdown, 1000);
-    traderDismissTimer   = setTimeout(() => traderLeave(false), TRADER_MS);
-  }
-
-  function updateTraderCountdown() {
-    const remaining = Math.max(0, Math.ceil((traderLingerEnd - Date.now()) / 1000));
+  traderLingerEnd      = Date.now() + TRADER_MS;
+  traderCountdownTimer = setInterval(() => {
+    const s  = Math.max(0, Math.ceil((traderLingerEnd - Date.now()) / 1000));
     const el = document.getElementById('trade-timer-display');
-    if (el) el.textContent = remaining > 0 ? `departs in ${remaining}s` : 'departing…';
-  }
+    if (el) el.textContent = s > 0 ? `departs in ${s}s` : 'departing…';
+  }, 1000);
+  traderDismissTimer = setTimeout(() => traderLeave(false), TRADER_MS);
+}
 
-  function hideTradeModal() {
-    document.getElementById('trade-modal').classList.add('hidden');
-    clearTimeout(traderDismissTimer);
-    clearInterval(traderCountdownTimer);
-  }
+function hideTradeModal() {
+  document.getElementById('trade-modal').classList.add('hidden');
+  clearTimeout(traderDismissTimer);
+  clearInterval(traderCountdownTimer);
+}
 
-  document.getElementById('trade-btn').addEventListener('click', () => {
-    const trader = G.caravan.trader;
-    if (!trader || !canTrade(trader)) return;
-    if (executeTrade(trader)) {
-      hubMsg('hub:scraggle', { emoji: trader.emoji, signal: `traded with ${trader.name} at the tending field` });
-      traderLeave(true);
-    }
+document.getElementById('trade-btn').addEventListener('click', () => {
+  const t = G.caravan.trader, b = G.caravan.bank;
+  if (t && executeTrade(t, b)) traderLeave(true);
+});
+document.getElementById('trade-pass-btn').addEventListener('click', () => traderLeave(false));
+document.getElementById('click-layer').addEventListener('click', handleFieldClick);
+document.getElementById('float-accept').addEventListener('click', floatTheFarm);
+document.getElementById('float-decline').addEventListener('click', () => {
+  document.getElementById('float-prompt').classList.remove('visible');
+  G.floatAsked = false; G.floatCount = null;
+  G.kiwis = G.kiwis.map(k => k * 0.48);
+  save();
+});
+
+// ── Animation loop ─────────────────────────────────────────────
+let lastTs = 0;
+function loop(ts) {
+  const dt = Math.min(ts - lastTs, 50);
+  lastTs = ts;
+  drawBackground(dt);
+  tickParticleSpawns(dt);
+  updateParticles(dt);
+  updateRelics(dt);
+  drawAll();
+  // Periodic kiwi tick (~every 20s)
+  lastKiwiTick += dt;
+  if (lastKiwiTick > 20000) { tickKiwis(); lastKiwiTick = 0; }
+  requestAnimationFrame(loop);
+}
+
+// ── Init ───────────────────────────────────────────────────────
+async function init() {
+  loadSaved();
+
+  G.field = G.field.map(t => {
+    if (!t) return null;
+    if (t.kind === 'plant') { const p = PLANTS.find(p => p.id === t.plantId); return p ? { kind:'plant', data:p } : null; }
+    return t;
   });
 
-  document.getElementById('trade-pass-btn').addEventListener('click', () => traderLeave(false));
+  renderCaravan();
+  renderField();
 
-  // ── Init ───────────────────────────────────────────────────────
-  async function init() {
-    loadSaved();
-
-    // Hydrate plant tiles immediately (entities need network)
-    G.field = G.field.map(t => {
-      if (!t) return null;
-      if (t.kind === 'plant') {
-        const plant = PLANTS.find(p => p.id === t.plantId);
-        return plant ? { kind: 'plant', data: plant } : null;
-      }
-      return t; // entity stubs stay as-is until loadEntities() runs
-    });
-
-    renderCaravan();
-    renderField();
-    renderBank();
-    renderJars();
-
-    // Load entities from registry
-    G.entities = await loadEntities();
-
-    // Hydrate saved entity stubs with full entity data
-    G.field = G.field.map(t => {
-      if (!t || t.kind !== 'entity' || t.data) return t; // skip if already hydrated or null
-      const entity = G.entities.find(e => e.slug === t.slug && e.neighborhood === t.neighborhood);
-      return entity ? { kind: 'entity', data: entity } : null;
-    });
-
-    G.loading = false;
-
-    const overlay = document.getElementById('loading-overlay');
-    overlay.style.opacity = '0';
-    setTimeout(() => overlay.remove(), 700);
-
-    renderField(); // re-render with full entity data
-    startCaravan();
+  // Restore float prompt
+  if (G.floatAsked && G.floatCount !== null) {
+    const name = G.field.find(Boolean)?.data?.name || 'The field';
+    document.getElementById('float-message').textContent = G.floatCount <= 0
+      ? `${name} is ready. Are you?`
+      : `${name}: ${G.floatCount} more caravan${G.floatCount !== 1 ? 's' : ''}.`;
+    document.getElementById('float-prompt').classList.add('visible');
   }
 
-  init();
-  </script>
+  // Setup canvases after first render
+  await new Promise(r => requestAnimationFrame(r));
+  setupCanvases();
+  requestAnimationFrame(loop);
+
+  // Load entities
+  G.entities = await loadEntities();
+  G.field = G.field.map(t => {
+    if (!t || t.kind !== 'entity' || t.data) return t;
+    const e = G.entities.find(e => e.slug === t.slug && e.neighborhood === t.neighborhood);
+    return e ? { kind:'entity', data:e } : null;
+  });
+
+  G.loading = false;
+  renderField();
+
+  const overlay = document.getElementById('loading-overlay');
+  overlay.style.opacity = '0';
+  setTimeout(() => overlay.remove(), 900);
+
+  startCaravan();
+}
+
+init();
+</script>
 </body>
 </html>
