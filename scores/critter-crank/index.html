@@ -5,13 +5,1247 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Critter Crank — Fixed Point Local</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0a0a0a; }
+    body {
+      background: #04040a;
+      font-family: 'Press Start 2P', monospace;
+      transition: background 0.5s;
+    }
+
+    /* ── Keyframes ─────────────────────────────────────────── */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    @keyframes worldIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+    @keyframes screenFlicker { 0%,100%{opacity:1} 93%{opacity:0.97} 94%{opacity:1} }
+    @keyframes confettiFly { 0%{opacity:1;transform:rotate(var(--a,0deg)) translateY(-10px)} 100%{opacity:0;transform:rotate(var(--a,0deg)) translateY(-32px)} }
+    @keyframes critterIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+    @keyframes shimmer { 0%{left:-100%} 100%{left:200%} }
+
+    /* ── Buttons ───────────────────────────────────────────── */
+    .btn-3d { box-shadow: 0 3px 0 rgba(0,0,0,0.5); transition: all 0.1s; }
+    .btn-3d:hover { filter: brightness(1.15); }
+    .btn-3d:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.5); }
+    .recipe-btn:hover { filter: brightness(1.2); }
+    .extra-btn:hover { filter: brightness(1.3); }
+    .world-btn { transition: transform 0.15s, filter 0.15s; }
+    .world-btn:hover { transform: scale(1.04) !important; filter: brightness(1.2); }
+
+    /* ── Critter canvas ────────────────────────────────────── */
+    canvas.critter { image-rendering: pixelated; display: block; }
+
+    /* ── Collection thumbnail hover ────────────────────────── */
+    .coll-thumb { cursor: pointer; border: 2px solid #0a1a00; border-radius: 3px; padding: 3px; transition: border-color 0.15s; }
+    .coll-thumb:hover { border-color: #4a7a00; }
+
+    /* ── Bounce reveal ─────────────────────────────────────── */
+    .bounce-slot {
+      position: relative; cursor: pointer;
+      opacity: 0; transform: scale(0) translateY(20px);
+      border: 3px solid transparent; border-radius: 4px;
+      background: transparent;
+    }
+    .bounce-slot.visible {
+      opacity: 1; transform: scale(1.15);
+      transition: transform 0.18s ease-out, opacity 0.15s;
+    }
+    .bounce-slot.popped {
+      transform: scale(1);
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), opacity 0.15s;
+    }
+    .bounce-slot.selected {
+      border-color: #9bbc0f;
+      background: rgba(155,188,15,0.08);
+    }
+
+    /* ── Scrollbar ─────────────────────────────────────────── */
+    .coll-grid::-webkit-scrollbar { width: 4px; }
+    .coll-grid::-webkit-scrollbar-track { background: #0a1400; }
+    .coll-grid::-webkit-scrollbar-thumb { background: #2a4a00; border-radius: 2px; }
   </style>
-  <script type="module" crossorigin src="/scores/critter-crank/assets/index-0lvE96rv.js"></script>
 </head>
 <body>
-  <div id="root"></div>
-  <script>if (window.parent !== window) window.parent.postMessage({ type: 'hub:minimize' }, '*');</script>
+  <div id="mount"></div>
+  <script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CRITTER CRANK — Vanilla JS Port
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ── Seeded RNG ────────────────────────────────────────────────────────────────
+function hashStr(str) {
+  var h = 0;
+  for (var i = 0; i < str.length; i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h = h | 0;
+  }
+  return Math.abs(h);
+}
+
+function seededRng(seed) {
+  var s = Math.abs(seed) || 1;
+  return function() {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function pick(arr, rng) { return arr[Math.floor(rng() * arr.length)]; }
+function pickN(arr, n, rng) {
+  var copy = arr.slice(), result = [];
+  for (var i = 0; i < Math.min(n, copy.length); i++) {
+    result.push(copy.splice(Math.floor(rng() * copy.length), 1)[0]);
+  }
+  return result;
+}
+
+// ── Worlds ────────────────────────────────────────────────────────────────────
+var WORLDS = {
+  city: {
+    label: "City", icon: "\u25A6",
+    flavor: "Friends, commerce, and things that remember being useful.",
+    bg: "#1a1220", accent: "#cc88ff",
+    palettePool: ["item","earth","light","ghost"],
+    recipePool: ["creature","item","relic"],
+    extraHints: ["rect","diamond","line","cross"],
+    cohesionBias: ["directional","clustered"],
+  },
+  jungle: {
+    label: "Jungle", icon: "\u2767",
+    flavor: "Something watches from every leaf. Most of it is friendly.",
+    bg: "#0a1a08", accent: "#88ff66",
+    palettePool: ["nature","earth","poison","water"],
+    recipePool: ["flora","creature","spirit"],
+    extraHints: ["blob","scatter","circle","eye"],
+    cohesionBias: ["radial","scattered"],
+  },
+  space: {
+    label: "Space", icon: "\u2605",
+    flavor: "Distant things. Patient things. Things with no hurry whatsoever.",
+    bg: "#04040f", accent: "#6688ff",
+    palettePool: ["ghost","ice","poison","creature"],
+    recipePool: ["spirit","creature","terrain"],
+    extraHints: ["ring","scatter","circle","spike"],
+    cohesionBias: ["scattered","radial"],
+  },
+  deep: {
+    label: "Deep", icon: "\u25CE",
+    flavor: "Below the usual. Pressure makes things interesting.",
+    bg: "#000a14", accent: "#00ccff",
+    palettePool: ["water","ice","ghost","poison"],
+    recipePool: ["creature","spirit","flora"],
+    extraHints: ["blob","ring","eye","scatter"],
+    cohesionBias: ["radial","clustered"],
+  },
+  ruin: {
+    label: "Ruin", icon: "\u25EB",
+    flavor: "Something happened here. Not everything left.",
+    bg: "#120e08", accent: "#cc8844",
+    palettePool: ["earth","fire","item","ghost"],
+    recipePool: ["relic","terrain","creature"],
+    extraHints: ["cross","diamond","line","rect"],
+    cohesionBias: ["directional","clustered"],
+  },
+  forge: {
+    label: "Forge", icon: "\u25C8",
+    flavor: "Hot opinions. Sharp edges. Everything here has a purpose.",
+    bg: "#1a0800", accent: "#ff6622",
+    palettePool: ["fire","light","item","earth"],
+    recipePool: ["item","relic","creature"],
+    extraHints: ["spike","diamond","cross","line"],
+    cohesionBias: ["directional","radial"],
+  },
+};
+
+var WORLD_KEYS = Object.keys(WORLDS);
+
+// ── Palettes ──────────────────────────────────────────────────────────────────
+var PALETTES = {
+  nature:   ["#1a2a0a","#2d6a2d","#5a9e3a","#a8d060","#e8f0a0","#ffffff"],
+  creature: ["#0a0a1a","#1a1a2e","#0f3460","#e94560","#f5a623","#f0f0f0"],
+  item:     ["#0a0805","#3d2010","#8b4513","#cd853f","#ffd700","#ffffff"],
+  fire:     ["#0a0000","#3a0000","#8b0000","#dc143c","#ff6600","#ffdd00"],
+  ice:      ["#00050f","#001428","#003366","#0066cc","#66b3ff","#e8f4ff"],
+  poison:   ["#080010","#1a0028","#4b0082","#800080","#da70d6","#e8ffe8"],
+  ghost:    ["#040408","#0d0d1a","#1a1a3e","#5050a0","#b0b0e0","#f0f0ff"],
+  earth:    ["#080400","#1a0f00","#3d2b1f","#6b4226","#c4956a","#ffe8c0"],
+  water:    ["#000508","#001428","#003366","#0088cc","#44ccee","#c0eeff"],
+  light:    ["#080800","#1a1400","#3d3300","#ccaa00","#ffdd33","#fffff0"],
+};
+
+// ── Recipes ───────────────────────────────────────────────────────────────────
+var RECIPES = {
+  creature: { label:"Creature", icon:"\u25C8", paletteHints:["creature","ghost","poison","fire"], shapeTypes:["blob","eye","spike","circle","irregular"], countRange:[3,6] },
+  item:     { label:"Item",     icon:"\u25C6", paletteHints:["item","earth","light"],             shapeTypes:["rect","diamond","line","circle","cross"],   countRange:[2,4] },
+  flora:    { label:"Flora",    icon:"\u2767", paletteHints:["nature","earth","water"],            shapeTypes:["circle","blob","scatter","line"],           countRange:[3,7] },
+  terrain:  { label:"Terrain",  icon:"\u25C7", paletteHints:["earth","nature","water","ice"],      shapeTypes:["rect","scatter","line","irregular"],        countRange:[4,8] },
+  spirit:   { label:"Spirit",   icon:"\u25CB", paletteHints:["ghost","ice","light","poison"],      shapeTypes:["circle","blob","scatter","ring"],           countRange:[2,5] },
+  relic:    { label:"Relic",    icon:"\u2726", paletteHints:["light","item","fire","ice"],         shapeTypes:["diamond","cross","ring","circle","spike"],  countRange:[2,5] },
+};
+
+// ── Cohesion Modes ────────────────────────────────────────────────────────────
+var COHESION_MODES = {
+  radial:      { label:"Radial",      desc:"emanating from center" },
+  directional: { label:"Directional", desc:"aligned flow" },
+  clustered:   { label:"Clustered",   desc:"tight mass" },
+  scattered:   { label:"Scattered",   desc:"sparse and distant" },
+};
+
+// ── Name + Description Generation ────────────────────────────────────────────
+var PREFIXES = ["Glob","Mur","Fez","Wyx","Blit","Snor","Quib","Zal","Pog","Vel","Trix","Oom","Skit","Drab","Flum","Grix","Hob","Jib","Krel","Lux","Brem","Cov","Dwin","Efp","Skiv"];
+var MIDS = ["al","ox","un","im","esh","orb","ik","ula","ven","ax"];
+var SUFFIXES = ["ble","kin","ox","ish","en","ar","um","ix","le","ot","us","on","ig","ub","az","ep","orf","unk","eel","ap"];
+
+var DESC_STARTS = ["Prefers","Has strong opinions about","Cannot remember","Occasionally dreams of","Is quietly proud of","Refuses to acknowledge","Collects","Has survived","Suspects","Genuinely enjoys"];
+var DESC_SUBJECTS = ["corners","bridges","the color of certain clouds","being watched","small containers","early mornings","the sound of keys","being almost somewhere","soft textures","the concept of Tuesday","things left behind","particular silences","what's beneath floors","doorways","reflected light"];
+var DESC_CODAS = ["Harmless, probably.","Waiting for something specific.","The feeling is mutual.","Means well.","No one has asked.","It's complicated.","Has been this way for a while.","Not in any rush.","Keeps to itself, mostly.","You'd like each other."];
+
+function generateName(seed) {
+  var rng = seededRng(seed + 9999);
+  var name = pick(PREFIXES, rng);
+  if (rng() > 0.4) name += pick(MIDS, rng);
+  name += pick(SUFFIXES, rng);
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function generateDescription(seed) {
+  var rng = seededRng(seed + 77777);
+  return pick(DESC_STARTS, rng) + " " + pick(DESC_SUBJECTS, rng) + ". " + pick(DESC_CODAS, rng);
+}
+
+// ── Tag → Shape Hint Map ─────────────────────────────────────────────────────
+var TAG_SHAPE_MAP = {
+  subtle: ["scatter","line"], shifting: ["irregular","blob"], attentive: ["eye","ring"],
+  fierce: ["spike","diamond"], bold: ["diamond","cross"], territorial: ["rect","cross"],
+  quiet: ["circle","ring"], patient: ["ring","scatter"], watching: ["eye","circle"],
+  mighty: ["blob","irregular"], large: ["blob","rect"], heavy: ["rect","diamond"],
+  ancient: ["irregular","ring"], poisonous: ["scatter","blob"], toxic: ["scatter","ring"],
+  quick: ["scatter","spike"], swift: ["spike","line"], nimble: ["line","scatter"],
+  curious: ["eye","blob"], tasteful: ["circle","diamond"], meandering: ["irregular","scatter"],
+  seeking: ["eye","line"],
+};
+
+// ── All Shape Names ──────────────────────────────────────────────────────────
+var ALL_SHAPES = ["blob","eye","spike","scatter","ring","cross","line","diamond","rect","circle","irregular"];
+
+// ── Pixel Renderer ───────────────────────────────────────────────────────────
+var GRID = 48;
+
+function renderCritter(seed, recipeKey, extraShapes, palKey, cohesionMode) {
+  var rng = seededRng(seed);
+  var recipe = RECIPES[recipeKey] || RECIPES.creature;
+  var pal = PALETTES[palKey] || PALETTES.creature;
+
+  // Build shape pool
+  var pool = recipe.shapeTypes.slice();
+  for (var ei = 0; ei < extraShapes.length; ei++) {
+    pool.push(extraShapes[ei]);
+    pool.push(extraShapes[ei]); // weight extras
+  }
+
+  // Pixel grid — null = transparent
+  var grid = new Array(GRID * GRID).fill(null);
+
+  function setPixel(x, y, color) {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || x >= GRID || y < 0 || y >= GRID) return;
+    grid[y * GRID + x] = color;
+  }
+
+  function fillCircle(cx, cy, r, color) {
+    cx = Math.round(cx); cy = Math.round(cy); r = Math.round(r);
+    for (var dy = -r; dy <= r; dy++) {
+      for (var dx = -r; dx <= r; dx++) {
+        if (dx*dx + dy*dy <= r*r) setPixel(cx+dx, cy+dy, color);
+      }
+    }
+  }
+
+  function strokeRing(cx, cy, r, color) {
+    cx = Math.round(cx); cy = Math.round(cy);
+    for (var dy = -r; dy <= r; dy++) {
+      for (var dx = -r; dx <= r; dx++) {
+        var d2 = dx*dx + dy*dy;
+        if (d2 <= r*r && d2 >= (r-2)*(r-2)) setPixel(cx+dx, cy+dy, color);
+      }
+    }
+  }
+
+  function fillRect(x, y, w, h, color) {
+    for (var ry = y; ry < y+h; ry++)
+      for (var rx = x; rx < x+w; rx++)
+        setPixel(rx, ry, color);
+  }
+
+  function fillDiamond(cx, cy, r, color) {
+    cx = Math.round(cx); cy = Math.round(cy);
+    for (var dy = -r; dy <= r; dy++) {
+      var hw = r - Math.abs(dy);
+      for (var dx = -hw; dx <= hw; dx++) setPixel(cx+dx, cy+dy, color);
+    }
+  }
+
+  function drawBlob(cx, cy, r, color) {
+    cx = Math.round(cx); cy = Math.round(cy);
+    fillCircle(cx, cy, Math.max(2, r-1), color);
+    var pts = 8 + Math.floor(rng() * 6);
+    for (var i = 0; i < pts; i++) {
+      var a = (i / pts) * Math.PI * 2;
+      var wobble = r + (rng()-0.5) * r * 0.6;
+      fillCircle(cx + Math.round(Math.cos(a)*wobble*0.7), cy + Math.round(Math.sin(a)*wobble*0.7), Math.max(1, Math.round(wobble*0.25)), color);
+    }
+  }
+
+  function drawLine(x1, y1, x2, y2, color) {
+    var dx = x2-x1, dy = y2-y1;
+    var steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)));
+    for (var i = 0; i <= steps; i++) {
+      var t = steps === 0 ? 0 : i/steps;
+      setPixel(x1 + dx*t, y1 + dy*t, color);
+    }
+  }
+
+  function drawSpike(cx, cy, angle, len, color) {
+    for (var t = 0; t < len; t++) {
+      setPixel(cx + Math.cos(angle)*t, cy + Math.sin(angle)*t, color);
+    }
+  }
+
+  // Color choices
+  var mainColor   = pal[2];
+  var accentColor = pal[4];
+  var midColor    = pal[3];
+  var darkColor   = pal[1];
+  var lightColor  = pal[5];
+
+  var cx = GRID/2 + (rng()-0.5)*6;
+  var cy = GRID/2 + (rng()-0.5)*6;
+
+  // Cohesion parameters
+  var mode = cohesionMode || "radial";
+  var flowAngle = rng() * Math.PI * 2;
+
+  var count = recipe.countRange[0] + Math.floor(rng() * (recipe.countRange[1] - recipe.countRange[0] + 1));
+
+  for (var si = 0; si < count; si++) {
+    var shapeType = pick(pool, rng);
+    var color = si === 0 ? mainColor : (rng() > 0.45 ? mainColor : (rng() > 0.5 ? accentColor : midColor));
+    var sz = 3 + Math.floor(rng() * 9);
+
+    // Position based on cohesion mode
+    var ox, oy;
+    switch(mode) {
+      case "radial":
+        var ra = rng() * Math.PI * 2;
+        var rd = (si === 0 ? 0 : 4 + rng() * 12);
+        ox = cx + Math.cos(ra) * rd;
+        oy = cy + Math.sin(ra) * rd;
+        break;
+      case "directional":
+        var dd = (si / count) * 22 - 11;
+        var perp = (rng()-0.5) * 8;
+        ox = cx + Math.cos(flowAngle) * dd + Math.cos(flowAngle + Math.PI/2) * perp;
+        oy = cy + Math.sin(flowAngle) * dd + Math.sin(flowAngle + Math.PI/2) * perp;
+        break;
+      case "clustered":
+        ox = cx + (rng()-0.5) * 14;
+        oy = cy + (rng()-0.5) * 14;
+        sz = Math.max(2, sz - 2);
+        break;
+      case "scattered":
+        ox = cx + (rng()-0.5) * 30;
+        oy = cy + (rng()-0.5) * 30;
+        sz = Math.max(2, sz - 1);
+        break;
+      default:
+        ox = cx + (rng()-0.5) * 20;
+        oy = cy + (rng()-0.5) * 20;
+    }
+
+    switch(shapeType) {
+      case "blob":
+        drawBlob(ox, oy, sz, color);
+        break;
+      case "circle":
+        fillCircle(ox, oy, sz, color);
+        break;
+      case "ring":
+        strokeRing(Math.round(ox), Math.round(oy), sz, color);
+        break;
+      case "rect":
+        var rw = 3 + Math.floor(rng() * sz * 1.2);
+        var rh = 3 + Math.floor(rng() * sz * 1.2);
+        fillRect(Math.round(ox-rw/2), Math.round(oy-rh/2), rw, rh, color);
+        break;
+      case "diamond":
+        fillDiamond(ox, oy, sz, color);
+        break;
+      case "eye":
+        fillCircle(ox, oy, Math.max(2, sz), lightColor);
+        fillCircle(ox + Math.round((rng()-0.5)*2), oy + Math.round((rng()-0.5)*2), Math.max(1, Math.floor(sz*0.5)), darkColor);
+        setPixel(Math.round(ox)-1, Math.round(oy)-1, lightColor);
+        break;
+      case "spike":
+        var sCount = 3 + Math.floor(rng() * 5);
+        var baseAngle = mode === "directional" ? flowAngle : rng() * Math.PI * 2;
+        for (var spi = 0; spi < sCount; spi++) {
+          var sAngle = baseAngle + (spi/sCount) * Math.PI * 2;
+          drawSpike(Math.round(ox), Math.round(oy), sAngle, sz + Math.floor(rng()*5), color);
+        }
+        break;
+      case "scatter":
+        var dotCount = 3 + Math.floor(rng() * 8);
+        for (var di = 0; di < dotCount; di++) {
+          var spread = mode === "scattered" ? 8 : 5;
+          var dx = ox + (rng()-0.5)*sz*spread*0.4;
+          var dy2 = oy + (rng()-0.5)*sz*spread*0.4;
+          setPixel(Math.round(dx), Math.round(dy2), color);
+          if (rng() > 0.5) setPixel(Math.round(dx)+1, Math.round(dy2), color);
+        }
+        break;
+      case "line":
+        var la = mode === "directional" ? flowAngle + (rng()-0.5)*0.4 : rng()*Math.PI*2;
+        var ll = sz + Math.floor(rng()*8);
+        drawLine(Math.round(ox-Math.cos(la)*ll), Math.round(oy-Math.sin(la)*ll), Math.round(ox+Math.cos(la)*ll), Math.round(oy+Math.sin(la)*ll), color);
+        break;
+      case "cross":
+        var csz = sz;
+        fillRect(Math.round(ox-csz), Math.round(oy-1), csz*2, 3, color);
+        fillRect(Math.round(ox-1), Math.round(oy-csz), 3, csz*2, color);
+        break;
+      case "irregular":
+        var ipts = 4 + Math.floor(rng()*4);
+        var ipx = Math.round(ox), ipy = Math.round(oy);
+        for (var ip = 0; ip < ipts; ip++) {
+          var inx = Math.round(ox + (rng()-0.5)*sz*2.5);
+          var iny = Math.round(oy + (rng()-0.5)*sz*2.5);
+          drawLine(ipx, ipy, inx, iny, color);
+          ipx = inx; ipy = iny;
+        }
+        break;
+    }
+  }
+
+  // Accent highlights
+  if (rng() > 0.35) {
+    var hlCount = 1 + Math.floor(rng()*3);
+    for (var hli = 0; hli < hlCount; hli++) {
+      var hlx = cx + (rng()-0.5)*16;
+      var hly = cy + (rng()-0.5)*16;
+      setPixel(Math.round(hlx), Math.round(hly), lightColor);
+    }
+  }
+
+  return grid;
+}
+
+// ── Canvas Drawing ───────────────────────────────────────────────────────────
+function drawCritterToCanvas(canvas, grid, size) {
+  var ctx = canvas.getContext("2d");
+  var ps = size / GRID;
+  canvas.width = size; canvas.height = size;
+  ctx.clearRect(0, 0, size, size);
+  for (var y = 0; y < GRID; y++)
+    for (var x = 0; x < GRID; x++) {
+      var color = grid[y * GRID + x];
+      if (color) { ctx.fillStyle = color; ctx.fillRect(x * ps, y * ps, ps, ps); }
+    }
+}
+
+// ── Breathing Animation ──────────────────────────────────────────────────────
+var activeAnimations = [];
+
+function cancelAllAnimations() {
+  for (var i = 0; i < activeAnimations.length; i++) {
+    cancelAnimationFrame(activeAnimations[i]);
+  }
+  activeAnimations = [];
+}
+
+function startBreathing(canvas, grid, size) {
+  var ctx = canvas.getContext("2d");
+  var ps = size / GRID;
+  canvas.width = size; canvas.height = size;
+  var start = Date.now();
+  function draw() {
+    var t = (Date.now() - start) / 1000;
+    ctx.clearRect(0, 0, size, size);
+    for (var y = 0; y < GRID; y++)
+      for (var x = 0; x < GRID; x++) {
+        var color = grid[y * GRID + x];
+        if (!color) continue;
+        var breathe = Math.sin(t * 1.6 + (x + y) * 0.18) * 0.9;
+        ctx.fillStyle = color;
+        ctx.fillRect(x * ps, y * ps + breathe, ps, ps);
+      }
+    var id = requestAnimationFrame(draw);
+    activeAnimations.push(id);
+  }
+  var id = requestAnimationFrame(draw);
+  activeAnimations.push(id);
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+var S = {
+  worldKey: null,
+  recipeKey: "creature",
+  extraShapes: [],
+  palKey: null,
+  cohesionMode: null,
+  rolls: [],
+  selected: null,
+  collection: [],
+  view: "crank",
+  cranking: false,
+  crankAngle: 0,
+  selectedCritter: null,
+  editingDesc: false,
+  customDesc: "",
+  crankContext: null,
+};
+
+// Grid cache: stores rendered grids to avoid re-rendering on every frame
+var gridCache = {};
+
+function getCachedGrid(roll) {
+  var key = roll.seed + ":" + roll.recipeKey + ":" + roll.extraShapes.join(",") + ":" + roll.palKey + ":" + roll.cohesionMode;
+  if (!gridCache[key]) {
+    gridCache[key] = renderCritter(roll.seed, roll.recipeKey, roll.extraShapes, roll.palKey, roll.cohesionMode);
+  }
+  return gridCache[key];
+}
+
+// ── Persistence ──────────────────────────────────────────────────────────────
+function loadCollection() {
+  try {
+    var raw = localStorage.getItem("critter-collection-v2");
+    if (raw) S.collection = JSON.parse(raw);
+  } catch(e) {}
+}
+
+function saveCollection() {
+  try { localStorage.setItem("critter-collection-v2", JSON.stringify(S.collection)); } catch(e) {}
+}
+
+function pushScraggle(emoji, signal) {
+  try {
+    var raw = localStorage.getItem("baseline-session/scraggles") || "[]";
+    var arr = JSON.parse(raw);
+    arr.push({ emoji: emoji, signal: signal, source: "critter-crank", arrivedAt: Date.now() });
+    localStorage.setItem("baseline-session/scraggles", JSON.stringify(arr));
+  } catch(e) {}
+}
+
+function readCrankContext() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var slug = params.get("slug");
+    var name = params.get("name");
+    if (slug && name) {
+      var tags = params.get("tags") ? params.get("tags").split(",").filter(Boolean) : [];
+      var neighborhood = params.get("neighborhood") || "";
+      var ctx = { slug: slug, name: name, tags: tags, neighborhood: neighborhood };
+      var hasGlyph = params.get("hasGlyph") === "1";
+      if (hasGlyph) {
+        try {
+          var glyphRaw = localStorage.getItem("crank-glyph-source");
+          if (glyphRaw) {
+            var glyphData = JSON.parse(glyphRaw);
+            if (glyphData.slug === slug && (Date.now() - glyphData.writtenAt) < 5 * 60 * 1000) {
+              ctx.glyphSvg = glyphData.svg;
+            }
+          }
+        } catch(e) {}
+      }
+      S.crankContext = ctx;
+    }
+  } catch(e) {}
+
+  // Check localStorage for maze-diffusion seed (if no Grimoire context)
+  if (!S.crankContext) {
+    try {
+      var seedRaw = localStorage.getItem("baseline-session/crank-seed");
+      if (seedRaw) {
+        var seed = JSON.parse(seedRaw);
+        if (seed.source === "maze-diffusion") {
+          var recipeMap = {
+            circle:["creature","spirit"], square:["item","terrain"],
+            triangle:["relic","creature"]
+          };
+          seed.recipePool = recipeMap[seed.dominantPinType] || ["flora","spirit"];
+          S.crankContext = seed;
+        }
+      }
+    } catch(e) {}
+  }
+}
+
+function exportPortrait(critter, grid) {
+  if (!S.crankContext || !S.crankContext.slug) return;
+  try {
+    var canvas = document.createElement("canvas");
+    canvas.width = 96; canvas.height = 96;
+    var ctx = canvas.getContext("2d");
+    var ps = 96 / 48;
+    for (var y = 0; y < 48; y++) {
+      for (var x = 0; x < 48; x++) {
+        var color = grid[y * 48 + x];
+        if (color) { ctx.fillStyle = color; ctx.fillRect(x * ps, y * ps, ps, ps); }
+      }
+    }
+    var dataUrl = canvas.toDataURL("image/png");
+    var portrait = {
+      slug: S.crankContext.slug,
+      neighborhood: S.crankContext.neighborhood || "",
+      name: critter.name,
+      dataUrl: dataUrl,
+      worldKey: S.worldKey,
+      seed: critter.seed,
+      keptAt: Date.now(),
+    };
+    var qRaw = localStorage.getItem("baseline-session/portraits-queue");
+    var queue = qRaw ? JSON.parse(qRaw) : [];
+    queue.push(portrait);
+    localStorage.setItem("baseline-session/portraits-queue", JSON.stringify(queue));
+  } catch(e) {}
+}
+
+// ── Game Logic ───────────────────────────────────────────────────────────────
+function selectWorld(key) {
+  S.worldKey = key;
+  S.rolls = [];
+  S.selected = null;
+  gridCache = {};
+  render();
+}
+
+function goToWorldSelect() {
+  S.worldKey = null;
+  S.rolls = [];
+  S.selected = null;
+  gridCache = {};
+  render();
+}
+
+function handleCrank() {
+  if (S.cranking || !S.worldKey) return;
+  S.cranking = true;
+  var start = Date.now();
+  var duration = 500;
+  var handle = document.getElementById("crank-handle");
+  var btn = document.getElementById("crank-btn");
+  function animate() {
+    var p = Math.min((Date.now()-start)/duration, 1);
+    S.crankAngle = p * 380;
+    if (handle) handle.style.transform = "rotate("+S.crankAngle+"deg)";
+    if (btn) {
+      btn.style.transform = "translateY(3px)";
+      btn.style.background = "#1a0a00";
+    }
+    if (p < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      S.crankAngle = 0;
+      S.cranking = false;
+      if (handle) handle.style.transform = "rotate(0deg)";
+      if (btn) {
+        btn.style.transform = "none";
+        btn.style.background = "radial-gradient(circle at 40% 35%, #5a3010, #3d2010)";
+      }
+      doRoll();
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+function doRoll() {
+  var w = WORLDS[S.worldKey];
+  var now = Date.now();
+  var newRolls = [];
+
+  // Entity tag hints
+  var entityHints = [];
+  if (S.crankContext && S.crankContext.tags) {
+    S.crankContext.tags.forEach(function(tag) {
+      var hints = TAG_SHAPE_MAP[tag];
+      if (hints) entityHints = entityHints.concat(hints);
+    });
+  }
+
+  for (var i = 0; i < 6; i++) {
+    var seed = now + i * 7919 + Math.floor(Math.random()*99999);
+    var rng = seededRng(seed + 1234);
+    var rKey = S.recipeKey;
+    var worldNote = [];
+    if (rng() > 0.6) { rKey = pick(w.recipePool, rng); if (rKey !== S.recipeKey) worldNote.push(rKey); }
+    var rExtras = S.extraShapes.slice();
+    if (rng() > 0.5) {
+      var hint = pick(w.extraHints, rng);
+      if (!rExtras.includes(hint)) { rExtras.push(hint); worldNote.push("+"+hint); }
+    }
+    // Entity suggestion layer
+    if (entityHints.length > 0 && rng() > 0.4) {
+      var entityHint = pick(entityHints, rng);
+      if (!rExtras.includes(entityHint)) { rExtras.push(entityHint); worldNote.push("~"+entityHint); }
+    }
+    var rPal = S.palKey || pick(w.palettePool, rng);
+    var rCohesion = S.cohesionMode || pick(w.cohesionBias, rng);
+    // Maze seed layer — override palette/cohesion/recipe from maze witness data
+    if (S.crankContext && S.crankContext.source === "maze-diffusion") {
+      var ms = S.crankContext;
+      if (rng() > 0.5 && ms.recipePool) { rKey = pick(ms.recipePool, rng); worldNote.push("m:"+rKey); }
+      if (!S.palKey) rPal = ms.paletteKey || rPal;
+      if (!S.cohesionMode) rCohesion = ms.cohesionMode || rCohesion;
+      if (ms.extraShapeHints) ms.extraShapeHints.forEach(function(h) {
+        if (!rExtras.includes(h)) { rExtras.push(h); }
+      });
+    }
+    newRolls.push({ seed: seed, recipeKey: rKey, extraShapes: rExtras, palKey: rPal, cohesionMode: rCohesion, worldNote: worldNote.join(" ") });
+  }
+  S.rolls = newRolls;
+  S.selected = null;
+  gridCache = {};
+  render();
+
+  // Start bounce reveal
+  setTimeout(function() { bounceReveal(); }, 10);
+}
+
+function selectRoll(i) {
+  S.selected = (S.selected === i) ? null : i;
+  render();
+  setTimeout(function() { bounceReveal(true); }, 10);
+}
+
+function keepSelected() {
+  if (S.selected === null || !S.rolls[S.selected]) return;
+  var roll = S.rolls[S.selected];
+  var critter = {
+    id: roll.seed,
+    seed: roll.seed,
+    recipeKey: roll.recipeKey,
+    extraShapes: roll.extraShapes,
+    palKey: roll.palKey,
+    cohesionMode: roll.cohesionMode,
+    name: generateName(roll.seed),
+    description: generateDescription(roll.seed),
+    worldKey: S.worldKey,
+    collected: Date.now(),
+  };
+  // Store maze DNA if this critter came from a maze seed
+  if (S.crankContext && S.crankContext.source === "maze-diffusion") {
+    var ms = S.crankContext;
+    critter.mazeOrigin = {
+      meanStrength: ms.meanStrength,
+      calcifiedRatio: ms.calcifiedRatio,
+      layerCount: ms.layerCount,
+      kiwiDensity: ms.kiwiDensity,
+      dominantHex: ms.dominantHex,
+      secondaryHex: ms.secondaryHex,
+    };
+  }
+  S.collection.push(critter);
+  saveCollection();
+
+  // Portrait for Grimoire
+  var grid = getCachedGrid(roll);
+  exportPortrait(critter, grid);
+
+  // Scraggle
+  pushScraggle("\u2728", critter.name.toLowerCase() + " kept");
+
+  // Remove from rolls
+  S.rolls.splice(S.selected, 1);
+  S.selected = null;
+  render();
+  setTimeout(function() { bounceReveal(true); }, 10);
+}
+
+function toggleExtra(shape) {
+  var idx = S.extraShapes.indexOf(shape);
+  if (idx >= 0) S.extraShapes.splice(idx, 1);
+  else S.extraShapes.push(shape);
+  render();
+}
+
+function setRecipe(key) {
+  S.recipeKey = key;
+  render();
+}
+
+function setPalette(key) {
+  S.palKey = key;
+  render();
+}
+
+function setCohesion(key) {
+  S.cohesionMode = key;
+  render();
+}
+
+function setView(v) {
+  S.view = v;
+  S.selectedCritter = null;
+  S.editingDesc = false;
+  render();
+}
+
+function selectCritterInCollection(critter) {
+  S.selectedCritter = critter;
+  S.editingDesc = false;
+  render();
+}
+
+function backFromCritterDetail() {
+  S.selectedCritter = null;
+  S.editingDesc = false;
+  render();
+}
+
+function startEditDesc() {
+  S.customDesc = S.selectedCritter.description || "";
+  S.editingDesc = true;
+  render();
+  // Focus textarea
+  setTimeout(function() {
+    var ta = document.getElementById("desc-edit");
+    if (ta) ta.focus();
+  }, 10);
+}
+
+function saveDesc() {
+  if (!S.selectedCritter) return;
+  var ta = document.getElementById("desc-edit");
+  if (ta) S.customDesc = ta.value;
+  for (var i = 0; i < S.collection.length; i++) {
+    if (S.collection[i].id === S.selectedCritter.id) {
+      S.collection[i].description = S.customDesc;
+      break;
+    }
+  }
+  saveCollection();
+  S.selectedCritter = Object.assign({}, S.selectedCritter, { description: S.customDesc });
+  S.editingDesc = false;
+  render();
+}
+
+function releaseFromCollection(id) {
+  S.collection = S.collection.filter(function(c){ return c.id !== id; });
+  saveCollection();
+  if (S.selectedCritter && S.selectedCritter.id === id) S.selectedCritter = null;
+  render();
+}
+
+function exportAsEntity(critter) {
+  var catMap = { creature:"spirit", item:"item", flora:"tendency", terrain:"location", spirit:"spirit", relic:"item" };
+  var entity = {
+    id: critter.id.toString(36),
+    name: critter.name,
+    category: catMap[critter.recipeKey] || "spirit",
+    description: critter.description,
+    tags: [critter.worldKey, critter.recipeKey, critter.palKey, critter.cohesionMode].filter(Boolean),
+    created: critter.collected,
+    source: "critter-crank",
+  };
+  var blob = new Blob([JSON.stringify({ grimoire:"The Living Grimoire", version:1, exported:new Date().toISOString(), entries:[entity], journal:[] }, null, 2)], {type:"application/json"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = critter.name.toLowerCase().replace(/\s+/g,"-")+".json";
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function dismissContext() {
+  S.crankContext = null;
+  render();
+}
+
+// ── Bounce Reveal ────────────────────────────────────────────────────────────
+function bounceReveal(skipAnimation) {
+  var slots = document.querySelectorAll(".bounce-slot");
+  if (!slots.length) return;
+  slots.forEach(function(slot, i) {
+    if (skipAnimation) {
+      slot.classList.add("visible", "popped");
+      if (S.selected === i) slot.classList.add("selected");
+      else slot.classList.remove("selected");
+      return;
+    }
+    slot.classList.remove("visible", "popped", "selected");
+    setTimeout(function() {
+      slot.classList.add("visible");
+      setTimeout(function() {
+        slot.classList.add("popped");
+        // Confetti
+        var conf = slot.querySelector(".confetti");
+        if (conf) conf.style.display = "block";
+      }, 180);
+    }, i * 90);
+  });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+var mount = document.getElementById("mount");
+
+function render() {
+  cancelAllAnimations();
+
+  if (!S.worldKey) {
+    renderWorldSelect();
+  } else {
+    renderMachine();
+  }
+  document.body.style.background = S.worldKey ? WORLDS[S.worldKey].bg : "#04040a";
+
+  // Post-render: draw canvases
+  setTimeout(postRender, 0);
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function renderWorldSelect() {
+  var ctxBanner = "";
+  if (S.crankContext && S.crankContext.source === "maze-diffusion") {
+    var ms = S.crankContext;
+    ctxBanner = '<div style="background:rgba(204,170,102,0.06);border:1px solid #554422;border-radius:6px;padding:10px 16px;margin-bottom:24px;text-align:left">'
+      + '<div style="font-size:5px;color:#ccaa66;letter-spacing:0.1em;margin-bottom:4px">ARRIVED FROM THE MAZE</div>'
+      + '<div style="font-size:5px;color:#aa8844;margin-bottom:4px">' + esc(ms.paletteKey) + ' \u00B7 ' + esc(ms.cohesionMode) + ' \u00B7 ' + esc(ms.dominantPinType) + '</div>'
+      + '<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">'
+      + '<div style="width:12px;height:12px;border-radius:2px;background:' + esc(ms.dominantHex) + '"></div>'
+      + (ms.secondaryHex ? '<div style="width:12px;height:12px;border-radius:2px;background:' + esc(ms.secondaryHex) + '"></div>' : '')
+      + '<span style="font-size:4px;color:#886633">' + ms.layerCount + ' layer' + (ms.layerCount !== 1 ? 's' : '') + ' \u00B7 ' + esc(ms.kiwiDensity) + ' kiwis</span>'
+      + '</div>'
+      + '<div style="font-size:4px;color:#554422;margin-top:2px">the maze witnessed something</div>'
+      + '</div>';
+  } else if (S.crankContext) {
+    var tags = S.crankContext.tags && S.crankContext.tags.length > 0
+      ? '<div style="font-size:4px;color:#4a6a10;letter-spacing:0.05em">' + esc(S.crankContext.tags.join(" \u00B7 ")) + '</div>'
+      : "";
+    ctxBanner = '<div style="background:rgba(155,188,15,0.06);border:1px solid #3a5a00;border-radius:6px;padding:10px 16px;margin-bottom:24px;text-align:left">'
+      + '<div style="font-size:5px;color:#9bbc0f;letter-spacing:0.1em;margin-bottom:4px">ARRIVED FROM THE HALL</div>'
+      + '<div style="font-size:6px;color:#c8d890;margin-bottom:4px">' + esc(S.crankContext.name) + '</div>'
+      + tags
+      + '<div style="font-size:4px;color:#2a4a00;margin-top:6px">kept critters will return as portraits</div>'
+      + '</div>';
+  }
+
+  var worldButtons = WORLD_KEYS.map(function(k, i) {
+    var w = WORLDS[k];
+    return '<button class="world-btn" onclick="selectWorld(\'' + k + '\')" style="background:#0a0a10;border:2px solid #2a2a3a;border-radius:6px;padding:14px 10px;cursor:pointer;text-align:left;font-family:inherit;animation:worldIn 0.4s ease ' + (i*60) + 'ms backwards">'
+      + '<div style="font-size:16px;margin-bottom:6px">' + w.icon + '</div>'
+      + '<div style="font-size:7px;color:#e0e0c0;margin-bottom:6px;letter-spacing:0.08em">' + esc(w.label.toUpperCase()) + '</div>'
+      + '<div style="font-size:5px;color:#4a4a3a;line-height:1.8">' + esc(w.flavor) + '</div>'
+      + '</button>';
+  }).join("");
+
+  mount.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">'
+    + '<div style="text-align:center;max-width:480px">'
+    + '<div style="font-size:10px;color:#ffcc44;letter-spacing:0.15em;margin-bottom:8px;text-shadow:0 0 12px #ffcc44aa">\u2726 CRITTER CRANK \u2726</div>'
+    + '<div style="font-size:6px;color:#444422;margin-bottom:40px;letter-spacing:0.1em;animation:pulse 2s infinite">where do you want to go?</div>'
+    + ctxBanner
+    + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
+    + worldButtons
+    + '</div>'
+    + '<div style="margin-top:24px;font-size:5px;color:#1a1a0a">insert coin to begin</div>'
+    + '</div></div>';
+}
+
+function renderMachine() {
+  var world = WORLDS[S.worldKey];
+  var worldAccent = world.accent;
+
+  // Context banner
+  var ctxBanner = "";
+  if (S.crankContext && S.crankContext.source === "maze-diffusion") {
+    var ms = S.crankContext;
+    ctxBanner = '<div style="background:rgba(204,170,102,0.05);border:1px solid #554422;border-radius:4px;padding:7px 10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
+      + '<div><div style="font-size:4px;color:#ccaa66;letter-spacing:0.1em;margin-bottom:2px">MAZE SEED \u00B7 ' + esc(ms.paletteKey.toUpperCase()) + ' \u00B7 ' + esc(ms.cohesionMode.toUpperCase()) + '</div>'
+      + '<div style="display:flex;gap:3px;align-items:center"><div style="width:8px;height:8px;border-radius:1px;background:' + esc(ms.dominantHex) + '"></div>'
+      + (ms.secondaryHex ? '<div style="width:8px;height:8px;border-radius:1px;background:' + esc(ms.secondaryHex) + '"></div>' : '')
+      + '<span style="font-size:4px;color:#886633">' + esc(ms.dominantPinType) + ' \u00B7 ' + esc(ms.kiwiDensity) + '</span></div></div>'
+      + '<button onclick="dismissContext()" style="background:none;border:none;color:#554422;font-size:5px;cursor:pointer;font-family:inherit;padding:0">\u2715</button>'
+      + '</div>';
+  } else if (S.crankContext) {
+    var tags = S.crankContext.tags && S.crankContext.tags.length > 0
+      ? '<div style="font-size:4px;color:#2a5000">' + esc(S.crankContext.tags.join(" \u00B7 ")) + '</div>'
+      : "";
+    ctxBanner = '<div style="background:rgba(155,188,15,0.05);border:1px solid #2a4a00;border-radius:4px;padding:7px 10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
+      + '<div><div style="font-size:4px;color:#4a7a00;letter-spacing:0.1em;margin-bottom:2px">HALL CONTEXT \u00B7 ' + esc(S.crankContext.name.toUpperCase()) + '</div>' + tags + '</div>'
+      + '<button onclick="dismissContext()" style="background:none;border:none;color:#2a4a00;font-size:5px;cursor:pointer;font-family:inherit;padding:0">\u2715</button>'
+      + '</div>';
+  }
+
+  // Tabs
+  var tabCrank = S.view === "crank"
+    ? 'background:#9bbc0f;border:2px solid #9bbc0f;color:#0a0a00'
+    : 'background:#0a1400;border:2px solid #1a2a00;color:#3a5a00';
+  var tabColl = S.view === "collection"
+    ? 'background:#9bbc0f;border:2px solid #9bbc0f;color:#0a0a00'
+    : 'background:#0a1400;border:2px solid #1a2a00;color:#3a5a00';
+
+  // Screen content
+  var screenContent = S.view === "crank" ? renderCrankView() : renderCollectionView();
+
+  // Controls
+  var controls = renderControls();
+
+  // Crank button
+  var recipeIcon = RECIPES[S.recipeKey] ? RECIPES[S.recipeKey].icon : "\u25C8";
+  var sheenHtml = S.cranking ? '' : '<div style="position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);animation:shimmer 3s infinite 1s"></div>';
+
+  mount.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px 10px">'
+    + '<div style="width:100%;max-width:500px">'
+
+    // Machine body
+    + '<div style="background:linear-gradient(160deg,#8b2252 0%,#6b1a3e 40%,#4a1228 100%);border-radius:20px;padding:22px 20px 26px;box-shadow:0 20px 60px rgba(0,0,0,0.9),inset 0 1px 0 rgba(255,255,255,0.12),inset 0 -3px 0 rgba(0,0,0,0.4);border:3px solid #2a0a18">'
+
+    // Header
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+    + '<div>'
+    + '<div style="font-size:7px;color:#ffcc44;letter-spacing:0.12em;text-shadow:0 0 8px #ffcc44aa">\u2726 CRITTER CRANK \u2726</div>'
+    + '<div style="font-size:5px;color:' + worldAccent + ';margin-top:3px;letter-spacing:0.08em">' + world.icon + ' ' + esc(world.label.toUpperCase()) + '</div>'
+    + '</div>'
+    + '<button onclick="goToWorldSelect()" class="btn-3d" style="background:#2a0a18;border:2px solid #3a1228;color:#664455;font-size:5px;padding:5px 8px;cursor:pointer;border-radius:3px;font-family:inherit">\u2190 WORLDS</button>'
+    + '</div>'
+
+    + ctxBanner
+
+    // Screen bezel
+    + '<div style="background:#120008;border-radius:10px;padding:10px;border:4px solid #1a0010;box-shadow:inset 0 4px 16px rgba(0,0,0,0.9),0 2px 0 rgba(255,255,255,0.04);margin-bottom:14px">'
+    + '<div style="background:#080f00;border-radius:6px;padding:10px;position:relative;min-height:220px;animation:screenFlicker 10s infinite;box-shadow:inset 0 0 24px rgba(155,188,15,0.06)">'
+    // Phosphor + scanlines
+    + '<div style="position:absolute;inset:0;background:rgba(155,188,15,0.03);border-radius:6px;pointer-events:none;z-index:10"></div>'
+    + '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);border-radius:6px;pointer-events:none;z-index:11"></div>'
+
+    // Tabs
+    + '<div style="display:flex;gap:5px;margin-bottom:10px;position:relative;z-index:1">'
+    + '<button onclick="setView(\'crank\')" style="' + tabCrank + ';font-size:5px;padding:4px 8px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">CRANK</button>'
+    + '<button onclick="setView(\'collection\')" style="' + tabColl + ';font-size:5px;padding:4px 8px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">HAUL (' + S.collection.length + ')</button>'
+    + '</div>'
+
+    + screenContent
+
+    + '</div></div>' // end screen + bezel
+
+    + controls
+
+    // Crank
+    + '<div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:4px">'
+    + '<div style="font-size:5px;color:#3a1a28;text-align:right;line-height:2">'
+    + '<div>' + recipeIcon + '</div>'
+    + '<div style="color:' + worldAccent + ';opacity:0.6">' + esc(world.label) + '</div>'
+    + '</div>'
+    + '<button id="crank-btn" onclick="handleCrank()" ' + (S.cranking ? 'disabled' : '') + ' style="background:' + (S.cranking ? '#1a0a00' : 'radial-gradient(circle at 40% 35%,#5a3010,#3d2010)') + ';border:4px solid #1a0800;border-radius:50%;width:70px;height:70px;cursor:' + (S.cranking ? 'default' : 'pointer') + ';display:flex;align-items:center;justify-content:center;box-shadow:0 5px 0 #0a0400,0 8px 16px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.1);position:relative;overflow:hidden">'
+    + sheenHtml
+    + '<div id="crank-handle" style="width:8px;height:28px;background:linear-gradient(180deg,#ffdd66,#cc8800);border-radius:4px;transform-origin:50% 100%;transform:rotate(' + S.crankAngle + 'deg);position:relative">'
+    + '<div style="position:absolute;top:-6px;left:-4px;width:16px;height:16px;background:radial-gradient(circle at 40% 35%,#ffee88,#cc8800);border-radius:50%;border:2px solid #aa6600;box-shadow:0 2px 4px rgba(0,0,0,0.4)"></div>'
+    + '</div></button>'
+    + '<div style="font-size:5px;color:#3a1a28;line-height:2">'
+    + '<div>' + (S.cranking ? '\u27F3' : '\u21BA') + '</div>'
+    + '<div>' + S.collection.length + ' kept</div>'
+    + '</div></div>'
+    + '<div style="text-align:center;font-size:5px;color:#2a0a18;margin-top:6px;letter-spacing:0.08em">'
+    + (S.cranking ? 'dispensing...' : 'TURN TO DISPENSE')
+    + '</div>'
+
+    + '</div>' // end machine
+    + '</div></div>';
+}
+
+function renderCrankView() {
+  if (S.rolls.length === 0) {
+    var world = WORLDS[S.worldKey];
+    return '<div style="position:relative;z-index:1">'
+      + '<div style="text-align:center;padding:28px 0;color:#1a2a00">'
+      + '<div style="font-size:18px;margin-bottom:10px;opacity:0.4">' + world.icon + '</div>'
+      + '<div style="font-size:5px;line-height:2.2;color:#2a4000">turn the crank</div>'
+      + '<div style="font-size:5px;color:#1a2800;line-height:2">' + esc(world.flavor) + '</div>'
+      + '</div></div>';
+  }
+
+  // Build grid
+  var items = S.rolls.map(function(c, i) {
+    var isSel = S.selected === i;
+    var recipe = RECIPES[c.recipeKey];
+    var labelNote = c.worldNote ? '<span style="color:#9bbc0f;display:block;font-size:4px;opacity:0.8">' + esc(c.worldNote) + '</span>' : '';
+    return '<div class="bounce-slot' + (isSel ? ' selected' : '') + '" onclick="selectRoll('+i+')">'
+      + '<canvas class="critter" data-roll-idx="'+i+'" width="80" height="80" style="width:80px;height:80px"></canvas>'
+      + '<div class="confetti" style="position:absolute;inset:0;pointer-events:none;display:none">'
+      + [0,1,2,3,4].map(function(ci) {
+          var angle = (ci/5)*360;
+          var colors = ["#9bbc0f","#ffcc44","#ff6644","#44ccff","#cc44ff"];
+          return '<div style="position:absolute;top:50%;left:50%;width:3px;height:3px;background:'+colors[ci]+';border-radius:1px;--a:'+angle+'deg;animation:confettiFly 0.5s ease-out '+(ci*30)+'ms forwards;opacity:0"></div>';
+        }).join('')
+      + '</div>'
+      + '<div style="font-size:5px;color:#4a7a00;text-align:center;margin-top:2px;line-height:1.8">'
+      + (recipe ? recipe.icon + ' ' + c.recipeKey : '\u25C8')
+      + labelNote
+      + '</div></div>';
+  }).join("");
+
+  var selectedInfo = "";
+  if (S.selected !== null && S.rolls[S.selected]) {
+    var roll = S.rolls[S.selected];
+    selectedInfo = '<div style="margin-top:10px;text-align:center;animation:critterIn 0.2s ease">'
+      + '<div style="font-size:6px;color:#9bbc0f;margin-bottom:2px">' + esc(generateName(roll.seed)) + '</div>'
+      + '<div style="font-size:5px;color:#4a6a00;margin-bottom:8px;line-height:1.8">' + esc(generateDescription(roll.seed)) + '</div>'
+      + '<button onclick="keepSelected()" class="btn-3d" style="background:#9bbc0f;border:2px solid #7a9a0a;color:#0a0f00;font-size:6px;padding:6px 16px;cursor:pointer;border-radius:3px;font-family:inherit">KEEP</button>'
+      + '</div>';
+  } else if (S.rolls.length > 0) {
+    selectedInfo = '<div style="text-align:center;font-size:5px;color:#1a2800;margin-top:8px">tap to meet them \u00B7 keep to collect</div>';
+  }
+
+  return '<div style="position:relative;z-index:1">'
+    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
+    + items
+    + '</div>'
+    + selectedInfo
+    + '</div>';
+}
+
+function renderCollectionView() {
+  if (S.selectedCritter) {
+    var c = S.selectedCritter;
+    var recipe = RECIPES[c.recipeKey];
+    var recipeInfo = (recipe ? recipe.icon + ' ' : '') + (c.worldKey ? c.worldKey.toUpperCase() : '');
+
+    var descHtml;
+    if (S.editingDesc) {
+      descHtml = '<textarea id="desc-edit" onblur="saveDesc()" style="width:100%;background:#0a1400;border:1px solid #2a4000;color:#9bbc0f;font-size:5px;padding:6px;font-family:inherit;resize:none;border-radius:2px;line-height:1.8" rows="3">' + esc(S.customDesc) + '</textarea>';
+    } else {
+      descHtml = '<div onclick="startEditDesc()" style="font-size:5px;color:#4a6a00;line-height:1.8;cursor:text;border-bottom:1px dashed #1a3000">' + esc(c.description) + '</div>';
+    }
+
+    return '<div style="position:relative;z-index:1;animation:critterIn 0.2s ease">'
+      + '<button onclick="backFromCritterDetail()" style="background:none;border:none;color:#4a7a00;font-size:5px;cursor:pointer;font-family:inherit;margin-bottom:8px">\u2190 back</button>'
+      + '<div style="display:flex;gap:10px;align-items:flex-start">'
+      + '<canvas class="critter" data-coll-detail="' + c.seed + '" width="80" height="80" style="width:80px;height:80px"></canvas>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:7px;color:#9bbc0f;margin-bottom:4px">' + esc(c.name) + '</div>'
+      + '<div style="font-size:5px;color:#3a5a00;margin-bottom:6px">' + recipeInfo + '</div>'
+      + descHtml
+      + '</div></div>'
+      + '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">'
+      + '<button onclick="exportAsEntity(S.selectedCritter)" class="btn-3d" style="background:#1a2a00;border:2px solid #3a5a00;color:#9bbc0f;font-size:5px;padding:5px 8px;cursor:pointer;border-radius:2px;font-family:inherit">\u2192 SEND TO HALL</button>'
+      + '<button onclick="releaseFromCollection(' + c.id + ')" class="btn-3d" style="background:#1a0000;border:2px solid #3a0000;color:#880000;font-size:5px;padding:5px 8px;cursor:pointer;border-radius:2px;font-family:inherit">RELEASE</button>'
+      + '</div></div>';
+  }
+
+  if (S.collection.length === 0) {
+    return '<div style="position:relative;z-index:1">'
+      + '<div style="text-align:center;padding:28px 0;color:#1a2a00">'
+      + '<div style="font-size:5px;line-height:2.2">your haul is empty</div>'
+      + '<div style="font-size:5px;color:#0a1400">crank to find friends</div>'
+      + '</div></div>';
+  }
+
+  var thumbs = S.collection.map(function(critter) {
+    return '<div class="coll-thumb" onclick="selectCritterInCollection(S.collection.find(function(c){return c.id===' + critter.id + '}))">'
+      + '<canvas class="critter" data-coll-id="' + critter.seed + '" data-coll-recipe="' + esc(critter.recipeKey) + '" data-coll-extras="' + esc(critter.extraShapes.join(",")) + '" data-coll-pal="' + esc(critter.palKey || "") + '" data-coll-cohesion="' + esc(critter.cohesionMode || "") + '" width="54" height="54" style="width:54px;height:54px"></canvas>'
+      + '<div style="font-size:4px;color:#2a4a00;margin-top:2px;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + esc(critter.name) + '</div>'
+      + '</div>';
+  }).join("");
+
+  return '<div style="position:relative;z-index:1">'
+    + '<div class="coll-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:200px;overflow-y:auto">'
+    + thumbs
+    + '</div></div>';
+}
+
+function renderControls() {
+  // Recipe buttons
+  var recipeButtons = Object.keys(RECIPES).map(function(k) {
+    var r = RECIPES[k];
+    var isActive = S.recipeKey === k;
+    return '<button class="recipe-btn btn-3d" onclick="setRecipe(\'' + k + '\')" style="background:' + (isActive ? '#9bbc0f' : '#1a0010') + ';border:2px solid ' + (isActive ? '#7a9a0a' : '#3a1028') + ';color:' + (isActive ? '#0a0f00' : '#6a3a5a') + ';font-size:5px;padding:5px 7px;cursor:pointer;border-radius:3px;font-family:inherit">' + r.icon + ' ' + esc(r.label.toUpperCase()) + '</button>';
+  }).join("");
+
+  // Extra shape buttons
+  var extraButtons = ALL_SHAPES.map(function(shape) {
+    var isActive = S.extraShapes.includes(shape);
+    return '<button class="extra-btn btn-3d" onclick="toggleExtra(\'' + shape + '\')" style="background:' + (isActive ? '#2a1a40' : '#12000e') + ';border:2px solid ' + (isActive ? '#8866cc' : '#3a1030') + ';color:' + (isActive ? '#cc99ff' : '#5a2a4a') + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">' + shape.toUpperCase() + '</button>';
+  }).join("");
+
+  // Palette buttons
+  var palAutoStyle = S.palKey === null
+    ? 'background:#9bbc0f;border:2px solid #7a9a0a;color:#0a0f00'
+    : 'background:#12000e;border:2px solid #2a1020;color:#4a3a40';
+  var palButtons = '<button onclick="setPalette(null)" class="btn-3d" style="' + palAutoStyle + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">AUTO</button>';
+  palButtons += Object.keys(PALETTES).map(function(pk) {
+    var pal = PALETTES[pk];
+    var isActive = S.palKey === pk;
+    return '<button onclick="setPalette(\'' + pk + '\')" class="btn-3d" style="background:' + (isActive ? pal[2] : '#12000e') + ';border:2px solid ' + (isActive ? pal[3] : '#2a1020') + ';color:' + (isActive ? '#fff' : '#4a3a40') + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">' + pk.slice(0,4).toUpperCase() + '</button>';
+  }).join("");
+
+  // Cohesion buttons
+  var cohAutoStyle = S.cohesionMode === null
+    ? 'background:#9bbc0f;border:2px solid #7a9a0a;color:#0a0f00'
+    : 'background:#12000e;border:2px solid #2a1020;color:#4a3a40';
+  var cohButtons = '<button onclick="setCohesion(null)" class="btn-3d" style="' + cohAutoStyle + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">AUTO</button>';
+  cohButtons += Object.keys(COHESION_MODES).map(function(mk) {
+    var isActive = S.cohesionMode === mk;
+    return '<button onclick="setCohesion(\'' + mk + '\')" class="btn-3d" style="background:' + (isActive ? '#3a2a50' : '#12000e') + ';border:2px solid ' + (isActive ? '#8866cc' : '#2a1020') + ';color:' + (isActive ? '#cc99ff' : '#4a3a40') + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">' + mk.toUpperCase() + '</button>';
+  }).join("");
+
+  return '<div style="margin-bottom:12px">'
+    + '<div style="font-size:5px;color:#cc6688;letter-spacing:0.1em;margin-bottom:6px">RECIPE</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:4px">' + recipeButtons + '</div>'
+    + '</div>'
+    + '<div style="margin-bottom:12px">'
+    + '<div style="font-size:5px;color:#cc6688;letter-spacing:0.1em;margin-bottom:6px">ALSO ADD</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:4px">' + extraButtons + '</div>'
+    + '</div>'
+    + '<div style="margin-bottom:12px">'
+    + '<div style="font-size:5px;color:#cc6688;letter-spacing:0.1em;margin-bottom:6px">PALETTE \u00B7 COHESION</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">' + palButtons + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:4px">' + cohButtons + '</div>'
+    + '</div>';
+}
+
+// ── Post-Render: Draw all canvases ───────────────────────────────────────────
+function postRender() {
+  // Roll canvases
+  document.querySelectorAll("canvas[data-roll-idx]").forEach(function(canvas) {
+    var idx = parseInt(canvas.getAttribute("data-roll-idx"));
+    if (idx >= 0 && idx < S.rolls.length) {
+      var roll = S.rolls[idx];
+      var grid = getCachedGrid(roll);
+      drawCritterToCanvas(canvas, grid, 80);
+    }
+  });
+
+  // Collection detail (animated)
+  document.querySelectorAll("canvas[data-coll-detail]").forEach(function(canvas) {
+    if (S.selectedCritter) {
+      var grid = getCachedGrid(S.selectedCritter);
+      startBreathing(canvas, grid, 80);
+    }
+  });
+
+  // Collection thumbnails (animated)
+  document.querySelectorAll("canvas[data-coll-id]").forEach(function(canvas) {
+    var seed = parseInt(canvas.getAttribute("data-coll-id"));
+    var critter = S.collection.find(function(c) { return c.seed === seed; });
+    if (critter) {
+      var grid = getCachedGrid(critter);
+      startBreathing(canvas, grid, 54);
+    }
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function init() {
+  loadCollection();
+  readCrankContext();
+  render();
+
+  // Hub minimize
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'hub:minimize' }, '*');
+  }
+}
+
+document.addEventListener("DOMContentLoaded", init);
+  </script>
 </body>
 </html>
