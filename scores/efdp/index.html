@@ -96,6 +96,7 @@
     <label>MODE</label>
     <button id="btn-mode-pin" class="active">Pin</button>
     <button id="btn-mode-erase">Erase Wall</button>
+    <button id="btn-mode-eye">Eye</button>
   </div>
   <div class="ctrl-group">
     <label>TYPE</label>
@@ -121,6 +122,8 @@
       <div class="color-btn" style="background:#cc44aa" data-color="#cc44aa"></div>
       <div class="color-btn" style="background:#9966ff" data-color="#9966ff"></div>
       <input type="color" id="custom-color" value="#ff6644" title="Custom color">
+      <input type="text" id="hex-input" maxlength="7" placeholder="#hex" value="#f5c842"
+             style="width:5.5em;background:#0e0e12;color:#e0d8c8;border:1px solid #3a3a44;border-radius:4px;padding:2px 4px;font-size:11px;font-family:monospace;">
     </div>
   </div>
   <div class="ctrl-group">
@@ -142,6 +145,8 @@
     <button id="btn-kiwi" class="kiwi">Kiwis</button>
     <button id="btn-third" class="third">Third</button>
     <button id="btn-reset-color" class="danger">Clear Color</button>
+    <button id="btn-restore" disabled title="Restore pins from memory">Restore</button>
+    <button id="btn-forget" disabled title="Forget pin memory" style="font-size:9px;padding:4px 6px;">Forget</button>
   </div>
 </div>
 <div id="canvas-wrap">
@@ -532,7 +537,8 @@ function createLayer(name) {
     totalLegacyWalls: 0,
     decayRate: 0.5,
     blendMode: layers.length === 0 ? 'overwrite' : 'alpha',
-    opacity: 1.0
+    opacity: 1.0,
+    pinMemory: null
   };
 }
 
@@ -573,6 +579,7 @@ function switchToLayer(index) {
   renderMaze();
   updatePinList();
   updateLayerPanel();
+  updateMemoryButtons();
   setStatus(`Layer ${index + 1}: ${layers[index].name}`);
 }
 
@@ -610,7 +617,7 @@ function updateLayerPanel() {
 
     const name = document.createElement('span');
     name.className = 'layer-name';
-    name.textContent = layer.name;
+    name.textContent = (layer.pinMemory ? '\u{1F4CC} ' : '') + layer.name;
 
     const blend = document.createElement('select');
     blend.className = 'layer-blend';
@@ -645,9 +652,32 @@ function updateLayerPanel() {
   });
 }
 
+function updateMemoryButtons() {
+  var hasMem = layers.length > 0 && !!layers[activeLayerIndex].pinMemory;
+  document.getElementById('btn-restore').disabled = !hasMem;
+  document.getElementById('btn-forget').disabled = !hasMem;
+}
+
+function restorePinsFromMemory() {
+  var mem = layers[activeLayerIndex].pinMemory;
+  if (!mem) return;
+  pins.length = 0;
+  mem.forEach(function(p) {
+    pins.push({
+      x: p.x, y: p.y, color: [...p.color],
+      strength: p.strength, initialStrength: p.strength,
+      type: p.type, direction: p.direction,
+      limit: null, legacyDone: false
+    });
+  });
+  updatePinList();
+}
+
 // --- Core ---
 
 function initMaze() {
+  // Preserve pin memory across regen
+  var savedMemory = (layers.length > 0) ? layers[activeLayerIndex].pinMemory : null;
   const sz = parseInt(document.getElementById('maze-size').value);
   const algo = document.getElementById('algo').value;
   const maxW = Math.min(window.innerWidth - 40, 680);
@@ -669,10 +699,16 @@ function initMaze() {
   totalKiwis = 0;
   totalPulses = 0;
   totalLegacyWalls = 0;
+  // Restore pin memory if it existed
+  if (savedMemory) {
+    layers[0].pinMemory = savedMemory;
+    restorePinsFromMemory();
+  }
   renderMaze();
   updatePinList();
   updateLayerPanel();
-  setStatus('Maze ready. Place color pins, then pulse.');
+  updateMemoryButtons();
+  setStatus(savedMemory ? 'New maze. Pin rig restored from memory.' : 'Maze ready. Place color pins, then pulse.');
 }
 
 /**
@@ -2012,6 +2048,24 @@ canvas.addEventListener('click', e => {
     }
   }
 
+  if (mode === 'eyedropper') {
+    var ci = (cell.y * maze.W + cell.x) * 4;
+    if (cellColors[ci + 3] > 0) {
+      var hex = rgbToHex(cellColors[ci], cellColors[ci+1], cellColors[ci+2]);
+      currentColor = hex;
+      hexInput.value = hex;
+      customColor.value = hex;
+      document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+      mode = 'pin';
+      document.getElementById('btn-mode-pin').classList.add('active');
+      document.getElementById('btn-mode-eye').classList.remove('active');
+      updateModeIndicator();
+      canvas.style.cursor = 'crosshair';
+      setStatus('Sampled ' + hex);
+    }
+    return;
+  }
+
   if (mode === 'pin') {
     const ei = pins.findIndex(p => p.x === cell.x && p.y === cell.y);
     if (ei !== -1) pins.splice(ei, 1);
@@ -2053,6 +2107,16 @@ function eraseWall(cell) {
 
 function pulse(n) {
   if (!maze) return;
+  // Auto-capture pin memory on first pulse
+  if (!layers[activeLayerIndex].pinMemory && pins.length > 0) {
+    layers[activeLayerIndex].pinMemory = pins.map(p => ({
+      x: p.x, y: p.y, color: [...p.color],
+      strength: p.initialStrength || p.strength,
+      type: p.type, direction: p.direction
+    }));
+    updateLayerPanel();
+    updateMemoryButtons();
+  }
   for (let i = 0; i < n; i++) pulseOnce();
   renderMaze();
   updatePinList();
@@ -2148,9 +2212,38 @@ document.getElementById('btn-reset-color').onclick = () => {
     layers[activeLayerIndex].cellColors = cellColors;
     layers[activeLayerIndex].kiwiMap = kiwiMap;
   }
+  // Restore pins from memory if available (they may have died during pulsing)
+  if (layers.length > 0 && layers[activeLayerIndex].pinMemory) {
+    restorePinsFromMemory();
+    setStatus('Color cleared. Pin rig restored from memory.');
+  } else {
+    setStatus('Color cleared on active layer. Pins remain.');
+  }
   renderMaze();
   updatePinList();
-  setStatus('Color cleared on active layer. Pins remain.');
+};
+
+document.getElementById('btn-restore').onclick = () => {
+  if (!maze || !layers[activeLayerIndex].pinMemory) return;
+  const N = maze.W * maze.H;
+  cellColors = new Float32Array(N * 4);
+  kiwiMap = new Float32Array(N);
+  calcifiedCount = 0; totalKiwis = 0; totalPulses = 0; totalLegacyWalls = 0;
+  if (layers.length > 0) {
+    layers[activeLayerIndex].cellColors = cellColors;
+    layers[activeLayerIndex].kiwiMap = kiwiMap;
+  }
+  restorePinsFromMemory();
+  renderMaze();
+  setStatus('Pin rig restored. Ready to pulse.');
+};
+document.getElementById('btn-forget').onclick = () => {
+  if (!layers[activeLayerIndex].pinMemory) return;
+  layers[activeLayerIndex].pinMemory = null;
+  document.getElementById('btn-restore').disabled = true;
+  document.getElementById('btn-forget').disabled = true;
+  updateLayerPanel();
+  setStatus('Pin memory cleared.');
 };
 
 document.getElementById('btn-add-layer').onclick = addLayer;
@@ -2196,6 +2289,8 @@ function updateModeIndicator() {
   const layerTag = layers.length > 1 ? `L${activeLayerIndex + 1} · ` : '';
   if (mode === 'erase') {
     document.getElementById('mode-indicator').textContent = layerTag + 'ERASE MODE';
+  } else if (mode === 'eyedropper') {
+    document.getElementById('mode-indicator').textContent = layerTag + 'EYEDROPPER';
   } else {
     const typeName = currentPinType.toUpperCase();
     document.getElementById('mode-indicator').textContent = layerTag + `${typeName} PIN`;
@@ -2206,6 +2301,7 @@ document.getElementById('btn-mode-pin').onclick = () => {
   mode = 'pin';
   document.getElementById('btn-mode-pin').classList.add('active');
   document.getElementById('btn-mode-erase').classList.remove('active');
+  document.getElementById('btn-mode-eye').classList.remove('active');
   updateModeIndicator();
   canvas.style.cursor = 'crosshair';
 };
@@ -2213,8 +2309,17 @@ document.getElementById('btn-mode-erase').onclick = () => {
   mode = 'erase';
   document.getElementById('btn-mode-erase').classList.add('active');
   document.getElementById('btn-mode-pin').classList.remove('active');
+  document.getElementById('btn-mode-eye').classList.remove('active');
   updateModeIndicator();
   canvas.style.cursor = 'cell';
+};
+document.getElementById('btn-mode-eye').onclick = () => {
+  mode = 'eyedropper';
+  document.getElementById('btn-mode-eye').classList.add('active');
+  document.getElementById('btn-mode-pin').classList.remove('active');
+  document.getElementById('btn-mode-erase').classList.remove('active');
+  updateModeIndicator();
+  canvas.style.cursor = 'copy';
 };
 
 // Type selector
@@ -2237,17 +2342,31 @@ document.getElementById('btn-mode-erase').onclick = () => {
   };
 });
 
+var hexInput = document.getElementById('hex-input');
+var customColor = document.getElementById('custom-color');
+
 document.querySelectorAll('.color-btn').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     currentColor = btn.dataset.color;
+    hexInput.value = currentColor;
+    customColor.value = currentColor;
   };
 });
-document.getElementById('custom-color').oninput = e => {
+customColor.oninput = e => {
   document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
   currentColor = e.target.value;
+  hexInput.value = currentColor;
 };
+hexInput.addEventListener('input', () => {
+  var v = hexInput.value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+    currentColor = v;
+    customColor.value = v;
+    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+  }
+});
 document.getElementById('pin-strength').oninput = e => {
   currentStrength = parseInt(e.target.value);
   document.getElementById('strength-val').textContent = currentStrength;
