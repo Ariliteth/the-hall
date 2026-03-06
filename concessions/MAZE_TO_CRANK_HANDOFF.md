@@ -1,17 +1,42 @@
-# Maze → Crank Handoff Spec
-**Fixed Point Local · Color Pin Maze Diffusion ↔ Critter Crank**
+# EFDP → ECGP Handoff Spec
+**Fixed Point Local · EFDP (Evocative FPL Diffusion Place) ↔ Critter Crank**
+
+---
+
+## Naming Convention
+
+FPL infrastructure places carry four-position earned titles. The format is not
+decorative — each letter is load-bearing.
+
+```
+Position 1 — Affective quality   E = Evocative
+Position 2 — System scope        F = FPL-wide   C = Critter-local   M = Mucklerbuckler ...
+Position 3 — Process             D = Diffusion  G = Generation
+Position 4 — Always Place        P (fixed)
+```
+
+**EFDP** is the canonical address. Every system in FPL knows it and knows where
+it is. Systems that need a local relationship with EFDP fork the address by
+substituting the letters that change.
+
+**ECGP** (Evocative Critter Generation Place) is Critter Crank's local fork.
+Same underlying process, local dimensional context. A roguelite generating
+monsters on the fly keys into ECGP rather than EFDP directly — it gets the
+same diffusion substrate dressed for creature generation.
+
+The fourth letter is the fixed point of the convention. Everything is somewhere.
 
 ---
 
 ## Purpose
 
-When a maze has been witnessed (diffusion has run), it can optionally export a
-`CrankSeed` object. The Crank receives this object exactly as it currently
-receives `crankContext` from the Grimoire — same slot, same logic, additional
-fields. No new state required on either side.
+When EFDP has been witnessed (diffusion has run), it can optionally export a
+`CrankSeed` object. ECGP receives this object exactly as it currently receives
+`crankContext` from the Grimoire — same slot, same logic, additional fields.
+No new state required on either side.
 
-The maze does not tell the Crank what to make. It reports what happened, and
-the Crank reads the implications.
+EFDP does not tell ECGP what to make. It reports what happened, and ECGP reads
+the implications.
 
 ---
 
@@ -19,7 +44,7 @@ the Crank reads the implications.
 
 ```js
 {
-  source: "maze-diffusion",          // identifies origin
+  source: "efdp",                    // canonical address of origin
 
   // ── Pin census (from layers[]) ──────────────────────────────────────────
   pinCounts: {
@@ -56,7 +81,7 @@ the Crank reads the implications.
 
 ---
 
-## Derivation Rules (maze-side, ~20 lines)
+## Derivation Rules (EFDP-side, ~20 lines)
 
 ```js
 function exportCrankSeed() {
@@ -86,7 +111,7 @@ function exportCrankSeed() {
   const extraShapeHints = pinTypeToShapeHints(counts, dominantPinType);
 
   return {
-    source: "maze-diffusion",
+    source: "efdp",
     pinCounts: counts, dominantPinType,
     dominantHex, paletteKey, secondaryHex: readSecondaryColor(cellColors),
     cohesionMode, meanStrength, calcifiedRatio,
@@ -142,14 +167,14 @@ Low mean distance = `radial` or `clustered`. High = `scattered` or `directional`
 
 ---
 
-## Crank-Side Reception
+## ECGP Reception (Crank-Side)
 
-The Crank receives `CrankSeed` into `S.crankContext` (same field as Grimoire
+ECGP receives `CrankSeed` into `S.crankContext` (same field as Grimoire
 context). In `doRoll()`, after the existing entity tag hints block, add:
 
 ```js
-// Maze seed layer
-if (S.crankContext && S.crankContext.source === "maze-diffusion") {
+// EFDP seed layer — received at ECGP
+if (S.crankContext && S.crankContext.source === "efdp") {
   var ms = S.crankContext;
   // Override or weight recipe
   if (!S.recipeKey || S.recipeKey === "creature") rKey = pick(ms.recipePool, rng);
@@ -165,7 +190,7 @@ if (S.crankContext && S.crankContext.source === "maze-diffusion") {
 ```
 
 `meanStrength` and `calcifiedRatio` are stored on the critter object for later
-use by the cutout/inflation system — not consumed by the Crank's 2D renderer yet.
+use by the cutout/inflation system — not consumed by ECGP's 2D renderer yet.
 
 ---
 
@@ -191,8 +216,9 @@ This is the DNA. It travels with the critter everywhere.
 
 ## Score-Specific Extension (Crank XL Pattern)
 
-Any Score or Theme can extend the Crank by passing additional fields in
-`CrankSeed` or `crankContext`:
+Any Score or Theme can extend ECGP by passing additional fields in `CrankSeed`
+or `crankContext`. A Score may also fork its own address (e.g. a roguelite
+generating monsters keys into ECGP rather than EFDP directly):
 
 ```js
 // Mall example
@@ -202,9 +228,9 @@ crankContext.extraTraits   = ["baggy", "tight"];
 crankContext.accentColor   = "#aaffcc";   // new buttons render in this color
 ```
 
-The Crank renders unrecognized recipe/palette keys gracefully — unknown recipes
-fall back to `creature`, unknown palettes fall back to nearest known. New
-buttons appear adjacent to existing ones in `accentColor`.
+ECGP renders unrecognized recipe/palette keys gracefully — unknown recipes fall
+back to `creature`, unknown palettes fall back to nearest known. New buttons
+appear adjacent to existing ones in `accentColor`.
 
 No core Crank files change. The extension lives entirely in the calling Score.
 
@@ -212,11 +238,11 @@ No core Crank files change. The extension lives entirely in the calling Score.
 
 ## What Claude Code Ships
 
-1. `exportCrankSeed()` function added to `scores/color-pin-maze/index.html`
+1. `exportCrankSeed()` function added to `scores/efdp/index.html`
 2. A "Send to Crank" button appears after diffusion has run (witnessed state)
 3. Button writes `CrankSeed` to `localStorage` key `baseline-session/crank-seed`
-   and optionally navigates to the Crank (or just signals via Scraggles)
-4. Crank reads `baseline-session/crank-seed` on load alongside existing
+   and optionally navigates to ECGP (or just signals via Scraggles)
+4. ECGP reads `baseline-session/crank-seed` on load alongside existing
    `crankContext` URL param logic
 5. Kept critter stores `mazeOrigin` block — no other Crank behavior changes
 

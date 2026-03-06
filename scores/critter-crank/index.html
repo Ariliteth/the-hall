@@ -20,6 +20,9 @@
     @keyframes confettiFly { 0%{opacity:1;transform:rotate(var(--a,0deg)) translateY(-10px)} 100%{opacity:0;transform:rotate(var(--a,0deg)) translateY(-32px)} }
     @keyframes critterIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
     @keyframes shimmer { 0%{left:-100%} 100%{left:200%} }
+    @keyframes knobDetent { 0%{transform:scale(1)} 40%{transform:scale(1.08)} 100%{transform:scale(1)} }
+    @keyframes staticBurst { 0%{opacity:0.08} 50%{opacity:0.35} 100%{opacity:0.08} }
+    @keyframes machineIn { from{opacity:0;transform:scale(0.92)} to{opacity:1;transform:scale(1)} }
 
     /* ── Buttons ───────────────────────────────────────────── */
     .btn-3d { box-shadow: 0 3px 0 rgba(0,0,0,0.5); transition: all 0.1s; }
@@ -61,6 +64,55 @@
     .coll-grid::-webkit-scrollbar { width: 4px; }
     .coll-grid::-webkit-scrollbar-track { background: #0a1400; }
     .coll-grid::-webkit-scrollbar-thumb { background: #2a4a00; border-radius: 2px; }
+
+
+    /* ── Style buttons ─────────────────────────────────── */
+    .style-btn:hover { filter: brightness(1.3) drop-shadow(0 0 6px currentColor); }
+    .style-btn:active { filter: brightness(0.85); opacity: 0.85; }
+
+    /* ── D-pad buttons ─────────────────────────────────── */
+    .dpad-btn { transition: transform 0.1s, border-color 0.12s, box-shadow 0.12s; }
+    .dpad-btn:hover { filter: brightness(1.2); }
+    .dpad-btn:active { transform: scale(0.93) !important; box-shadow: inset 0 3px 6px rgba(0,0,0,0.8) !important; }
+
+    /* ── Shoulder buttons ─────────────────────────────────── */
+    .shoulder-btn { transition: height 200ms ease, background 120ms, border 120ms, transform 0.1s; overflow: hidden; }
+    .shoulder-btn:hover { filter: brightness(1.15); }
+    .shoulder-btn:active { transform: translateY(1px) !important; }
+
+    /* ── World select screen ─────────────────────────────────── */
+    .screen-entry { transform: scale(1.3); }
+
+    /* ── Edge wheel (density) ─────────────────────────────── */
+    .edge-wheel { transition: background 0.2s; cursor: pointer; }
+
+    /* ── World menu overlay ───────────────────────────────── */
+    .world-menu-item { transition: background 0.1s, border-color 0.1s; }
+    .world-menu-item:hover { background: rgba(155,188,15,0.12) !important; border-color: #4a7a00 !important; }
+
+    /* ── Crystal machine sheen ─────────────────────────────────────────── */
+    .machine-body::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 12px; right: 12px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .machine-body::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 40%, rgba(0,0,0,0.08) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Type badges ──────────────────────────────────────── */
+    .type-badge { display: inline-block; padding: 1px 4px; border-radius: 6px; font-size: 10px; background: rgba(155,188,15,0.08); border: 1px solid rgba(155,188,15,0.15); }
   </style>
 </head>
 <body>
@@ -107,6 +159,15 @@ var WORLDS = {
     recipePool: ["creature","item","relic"],
     extraHints: ["rect","diamond","line","cross"],
     cohesionBias: ["directional","clustered"],
+    // Crystal violet — tight city grid, rectangular
+    body: {
+      radius: "10px 10px 14px 14px",
+      gradient: "linear-gradient(180deg,rgba(160,80,220,0.55) 0%,rgba(110,40,180,0.65) 100%)",
+      glow: "0 24px 60px rgba(120,40,200,0.4), 0 0 0 2px rgba(200,140,255,0.15) inset",
+      border: "rgba(200,140,255,0.3)",
+      screenGlow: "rgba(204,136,255,0.12)",
+      hardware: "radial-gradient(ellipse at 30% 20%, rgba(255,200,255,0.08) 0%, transparent 60%), repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(180,100,255,0.04) 8px, rgba(180,100,255,0.04) 9px)",
+    },
   },
   jungle: {
     label: "Jungle", icon: "\u2767",
@@ -116,6 +177,15 @@ var WORLDS = {
     recipePool: ["flora","creature","spirit"],
     extraHints: ["blob","scatter","circle","eye"],
     cohesionBias: ["radial","scattered"],
+    // Crystal green — asymmetric, grew around the screen
+    body: {
+      radius: "18px 28px 22px 32px",
+      gradient: "linear-gradient(170deg,rgba(40,160,20,0.5) 0%,rgba(20,120,10,0.65) 100%)",
+      glow: "0 24px 60px rgba(20,140,20,0.4), 0 0 0 2px rgba(100,255,60,0.2) inset",
+      border: "rgba(100,220,60,0.3)",
+      screenGlow: "rgba(136,255,102,0.1)",
+      hardware: "radial-gradient(ellipse at 70% 30%, rgba(180,255,100,0.07) 0%, transparent 55%), repeating-linear-gradient(-30deg, transparent, transparent 12px, rgba(60,200,20,0.04) 12px, rgba(60,200,20,0.04) 13px)",
+    },
   },
   space: {
     label: "Space", icon: "\u2605",
@@ -125,6 +195,15 @@ var WORLDS = {
     recipePool: ["spirit","creature","terrain"],
     extraHints: ["ring","scatter","circle","spike"],
     cohesionBias: ["scattered","radial"],
+    // Crystal midnight blue — very round, floats
+    body: {
+      radius: "32px 32px 40px 40px",
+      gradient: "linear-gradient(180deg,rgba(40,60,180,0.5) 0%,rgba(20,30,140,0.65) 100%)",
+      glow: "0 30px 80px rgba(40,60,200,0.45), 0 0 0 2px rgba(100,140,255,0.2) inset",
+      border: "rgba(100,140,255,0.25)",
+      screenGlow: "rgba(102,136,255,0.12)",
+      hardware: "radial-gradient(ellipse at 50% 15%, rgba(180,200,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(60,80,220,0.06) 0%, transparent 40%)",
+    },
   },
   deep: {
     label: "Deep", icon: "\u25CE",
@@ -134,6 +213,15 @@ var WORLDS = {
     recipePool: ["creature","spirit","flora"],
     extraHints: ["blob","ring","eye","scatter"],
     cohesionBias: ["radial","clustered"],
+    // Crystal teal — compressed top, heavy bottom
+    body: {
+      radius: "8px 8px 28px 28px",
+      gradient: "linear-gradient(180deg,rgba(0,100,160,0.5) 0%,rgba(0,60,120,0.7) 100%)",
+      glow: "0 32px 80px rgba(0,120,180,0.45), 0 0 0 2px rgba(0,200,240,0.2) inset",
+      border: "rgba(0,180,220,0.3)",
+      screenGlow: "rgba(0,200,255,0.12)",
+      hardware: "radial-gradient(ellipse at 50% 80%, rgba(0,220,255,0.08) 0%, transparent 50%), repeating-linear-gradient(90deg, transparent, transparent 16px, rgba(0,140,200,0.03) 16px, rgba(0,140,200,0.03) 17px)",
+    },
   },
   ruin: {
     label: "Ruin", icon: "\u25EB",
@@ -143,6 +231,15 @@ var WORLDS = {
     recipePool: ["relic","terrain","creature"],
     extraHints: ["cross","diamond","line","rect"],
     cohesionBias: ["directional","clustered"],
+    // Crystal amber — irregular worn corners
+    body: {
+      radius: "20px 8px 18px 12px",
+      gradient: "linear-gradient(165deg,rgba(180,100,20,0.5) 0%,rgba(140,60,10,0.65) 100%)",
+      glow: "0 20px 50px rgba(160,80,20,0.45), 0 0 0 2px rgba(220,150,60,0.2) inset",
+      border: "rgba(200,130,50,0.3)",
+      screenGlow: "rgba(200,130,60,0.1)",
+      hardware: "radial-gradient(ellipse at 20% 40%, rgba(255,180,80,0.07) 0%, transparent 50%), repeating-linear-gradient(20deg, transparent, transparent 10px, rgba(180,100,20,0.04) 10px, rgba(180,100,20,0.04) 11px)",
+    },
   },
   forge: {
     label: "Forge", icon: "\u25C8",
@@ -152,6 +249,15 @@ var WORLDS = {
     recipePool: ["item","relic","creature"],
     extraHints: ["spike","diamond","cross","line"],
     cohesionBias: ["directional","radial"],
+    // Crystal ember — hard angles, almost no rounding
+    body: {
+      radius: "4px 4px 6px 6px",
+      gradient: "linear-gradient(180deg,rgba(200,60,0,0.5) 0%,rgba(160,30,0,0.7) 100%)",
+      glow: "0 20px 50px rgba(200,60,0,0.5), 0 0 0 2px rgba(255,120,40,0.2) inset",
+      border: "rgba(255,100,30,0.3)",
+      screenGlow: "rgba(255,100,30,0.12)",
+      hardware: "radial-gradient(ellipse at 50% 50%, rgba(255,140,40,0.06) 0%, transparent 60%), repeating-linear-gradient(0deg, transparent, transparent 6px, rgba(200,60,0,0.05) 6px, rgba(200,60,0,0.05) 7px)",
+    },
   },
 };
 
@@ -225,6 +331,63 @@ var TAG_SHAPE_MAP = {
 
 // ── All Shape Names ──────────────────────────────────────────────────────────
 var ALL_SHAPES = ["blob","eye","spike","scatter","ring","cross","line","diamond","rect","circle","irregular"];
+
+// ── Voices ───────────────────────────────────────────────────────────────────
+var VOICES = {
+  // ── original 16 ──
+  wave:    { emoji:"🌊", palette:"water",  shapes:["ring","blob"],      cohesion:"radial",      affinities:["tide","deep"],    displaces:["ember","forge"] },
+  ember:   { emoji:"🔥", palette:"fire",   shapes:["spike","scatter"],  cohesion:"directional", affinities:["forge","spark"],   displaces:["wave","frost"] },
+  tangle:  { emoji:"🕸️", palette:"poison", shapes:["scatter","line"],   cohesion:"scattered",   affinities:["spore","gloom"],  displaces:["spark","gleam"] },
+  grove:   { emoji:"🌿", palette:"nature", shapes:["blob","irregular"], cohesion:"radial",      affinities:["spore","wave"],   displaces:["forge","ember"] },
+  spark:   { emoji:"⚡", palette:"ice",    shapes:["cross","spike"],    cohesion:"directional", affinities:["gleam","ember"],  displaces:["tangle","gloom"] },
+  stone:   { emoji:"🪨", palette:"earth",  shapes:["rect","irregular"], cohesion:"clustered",   affinities:["forge","gloom"],  displaces:["wave","spark"] },
+  gleam:   { emoji:"✨", palette:"light",  shapes:["scatter","ring"],   cohesion:"scattered",   affinities:["spark","frost"],  displaces:["gloom","stone"] },
+  gloom:   { emoji:"🌑", palette:"ghost",  shapes:["ring","eye"],       cohesion:"scattered",   affinities:["tangle","deep"],  displaces:["gleam","spark"] },
+  spore:   { emoji:"🍄", palette:"poison", shapes:["blob","scatter"],   cohesion:"clustered",   affinities:["grove","tangle"], displaces:["spark","forge"] },
+  frost:   { emoji:"❄️", palette:"ice",    shapes:["diamond","ring"],   cohesion:"directional", affinities:["wave","gleam"],   displaces:["ember","forge"] },
+  deep:    { emoji:"🕳️", palette:"ghost",  shapes:["irregular","ring"], cohesion:"scattered",   affinities:["gloom","wave"],   displaces:["gleam","spark"] },
+  forge:   { emoji:"⚙️", palette:"item",   shapes:["diamond","cross"],  cohesion:"directional", affinities:["ember","stone"],  displaces:["grove","wave"] },
+  tide:    { emoji:"🌀", palette:"water",  shapes:["ring","blob"],      cohesion:"radial",      affinities:["wave","deep"],    displaces:["ember","stone"] },
+  verdant: { emoji:"🌱", palette:"nature", shapes:["line","scatter"],   cohesion:"radial",      affinities:["grove","spore"],  displaces:["forge","ember"] },
+  soot:    { emoji:"🌫️", palette:"earth",  shapes:["scatter","irregular"],cohesion:"scattered",  affinities:["gloom","stone"],  displaces:["gleam","spark"] },
+  gilded:  { emoji:"💛", palette:"light",  shapes:["diamond","circle"], cohesion:"clustered",   affinities:["gleam","forge"],  displaces:["gloom","deep"] },
+  // ── creature / organic ──
+  tentacle:{ emoji:"🐙", palette:"poison", shapes:["blob","ring"],      cohesion:"radial",      affinities:["deep","tide"],    displaces:["forge","spark"] },
+  scale:   { emoji:"🦎", palette:"nature", shapes:["rect","spike"],     cohesion:"directional", affinities:["grove","stone"],  displaces:["frost","gleam"] },
+  larva:   { emoji:"🐛", palette:"poison", shapes:["blob","line"],      cohesion:"clustered",   affinities:["spore","tangle"], displaces:["gleam","forge"] },
+  flutter: { emoji:"🦋", palette:"light",  shapes:["scatter","circle"], cohesion:"scattered",   affinities:["gleam","verdant"],displaces:["stone","deep"] },
+  plume:   { emoji:"🪶", palette:"creature",shapes:["line","scatter"],  cohesion:"directional", affinities:["flutter","spark"],displaces:["stone","tide"] },
+  shell:   { emoji:"🐚", palette:"earth",  shapes:["circle","ring"],    cohesion:"clustered",   affinities:["tide","stone"],   displaces:["ember","spark"] },
+  fang:    { emoji:"🦷", palette:"ghost",  shapes:["spike","diamond"],  cohesion:"directional", affinities:["skull","forge"],  displaces:["grove","flutter"] },
+  bone:    { emoji:"🦴", palette:"earth",  shapes:["line","cross"],     cohesion:"directional", affinities:["skull","stone"],  displaces:["grove","spore"] },
+  // ── environmental ──
+  summit:  { emoji:"🏔️", palette:"ice",    shapes:["diamond","rect"],   cohesion:"clustered",   affinities:["frost","stone"],  displaces:["deep","tide"] },
+  eruption:{ emoji:"🌋", palette:"fire",   shapes:["spike","blob"],     cohesion:"radial",      affinities:["ember","stone"],  displaces:["frost","wave"] },
+  coral:   { emoji:"🪸", palette:"creature",shapes:["blob","scatter"],  cohesion:"clustered",   affinities:["tide","shell"],   displaces:["soot","forge"] },
+  wither:  { emoji:"🍂", palette:"earth",  shapes:["scatter","irregular"],cohesion:"scattered",  affinities:["soot","grove"],   displaces:["gleam","spark"] },
+  grain:   { emoji:"🌾", palette:"nature", shapes:["line","scatter"],   cohesion:"directional", affinities:["verdant","grove"],displaces:["deep","gloom"] },
+  bubble:  { emoji:"🫧", palette:"water",  shapes:["circle","scatter"], cohesion:"scattered",   affinities:["wave","flutter"], displaces:["forge","stone"] },
+  // ── celestial / abstract ──
+  oracle:  { emoji:"🔮", palette:"ghost",  shapes:["circle","ring"],    cohesion:"radial",      affinities:["gloom","gleam"],  displaces:["forge","bone"] },
+  gem:     { emoji:"💎", palette:"ice",    shapes:["diamond","rect"],   cohesion:"clustered",   affinities:["gilded","frost"], displaces:["soot","spore"] },
+  prism:   { emoji:"🪩", palette:"light",  shapes:["scatter","diamond"],cohesion:"scattered",   affinities:["gleam","spark"],  displaces:["gloom","deep"] },
+  comet:   { emoji:"☄️", palette:"fire",   shapes:["spike","line"],     cohesion:"directional", affinities:["ember","spark"],  displaces:["grove","tide"] },
+  mask:    { emoji:"🎭", palette:"ghost",  shapes:["eye","circle"],     cohesion:"radial",      affinities:["gloom","oracle"], displaces:["verdant","grain"] },
+  ward:    { emoji:"🧿", palette:"water",  shapes:["eye","ring"],       cohesion:"radial",      affinities:["oracle","tide"],  displaces:["ember","comet"] },
+  // ── mood / visceral ──
+  skull:   { emoji:"💀", palette:"ghost",  shapes:["cross","eye"],      cohesion:"scattered",   affinities:["bone","fang"],    displaces:["verdant","flutter"] },
+  pulse:   { emoji:"🫀", palette:"fire",   shapes:["blob","circle"],    cohesion:"radial",      affinities:["ember","skull"],  displaces:["frost","gem"] },
+  think:   { emoji:"🧠", palette:"creature",shapes:["blob","irregular"],cohesion:"clustered",   affinities:["oracle","pulse"], displaces:["stone","forge"] },
+  gaze:    { emoji:"👁️", palette:"light",  shapes:["eye","ring"],       cohesion:"radial",      affinities:["oracle","ward"],  displaces:["soot","deep"] },
+  ichor:   { emoji:"🩸", palette:"fire",   shapes:["blob","scatter"],   cohesion:"scattered",   affinities:["pulse","tangle"], displaces:["frost","gleam"] },
+  // ── playful / strange ──
+  circus:  { emoji:"🎪", palette:"creature",shapes:["cross","scatter"], cohesion:"scattered",   affinities:["prism","mask"],   displaces:["stone","bone"] },
+  magnet:  { emoji:"🧲", palette:"item",   shapes:["rect","cross"],     cohesion:"directional", affinities:["forge","spark"],  displaces:["grove","bubble"] },
+  hook:    { emoji:"🪝", palette:"item",   shapes:["spike","line"],     cohesion:"directional", affinities:["forge","fang"],   displaces:["flutter","bubble"] },
+  vessel:  { emoji:"🏺", palette:"earth",  shapes:["circle","rect"],    cohesion:"clustered",   affinities:["shell","stone"],  displaces:["spark","flutter"] },
+  charm:   { emoji:"🪬", palette:"ghost",  shapes:["eye","diamond"],    cohesion:"radial",      affinities:["ward","oracle"],  displaces:["forge","magnet"] },
+};
+var VOICE_KEYS = Object.keys(VOICES);
 
 // ── Pixel Renderer ───────────────────────────────────────────────────────────
 var GRID = 48;
@@ -323,41 +486,245 @@ function renderCritter(seed, recipeKey, extraShapes, palKey, cohesionMode) {
   var mode = cohesionMode || "radial";
   var flowAngle = rng() * Math.PI * 2;
 
+  // ── Tag bias: read entity/maze context into body-shaping hints ───────────────
+  var tagBias = {
+    sizeBoost: 0,        // added to base bodyRadius
+    bodyPrefer: null,    // "angular"|"organic"|"spiky"|"irregular"|null
+    featureDensity: 0,   // added to count
+    faceHeavy: false,    // bias features toward upper face
+    limbHeavy: false,    // bias features toward outside/limbs
+    surfaceLight: false, // fewer features, mostly scatter
+  };
+  var ctxTags = [];
+  if (S && S.crankContext) {
+    if (S.crankContext.tags) ctxTags = ctxTags.concat(S.crankContext.tags);
+    if (S.crankContext.dominantPinType) ctxTags.push(S.crankContext.dominantPinType);
+    if (S.crankContext.kiwiDensity) ctxTags.push(S.crankContext.kiwiDensity);
+  }
+  ctxTags.forEach(function(tag) {
+    switch(tag) {
+      case "large": case "mighty":
+        tagBias.sizeBoost += 3; tagBias.bodyPrefer = tagBias.bodyPrefer || "organic"; break;
+      case "heavy":
+        tagBias.sizeBoost += 2; tagBias.bodyPrefer = tagBias.bodyPrefer || "angular"; break;
+      case "small": case "nimble": case "quick": case "swift":
+        tagBias.sizeBoost -= 2; tagBias.limbHeavy = true; break;
+      case "fierce": case "bold":
+        tagBias.bodyPrefer = "spiky"; tagBias.limbHeavy = true; tagBias.featureDensity += 1; break;
+      case "territorial":
+        tagBias.bodyPrefer = "angular"; break;
+      case "ancient": case "shifting": case "meandering":
+        tagBias.bodyPrefer = "irregular"; break;
+      case "subtle": case "quiet": case "patient":
+        tagBias.surfaceLight = true; tagBias.featureDensity -= 1; break;
+      case "curious": case "attentive": case "watching": case "seeking":
+        tagBias.faceHeavy = true; tagBias.featureDensity += 1; break;
+      case "poisonous": case "toxic":
+        tagBias.bodyPrefer = tagBias.bodyPrefer || "organic"; tagBias.featureDensity += 1; break;
+      case "circle": tagBias.bodyPrefer = tagBias.bodyPrefer || "organic"; break;
+      case "square": tagBias.bodyPrefer = tagBias.bodyPrefer || "angular"; break;
+      case "triangle": tagBias.bodyPrefer = tagBias.bodyPrefer || "spiky"; tagBias.limbHeavy = true; break;
+      case "dense": tagBias.featureDensity += 2; break;
+      case "sparse": tagBias.surfaceLight = true; tagBias.featureDensity -= 1; break;
+    }
+  });
+
   var count = recipe.countRange[0] + Math.floor(rng() * (recipe.countRange[1] - recipe.countRange[0] + 1));
+  // Creatures get more features; tagBias can push further in either direction
+  if (recipeKey === "creature") {
+    count = Math.max(count, 4) + Math.floor(rng() * 3);
+    count = Math.max(2, count + tagBias.featureDensity);
+  }
+
+  // ── Creature body pass ────────────────────────────────────────────────────────
+  // extraShapes (player intent) override tagBias for body type.
+  var bodyRadius = 0;
+  if (recipeKey === "creature") {
+    var baseRadius = 5 + Math.floor(rng() * 6);
+    bodyRadius = Math.max(3, Math.min(13, baseRadius + tagBias.sizeBoost));
+
+    var hasAngular = extraShapes.some(function(s) { return s === "rect" || s === "diamond" || s === "cross"; });
+    var hasOrganic = extraShapes.some(function(s) { return s === "blob" || s === "circle"; });
+    var hasSpiky   = extraShapes.some(function(s) { return s === "spike" || s === "scatter"; });
+
+    // Player extraShapes override tag suggestions
+    var bodyPrefer = tagBias.bodyPrefer;
+    if (hasAngular) bodyPrefer = "angular";
+    else if (hasSpiky) bodyPrefer = "spiky";
+    else if (hasOrganic) bodyPrefer = "organic";
+
+    var bodyChoice = rng();
+    if (bodyPrefer === "angular") {
+      var bw2 = bodyRadius + Math.floor(rng() * 4);
+      var bh2 = bodyRadius + Math.floor(rng() * 3);
+      fillRect(Math.round(cx - bw2/2), Math.round(cy - bh2/2), bw2, bh2, mainColor);
+      fillCircle(cx, cy, Math.floor(bodyRadius * 0.6), mainColor);
+    } else if (bodyPrefer === "spiky") {
+      fillCircle(cx, cy, bodyRadius - 2, mainColor);
+      drawBlob(cx, cy, bodyRadius, mainColor);
+    } else if (bodyPrefer === "irregular") {
+      fillCircle(cx, cy, bodyRadius - 3, mainColor);
+      var bpts = 5 + Math.floor(rng() * 4);
+      for (var bi = 0; bi < bpts; bi++) {
+        var ba = (bi / bpts) * Math.PI * 2 + rng() * 0.6;
+        var br = bodyRadius * (0.7 + rng() * 0.5);
+        fillCircle(cx + Math.cos(ba) * br * 0.6, cy + Math.sin(ba) * br * 0.6, 2 + Math.floor(rng() * 3), mainColor);
+      }
+    } else if (bodyPrefer === "organic" || bodyChoice < 0.45) {
+      drawBlob(cx, cy, bodyRadius, mainColor);
+    } else if (bodyChoice < 0.75) {
+      fillCircle(cx, cy, bodyRadius - 2, mainColor);
+      drawBlob(cx, cy, bodyRadius, mainColor);
+    } else {
+      fillCircle(cx, cy, bodyRadius - 3, mainColor);
+      var bpts2 = 5 + Math.floor(rng() * 4);
+      for (var bi2 = 0; bi2 < bpts2; bi2++) {
+        var ba2 = (bi2 / bpts2) * Math.PI * 2 + rng() * 0.6;
+        var br2 = bodyRadius * (0.7 + rng() * 0.5);
+        fillCircle(cx + Math.cos(ba2) * br2 * 0.6, cy + Math.sin(ba2) * br2 * 0.6, 2 + Math.floor(rng() * 3), mainColor);
+      }
+    }
+    fillCircle(cx + 1, cy + Math.floor(bodyRadius * 0.4), Math.floor(bodyRadius * 0.4), midColor);
+  }
+
+  // ── drawFeature: places one shape, optionally mirrored across body center ─────
+  function drawFeature(shapeType, ox, oy, sz, color, mirror) {
+    function place(px, py) {
+      switch(shapeType) {
+        case "blob":   drawBlob(px, py, sz, color); break;
+        case "circle": fillCircle(px, py, sz, color); break;
+        case "ring":   strokeRing(Math.round(px), Math.round(py), sz, color); break;
+        case "rect":
+          var rw2 = 3 + Math.floor(rng() * sz * 1.2);
+          var rh2 = 3 + Math.floor(rng() * sz * 1.2);
+          fillRect(Math.round(px-rw2/2), Math.round(py-rh2/2), rw2, rh2, color);
+          break;
+        case "diamond": fillDiamond(px, py, sz, color); break;
+        case "cross":
+          fillRect(Math.round(px-sz), Math.round(py-1), sz*2, 3, color);
+          fillRect(Math.round(px-1), Math.round(py-sz), 3, sz*2, color);
+          break;
+        case "scatter":
+          var dotCount2 = 3 + Math.floor(rng() * 6);
+          for (var di2 = 0; di2 < dotCount2; di2++) {
+            setPixel(Math.round(px + (rng()-0.5)*sz*2), Math.round(py + (rng()-0.5)*sz*2), color);
+          }
+          break;
+        case "line":
+          var la2 = rng()*Math.PI*2;
+          var ll2 = sz + Math.floor(rng()*8);
+          drawLine(Math.round(px-Math.cos(la2)*ll2), Math.round(py-Math.sin(la2)*ll2),
+                   Math.round(px+Math.cos(la2)*ll2), Math.round(py+Math.sin(la2)*ll2), color);
+          break;
+        case "irregular":
+          var ipts2 = 4 + Math.floor(rng()*4);
+          var ipx2 = Math.round(px), ipy2 = Math.round(py);
+          for (var ip2 = 0; ip2 < ipts2; ip2++) {
+            var inx2 = Math.round(px + (rng()-0.5)*sz*2.5);
+            var iny2 = Math.round(py + (rng()-0.5)*sz*2.5);
+            drawLine(ipx2, ipy2, inx2, iny2, color);
+            ipx2 = inx2; ipy2 = iny2;
+          }
+          break;
+      }
+    }
+    place(ox, oy);
+    if (mirror) place(cx + (cx - ox), oy);
+  }
 
   for (var si = 0; si < count; si++) {
     var shapeType = pick(pool, rng);
     var color = si === 0 ? mainColor : (rng() > 0.45 ? mainColor : (rng() > 0.5 ? accentColor : midColor));
     var sz = 3 + Math.floor(rng() * 9);
 
-    // Position based on cohesion mode
     var ox, oy;
-    switch(mode) {
-      case "radial":
-        var ra = rng() * Math.PI * 2;
-        var rd = (si === 0 ? 0 : 4 + rng() * 12);
-        ox = cx + Math.cos(ra) * rd;
-        oy = cy + Math.sin(ra) * rd;
-        break;
-      case "directional":
-        var dd = (si / count) * 22 - 11;
-        var perp = (rng()-0.5) * 8;
-        ox = cx + Math.cos(flowAngle) * dd + Math.cos(flowAngle + Math.PI/2) * perp;
-        oy = cy + Math.sin(flowAngle) * dd + Math.sin(flowAngle + Math.PI/2) * perp;
-        break;
-      case "clustered":
-        ox = cx + (rng()-0.5) * 14;
-        oy = cy + (rng()-0.5) * 14;
+    if (recipeKey === "creature" && bodyRadius > 0) {
+      var featureAngle = rng() * Math.PI * 2;
+      var featureDist;
+      if (shapeType === "eye") {
+        var faceSpread = tagBias.faceHeavy ? 0.55 : 0.85;
+        featureAngle = -Math.PI * 0.5 + (rng() - 0.5) * Math.PI * faceSpread;
+        featureDist = bodyRadius * (0.45 + rng() * 0.4);
+        sz = Math.max(2, Math.min(sz, 4));
+      } else if (shapeType === "spike" || shapeType === "line") {
+        var limbPush = tagBias.limbHeavy ? 1.1 : 0.9;
+        featureDist = bodyRadius * (limbPush + rng() * 0.45);
+        sz = 4 + Math.floor(rng() * 7);
+      } else if (shapeType === "scatter") {
+        featureDist = tagBias.surfaceLight ? bodyRadius * rng() * 0.6 : bodyRadius * (rng() * 0.75);
+      } else {
+        if (tagBias.faceHeavy && rng() > 0.5) {
+          featureAngle = -Math.PI * 0.5 + (rng() - 0.5) * Math.PI * 1.1;
+        }
+        featureDist = bodyRadius * (0.55 + rng() * 0.55);
         sz = Math.max(2, sz - 2);
-        break;
-      case "scattered":
-        ox = cx + (rng()-0.5) * 30;
-        oy = cy + (rng()-0.5) * 30;
-        sz = Math.max(2, sz - 1);
-        break;
-      default:
-        ox = cx + (rng()-0.5) * 20;
-        oy = cy + (rng()-0.5) * 20;
+      }
+      ox = cx + Math.cos(featureAngle) * featureDist;
+      oy = cy + Math.sin(featureAngle) * featureDist;
+
+      // Mirror chance — bilateral symmetry reads as alive
+      var doMirror = shapeType === "eye" ? rng() > 0.3
+                   : (shapeType === "spike" || shapeType === "line") ? rng() > 0.45
+                   : rng() > 0.72;
+
+      if (shapeType === "eye") {
+        fillCircle(ox, oy, Math.max(2, sz), lightColor);
+        fillCircle(ox + Math.round((rng()-0.5)*2), oy + Math.round((rng()-0.5)*2), Math.max(1, Math.floor(sz*0.5)), darkColor);
+        setPixel(Math.round(ox)-1, Math.round(oy)-1, lightColor);
+        if (doMirror) {
+          var mx2 = cx + (cx - ox);
+          fillCircle(mx2, oy, Math.max(2, sz), lightColor);
+          fillCircle(mx2 + Math.round((rng()-0.5)*2), oy + Math.round((rng()-0.5)*2), Math.max(1, Math.floor(sz*0.5)), darkColor);
+          setPixel(Math.round(mx2)-1, Math.round(oy)-1, lightColor);
+        }
+        continue;
+      }
+      if (shapeType === "spike") {
+        var limbAngle = Math.atan2(oy - cy, ox - cx);
+        var sCount2 = 1 + Math.floor(rng() * 3);
+        for (var spi2 = 0; spi2 < sCount2; spi2++) {
+          drawSpike(Math.round(ox), Math.round(oy), limbAngle + (rng()-0.5)*0.7, sz + Math.floor(rng()*5), color);
+        }
+        if (doMirror) {
+          var mox = cx + (cx - ox);
+          var mAngle = Math.atan2(oy - cy, mox - cx);
+          for (var spi3 = 0; spi3 < sCount2; spi3++) {
+            drawSpike(Math.round(mox), Math.round(oy), mAngle + (rng()-0.5)*0.7, sz + Math.floor(rng()*5), color);
+          }
+        }
+        continue;
+      }
+
+      drawFeature(shapeType, ox, oy, sz, color, doMirror);
+      continue;
+    } else {
+      switch(mode) {
+        case "radial":
+          var ra = rng() * Math.PI * 2;
+          var rd = (si === 0 ? 0 : 4 + rng() * 12);
+          ox = cx + Math.cos(ra) * rd;
+          oy = cy + Math.sin(ra) * rd;
+          break;
+        case "directional":
+          var dd = (si / count) * 22 - 11;
+          var perp = (rng()-0.5) * 8;
+          ox = cx + Math.cos(flowAngle) * dd + Math.cos(flowAngle + Math.PI/2) * perp;
+          oy = cy + Math.sin(flowAngle) * dd + Math.sin(flowAngle + Math.PI/2) * perp;
+          break;
+        case "clustered":
+          ox = cx + (rng()-0.5) * 14;
+          oy = cy + (rng()-0.5) * 14;
+          sz = Math.max(2, sz - 2);
+          break;
+        case "scattered":
+          ox = cx + (rng()-0.5) * 30;
+          oy = cy + (rng()-0.5) * 30;
+          sz = Math.max(2, sz - 1);
+          break;
+        default:
+          ox = cx + (rng()-0.5) * 20;
+          oy = cy + (rng()-0.5) * 20;
+      }
     }
 
     switch(shapeType) {
@@ -385,10 +752,21 @@ function renderCritter(seed, recipeKey, extraShapes, palKey, cohesionMode) {
         break;
       case "spike":
         var sCount = 3 + Math.floor(rng() * 5);
-        var baseAngle = mode === "directional" ? flowAngle : rng() * Math.PI * 2;
-        for (var spi = 0; spi < sCount; spi++) {
-          var sAngle = baseAngle + (spi/sCount) * Math.PI * 2;
-          drawSpike(Math.round(ox), Math.round(oy), sAngle, sz + Math.floor(rng()*5), color);
+        var baseAngle;
+        if (recipeKey === "creature" && bodyRadius > 0) {
+          // Limb spike: point outward from body center, small fan
+          baseAngle = Math.atan2(oy - cy, ox - cx);
+          sCount = 1 + Math.floor(rng() * 3); // fewer spikes — more limb-like
+          for (var spi = 0; spi < sCount; spi++) {
+            var sAngle = baseAngle + (rng()-0.5) * 0.7;
+            drawSpike(Math.round(ox), Math.round(oy), sAngle, sz + Math.floor(rng()*5), color);
+          }
+        } else {
+          baseAngle = mode === "directional" ? flowAngle : rng() * Math.PI * 2;
+          for (var spi = 0; spi < sCount; spi++) {
+            var sAngle = baseAngle + (spi/sCount) * Math.PI * 2;
+            drawSpike(Math.round(ox), Math.round(oy), sAngle, sz + Math.floor(rng()*5), color);
+          }
         }
         break;
       case "scatter":
@@ -424,7 +802,850 @@ function renderCritter(seed, recipeKey, extraShapes, palKey, cohesionMode) {
     }
   }
 
-  // Accent highlights
+  // ── Flora body pass ──────────────────────────────────────────────────────────
+  // Flora has an orientation axis. Three archetypes: upright, spreading, hanging.
+  // The shape loop is skipped for flora — the body pass draws the whole thing.
+  if (recipeKey === "flora") {
+    // Determine archetype from tagBias, extraShapes, or rng
+    var floraArch;
+    var hasTall  = extraShapes.some(function(s){ return s==="line"||s==="spike"; })
+                || ctxTags.some(function(t){ return t==="tall"||t==="ancient"||t==="proud"; });
+    var hasWide  = extraShapes.some(function(s){ return s==="scatter"||s==="blob"; })
+                || ctxTags.some(function(t){ return t==="spreading"||t==="patient"||t==="meandering"; });
+    var hasDrape = ctxTags.some(function(t){ return t==="hanging"||t==="draping"||t==="shifting"; });
+    var isToxic  = ctxTags.some(function(t){ return t==="toxic"||t==="poisonous"; });
+
+    if (S.floraArch) {
+      floraArch = S.floraArch; // player selection always wins
+    } else if (hasTall || isToxic) floraArch = "upright";
+    else if (hasDrape) floraArch = "hanging";
+    else if (hasWide) floraArch = "spreading";
+    else {
+      var archRoll = rng();
+      floraArch = archRoll < 0.45 ? "upright" : archRoll < 0.75 ? "spreading" : "hanging";
+    }
+
+    var stemColor = mainColor;
+    var capColor  = rng() > 0.4 ? accentColor : midColor;
+    var detailColor = lightColor;
+
+    if (floraArch === "upright") {
+      // ── Upright: spine runs full height. Cap is busy. Below cap is almost nothing.
+      var stemH    = 12 + Math.floor(rng() * 10);
+      var capR     = 6 + Math.floor(rng() * 8);
+      var stemTopX = Math.round(cx + (rng()-0.5) * 4);
+      // Spine runs from near-top to near-bottom of canvas
+      var spineTopY = Math.round(GRID * 0.12 + rng() * 6);
+      var spineBotY = Math.round(GRID * 0.78 + rng() * 6);
+      // Cap sits in the upper third
+      var capY = spineTopY + Math.floor((spineBotY - spineTopY) * (0.15 + rng() * 0.15));
+
+      // Spine — drawn first, everything else layers on top
+      // Thin: 1px, slight wobble
+      for (var sy = spineBotY; sy >= spineTopY; sy--) {
+        var swobble = rng() > 0.85 ? (rng() > 0.5 ? 1 : -1) : 0;
+        setPixel(stemTopX + swobble, sy, stemColor);
+      }
+      // Slight base thickening
+      for (var sbt = 0; sbt < 3; sbt++) {
+        setPixel(stemTopX - 1, spineBotY - sbt, stemColor);
+        setPixel(stemTopX + 1, spineBotY - sbt, stemColor);
+      }
+
+      // Cap — flat ellipse, wide and shallow, sits on the spine
+      var capX = stemTopX + Math.round((rng()-0.5) * 2);
+      var capW = capR + 3 + Math.floor(rng() * 5);
+      var capH = Math.max(3, Math.floor(capR * 0.48 + rng() * 2));
+      for (var ey = -capH; ey <= capH; ey++) {
+        var halfW = Math.round(capW * Math.sqrt(Math.max(0, 1 - (ey/capH)*(ey/capH))));
+        for (var ex = -halfW; ex <= halfW; ex++) setPixel(capX + ex, capY + ey, capColor);
+      }
+      // Underside rim
+      for (var ci2 = -capW; ci2 <= capW; ci2++) {
+        var rimY = Math.round(capH * Math.sqrt(Math.max(0, 1 - (ci2/capW)*(ci2/capW))));
+        setPixel(capX + ci2, capY + rimY, stemColor);
+      }
+      // Cap highlights — tiny, top surface only
+      for (var chi = 0; chi < 2 + Math.floor(rng()*2); chi++) {
+        setPixel(Math.round(capX + (rng()-0.5)*capW*0.5), capY - Math.floor(capH*0.35) + Math.round(rng()), lightColor);
+      }
+
+      // Fringe — underside of cap only, small dots
+      if (rng() > 0.4) {
+        var fringeCount = 3 + Math.floor(rng() * 5);
+        for (var fi = 0; fi < fringeCount; fi++) {
+          var fa = Math.PI * (fi / fringeCount);
+          setPixel(Math.round(capX + Math.cos(fa) * capW * 0.7),
+                   Math.round(capY + capH * 0.8 + Math.round(rng()*2)), detailColor);
+        }
+      }
+
+      // Eye — on cap face, tiny (1px), rare unless toxic
+      if (isToxic ? rng() > 0.25 : rng() > 0.7) {
+        var eyeX = capX + Math.round((rng()-0.5) * capW * 0.45);
+        var eyeY = capY + Math.round((rng()-0.5) * capH * 0.4);
+        setPixel(eyeX, eyeY, darkColor);
+        setPixel(eyeX, eyeY - 1, lightColor); // glint above
+      }
+
+      // Secondary cap — only in upper half of spine, small ellipse, ~35% chance
+      if (rng() > 0.65) {
+        var sc2W = Math.floor(capW * (0.25 + rng() * 0.28));
+        var sc2H = Math.max(2, Math.floor(sc2W * 0.45));
+        var sc2X = stemTopX + Math.round((rng()-0.5) * 5);
+        // Constrained to between cap and midpoint of spine — upper half only
+        var sc2Y = capY + Math.floor((spineBotY - capY) * (0.15 + rng() * 0.3));
+        for (var se = -sc2H; se <= sc2H; se++) {
+          var sc2hw = Math.round(sc2W * Math.sqrt(Math.max(0, 1-(se/sc2H)*(se/sc2H))));
+          for (var sf = -sc2hw; sf <= sc2hw; sf++) setPixel(sc2X+sf, sc2Y+se, capColor);
+        }
+      }
+
+      // Roots — ONLY at base, 2-3 tiny lines, nothing else below
+      var rootCount = 2 + Math.floor(rng() * 2);
+      for (var ri = 0; ri < rootCount; ri++) {
+        var ra2 = Math.PI * 0.5 + (rng()-0.5) * Math.PI * 0.65;
+        var rl  = 2 + Math.floor(rng() * 3);
+        drawLine(stemTopX, spineBotY,
+          Math.round(stemTopX + Math.cos(ra2)*rl),
+          Math.round(spineBotY + Math.sin(ra2)*rl), stemColor);
+      }
+
+    } else if (floraArch === "spreading") {
+      // ── Spreading: one dominant terminal, rest are smaller ───────────────────
+      var anchorY = Math.round(cy + 5 + rng() * 5);
+      var branchCount = 3 + Math.floor(rng() * 4);
+      var spreadR = 9 + Math.floor(rng() * 9);
+
+      // Pick which branch is dominant (largest terminal)
+      var dominantBranch = Math.floor(rng() * branchCount);
+
+      // Thin root anchor
+      setPixel(cx, anchorY, stemColor);
+      setPixel(cx, anchorY+1, stemColor);
+      setPixel(cx-1, anchorY+1, stemColor);
+      setPixel(cx+1, anchorY+1, stemColor);
+
+      for (var bri = 0; bri < branchCount; bri++) {
+        var bAngle = Math.PI + (bri / Math.max(1, branchCount-1)) * Math.PI;
+        var bAngleJitter = bAngle + (rng()-0.5) * 0.7;
+        var bLen = spreadR * (0.45 + rng() * 0.55);
+        var bEndX = Math.round(cx + Math.cos(bAngleJitter) * bLen);
+        var bEndY = Math.round(anchorY + Math.sin(bAngleJitter) * bLen);
+        drawLine(cx, anchorY, bEndX, bEndY, stemColor);
+
+        // Size hierarchy: dominant branch gets a large terminal, others get small
+        var isDom = (bri === dominantBranch);
+        var termR = isDom ? 4 + Math.floor(rng() * 5) : 1 + Math.floor(rng() * 3);
+        var termShape = rng();
+        if (termShape < 0.45) {
+          fillCircle(bEndX, bEndY, termR, capColor);
+          if (isDom && rng() > 0.5) {
+            // Dominant gets a small accent dot
+            setPixel(bEndX + Math.round((rng()-0.5)*termR), bEndY + Math.round((rng()-0.5)*termR), accentColor);
+          }
+        } else if (termShape < 0.75) {
+          fillDiamond(bEndX, bEndY, termR, capColor);
+        } else {
+          // Tiny scatter for non-dominant
+          var sc = isDom ? 3 : 1;
+          for (var si2 = 0; si2 < sc; si2++) {
+            setPixel(Math.round(bEndX+(rng()-0.5)*3), Math.round(bEndY+(rng()-0.5)*3), capColor);
+          }
+        }
+      }
+
+      // Berry scatter — tiny, accent color
+      if (rng() > 0.5) {
+        var berryCount = 4 + Math.floor(rng() * 6);
+        for (var byi = 0; byi < berryCount; byi++) {
+          var byA = rng() * Math.PI * 2;
+          var byR = spreadR * (0.2 + rng() * 0.5);
+          setPixel(Math.round(cx + Math.cos(byA) * byR),
+                   Math.round(anchorY - Math.abs(Math.sin(byA)) * byR * 0.75), accentColor);
+        }
+      }
+
+    } else {
+      // ── Hanging: anchor at top, draping downward ──────────────────────────────
+      var hangAnchorY = Math.round(cy - 8 - rng() * 6);
+      var hangCount = 3 + Math.floor(rng() * 4);
+
+      // Anchor mass
+      fillCircle(cx, hangAnchorY, 2 + Math.floor(rng()*3), stemColor);
+
+      for (var hi = 0; hi < hangCount; hi++) {
+        var hAngle = (rng()-0.5) * Math.PI * 0.9; // mostly downward, slight spread
+        var hLen = 8 + Math.floor(rng() * 12);
+        var hEndX = Math.round(cx + Math.sin(hAngle) * hLen);
+        var hEndY = Math.round(hangAnchorY + Math.cos(hAngle) * hLen);
+        drawLine(cx, hangAnchorY, hEndX, hEndY, stemColor);
+
+        // Terminal: spore, bulb, or scatter
+        var hTerm = rng();
+        var hR = 2 + Math.floor(rng() * 5);
+        if (hTerm < 0.45) {
+          drawBlob(hEndX, hEndY, hR, capColor);
+        } else if (hTerm < 0.7) {
+          fillCircle(hEndX, hEndY, hR, capColor);
+          setPixel(hEndX, hEndY + hR + 1, accentColor); // drip
+        } else {
+          // Scatter spores at end
+          for (var hsi = 0; hsi < 4; hsi++) {
+            setPixel(Math.round(hEndX + (rng()-0.5)*4), Math.round(hEndY + rng()*3), capColor);
+          }
+        }
+      }
+    }
+
+    // All flora get accent highlights
+    var floraHLCount = 1 + Math.floor(rng() * 3);
+    for (var fhl = 0; fhl < floraHLCount; fhl++) {
+      setPixel(Math.round(cx + (rng()-0.5)*18), Math.round(cy + (rng()-0.5)*18), lightColor);
+    }
+
+    return grid; // Flora draws itself completely — skip the generic shape loop
+  }
+
+  // ── Spirit body pass ─────────────────────────────────────────────────────────
+  // Spirit has no single body. It is several things in relationship.
+  // The space between parts is as intentional as the parts themselves.
+  if (recipeKey === "spirit") {
+
+    // Archetype from state, tags, or rng
+    var spiritArch = S.spiritArch || null;
+    if (!spiritArch) {
+      var hasOrbiting = ctxTags.some(function(t){ return t==="watching"||t==="attentive"||t==="territorial"; });
+      var hasChaining = ctxTags.some(function(t){ return t==="seeking"||t==="curious"||t==="shifting"; });
+      if (hasOrbiting) spiritArch = "orbit";
+      else if (hasChaining) spiritArch = "chain";
+      else {
+        var sr = rng();
+        spiritArch = sr < 0.4 ? "orbit" : sr < 0.72 ? "chain" : "constellation";
+      }
+    }
+
+    // Helper: draw one spirit part — light, ephemeral, suggests presence rather than mass
+    // Spirit parts default to rings, scatter, crosses, eyes — not filled bodies.
+    // Filled shapes (blob, circle) only if player explicitly added them to pool.
+    var spiritLightPool = ["ring","scatter","cross","eye","line","ring","scatter"]; // weighted toward rings/scatter
+    // If player added heavy shapes, allow them — player intent overrides spirit nature
+    var playerHeavy = extraShapes.filter(function(s){ return s==="blob"||s==="circle"||s==="diamond"; });
+    var spiritPool = spiritLightPool.concat(playerHeavy);
+
+    function drawSpiritPart(px, py, partColor) {
+      var pType = pick(spiritPool, rng);
+      var pSz = 1 + Math.floor(rng() * 4); // smaller — 1-4px, not creature-scale
+      switch(pType) {
+        case "ring":
+          strokeRing(Math.round(px), Math.round(py), pSz + 1 + Math.floor(rng()*3), partColor);
+          break;
+        case "scatter":
+          var sc = 3 + Math.floor(rng()*6);
+          for (var si3=0; si3<sc; si3++) {
+            if (rng() > 0.3) // sparse — not every dot placed
+              setPixel(Math.round(px+(rng()-0.5)*pSz*3), Math.round(py+(rng()-0.5)*pSz*3), partColor);
+          }
+          break;
+        case "cross":
+          // Thin cross — 1px arms
+          for (var cx2=-pSz; cx2<=pSz; cx2++) setPixel(Math.round(px+cx2), Math.round(py), partColor);
+          for (var cy3=-pSz; cy3<=pSz; cy3++) setPixel(Math.round(px), Math.round(py+cy3), partColor);
+          break;
+        case "eye":
+          // Small eye — light iris, dark pupil, single glint
+          strokeRing(Math.round(px), Math.round(py), Math.max(2, pSz), partColor);
+          setPixel(Math.round(px), Math.round(py), darkColor);
+          setPixel(Math.round(px)-1, Math.round(py)-1, lightColor);
+          break;
+        case "line":
+          var lAng = rng() * Math.PI * 2;
+          var lLen = pSz + 2 + Math.floor(rng()*4);
+          drawLine(Math.round(px-Math.cos(lAng)*lLen), Math.round(py-Math.sin(lAng)*lLen),
+                   Math.round(px+Math.cos(lAng)*lLen), Math.round(py+Math.sin(lAng)*lLen), partColor);
+          break;
+        // Heavy shapes — only if player added them
+        case "blob":   drawBlob(px, py, pSz, partColor); break;
+        case "circle": fillCircle(px, py, pSz, partColor); break;
+        case "diamond": fillDiamond(px, py, pSz, partColor); break;
+        default:
+          strokeRing(Math.round(px), Math.round(py), pSz + 1, partColor);
+      }
+    }
+
+    // Helper: draw thin connective tissue between two points (sparse, optional)
+    function drawTether(x1, y1, x2, y2, col) {
+      var dx = x2-x1, dy = y2-y1;
+      var steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)));
+      for (var ti = 0; ti <= steps; ti++) {
+        // Skip ~60% of pixels — makes it feel like mist, not wire
+        if (rng() > 0.4) {
+          var t = steps===0 ? 0 : ti/steps;
+          setPixel(Math.round(x1+dx*t), Math.round(y1+dy*t), col);
+        }
+      }
+    }
+
+    var partCount = 2 + Math.floor(rng() * 3); // 2–4 parts — spirits are spare
+
+    if (spiritArch === "orbit") {
+      // Parts arranged around an absent center. Consistent radius, facing inward.
+      var orbitR = 7 + Math.floor(rng() * 9);
+      var orbitOffset = rng() * Math.PI * 2; // random starting angle
+      // Slightly elliptical orbit
+      var orbitRX = orbitR;
+      var orbitRY = orbitR * (0.6 + rng() * 0.5);
+
+      for (var oi = 0; oi < partCount; oi++) {
+        var oAngle = orbitOffset + (oi / partCount) * Math.PI * 2;
+        // Add slight irregularity — not perfectly even
+        oAngle += (rng()-0.5) * (Math.PI / partCount) * 0.5;
+        var opx = cx + Math.cos(oAngle) * orbitRX;
+        var opy = cy + Math.sin(oAngle) * orbitRY;
+        var oColor = oi === 0 ? mainColor : (rng() > 0.5 ? accentColor : midColor);
+        drawSpiritPart(opx, opy, oColor);
+      }
+
+      // Tether: thin lines between adjacent parts, ~50% chance
+      if (rng() > 0.5) {
+        for (var oti = 0; oti < partCount; oti++) {
+          var a1 = orbitOffset + (oti / partCount) * Math.PI * 2;
+          var a2 = orbitOffset + ((oti+1) / partCount) * Math.PI * 2;
+          drawTether(
+            cx + Math.cos(a1)*orbitRX, cy + Math.sin(a1)*orbitRY,
+            cx + Math.cos(a2)*orbitRX, cy + Math.sin(a2)*orbitRY,
+            darkColor
+          );
+        }
+      }
+
+      // Optional: tiny mark at the absent center — suggests something was there
+      if (rng() > 0.6) {
+        setPixel(Math.round(cx), Math.round(cy), darkColor);
+        if (rng() > 0.5) setPixel(Math.round(cx)+1, Math.round(cy), darkColor);
+      }
+
+    } else if (spiritArch === "chain") {
+      // One part leads. Others trail behind with tethers.
+      // Lead part is largest. Each subsequent part is smaller and offset.
+      var chainDir = rng() * Math.PI * 2; // direction of travel
+      var chainSpacing = 8 + Math.floor(rng() * 6);
+      var chainDrift = (rng()-0.5) * 6; // perpendicular wobble per link
+
+      for (var ci3 = 0; ci3 < partCount; ci3++) {
+        // Each part falls behind along chainDir, with perpendicular drift
+        var along = ci3 * chainSpacing;
+        var perp = ci3 * chainDrift + (rng()-0.5)*3;
+        var cpx = cx - Math.cos(chainDir)*along + Math.cos(chainDir+Math.PI/2)*perp;
+        var cpy = cy - Math.sin(chainDir)*along + Math.sin(chainDir+Math.PI/2)*perp;
+        var cColor = ci3 === 0 ? mainColor : (rng() > 0.4 ? midColor : accentColor);
+
+        // Size decreases with distance — things trailing feel smaller
+        var savedPool = pool;
+        if (ci3 > 0) {
+          // Trailing parts: smaller, simpler shapes
+          pool = ["circle","scatter","ring"];
+        }
+        drawSpiritPart(cpx, cpy, cColor);
+        pool = savedPool;
+
+        // Tether to previous part
+        if (ci3 > 0) {
+          var prevAlong = (ci3-1) * chainSpacing;
+          var prevPerp = (ci3-1) * chainDrift;
+          var prevX = cx - Math.cos(chainDir)*prevAlong + Math.cos(chainDir+Math.PI/2)*prevPerp;
+          var prevY = cy - Math.sin(chainDir)*prevAlong + Math.sin(chainDir+Math.PI/2)*prevPerp;
+          drawTether(prevX, prevY, cpx, cpy, darkColor);
+        }
+      }
+
+    } else {
+      // ── Constellation: irregular positions, relationship via negative space ────
+      // Parts are placed to form a readable shape — triangle, arc, asymmetric cluster.
+      // No tethers. The gap between them IS the drawing.
+      var constellationShapes = ["triangle", "arc", "asymmetric"];
+      var cShape = constellationShapes[Math.floor(rng() * constellationShapes.length)];
+      var conR = 8 + Math.floor(rng() * 10);
+
+      var positions = [];
+      if (cShape === "triangle") {
+        // Three points forming a triangle, possibly obtuse
+        var baseAngle = rng() * Math.PI * 2;
+        positions.push([cx + Math.cos(baseAngle)*conR, cy + Math.sin(baseAngle)*conR]);
+        positions.push([cx + Math.cos(baseAngle+2.3)*conR*(0.7+rng()*0.5), cy + Math.sin(baseAngle+2.3)*conR*(0.7+rng()*0.5)]);
+        positions.push([cx + Math.cos(baseAngle+4.2)*conR*(0.6+rng()*0.6), cy + Math.sin(baseAngle+4.2)*conR*(0.6+rng()*0.6)]);
+        if (partCount > 3) positions.push([cx + (rng()-0.5)*conR*0.4, cy + (rng()-0.5)*conR*0.4]);
+      } else if (cShape === "arc") {
+        // Parts along a curved arc, unevenly spaced
+        var arcStart = rng() * Math.PI * 2;
+        var arcSpan = Math.PI * (0.6 + rng() * 0.8);
+        for (var ai = 0; ai < partCount; ai++) {
+          var at = ai / Math.max(1, partCount-1);
+          // Uneven spacing — not perfectly distributed
+          at = at + (rng()-0.5)*0.2;
+          var aAngle = arcStart + at * arcSpan;
+          var aR = conR * (0.8 + rng() * 0.4);
+          positions.push([cx + Math.cos(aAngle)*aR, cy + Math.sin(aAngle)*aR]);
+        }
+      } else {
+        // Asymmetric — one part near center, others scattered but not random
+        positions.push([cx + (rng()-0.5)*6, cy + (rng()-0.5)*6]);
+        for (var asi = 1; asi < partCount; asi++) {
+          var asAngle = rng() * Math.PI * 2;
+          var asDist = conR * (0.5 + rng() * 0.7);
+          positions.push([cx + Math.cos(asAngle)*asDist, cy + Math.sin(asAngle)*asDist]);
+        }
+      }
+
+      for (var pi = 0; pi < positions.length; pi++) {
+        var pColor = pi === 0 ? mainColor : (rng() > 0.45 ? accentColor : midColor);
+        drawSpiritPart(positions[pi][0], positions[pi][1], pColor);
+      }
+      // No tethers — the negative space does the work
+    }
+
+    // All spirits get one or two accent highlights floating near parts
+    for (var shi = 0; shi < 1 + Math.floor(rng()*2); shi++) {
+      setPixel(Math.round(cx + (rng()-0.5)*20), Math.round(cy + (rng()-0.5)*20), lightColor);
+    }
+
+    return grid; // Spirit draws itself — skip generic shape loop
+  }
+
+  // ── Relic body pass ──────────────────────────────────────────────────────────
+  // Sparse. Two things. One witnesses the other.
+  // Primary: small, still, slightly off-center.
+  // Secondary: one gesture toward it — not decoration, an event.
+  if (recipeKey === "relic") {
+
+    var relicArch = S.relicArch || null;
+    if (!relicArch) {
+      var rr = rng();
+      relicArch = rr < 0.38 ? "enshrined" : rr < 0.7 ? "crowned" : "marked";
+    }
+
+    // Primary — the humble thing. Small. Slightly off-center.
+    var primX = Math.round(cx + (rng()-0.5) * 10);
+    var primY = Math.round(cy + (rng()-0.5) * 10);
+    var primSz = 1 + Math.floor(rng() * 3); // very small
+
+    var humblePool = ["rect","circle","diamond","cross","rect","circle","rect"];
+    extraShapes.forEach(function(s){ humblePool.push(s); });
+    var primType = pick(humblePool, rng);
+    var primColor = mainColor;
+
+    // Secondary color: reach toward contrast, not harmony
+    // Use lightColor or darkColor depending on which is more different from mainColor
+    var secColor = lightColor;
+
+    switch(primType) {
+      case "rect":
+        fillRect(primX - primSz, primY - Math.floor(primSz*0.6),
+                 primSz*2+1, Math.floor(primSz*1.3)+1, primColor);
+        break;
+      case "circle":
+        fillCircle(primX, primY, primSz, primColor);
+        break;
+      case "diamond":
+        fillDiamond(primX, primY, primSz, primColor);
+        break;
+      case "cross":
+        for (var rcx=-primSz; rcx<=primSz; rcx++) setPixel(primX+rcx, primY, primColor);
+        for (var rcy2=-primSz; rcy2<=primSz; rcy2++) setPixel(primX, primY+rcy2, primColor);
+        break;
+      default:
+        fillCircle(primX, primY, primSz, primColor);
+    }
+
+    if (relicArch === "enshrined") {
+      // Filled shape BEHIND the primary — secondary recedes, primary advances.
+      // The secondary is ground. The primary sits on top of it.
+      // Larger, dimmer, offset slightly so primary isn't perfectly centered on it.
+      var backType = rng();
+      var backR = primSz + 4 + Math.floor(rng() * 7);
+      var backX = primX + Math.round((rng()-0.5) * 5);
+      var backY = primY + Math.round((rng()-0.5) * 5);
+      var backColor = darkColor; // recedes — dim, not competing
+
+      if (backType < 0.4) {
+        // Filled circle behind
+        fillCircle(backX, backY, backR, backColor);
+      } else if (backType < 0.72) {
+        // Filled diamond behind
+        fillDiamond(backX, backY, backR, backColor);
+      } else {
+        // Filled rect behind
+        fillRect(backX - backR, backY - Math.floor(backR*0.7), backR*2+1, Math.floor(backR*1.4)+1, backColor);
+      }
+
+      // Redraw primary on top — it should now clearly sit on the background shape
+      switch(primType) {
+        case "rect":
+          fillRect(primX-primSz, primY-Math.floor(primSz*0.6), primSz*2+1, Math.floor(primSz*1.3)+1, primColor);
+          break;
+        case "diamond": fillDiamond(primX, primY, primSz, primColor); break;
+        case "cross":
+          for (var rcx2=-primSz; rcx2<=primSz; rcx2++) setPixel(primX+rcx2, primY, primColor);
+          for (var rcy3=-primSz; rcy3<=primSz; rcy3++) setPixel(primX, primY+rcy3, primColor);
+          break;
+        default: fillCircle(primX, primY, primSz, primColor);
+      }
+
+      // One small light mark — the moment of noticing
+      if (rng() > 0.4) setPixel(primX + Math.round((rng()-0.5)*4), primY - backR - 1, secColor);
+
+    } else if (relicArch === "crowned") {
+      // One arc that lands on something. 2-3 sparks where it connects.
+      var crownR = primSz + 6 + Math.floor(rng() * 6);
+      var crownSpan = Math.PI * (0.4 + rng() * 0.5); // short arc
+      var crownAng = rng() * Math.PI * 2; // where it arrives from
+      var crownStart = crownAng - crownSpan * 0.5;
+
+      // Draw the arc — single pixel, no fill
+      var crownSteps = Math.ceil(crownR * crownSpan * 1.2);
+      for (var cs = 0; cs <= crownSteps; cs++) {
+        var cAng = crownStart + (cs/crownSteps)*crownSpan;
+        setPixel(Math.round(primX + Math.cos(cAng)*crownR),
+                 Math.round(primY + Math.sin(cAng)*crownR), secColor);
+      }
+
+      // Where the arc ends closest to primary — the contact point
+      var contactAng = crownAng; // midpoint of arc faces primary
+      var contactX = Math.round(primX + Math.cos(contactAng) * (crownR));
+      var contactY = Math.round(primY + Math.sin(contactAng) * (crownR));
+
+      // 2-3 sparks flaring from contact — short lines or single pixels
+      var sparkCount = 2 + Math.floor(rng() * 2);
+      for (var sp = 0; sp < sparkCount; sp++) {
+        var spAng = contactAng + (rng()-0.5) * Math.PI * 0.6;
+        var spLen = 2 + Math.floor(rng() * 4);
+        drawLine(contactX, contactY,
+          Math.round(contactX + Math.cos(spAng)*spLen),
+          Math.round(contactY + Math.sin(spAng)*spLen), accentColor);
+      }
+
+    } else {
+      // ── Marked: sparse sparkle field. Primary sits still inside it. ──────────
+      // The dust the sun shows through. 5-8 single pixels, spread wide.
+      var sparkleCount = 5 + Math.floor(rng() * 4);
+      for (var ski = 0; ski < sparkleCount; ski++) {
+        var skAng = rng() * Math.PI * 2;
+        var skDist = 6 + rng() * 14; // spread wide, keep away from primary
+        setPixel(Math.round(primX + Math.cos(skAng)*skDist),
+                 Math.round(primY + Math.sin(skAng)*skDist), secColor);
+        // ~40% chance of a second pixel adjacent — makes it feel like a sparkle not a dot
+        if (rng() > 0.6) {
+          setPixel(Math.round(primX + Math.cos(skAng)*skDist) + (rng()>0.5?1:-1),
+                   Math.round(primY + Math.sin(skAng)*skDist), secColor);
+        }
+      }
+      // One accent pixel very close to primary — the thing that noticed it first
+      setPixel(primX + (rng()>0.5?1:-1)*( primSz+2), primY + Math.round((rng()-0.5)*2), accentColor);
+    }
+
+    return grid;
+  }
+
+  // ── Item body pass ───────────────────────────────────────────────────────────
+  // Two shapes that each own a quadrant. They meet at a joint near center.
+  // The joint is where the item is. Neither shape is decoration.
+  if (recipeKey === "item") {
+
+    // Joint — the meeting point, slightly off dead-center
+    var jx = Math.round(cx + (rng()-0.5) * 8);
+    var jy = Math.round(cy + (rng()-0.5) * 8);
+
+    // Axis — orthogonal or diagonal, determines which quadrants each part owns
+    var axisAngle = rng() > 0.5
+      ? (rng() > 0.5 ? 0 : Math.PI*0.5)           // orthogonal: horizontal or vertical
+      : (rng() > 0.5 ? Math.PI*0.25 : Math.PI*0.75); // diagonal
+    axisAngle += (rng()-0.5) * 0.2; // slight wobble
+
+    // Part A — extends from joint along axis in one direction
+    var aLen = 5 + Math.floor(rng() * 9);
+    var aAx = Math.round(jx + Math.cos(axisAngle) * aLen * 0.5);
+    var aAy = Math.round(jy + Math.sin(axisAngle) * aLen * 0.5);
+
+    // Part B — extends from joint in opposite direction, different character
+    var bLen = 4 + Math.floor(rng() * 7);
+    var bAx = Math.round(jx - Math.cos(axisAngle) * bLen * 0.5);
+    var bAy = Math.round(jy - Math.sin(axisAngle) * bLen * 0.5);
+
+    // Shape vocabulary for each part — pick from pool, bias toward geometric
+    var itemPool = ["rect","diamond","circle","cross","rect","rect","diamond"];
+    extraShapes.forEach(function(s){ itemPool.push(s); });
+
+    var typeA = pick(itemPool, rng);
+    var typeB = pick(itemPool, rng);
+
+    // Helper: draw one item part extending from a center point along the axis
+    function drawItemPart(px, py, pType, pLen, pColor, isAlongAxis) {
+      var perpAng = axisAngle + Math.PI*0.5;
+      switch(pType) {
+        case "rect":
+          // Rect owns its quadrant: long along axis, narrow across
+          var rLong = Math.floor(pLen * 0.9);
+          var rShort = 2 + Math.floor(rng() * 3);
+          for (var rl = -rLong; rl <= rLong; rl++)
+            for (var rs = -rShort; rs <= rShort; rs++)
+              setPixel(Math.round(px + Math.cos(axisAngle)*rl + Math.cos(perpAng)*rs),
+                       Math.round(py + Math.sin(axisAngle)*rl + Math.sin(perpAng)*rs), pColor);
+          break;
+        case "diamond":
+          fillDiamond(px, py, Math.floor(pLen*0.55), pColor);
+          break;
+        case "circle":
+          fillCircle(px, py, Math.floor(pLen*0.5), pColor);
+          break;
+        case "cross":
+          var cArm = Math.floor(pLen*0.6);
+          for (var ca=-cArm; ca<=cArm; ca++) {
+            setPixel(Math.round(px+Math.cos(axisAngle)*ca), Math.round(py+Math.sin(axisAngle)*ca), pColor);
+            setPixel(Math.round(px+Math.cos(perpAng)*ca), Math.round(py+Math.sin(perpAng)*ca), pColor);
+          }
+          break;
+        case "line": case "spike":
+          for (var lt=-pLen; lt<=pLen; lt++) {
+            setPixel(Math.round(px+Math.cos(axisAngle)*lt), Math.round(py+Math.sin(axisAngle)*lt), pColor);
+            if (rng()>0.5) setPixel(Math.round(px+Math.cos(axisAngle)*lt+Math.cos(perpAng)),
+                                    Math.round(py+Math.sin(axisAngle)*lt+Math.sin(perpAng)), pColor);
+          }
+          break;
+        default:
+          fillCircle(px, py, Math.floor(pLen*0.45), pColor);
+      }
+    }
+
+    // Draw part B first (handle/grip end — shadow side, same hue family), then A on top
+    // Both parts are the same object — midColor reads as shadow, not contrast
+    drawItemPart(bAx, bAy, typeB, bLen, midColor, false);
+
+    // Part A duplication — ~45% chance, same shape copied with slight offset + rotation nudge
+    // Not mirror symmetry: placed, not grown. Two of the same thing, nearly aligned.
+    if (rng() > 0.55) {
+      var dupOffset = 2 + Math.floor(rng() * 4);
+      var perpAng2 = axisAngle + Math.PI * 0.5;
+      var dupX = aAx + Math.round(Math.cos(perpAng2) * dupOffset);
+      var dupY = aAy + Math.round(Math.sin(perpAng2) * dupOffset);
+      // Nudge the axis slightly for the duplicate — slight rotation in place
+      var savedAxis = axisAngle;
+      axisAngle = axisAngle + (rng()-0.5) * 0.35;
+      drawItemPart(dupX, dupY, typeA, Math.floor(aLen * (0.8 + rng()*0.25)), midColor, true);
+      axisAngle = savedAxis;
+    }
+
+    drawItemPart(aAx, aAy, typeA, aLen, mainColor, true);
+
+    // Joint mark — small accent at the meeting point, always present
+    // This is the thing that holds the two parts together
+    var jointType = rng();
+    if (jointType < 0.4) {
+      setPixel(jx, jy, lightColor);
+      if (rng()>0.5) setPixel(jx+1, jy, lightColor);
+    } else if (jointType < 0.7) {
+      fillDiamond(jx, jy, 2, accentColor); // small gem or rivet
+    } else {
+      strokeRing(jx, jy, 2, accentColor); // loop or ring fitting
+    }
+
+    // Shine — one light pixel on part A (the business end catches light)
+    setPixel(Math.round(aAx + Math.cos(axisAngle) * Math.floor(aLen*0.4)),
+             Math.round(aAy + Math.sin(axisAngle) * Math.floor(aLen*0.4)), lightColor);
+
+    return grid;
+  }
+
+  // ── Terrain body pass ────────────────────────────────────────────────────────
+  // Terrain is a condition, not a thing. It always exits the frame.
+  // Tile six of them and they read as one continuous surface.
+  // Detail is incidental to the material, not the subject.
+  if (recipeKey === "terrain") {
+
+    var terrainArch = S.terrainArch || null;
+    if (!terrainArch) {
+      var tr = rng();
+      terrainArch = tr < 0.38 ? "floor" : tr < 0.68 ? "wall" : "ceiling";
+    }
+
+    // Material texture — responsive to extraShapes, uses only mainColor/darkColor/midColor
+    // Terrain does not compete. It guides attention elsewhere gracefully.
+    // Colors stay close: variation between mainColor and darkColor only.
+    var hasRect   = extraShapes.indexOf("rect")    >= 0;
+    var hasCircle = extraShapes.indexOf("circle")  >= 0 || extraShapes.indexOf("blob") >= 0;
+    var hasDiamond= extraShapes.indexOf("diamond") >= 0;
+    var hasBanding= extraShapes.indexOf("cross")   >= 0 || extraShapes.indexOf("scatter") >= 0;
+
+    // Determine material style from extraShapes, or default to earth
+    var matStyle = hasDiamond  ? "faceted"
+                 : hasRect     ? "grid"
+                 : hasBanding  ? "banded"
+                 : hasCircle   ? "earth"
+                 : (rng() > 0.5 ? "earth" : "banded"); // default varies
+
+    // Band period for banded/grid — fixed per critter so it looks consistent
+    var bandPeriod = 3 + Math.floor(rng() * 4);
+
+    function materialPixel(mx, my) {
+      if (matStyle === "grid") {
+        // Regular grid — near-solid with thin dark lines at intervals
+        var onLineH = (my % bandPeriod === 0);
+        var onLineV = (mx % bandPeriod === 0);
+        if (onLineH || onLineV) return darkColor;
+        if (rng() > 0.97) return midColor; // rare fleck
+        return mainColor;
+      } else if (matStyle === "faceted") {
+        // Diagonal facets — diamond/checkerboard feel
+        var diag = (mx + my) % (bandPeriod);
+        if (diag === 0) return darkColor;
+        if (diag === 1 && rng() > 0.6) return midColor;
+        return mainColor;
+      } else if (matStyle === "banded") {
+        // Horizontal bands — the lovely banding, toned down
+        var band = Math.floor(my / bandPeriod);
+        if (band % 2 === 0) return mainColor;
+        if (rng() > 0.85) return midColor;
+        return darkColor;
+      } else {
+        // Earth — organic, close-valued flecking
+        if (rng() > 0.91) return darkColor;
+        if (rng() > 0.95) return midColor;
+        return mainColor;
+      }
+    }
+
+    // Edge profile helper — generates a per-column or per-row boundary with slight noise
+    function makeEdgeProfile(length, basePos, noise) {
+      var profile = [];
+      var cur = basePos;
+      for (var pi2 = 0; pi2 < length; pi2++) {
+        cur += (rng()-0.5) * noise * 0.5;
+        cur = Math.max(basePos - noise, Math.min(basePos + noise, cur));
+        profile[pi2] = Math.round(cur);
+      }
+      return profile;
+    }
+
+    if (terrainArch === "tile") {
+      // ── Tile: full canvas fill. No edge. Pure material. ──────────────────────
+      // Tileable background. Six of these side by side read as one surface.
+      for (var ty = 0; ty < GRID; ty++) {
+        for (var tx = 0; tx < GRID; tx++) {
+          setPixel(tx, ty, materialPixel(tx, ty));
+        }
+      }
+      // No seam — terrain does not annotate itself
+
+    } else if (terrainArch === "edge") {
+      // ── Edge: floor/wall/ceiling — always exits 3 borders ────────────────────
+      var edgeDir = Math.floor(rng() * 3); // 0=floor, 1=wall, 2=ceiling
+      var edgeNoise = 2 + Math.floor(rng() * 5);
+
+      if (edgeDir === 0) { // floor
+        var baseY = Math.round(GRID * (0.38 + rng() * 0.28));
+        var edgeProfile = makeEdgeProfile(GRID, baseY, edgeNoise);
+        for (var fy2 = 0; fy2 < GRID; fy2++)
+          for (var fx3 = 0; fx3 < GRID; fx3++)
+            if (fy2 >= edgeProfile[fx3]) setPixel(fx3, fy2, materialPixel(fx3, fy2));
+        for (var ex = 0; ex < GRID; ex++) {
+          setPixel(ex, edgeProfile[ex], lightColor);
+          if (rng() > 0.55) setPixel(ex, edgeProfile[ex]-1, lightColor);
+        }
+      } else if (edgeDir === 1) { // wall
+        var wallFromLeft = rng() > 0.5;
+        var wallBase = Math.round(GRID * (0.35 + rng() * 0.28));
+        var wallProfile = makeEdgeProfile(GRID, wallBase, edgeNoise);
+        for (var wy = 0; wy < GRID; wy++)
+          for (var wx = 0; wx < GRID; wx++) {
+            var inside = wallFromLeft ? (wx <= wallProfile[wy]) : (wx >= wallProfile[wy]);
+            if (inside) setPixel(wx, wy, materialPixel(wx, wy));
+          }
+        for (var ey2 = 0; ey2 < GRID; ey2++) {
+          setPixel(wallProfile[ey2], ey2, midColor);
+          if (rng() > 0.6) setPixel(wallFromLeft ? wallProfile[ey2]-1 : wallProfile[ey2]+1, ey2, midColor);
+        }
+      } else { // ceiling
+        var ceilBase = Math.round(GRID * (0.28 + rng() * 0.28));
+        var ceilProfile = makeEdgeProfile(GRID, ceilBase, edgeNoise);
+        for (var cy5 = 0; cy5 < GRID; cy5++)
+          for (var cx4 = 0; cx4 < GRID; cx4++)
+            if (cy5 <= ceilProfile[cx4]) setPixel(cx4, cy5, materialPixel(cx4, cy5));
+        for (var cex = 0; cex < GRID; cex++) {
+          setPixel(cex, ceilProfile[cex], lightColor);
+          if (rng() > 0.55) setPixel(cex, ceilProfile[cex]+1, lightColor);
+        }
+        // No stalactites — terrain does not annotate itself
+      }
+      // No seam — terrain does not annotate itself
+
+    } else {
+      // ── Sparse: small repeated motifs scattered across open canvas ────────────
+      // Grass tufts, pebbles, sand grains. Repetition is what makes it terrain.
+      // A single tuft is flora. Eight tufts is ground cover.
+      var motifType = Math.floor(rng() * 4); // 0=tuft, 1=pebble, 2=dot cluster, 3=scratch
+      var motifCount = 7 + Math.floor(rng() * 9); // 7-15 stamps
+
+      // Build a grid of candidate positions — loose grid prevents total randomness
+      // Random origin offset prevents center bias
+      var cols2 = Math.ceil(Math.sqrt(motifCount));
+      var rows2 = Math.ceil(motifCount / cols2);
+      var cellW = Math.floor(GRID / cols2);
+      var cellH = Math.floor(GRID / rows2);
+      var gridOffX = Math.round((rng()-0.5) * cellW * 0.5);
+      var gridOffY = Math.round((rng()-0.5) * cellH * 0.5);
+      var positions = [];
+      for (var mi2 = 0; mi2 < motifCount; mi2++) {
+        var col = mi2 % cols2;
+        var row2 = Math.floor(mi2 / cols2);
+        positions.push([
+          Math.round(gridOffX + cellW * col + rng() * cellW * 0.75 + cellW * 0.12),
+          Math.round(gridOffY + cellH * row2 + rng() * cellH * 0.75 + cellH * 0.12)
+        ]);
+      }
+
+      // Shuffle positions slightly
+      positions.sort(function() { return rng() - 0.5; });
+
+      for (var pi3 = 0; pi3 < positions.length; pi3++) {
+        var mx2 = positions[pi3][0], my2 = positions[pi3][1];
+        if (mx2 < 0 || mx2 >= GRID || my2 < 0 || my2 >= GRID) continue;
+        // Each stamp gets slight size variation and color variation
+        var mSz = 1 + Math.floor(rng() * 3);
+        var mColor = rng() > 0.7 ? accentColor : rng() > 0.5 ? midColor : mainColor;
+
+        if (motifType === 0) {
+          // Tuft — 2-4 short upward lines from base point
+          var bladeCount = 2 + Math.floor(rng() * 3);
+          for (var bi = 0; bi < bladeCount; bi++) {
+            var bAng = -Math.PI*0.5 + (rng()-0.5) * Math.PI * 0.5;
+            var bLen = mSz + Math.floor(rng() * 2);
+            for (var bl = 0; bl < bLen; bl++)
+              setPixel(Math.round(mx2 + Math.cos(bAng)*bl), Math.round(my2 + Math.sin(bAng)*bl), mColor);
+          }
+        } else if (motifType === 1) {
+          // Pebble — small filled circle or diamond, 1-3px
+          if (rng() > 0.5) fillCircle(mx2, my2, mSz, mColor);
+          else fillDiamond(mx2, my2, mSz, mColor);
+          if (rng() > 0.6) setPixel(mx2-1, my2-1, lightColor); // shine
+        } else if (motifType === 2) {
+          // Dot cluster — 3-6 pixels loosely grouped
+          var dotCount = 3 + Math.floor(rng() * 4);
+          for (var di6 = 0; di6 < dotCount; di6++)
+            setPixel(Math.round(mx2 + (rng()-0.5)*mSz*2.5),
+                     Math.round(my2 + (rng()-0.5)*mSz*2), mColor);
+        } else {
+          // Scratch — short angled line, like a mark in sand or a twig
+          var sAng = rng() * Math.PI;
+          var sLen = 2 + Math.floor(rng() * 4);
+          drawLine(Math.round(mx2 - Math.cos(sAng)*sLen), Math.round(my2 - Math.sin(sAng)*sLen),
+                   Math.round(mx2 + Math.cos(sAng)*sLen), Math.round(my2 + Math.sin(sAng)*sLen), mColor);
+        }
+      }
+    }
+
+    return grid; // Terrain draws itself — skip generic shape loop
+  }
+
+  // Accent highlights (remaining recipes)
   if (rng() > 0.35) {
     var hlCount = 1 + Math.floor(rng()*3);
     for (var hli = 0; hli < hlCount; hli++) {
@@ -479,19 +1700,13 @@ function startBreathing(canvas, grid, size) {
     var id = requestAnimationFrame(draw);
     activeAnimations.push(id);
   }
-  var id = requestAnimationFrame(draw);
-  activeAnimations.push(id);
+  draw(); // First frame synchronous — no blank-canvas flash
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
 var S = {
   worldKey: null,
-  recipeKey: "creature",
-  extraShapes: [],
-  palKey: null,
   cohesionMode: null,
-  rolls: [],
-  selected: null,
   collection: [],
   view: "crank",
   cranking: false,
@@ -500,6 +1715,33 @@ var S = {
   editingDesc: false,
   customDesc: "",
   crankContext: null,
+  // Controller state
+  dpadSlots: [],        // 4 world keys on d-pad
+  dpadActive: null,     // index 0-3 of selected d-pad slot
+  dpadHeld: false,      // is d-pad currently held (for splash mode)
+  styleSlots: [],       // 4 voice keys on style buttons
+  styleActive: null,    // last-toggled style index (for generation bias)
+  activeStyles: [],     // all currently lit face button indices
+  activeVoices: [],     // voice keys influencing generation
+  // Screen creatures
+  mainCreature: null,   // the big centered roll
+  sideCreatures: [],    // up to 5 creature/spirit/flora slots (left column)
+  inventorySlots: [],   // up to 8 terrain/item/relic slots (right 2x4 grid)
+  // Haul packets
+  packets: [],          // sealed world-packets (replaces flat collection for new haul)
+  activePacket: null,   // packet currently being entered
+  lensMode: "sims",     // "sims" | "grid" | "platformer" | "hunter"
+  // GBA upgrade
+  density: 0.5,         // volume slider (0=sparse, 1=busy)
+  shoulderL: null,      // voice key held on L shoulder
+  shoulderR: null,      // voice key held on R shoulder
+  shoulderHeldL: false, // is L currently held down
+  shoulderHeldR: false, // is R currently held down
+  worldMenuOpen: false, // in-screen world menu overlay
+  shoulderLRevealed: false, // has L shoulder been discovered
+  shoulderRRevealed: false, // has R shoulder been discovered
+  _shoulderLastTap: 0,  // timestamp of last shoulder+style tap (cheat code)
+  _shoulderLastSide: null, // which shoulder was used for last tap
 };
 
 // Grid cache: stores rendered grids to avoid re-rendering on every frame
@@ -523,6 +1765,17 @@ function loadCollection() {
 
 function saveCollection() {
   try { localStorage.setItem("critter-collection-v2", JSON.stringify(S.collection)); } catch(e) {}
+}
+
+function loadPackets() {
+  try {
+    var raw = localStorage.getItem("critter-packets-v1");
+    if (raw) S.packets = JSON.parse(raw);
+  } catch(e) {}
+}
+
+function savePackets() {
+  try { localStorage.setItem("critter-packets-v1", JSON.stringify(S.packets)); } catch(e) {}
 }
 
 function pushScraggle(emoji, signal) {
@@ -559,13 +1812,13 @@ function readCrankContext() {
     }
   } catch(e) {}
 
-  // Check localStorage for maze-diffusion seed (if no Grimoire context)
+  // Check localStorage for efdp seed (if no Grimoire context)
   if (!S.crankContext) {
     try {
       var seedRaw = localStorage.getItem("baseline-session/crank-seed");
       if (seedRaw) {
         var seed = JSON.parse(seedRaw);
-        if (seed.source === "maze-diffusion") {
+        if (seed.source === "efdp") {
           var recipeMap = {
             circle:["creature","spirit"], square:["item","terrain"],
             triangle:["relic","creature"]
@@ -609,36 +1862,494 @@ function exportPortrait(critter, grid) {
 }
 
 // ── Game Logic ───────────────────────────────────────────────────────────────
+function getWorldVoices(worldKey) {
+  var w = WORLDS[worldKey];
+  if (!w) return [];
+  return VOICE_KEYS.filter(function(vk) {
+    return w.palettePool.indexOf(VOICES[vk].palette) >= 0;
+  });
+}
+
 function selectWorld(key) {
+  var wasWorldSelect = !S.worldKey;
   S.worldKey = key;
-  S.rolls = [];
-  S.selected = null;
+  S.mainCreature = null;
+  S.sideCreatures = [];
+  S.worldMenuOpen = false;
+  S.shoulderL = null;
+  S.shoulderR = null;
   gridCache = {};
+  // Initialize d-pad with this world + 3 random others
+  var others = WORLD_KEYS.filter(function(k) { return k !== key; });
+  fisherYates(others);
+  S.dpadSlots = [key, others[0], others[1], others[2]];
+  S.dpadActive = 0;
+  // Initialize style slots: ~60% world-fitting, ~40% general
+  var worldVoices = getWorldVoices(key);
+  var generalVoices = VOICE_KEYS.filter(function(k) { return worldVoices.indexOf(k) < 0; });
+  fisherYates(worldVoices);
+  fisherYates(generalVoices);
+  var slots = [];
+  // Fill ~2-3 from world pool, rest from general
+  var worldCount = Math.min(worldVoices.length, Math.random() < 0.5 ? 2 : 3);
+  for (var i = 0; i < worldCount && i < worldVoices.length; i++) slots.push(worldVoices[i]);
+  var gi = 0;
+  while (slots.length < 4 && gi < generalVoices.length) slots.push(generalVoices[gi++]);
+  // Pad with any remaining if needed
+  while (slots.length < 4) {
+    var fallback = VOICE_KEYS[Math.floor(Math.random() * VOICE_KEYS.length)];
+    if (slots.indexOf(fallback) < 0) slots.push(fallback);
+  }
+  fisherYates(slots);
+  S.styleSlots = slots;
+  S.styleActive = null;
+  S.activeStyles = [];
+  S.activeVoices = [];
+  S._machineEntrance = wasWorldSelect;
+  invalidateShell();
   render();
+  S._machineEntrance = false;
 }
 
-function goToWorldSelect() {
-  S.worldKey = null;
-  S.rolls = [];
-  S.selected = null;
-  gridCache = {};
-  render();
+// ── Fisher-Yates shuffle ─────────────────────────────────────────────────────
+function fisherYates(arr) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
 }
 
+// ── Generation Pipeline ──────────────────────────────────────────────────────
+var MAIN_RECIPE_POOL   = ["creature","creature","creature","spirit","spirit","flora"];
+var INVENTORY_RECIPE_POOL = ["terrain","terrain","item","item","relic"];
+
+function generateRoll(bias) {
+  // bias: "creature" (main slot) or "inventory" (right column)
+  // Falls back to world pool if no bias given
+  var w = WORLDS[S.worldKey];
+  if (!w) return null;
+  var now = Date.now();
+  var seed = now + Math.floor(Math.random() * 99999);
+  var rng = seededRng(seed + 1234);
+  var worldNote = [];
+
+  // 1. Recipe pick — biased by slot type
+  var rKey;
+  if (bias === "creature") {
+    rKey = pick(MAIN_RECIPE_POOL, rng);
+  } else if (bias === "inventory") {
+    rKey = pick(INVENTORY_RECIPE_POOL, rng);
+  } else {
+    rKey = pick(w.recipePool, rng);
+  }
+  worldNote.push(rKey);
+
+  // 2. World shape extras — density-scaled
+  // At density 0 (sparse): 0-1 extras. At density 1 (busy): 2-4 extras.
+  var rExtras = [];
+  var maxExtras = Math.round(1 + S.density * 3); // 1-4
+  var extraRolls = Math.round(S.density * 3 + rng() * 1.5); // 0-4ish
+  for (var ei = 0; ei < Math.min(extraRolls, maxExtras); ei++) {
+    var hint = pick(w.extraHints, rng);
+    if (rExtras.indexOf(hint) < 0) { rExtras.push(hint); worldNote.push("+" + hint); }
+  }
+
+  // 3. Entity context hints (if present)
+  var entityHints = [];
+  if (S.crankContext && S.crankContext.tags) {
+    S.crankContext.tags.forEach(function(tag) {
+      var hints = TAG_SHAPE_MAP[tag];
+      if (hints) entityHints = entityHints.concat(hints);
+    });
+  }
+  if (entityHints.length > 0 && rng() > 0.4) {
+    var entityHint = pick(entityHints, rng);
+    if (rExtras.indexOf(entityHint) < 0) { rExtras.push(entityHint); worldNote.push("~" + entityHint); }
+  }
+
+  // 4. Voice shapes + palette + auto-derive cohesion
+  var rPal = pick(w.palettePool, rng);
+  // Auto-derive cohesion: blend voice cohesion with world bias
+  var rCohesion = pick(w.cohesionBias, rng);
+  var voiceEmoji = "";
+  var worldIcon = w.icon;
+
+  S.activeVoices.forEach(function(vk) {
+    var voice = VOICES[vk];
+    if (!voice) return;
+    voice.shapes.forEach(function(sh) {
+      if (rExtras.indexOf(sh) < 0) { rExtras.push(sh); worldNote.push("v:" + sh); }
+    });
+    rPal = voice.palette;
+    voiceEmoji = voice.emoji;
+    // Auto-derive: voice cohesion wins ~60% of the time
+    if (voice.cohesion && rng() > 0.4) rCohesion = voice.cohesion;
+  });
+
+  // 5. Maze seed overrides (if present)
+  if (S.crankContext && S.crankContext.source === "efdp") {
+    var ms = S.crankContext;
+    if (rng() > 0.5 && ms.recipePool) { rKey = pick(ms.recipePool, rng); worldNote.push("m:" + rKey); }
+    rPal = ms.paletteKey || rPal;
+    rCohesion = ms.cohesionMode || rCohesion;
+    if (ms.extraShapeHints) ms.extraShapeHints.forEach(function(h) {
+      if (rExtras.indexOf(h) < 0) rExtras.push(h);
+    });
+  }
+
+  return { seed: seed, recipeKey: rKey, extraShapes: rExtras, palKey: rPal, cohesionMode: rCohesion, worldNote: worldNote.join(" "), voiceEmoji: voiceEmoji, worldIcon: worldIcon };
+}
+
+function doSingle() {
+  if (!S.worldKey || S.dpadActive === null) return;
+  var roll = generateRoll("creature");
+  if (!roll) return;
+  // Previous main → side slot (creature column, cap at 5)
+  if (S.mainCreature) {
+    S.sideCreatures.unshift(S.mainCreature);
+    if (S.sideCreatures.length > 5) S.sideCreatures.pop();
+  }
+  S.mainCreature = roll;
+  // Also fill one inventory slot (churns — replaces oldest)
+  var invRoll = generateRoll("inventory");
+  if (invRoll) {
+    S.inventorySlots.unshift(invRoll);
+    if (S.inventorySlots.length > 8) S.inventorySlots.pop();
+  }
+  render();
+  setTimeout(function() { bounceReveal(); }, 10);
+}
+
+function doSplash() {
+  if (!S.worldKey || S.dpadActive === null) return;
+  // Generate 6 creatures (main + 5 side) and 8 inventory items
+  S.mainCreature = null;
+  S.sideCreatures = [];
+  S.inventorySlots = [];
+  var rolls = [];
+  for (var i = 0; i < 6; i++) rolls.push(generateRoll("creature"));
+  S.mainCreature = rolls[0];
+  S.sideCreatures = rolls.slice(1);
+  for (var j = 0; j < 8; j++) {
+    var ir = generateRoll("inventory");
+    if (ir) S.inventorySlots.push(ir);
+  }
+  render();
+  setTimeout(function() { bounceReveal(); }, 10);
+}
+
+// ── Shuffle Functions ────────────────────────────────────────────────────────
+function shuffleDpad(keepIdx) {
+  // Keep the pressed slot, replace other 3 with random worlds
+  var kept = S.dpadSlots[keepIdx];
+  var pool = WORLD_KEYS.filter(function(k) { return k !== kept; });
+  fisherYates(pool);
+  var pi = 0;
+  for (var i = 0; i < 4; i++) {
+    if (i === keepIdx) continue;
+    S.dpadSlots[i] = pool[pi++];
+  }
+  // 30% chance: shuffle 1-2 style slots (excluding active)
+  if (Math.random() < 0.3) {
+    var stylePool = VOICE_KEYS.filter(function(k) { return S.styleSlots.indexOf(k) < 0; });
+    fisherYates(stylePool);
+    var count = Math.random() < 0.5 ? 1 : 2;
+    var si = 0;
+    for (var i = 0; i < 4 && count > 0; i++) {
+      if (i === S.styleActive) continue;
+      if (si < stylePool.length) { S.styleSlots[i] = stylePool[si++]; count--; }
+    }
+  }
+}
+
+function shuffleStyle(keepIdx) {
+  // Keep the pressed slot, replace other 3 with voices
+  // Prefer world-fitting voices (~60% chance per slot)
+  var kept = S.styleSlots[keepIdx];
+  var worldPool = getWorldVoices(S.worldKey).filter(function(k) { return k !== kept; });
+  var generalPool = VOICE_KEYS.filter(function(k) { return k !== kept && worldPool.indexOf(k) < 0; });
+  fisherYates(worldPool);
+  fisherYates(generalPool);
+  var wi = 0, gi = 0;
+  var used = [kept];
+  for (var i = 0; i < 4; i++) {
+    if (i === keepIdx) continue;
+    var picked;
+    if (Math.random() < 0.6 && wi < worldPool.length) {
+      picked = worldPool[wi++];
+    } else if (gi < generalPool.length) {
+      picked = generalPool[gi++];
+    } else if (wi < worldPool.length) {
+      picked = worldPool[wi++];
+    } else {
+      picked = VOICE_KEYS[Math.floor(Math.random() * VOICE_KEYS.length)];
+    }
+    // Avoid duplicates
+    while (used.indexOf(picked) >= 0 && (wi < worldPool.length || gi < generalPool.length)) {
+      picked = wi < worldPool.length ? worldPool[wi++] : generalPool[gi++];
+    }
+    used.push(picked);
+    S.styleSlots[i] = picked;
+  }
+  // 20% chance: shuffle 1 d-pad slot (excluding active)
+  if (Math.random() < 0.2) {
+    var dpadPool = WORLD_KEYS.filter(function(k) { return S.dpadSlots.indexOf(k) < 0; });
+    if (dpadPool.length > 0) {
+      fisherYates(dpadPool);
+      for (var i = 0; i < 4; i++) {
+        if (i === S.dpadActive) continue;
+        S.dpadSlots[i] = dpadPool[0];
+        break;
+      }
+    }
+  }
+}
+
+// ── Controller Event Handlers ────────────────────────────────────────────────
+function pressDpad(idx) {
+  S.dpadActive = idx;
+  S.worldKey = S.dpadSlots[idx];
+  document.body.style.background = WORLDS[S.worldKey].bg;
+  shuffleDpad(idx);
+  if (S.dpadHeld) doSplash();
+  else doSingle();
+}
+
+function holdShoulder(side) {
+  S['shoulderHeld' + side] = true;
+  // First press: reveal the shoulder button via in-place DOM patch (no full re-render)
+  if (!S['shoulder' + side + 'Revealed']) {
+    S['shoulder' + side + 'Revealed'] = true;
+    var el = document.getElementById('shoulder-' + side);
+    if (el) {
+      el.classList.add('revealed');
+      el.style.width = '52px';
+      el.style.height = '20px';
+      el.style.borderRadius = '8px 8px 0 0';
+      el.style.background = '#2a0a18';
+      el.style.border = '2px solid #4a1a30';
+      el.style.borderBottom = 'none';
+      el.style.fontSize = '6px';
+      el.style.color = '#5a3010';
+      el.style.display = 'flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'center';
+      el.style.boxShadow = '0 -2px 6px rgba(0,0,0,0.3)';
+      el.textContent = side;
+    }
+  }
+}
+function releaseShoulder(side) {
+  S['shoulderHeld' + side] = false;
+}
+
+function pressStyle(idx) {
+  // Shoulder intercept: hold/deposit voice
+  if (S.shoulderHeldL || S.shoulderHeldR) {
+    var side = S.shoulderHeldL ? 'L' : 'R';
+    var shoulderKey = 'shoulder' + side;
+    if (S[shoulderKey] === null) {
+      S[shoulderKey] = S.styleSlots[idx];
+      S._shoulderLastTap = Date.now();
+      S._shoulderLastSide = side;
+    } else {
+      S.styleSlots[idx] = S[shoulderKey];
+      S[shoulderKey] = null;
+    }
+    render();
+    return;
+  }
+
+  // PASSIVE TOGGLE — face buttons are influence flags, not triggers.
+  // Multiple can be active at once. D-pad press is what generates.
+  if (S.activeStyles.indexOf(idx) >= 0) {
+    // Already active — deactivate it
+    S.activeStyles = S.activeStyles.filter(function(i) { return i !== idx; });
+  } else {
+    S.activeStyles.push(idx);
+  }
+  // Update activeVoices from all active style slots
+  S.activeVoices = S.activeStyles.map(function(i) { return S.styleSlots[i]; });
+  // If nothing active, default to slot 0 so generation always has something
+  if (S.activeVoices.length === 0) S.styleActive = null;
+  else S.styleActive = S.activeStyles[S.activeStyles.length - 1];
+
+  // In-place DOM update ONLY — no full render, no layout shift
+  updateStyleButtonsInPlace();
+}
+
+function updateStyleButtonsInPlace() {
+  // Update each face button's visual state without touching the DOM tree above it
+  document.querySelectorAll(".style-btn").forEach(function(btn) {
+    var idx = parseInt(btn.getAttribute("data-style-idx"));
+    if (isNaN(idx)) return;
+    var isActive = S.activeStyles.indexOf(idx) >= 0;
+    btn.style.background = isActive ? '#1a2a10' : '#12000e';
+    btn.style.borderColor = isActive ? '#9bbc0f' : '#3a1028';
+    btn.style.boxShadow = isActive
+      ? '0 0 14px rgba(155,188,15,0.7),0 3px 0 rgba(0,0,0,0.4)'
+      : '0 3px 0 rgba(0,0,0,0.4),0 1px 0 rgba(255,200,100,0.05)';
+  });
+}
+
+// ── Density Dial ─────────────────────────────────────────────────────────────
+var DENSITY_DETENTS = [0, 0.25, 0.5, 0.75, 1.0];
+function cycleDensity() {
+  var ci = DENSITY_DETENTS.indexOf(S.density);
+  S.density = DENSITY_DETENTS[(ci + 1) % DENSITY_DETENTS.length];
+  // In-place DOM update: shift wheel shade
+  var wheel = document.getElementById("density-wheel");
+  if (wheel) {
+    wheel.style.background = densityWheelBg();
+    // Re-apply knurled texture over new background
+    wheel.style.backgroundImage = 'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(255,255,255,0.04) 3px,rgba(255,255,255,0.04) 4px)';
+    wheel.style.animation = 'none';
+    wheel.offsetHeight; // force reflow
+    wheel.style.animation = 'knobDetent 0.15s';
+  }
+}
+
+// ── World Menu ──────────────────────────────────────────────────────────────
+function toggleWorldMenu() {
+  S.worldMenuOpen = !S.worldMenuOpen;
+  render();
+}
+function selectWorldFromMenu(key) {
+  S.worldMenuOpen = false;
+  selectWorld(key);
+}
+
+// ── Lens Cycling ─────────────────────────────────────────────────────────────
+var LENS_ORDER = ["sims", "grid", "platformer", "hunter"];
+var LENS_LABELS = { sims: "SIMS", grid: "GRID", platformer: "PLATFORM", hunter: "HUNTER" };
+var LENS_ICONS  = { sims: "👁", grid: "⊞", platformer: "▶", hunter: "⚔" };
+
+function cycleLens() {
+  var idx = LENS_ORDER.indexOf(S.lensMode);
+  S.lensMode = LENS_ORDER[(idx + 1) % LENS_ORDER.length];
+  // If we're inside a packet, re-enter with new lens
+  if (S.view === "packet") render();
+  else {
+    // Flash the lens label on screen briefly
+    var el = document.getElementById("lens-label");
+    if (el) {
+      el.textContent = LENS_ICONS[S.lensMode] + " " + LENS_LABELS[S.lensMode];
+      el.style.opacity = "1";
+      setTimeout(function() { if (el) el.style.opacity = "0"; }, 800);
+    }
+  }
+}
+
+// ── Packet Sealing ────────────────────────────────────────────────────────────
+function deriveRelations(cohort) {
+  // cohort: array of 14 rolls [0=main, 1-5=creatures, 6-13=inventory]
+  // Spatial grid: main is center, creatures fill left column top-to-bottom,
+  // inventory fills right 2x4 grid. Neighbors = adjacent positions.
+  // Each entity gets affinities (neighbors) and aversions (far diagonal).
+  var relations = [];
+  for (var i = 0; i < cohort.length; i++) {
+    var affinities = [], aversions = [];
+    // Creatures: neighbors are ±1 in the left column
+    if (i >= 1 && i <= 5) {
+      if (i - 1 >= 1) affinities.push(i - 1);   // above
+      if (i + 1 <= 5) affinities.push(i + 1);   // below
+      affinities.push(0);                         // main is always adjacent
+      // Averse to far inventory
+      aversions.push(6 + (5 - i));
+    }
+    // Main (0): friendly with all immediate neighbors
+    if (i === 0) {
+      affinities = [1, 2, 6, 7]; // top creatures + top inventory
+      aversions = [5, 13];        // bottom of each column
+    }
+    // Inventory: neighbors in the 2x4 grid
+    if (i >= 6 && i <= 13) {
+      var pos = i - 6; // 0-7
+      var col = pos % 2, row = Math.floor(pos / 2);
+      if (row > 0) affinities.push(6 + (row-1)*2 + col);   // above
+      if (row < 3) affinities.push(6 + (row+1)*2 + col);   // below
+      if (col === 0) affinities.push(i + 1);                // right neighbor
+      if (col === 1) affinities.push(i - 1);                // left neighbor
+      // Averse to opposite creature
+      aversions.push(5 - Math.min(row, 4));
+    }
+    // Filter out-of-bounds
+    relations.push({
+      affinities: affinities.filter(function(x){ return x >= 0 && x < cohort.length; }),
+      aversions:  aversions.filter(function(x){ return x >= 0 && x < cohort.length; }),
+    });
+  }
+  return relations;
+}
+
+function sealPacket() {
+  if (!S.mainCreature) return null;
+  var world = WORLDS[S.worldKey];
+
+  // Build cohort array: [main, ...creatures(5), ...inventory(8)]
+  var creatures = S.sideCreatures.slice(0, 5);
+  var inventory = S.inventorySlots.slice(0, 8);
+  var cohort = [S.mainCreature].concat(creatures).concat(inventory);
+
+  // Derive names + descriptions for each
+  var named = cohort.map(function(roll) {
+    return Object.assign({}, roll, {
+      name: generateName(roll.seed),
+      description: generateDescription(roll.seed),
+      worldKey: S.worldKey,
+      collected: Date.now(),
+    });
+  });
+
+  var relations = deriveRelations(cohort);
+
+  var packet = {
+    id: Date.now(),
+    worldKey: S.worldKey,
+    palette: world.bg,
+    accent:  world.accent,
+    worldLabel: world.label,
+    worldIcon:  world.icon,
+    main:      named[0],
+    creatures: named.slice(1, 6),
+    inventory: named.slice(6),
+    relations: relations,
+    lastLens: null,
+    sealed: Date.now(),
+  };
+
+  // Maze origin if present
+  if (S.crankContext && S.crankContext.source === "efdp") {
+    var ms = S.crankContext;
+    packet.mazeOrigin = {
+      meanStrength: ms.meanStrength, calcifiedRatio: ms.calcifiedRatio,
+      dominantHex: ms.dominantHex,
+    };
+  }
+
+  return packet;
+}
+
+// ── Crank Save ───────────────────────────────────────────────────────────────
 function handleCrank() {
-  if (S.cranking || !S.worldKey) return;
+  if (S.cranking) return;
+  if (!S.mainCreature && S.sideCreatures.length === 0) return;
+
   S.cranking = true;
   var start = Date.now();
   var duration = 500;
   var handle = document.getElementById("crank-handle");
   var btn = document.getElementById("crank-btn");
+
   function animate() {
-    var p = Math.min((Date.now()-start)/duration, 1);
-    S.crankAngle = p * 380;
-    if (handle) handle.style.transform = "rotate("+S.crankAngle+"deg)";
+    var p = Math.min((Date.now() - start) / duration, 1);
+    var ease = 1 - (1 - p) * (1 - p);
+    S.crankAngle = ease * 360;
+    if (handle) handle.style.transform = "rotate(" + S.crankAngle + "deg)";
     if (btn) {
-      btn.style.transform = "translateY(3px)";
-      btn.style.background = "#1a0a00";
+      var sink = Math.min(p * 1.2, 1) * 4;
+      btn.style.transform = "translateY(" + sink + "px)";
     }
     if (p < 1) {
       requestAnimationFrame(animate);
@@ -647,144 +2358,35 @@ function handleCrank() {
       S.cranking = false;
       if (handle) handle.style.transform = "rotate(0deg)";
       if (btn) {
-        btn.style.transform = "none";
-        btn.style.background = "radial-gradient(circle at 40% 35%, #5a3010, #3d2010)";
+        btn.style.transition = "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)";
+        btn.style.transform = "translateY(0)";
+        setTimeout(function() { if (btn) btn.style.transition = ""; }, 250);
       }
-      doRoll();
+
+      // Seal the packet
+      var packet = sealPacket();
+      if (packet) {
+        S.packets.unshift(packet);
+        savePackets();
+        pushScraggle("\u2728", "packet sealed: " + packet.worldLabel);
+      }
+
+      // Clear screen
+      S.mainCreature = null;
+      S.sideCreatures = [];
+      S.inventorySlots = [];
+      gridCache = {};
+      render();
     }
   }
   requestAnimationFrame(animate);
-}
-
-function doRoll() {
-  var w = WORLDS[S.worldKey];
-  var now = Date.now();
-  var newRolls = [];
-
-  // Entity tag hints
-  var entityHints = [];
-  if (S.crankContext && S.crankContext.tags) {
-    S.crankContext.tags.forEach(function(tag) {
-      var hints = TAG_SHAPE_MAP[tag];
-      if (hints) entityHints = entityHints.concat(hints);
-    });
-  }
-
-  for (var i = 0; i < 6; i++) {
-    var seed = now + i * 7919 + Math.floor(Math.random()*99999);
-    var rng = seededRng(seed + 1234);
-    var rKey = S.recipeKey;
-    var worldNote = [];
-    if (rng() > 0.6) { rKey = pick(w.recipePool, rng); if (rKey !== S.recipeKey) worldNote.push(rKey); }
-    var rExtras = S.extraShapes.slice();
-    if (rng() > 0.5) {
-      var hint = pick(w.extraHints, rng);
-      if (!rExtras.includes(hint)) { rExtras.push(hint); worldNote.push("+"+hint); }
-    }
-    // Entity suggestion layer
-    if (entityHints.length > 0 && rng() > 0.4) {
-      var entityHint = pick(entityHints, rng);
-      if (!rExtras.includes(entityHint)) { rExtras.push(entityHint); worldNote.push("~"+entityHint); }
-    }
-    var rPal = S.palKey || pick(w.palettePool, rng);
-    var rCohesion = S.cohesionMode || pick(w.cohesionBias, rng);
-    // Maze seed layer — override palette/cohesion/recipe from maze witness data
-    if (S.crankContext && S.crankContext.source === "maze-diffusion") {
-      var ms = S.crankContext;
-      if (rng() > 0.5 && ms.recipePool) { rKey = pick(ms.recipePool, rng); worldNote.push("m:"+rKey); }
-      if (!S.palKey) rPal = ms.paletteKey || rPal;
-      if (!S.cohesionMode) rCohesion = ms.cohesionMode || rCohesion;
-      if (ms.extraShapeHints) ms.extraShapeHints.forEach(function(h) {
-        if (!rExtras.includes(h)) { rExtras.push(h); }
-      });
-    }
-    newRolls.push({ seed: seed, recipeKey: rKey, extraShapes: rExtras, palKey: rPal, cohesionMode: rCohesion, worldNote: worldNote.join(" ") });
-  }
-  S.rolls = newRolls;
-  S.selected = null;
-  gridCache = {};
-  render();
-
-  // Start bounce reveal
-  setTimeout(function() { bounceReveal(); }, 10);
-}
-
-function selectRoll(i) {
-  S.selected = (S.selected === i) ? null : i;
-  render();
-  setTimeout(function() { bounceReveal(true); }, 10);
-}
-
-function keepSelected() {
-  if (S.selected === null || !S.rolls[S.selected]) return;
-  var roll = S.rolls[S.selected];
-  var critter = {
-    id: roll.seed,
-    seed: roll.seed,
-    recipeKey: roll.recipeKey,
-    extraShapes: roll.extraShapes,
-    palKey: roll.palKey,
-    cohesionMode: roll.cohesionMode,
-    name: generateName(roll.seed),
-    description: generateDescription(roll.seed),
-    worldKey: S.worldKey,
-    collected: Date.now(),
-  };
-  // Store maze DNA if this critter came from a maze seed
-  if (S.crankContext && S.crankContext.source === "maze-diffusion") {
-    var ms = S.crankContext;
-    critter.mazeOrigin = {
-      meanStrength: ms.meanStrength,
-      calcifiedRatio: ms.calcifiedRatio,
-      layerCount: ms.layerCount,
-      kiwiDensity: ms.kiwiDensity,
-      dominantHex: ms.dominantHex,
-      secondaryHex: ms.secondaryHex,
-    };
-  }
-  S.collection.push(critter);
-  saveCollection();
-
-  // Portrait for Grimoire
-  var grid = getCachedGrid(roll);
-  exportPortrait(critter, grid);
-
-  // Scraggle
-  pushScraggle("\u2728", critter.name.toLowerCase() + " kept");
-
-  // Remove from rolls
-  S.rolls.splice(S.selected, 1);
-  S.selected = null;
-  render();
-  setTimeout(function() { bounceReveal(true); }, 10);
-}
-
-function toggleExtra(shape) {
-  var idx = S.extraShapes.indexOf(shape);
-  if (idx >= 0) S.extraShapes.splice(idx, 1);
-  else S.extraShapes.push(shape);
-  render();
-}
-
-function setRecipe(key) {
-  S.recipeKey = key;
-  render();
-}
-
-function setPalette(key) {
-  S.palKey = key;
-  render();
-}
-
-function setCohesion(key) {
-  S.cohesionMode = key;
-  render();
 }
 
 function setView(v) {
   S.view = v;
   S.selectedCritter = null;
   S.editingDesc = false;
+  S.activePacket = null;
   render();
 }
 
@@ -862,21 +2464,30 @@ function dismissContext() {
 function bounceReveal(skipAnimation) {
   var slots = document.querySelectorAll(".bounce-slot");
   if (!slots.length) return;
+
+  // Static burst on the screen scanlines
+  if (!skipAnimation) {
+    var scanlines = document.querySelector('[style*="repeating-linear-gradient"]');
+    if (scanlines) {
+      scanlines.style.animation = 'staticBurst 0.12s ease-out';
+      setTimeout(function() { if (scanlines) scanlines.style.animation = ''; }, 140);
+    }
+  }
+
   slots.forEach(function(slot, i) {
     if (skipAnimation) {
       slot.classList.add("visible", "popped");
-      if (S.selected === i) slot.classList.add("selected");
-      else slot.classList.remove("selected");
       return;
     }
-    slot.classList.remove("visible", "popped", "selected");
+    slot.classList.remove("visible", "popped");
+    var tumble = (Math.random() - 0.5) * 6;
+    slot.style.transform = 'scale(0) rotate(' + tumble + 'deg)';
     setTimeout(function() {
       slot.classList.add("visible");
+      slot.style.transform = 'scale(1.15) rotate(' + tumble + 'deg)';
       setTimeout(function() {
         slot.classList.add("popped");
-        // Confetti
-        var conf = slot.querySelector(".confetti");
-        if (conf) conf.style.display = "block";
+        slot.style.transform = '';
       }, 180);
     }, i * 90);
   });
@@ -884,19 +2495,80 @@ function bounceReveal(skipAnimation) {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 var mount = document.getElementById("mount");
+var _shellRendered = false;
 
 function render() {
   cancelAllAnimations();
 
   if (!S.worldKey) {
+    _shellRendered = false;
     renderWorldSelect();
+    setTimeout(postRender, 0);
   } else {
-    renderMachine();
+    if (!_shellRendered) {
+      renderMachine();
+      _shellRendered = true;
+      // Measure and lock scale after first shell build, then draw canvases
+      setTimeout(function() {
+        scaleMachine();
+        _machineScaleLocked = true;
+        postRender();
+      }, 0);
+    } else {
+      renderScreenOnly();
+      postRender(); // Synchronous — canvases drawn before browser paints
+    }
   }
   document.body.style.background = S.worldKey ? WORLDS[S.worldKey].bg : "#04040a";
+}
 
-  // Post-render: draw canvases
-  setTimeout(postRender, 0);
+// Called when world changes — force full shell rebuild next render
+function invalidateShell() {
+  _shellRendered = false;
+}
+
+function renderScreenOnly() {
+  // Swap only the screen content div — machine chrome stays untouched
+  var screenDiv = document.getElementById("screen-content");
+  if (!screenDiv) { renderMachine(); _shellRendered = true; applyStoredScale(); return; }
+
+  var world = WORLDS[S.worldKey];
+
+  // Update tab active states
+  var tabCrank = document.getElementById("tab-crank");
+  var tabColl  = document.getElementById("tab-coll");
+  if (tabCrank) {
+    tabCrank.style.background = S.view === "crank" ? "#9bbc0f" : "#0a1400";
+    tabCrank.style.borderColor = S.view === "crank" ? "#9bbc0f" : "#1a2a00";
+    tabCrank.style.color = S.view === "crank" ? "#0a0a00" : "#3a5a00";
+  }
+  if (tabColl) {
+    tabColl.style.background = S.view === "collection" ? "#9bbc0f" : "#0a1400";
+    tabColl.style.borderColor = S.view === "collection" ? "#9bbc0f" : "#1a2a00";
+    tabColl.style.color = S.view === "collection" ? "#0a0a00" : "#3a5a00";
+    tabColl.textContent = "HAUL (" + S.packets.length + ")";
+  }
+
+  // Update crank button state
+  var crankBtn = document.getElementById("crank-btn");
+  var hasCreatures = S.mainCreature || S.sideCreatures.length > 0;
+  if (crankBtn) {
+    crankBtn.disabled = S.cranking || !hasCreatures;
+    crankBtn.style.opacity = hasCreatures ? "1" : "0.4";
+    crankBtn.style.background = S.cranking ? "#1a0a00"
+      : hasCreatures ? "radial-gradient(circle at 40% 35%,#5a3010,#3d2010)"
+      : "#120800";
+    crankBtn.style.cursor = (S.cranking || !hasCreatures) ? "default" : "pointer";
+  }
+  var crankLabel = document.getElementById("crank-label");
+  if (crankLabel) crankLabel.textContent = S.cranking ? "..." : (hasCreatures ? "KEEP" : "·");
+
+  // Swap screen content
+  screenDiv.innerHTML = S.view === "crank" ? renderScreen() : renderCollectionView();
+
+  // Update world menu if open
+  var menuOverlay = document.getElementById("world-menu-overlay");
+  if (menuOverlay) menuOverlay.innerHTML = S.worldMenuOpen ? renderWorldMenuContent() : "";
 }
 
 function esc(str) {
@@ -904,50 +2576,197 @@ function esc(str) {
 }
 
 function renderWorldSelect() {
+  // Zoomed phosphor screen — no machine visible, just the screen bezel scaled up
   var ctxBanner = "";
-  if (S.crankContext && S.crankContext.source === "maze-diffusion") {
+  if (S.crankContext && S.crankContext.source === "efdp") {
     var ms = S.crankContext;
-    ctxBanner = '<div style="background:rgba(204,170,102,0.06);border:1px solid #554422;border-radius:6px;padding:10px 16px;margin-bottom:24px;text-align:left">'
-      + '<div style="font-size:5px;color:#ccaa66;letter-spacing:0.1em;margin-bottom:4px">ARRIVED FROM THE MAZE</div>'
-      + '<div style="font-size:5px;color:#aa8844;margin-bottom:4px">' + esc(ms.paletteKey) + ' \u00B7 ' + esc(ms.cohesionMode) + ' \u00B7 ' + esc(ms.dominantPinType) + '</div>'
-      + '<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">'
-      + '<div style="width:12px;height:12px;border-radius:2px;background:' + esc(ms.dominantHex) + '"></div>'
-      + (ms.secondaryHex ? '<div style="width:12px;height:12px;border-radius:2px;background:' + esc(ms.secondaryHex) + '"></div>' : '')
-      + '<span style="font-size:4px;color:#886633">' + ms.layerCount + ' layer' + (ms.layerCount !== 1 ? 's' : '') + ' \u00B7 ' + esc(ms.kiwiDensity) + ' kiwis</span>'
-      + '</div>'
-      + '<div style="font-size:4px;color:#554422;margin-top:2px">the maze witnessed something</div>'
+    ctxBanner = '<div style="background:rgba(204,170,102,0.06);border:1px solid #554422;border-radius:4px;padding:6px 10px;margin-bottom:10px;text-align:left">'
+      + '<div style="font-size:4px;color:#ccaa66;letter-spacing:0.08em">MAZE \u00B7 ' + esc(ms.paletteKey) + '</div>'
       + '</div>';
   } else if (S.crankContext) {
-    var tags = S.crankContext.tags && S.crankContext.tags.length > 0
-      ? '<div style="font-size:4px;color:#4a6a10;letter-spacing:0.05em">' + esc(S.crankContext.tags.join(" \u00B7 ")) + '</div>'
-      : "";
-    ctxBanner = '<div style="background:rgba(155,188,15,0.06);border:1px solid #3a5a00;border-radius:6px;padding:10px 16px;margin-bottom:24px;text-align:left">'
-      + '<div style="font-size:5px;color:#9bbc0f;letter-spacing:0.1em;margin-bottom:4px">ARRIVED FROM THE HALL</div>'
-      + '<div style="font-size:6px;color:#c8d890;margin-bottom:4px">' + esc(S.crankContext.name) + '</div>'
-      + tags
-      + '<div style="font-size:4px;color:#2a4a00;margin-top:6px">kept critters will return as portraits</div>'
+    ctxBanner = '<div style="background:rgba(155,188,15,0.06);border:1px solid #3a5a00;border-radius:4px;padding:6px 10px;margin-bottom:10px;text-align:left">'
+      + '<div style="font-size:4px;color:#9bbc0f;letter-spacing:0.08em">HALL \u00B7 ' + esc(S.crankContext.name) + '</div>'
       + '</div>';
   }
 
   var worldButtons = WORLD_KEYS.map(function(k, i) {
     var w = WORLDS[k];
-    return '<button class="world-btn" onclick="selectWorld(\'' + k + '\')" style="background:#0a0a10;border:2px solid #2a2a3a;border-radius:6px;padding:14px 10px;cursor:pointer;text-align:left;font-family:inherit;animation:worldIn 0.4s ease ' + (i*60) + 'ms backwards">'
-      + '<div style="font-size:16px;margin-bottom:6px">' + w.icon + '</div>'
-      + '<div style="font-size:7px;color:#e0e0c0;margin-bottom:6px;letter-spacing:0.08em">' + esc(w.label.toUpperCase()) + '</div>'
-      + '<div style="font-size:5px;color:#4a4a3a;line-height:1.8">' + esc(w.flavor) + '</div>'
+    return '<button class="world-menu-item" onclick="selectWorld(\'' + k + '\')" style="'
+      + 'display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;'
+      + 'background:transparent;border:1px solid #1a2a00;border-radius:4px;'
+      + 'font-family:inherit;text-align:left;width:100%;animation:worldIn 0.3s ease ' + (i*50) + 'ms backwards">'
+      + '<div style="font-size:18px">' + w.icon + '</div>'
+      + '<div>'
+      + '<div style="font-size:6px;color:#9bbc0f;letter-spacing:0.06em">' + esc(w.label.toUpperCase()) + '</div>'
+      + '<div style="font-size:4px;color:#3a5a00;line-height:1.6;margin-top:2px">' + esc(w.flavor) + '</div>'
+      + '</div>'
       + '</button>';
   }).join("");
 
   mount.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">'
-    + '<div style="text-align:center;max-width:480px">'
-    + '<div style="font-size:10px;color:#ffcc44;letter-spacing:0.15em;margin-bottom:8px;text-shadow:0 0 12px #ffcc44aa">\u2726 CRITTER CRANK \u2726</div>'
-    + '<div style="font-size:6px;color:#444422;margin-bottom:40px;letter-spacing:0.1em;animation:pulse 2s infinite">where do you want to go?</div>'
+    + '<div id="world-select-wrapper" class="screen-entry" style="width:100%;max-width:420px">'
+    // Screen bezel (zoomed — same aesthetic as machine screen)
+    + '<div style="background:#120008;border-radius:14px;padding:10px;border:4px solid #1a0010;box-shadow:inset 0 4px 16px rgba(0,0,0,0.9),0 20px 60px rgba(0,0,0,0.7)">'
+    + '<div style="background:#080f00;border-radius:8px;padding:14px;position:relative;min-height:280px;animation:screenFlicker 10s infinite;box-shadow:inset 0 0 24px rgba(155,188,15,0.06)">'
+    // Phosphor + scanlines
+    + '<div style="position:absolute;inset:0;background:rgba(155,188,15,0.03);border-radius:8px;pointer-events:none;z-index:10"></div>'
+    + '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);border-radius:8px;pointer-events:none;z-index:11"></div>'
+    // Content
+    + '<div style="position:relative;z-index:12">'
+    + '<div style="font-size:7px;color:#ffcc44;letter-spacing:0.12em;text-align:center;margin-bottom:4px;text-shadow:0 0 8px #ffcc44aa">\u2726 CRITTER CRANK \u2726</div>'
+    + '<div style="font-size:5px;color:#2a4000;text-align:center;margin-bottom:14px;animation:pulse 2s infinite">choose a world</div>'
     + ctxBanner
-    + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">'
+    + '<div style="display:flex;flex-direction:column;gap:4px">'
     + worldButtons
     + '</div>'
-    + '<div style="margin-top:24px;font-size:5px;color:#1a1a0a">insert coin to begin</div>'
+    + '</div>'
+    + '</div></div>'
     + '</div></div>';
+}
+
+function hexToRgb(hex) {
+  var h = hex.replace('#', '');
+  return {
+    r: parseInt(h.substring(0,2), 16),
+    g: parseInt(h.substring(2,4), 16),
+    b: parseInt(h.substring(4,6), 16)
+  };
+}
+
+function renderDpad() {
+  // Embossed d-pad cross: tinted backgrounds, large icons, opacity dimming
+  var activeWorld = S.dpadActive !== null ? WORLDS[S.dpadSlots[S.dpadActive]] : null;
+  var accentRgb = activeWorld ? hexToRgb(activeWorld.accent) : {r:60,g:32,b:0};
+
+  function dBtn(idx, dir) {
+    if (idx >= S.dpadSlots.length) return '';
+    var wk = S.dpadSlots[idx];
+    var w = WORLDS[wk];
+    var isActive = S.dpadActive === idx;
+    var icon = w ? w.icon : "\u25CF";
+    var wRgb = w ? hexToRgb(w.accent) : accentRgb;
+    var bg = isActive
+      ? 'rgba(' + wRgb.r + ',' + wRgb.g + ',' + wRgb.b + ',0.15)'
+      : 'rgba(' + wRgb.r + ',' + wRgb.g + ',' + wRgb.b + ',0.05)';
+    var bc = isActive ? '#9bbc0f' : '#3d2010';
+    var shadow = isActive
+      ? 'box-shadow:0 0 8px rgba(155,188,15,0.4),inset 0 2px 4px rgba(0,0,0,0.6);'
+      : 'box-shadow:inset 0 2px 4px rgba(0,0,0,0.6),inset 0 -1px 0 rgba(255,255,255,0.04);';
+    var posStyle = '';
+    if (dir === 'up') posStyle = 'grid-column:2;grid-row:1;border-radius:6px 6px 2px 2px;';
+    if (dir === 'left') posStyle = 'grid-column:1;grid-row:2;border-radius:6px 2px 2px 6px;';
+    if (dir === 'right') posStyle = 'grid-column:3;grid-row:2;border-radius:2px 6px 6px 2px;';
+    if (dir === 'down') posStyle = 'grid-column:2;grid-row:3;border-radius:2px 2px 6px 6px;';
+    return '<button class="dpad-btn" onclick="pressDpad(' + idx + ')" style="'
+      + 'width:40px;height:40px;padding:0;cursor:pointer;'
+      + 'background:' + bg + ';border:2px solid ' + bc + ';'
+      + 'display:flex;align-items:center;justify-content:center;'
+      + posStyle + shadow
+      + 'font-family:inherit;opacity:' + (isActive ? '1' : '0.5') + '">'
+      + '<div style="font-size:20px;line-height:1">' + icon + '</div>'
+      + '</button>';
+  }
+  // Hub center: show active world icon or neutral dot
+  var hubBg = S.dpadActive !== null ? 'rgba(' + accentRgb.r + ',' + accentRgb.g + ',' + accentRgb.b + ',0.08)' : '#120800';
+  var hubIcon = activeWorld ? activeWorld.icon : '+';
+  var hubSize = activeWorld ? '12px' : '6px';
+  var hubColor = activeWorld ? activeWorld.accent : '#3d2010';
+  var hub = '<div style="grid-column:2;grid-row:2;width:40px;height:40px;background:' + hubBg + ';border:2px solid #2a1400;display:flex;align-items:center;justify-content:center;border-radius:2px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.5)">'
+    + '<div style="font-size:' + hubSize + ';color:' + hubColor + '">' + hubIcon + '</div></div>';
+
+  return '<div style="display:inline-grid;grid-template-columns:40px 40px 40px;grid-template-rows:40px 40px 40px;gap:2px">'
+    + dBtn(0, 'up')
+    + dBtn(1, 'left')
+    + hub
+    + dBtn(2, 'right')
+    + dBtn(3, 'down')
+    + '</div>';
+}
+
+function renderShoulderButtons() {
+  function sBtnHtml(side) {
+    var revealed = S['shoulder' + side + 'Revealed'];
+    var held = S['shoulder' + side];
+    var isHeldDown = S['shoulderHeld' + side];
+    var hasVoice = held !== null;
+    var events = 'onmousedown="holdShoulder(\'' + side + '\')" onmouseup="releaseShoulder(\'' + side + '\')" '
+      + 'ontouchstart="holdShoulder(\'' + side + '\')" ontouchend="releaseShoulder(\'' + side + '\')"';
+
+    if (!revealed) {
+      // Undiscovered: thin dark tab barely peeking above machine edge
+      return '<button id="shoulder-' + side + '" class="shoulder-btn" ' + events + ' style="'
+        + 'width:44px;height:10px;border-radius:4px 4px 0 0;padding:0;cursor:pointer;'
+        + 'background:#3a1028;border:1px solid #2a0a18;border-bottom:none;'
+        + 'box-shadow:inset 0 1px 2px rgba(0,0,0,0.4);font-family:inherit;font-size:0;'
+        + 'overflow:hidden'
+        + '"></button>';
+    }
+
+    // Revealed: taller popped tab with emoji/letter
+    var emoji = hasVoice ? VOICES[held].emoji : side;
+    var bg = isHeldDown ? '#2a1800' : (hasVoice ? '#1a2a10' : '#2a0a18');
+    var bc = hasVoice ? '#9bbc0f' : '#4a1a30';
+    var shadow = isHeldDown ? 'inset 0 2px 4px rgba(0,0,0,0.7)' : '0 -2px 6px rgba(0,0,0,0.3)';
+    return '<button id="shoulder-' + side + '" class="shoulder-btn revealed" ' + events + ' style="'
+      + 'width:52px;height:20px;border-radius:8px 8px 0 0;padding:0;cursor:pointer;'
+      + 'background:' + bg + ';border:2px solid ' + bc + ';border-bottom:none;'
+      + 'display:flex;align-items:center;justify-content:center;'
+      + 'box-shadow:' + shadow + ';font-family:inherit;font-size:' + (hasVoice ? '12px' : '6px') + ';'
+      + 'color:' + (hasVoice ? '#9bbc0f' : '#5a3010') + ';overflow:hidden'
+      + '">'
+      + emoji
+      + '</button>';
+  }
+  return { left: sBtnHtml('L'), right: sBtnHtml('R') };
+}
+
+function densityWheelBg() {
+  // Shifts from dark (sparse) to warm (busy)
+  var w = Math.round(S.density * 40);
+  function hex2(n) { var s = n.toString(16); return s.length < 2 ? '0' + s : s; }
+  return 'linear-gradient(to bottom,#' + hex2(20 + w) + '0a18,#' + hex2(10 + w) + '0610)';
+}
+
+function renderDensityDial() {
+  return '<div id="density-wheel" class="edge-wheel" onclick="cycleDensity()" style="'
+    + 'position:absolute;right:-4px;top:50%;transform:translateY(-50%);'
+    + 'width:8px;height:50px;border-radius:0 4px 4px 0;cursor:pointer;'
+    + 'background:' + densityWheelBg() + ';'
+    + 'border:1px solid #1a0810;border-left:none;'
+    + 'box-shadow:2px 0 6px rgba(0,0,0,0.4);'
+    + 'background-image:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(255,255,255,0.04) 3px,rgba(255,255,255,0.04) 4px);'
+    + 'user-select:none'
+    + '"></div>';
+}
+
+function renderWorldMenuContent() {
+  var items = WORLD_KEYS.map(function(k) {
+    var w = WORLDS[k];
+    var isCurrent = k === S.worldKey;
+    return '<button class="world-menu-item" onclick="selectWorldFromMenu(\'' + k + '\')" style="'
+      + 'display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;'
+      + 'background:' + (isCurrent ? 'rgba(155,188,15,0.1)' : 'transparent') + ';'
+      + 'border:1px solid ' + (isCurrent ? '#4a7a00' : '#1a2a00') + ';border-radius:4px;'
+      + 'font-family:inherit;text-align:left;width:100%">'
+      + '<div style="font-size:16px">' + w.icon + '</div>'
+      + '<div>'
+      + '<div style="font-size:6px;color:#9bbc0f;letter-spacing:0.06em">' + esc(w.label.toUpperCase()) + '</div>'
+      + '<div style="font-size:4px;color:#3a5a00;line-height:1.6;margin-top:2px">' + esc(w.flavor) + '</div>'
+      + '</div>'
+      + '</button>';
+  }).join('');
+  return '<div style="position:absolute;inset:0;background:rgba(0,8,0,0.92);border-radius:6px;z-index:20;display:flex;flex-direction:column;padding:10px;overflow-y:auto">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    + '<div style="font-size:6px;color:#9bbc0f;letter-spacing:0.1em">\u2726 WORLDS</div>'
+    + '<button onclick="toggleWorldMenu()" style="background:none;border:none;color:#4a7a00;font-size:7px;cursor:pointer;font-family:inherit">\u2715</button>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:4px">' + items + '</div>'
+    + '</div>';
+}
+
+function renderWorldMenu() {
+  if (!S.worldMenuOpen) return '';
+  return renderWorldMenuContent();
 }
 
 function renderMachine() {
@@ -956,21 +2775,15 @@ function renderMachine() {
 
   // Context banner
   var ctxBanner = "";
-  if (S.crankContext && S.crankContext.source === "maze-diffusion") {
+  if (S.crankContext && S.crankContext.source === "efdp") {
     var ms = S.crankContext;
-    ctxBanner = '<div style="background:rgba(204,170,102,0.05);border:1px solid #554422;border-radius:4px;padding:7px 10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
-      + '<div><div style="font-size:4px;color:#ccaa66;letter-spacing:0.1em;margin-bottom:2px">MAZE SEED \u00B7 ' + esc(ms.paletteKey.toUpperCase()) + ' \u00B7 ' + esc(ms.cohesionMode.toUpperCase()) + '</div>'
-      + '<div style="display:flex;gap:3px;align-items:center"><div style="width:8px;height:8px;border-radius:1px;background:' + esc(ms.dominantHex) + '"></div>'
-      + (ms.secondaryHex ? '<div style="width:8px;height:8px;border-radius:1px;background:' + esc(ms.secondaryHex) + '"></div>' : '')
-      + '<span style="font-size:4px;color:#886633">' + esc(ms.dominantPinType) + ' \u00B7 ' + esc(ms.kiwiDensity) + '</span></div></div>'
+    ctxBanner = '<div style="background:rgba(204,170,102,0.05);border:1px solid #554422;border-radius:4px;padding:4px 8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px">'
+      + '<div style="font-size:4px;color:#ccaa66;letter-spacing:0.08em">MAZE \u00B7 ' + esc(ms.paletteKey.toUpperCase()) + '</div>'
       + '<button onclick="dismissContext()" style="background:none;border:none;color:#554422;font-size:5px;cursor:pointer;font-family:inherit;padding:0">\u2715</button>'
       + '</div>';
   } else if (S.crankContext) {
-    var tags = S.crankContext.tags && S.crankContext.tags.length > 0
-      ? '<div style="font-size:4px;color:#2a5000">' + esc(S.crankContext.tags.join(" \u00B7 ")) + '</div>'
-      : "";
-    ctxBanner = '<div style="background:rgba(155,188,15,0.05);border:1px solid #2a4a00;border-radius:4px;padding:7px 10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
-      + '<div><div style="font-size:4px;color:#4a7a00;letter-spacing:0.1em;margin-bottom:2px">HALL CONTEXT \u00B7 ' + esc(S.crankContext.name.toUpperCase()) + '</div>' + tags + '</div>'
+    ctxBanner = '<div style="background:rgba(155,188,15,0.05);border:1px solid #2a4a00;border-radius:4px;padding:4px 8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px">'
+      + '<div style="font-size:4px;color:#4a7a00;letter-spacing:0.08em">HALL \u00B7 ' + esc(S.crankContext.name.toUpperCase()) + '</div>'
       + '<button onclick="dismissContext()" style="background:none;border:none;color:#2a4a00;font-size:5px;cursor:pointer;font-family:inherit;padding:0">\u2715</button>'
       + '</div>';
   }
@@ -982,235 +2795,383 @@ function renderMachine() {
   var tabColl = S.view === "collection"
     ? 'background:#9bbc0f;border:2px solid #9bbc0f;color:#0a0a00'
     : 'background:#0a1400;border:2px solid #1a2a00;color:#3a5a00';
+  var packetCount = S.packets.length;
 
   // Screen content
-  var screenContent = S.view === "crank" ? renderCrankView() : renderCollectionView();
+  var screenContent = S.view === "crank" ? renderScreen() : renderCollectionView();
 
-  // Controls
-  var controls = renderControls();
-
-  // Crank button
-  var recipeIcon = RECIPES[S.recipeKey] ? RECIPES[S.recipeKey].icon : "\u25C8";
+  // Crank save button
+  var hasCreatures = S.mainCreature || S.sideCreatures.length > 0;
+  var crankLabel = S.cranking ? '...' : (hasCreatures ? 'KEEP' : '\u00B7');
   var sheenHtml = S.cranking ? '' : '<div style="position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);animation:shimmer 3s infinite 1s"></div>';
 
-  mount.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px 10px">'
-    + '<div style="width:100%;max-width:500px">'
+  // Shoulder buttons
+  var shoulders = renderShoulderButtons();
 
-    // Machine body
-    + '<div style="background:linear-gradient(160deg,#8b2252 0%,#6b1a3e 40%,#4a1228 100%);border-radius:20px;padding:22px 20px 26px;box-shadow:0 20px 60px rgba(0,0,0,0.9),inset 0 1px 0 rgba(255,255,255,0.12),inset 0 -3px 0 rgba(0,0,0,0.4);border:3px solid #2a0a18">'
+  mount.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:12px 8px">'
+    + '<div id="machine-scaler" style="transform-origin:top center;will-change:transform">'
+    + '<div style="width:100%;max-width:380px">'
 
-    // Header
-    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
-    + '<div>'
-    + '<div style="font-size:7px;color:#ffcc44;letter-spacing:0.12em;text-shadow:0 0 8px #ffcc44aa">\u2726 CRITTER CRANK \u2726</div>'
-    + '<div style="font-size:5px;color:' + worldAccent + ';margin-top:3px;letter-spacing:0.08em">' + world.icon + ' ' + esc(world.label.toUpperCase()) + '</div>'
-    + '</div>'
-    + '<button onclick="goToWorldSelect()" class="btn-3d" style="background:#2a0a18;border:2px solid #3a1228;color:#664455;font-size:5px;padding:5px 8px;cursor:pointer;border-radius:3px;font-family:inherit">\u2190 WORLDS</button>'
+    // ── Machine body — portrait, world-shaped crystal ───────────────────────
+    + (function() {
+      var b = world.body || {};
+      var radius   = b.radius   || "24px 24px 32px 32px";
+      var grad     = b.gradient || "linear-gradient(180deg,rgba(140,40,100,0.55) 0%,rgba(100,20,60,0.65) 100%)";
+      var glow     = b.glow     || "0 24px 60px rgba(0,0,0,0.7)";
+      var border   = b.border   || "rgba(255,255,255,0.15)";
+      var hardware = b.hardware || "";
+      // Padding is FIXED — never changes with world to keep machine stable
+      var PADDING = "14px 14px 22px";
+      return '<div class="machine-body" style="position:relative;'
+        // Dark base so crystal color reads correctly
+        + 'background-color:#1a0a18;'
+        + 'background-image:' + grad + (hardware ? ',' + hardware : '') + ';'
+        + 'border-radius:' + radius + ';'
+        + 'padding:' + PADDING + ';'
+        + 'box-shadow:' + glow + ',inset 0 1px 0 rgba(255,255,255,0.18),inset 0 -4px 0 rgba(0,0,0,0.35);'
+        + 'border:2px solid ' + border + ';'
+        // Frosted glass feel
+        + 'backdrop-filter:blur(2px);'
+        + 'transition:border-radius 0.6s cubic-bezier(0.34,1.2,0.64,1),'
+        + 'background-image 0.5s ease,box-shadow 0.5s ease,border-color 0.5s ease;'
+        + (S._machineEntrance ? 'animation:machineIn 0.4s ease;' : '')
+        + '">';
+    })()
+
+    // Shoulder buttons — protruding above top edge
+    + '<div style="position:absolute;top:-11px;left:20px">' + shoulders.left + '</div>'
+    + '<div style="position:absolute;top:-11px;right:20px">' + shoulders.right + '</div>'
+
+    // Header: title left, world right
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    + '<div style="font-size:4px;color:#aa7733;letter-spacing:0.08em;opacity:0.4">\u2726 CRITTER CRANK \u2726</div>'
+    + '<div style="font-size:6px;color:' + worldAccent + ';letter-spacing:0.08em">' + world.icon + ' ' + esc(world.label.toUpperCase()) + '</div>'
     + '</div>'
 
     + ctxBanner
 
-    // Screen bezel
-    + '<div style="background:#120008;border-radius:10px;padding:10px;border:4px solid #1a0010;box-shadow:inset 0 4px 16px rgba(0,0,0,0.9),0 2px 0 rgba(255,255,255,0.04);margin-bottom:14px">'
-    + '<div style="background:#080f00;border-radius:6px;padding:10px;position:relative;min-height:220px;animation:screenFlicker 10s infinite;box-shadow:inset 0 0 24px rgba(155,188,15,0.06)">'
-    // Phosphor + scanlines
+    // ── Screen bezel — FIXED SIZE, never changes ─────────────────────────────
+    + '<div style="background:#120008;border-radius:10px;padding:8px;border:3px solid #1a0010;box-shadow:inset 0 4px 16px rgba(0,0,0,0.9),0 2px 0 rgba(255,255,255,0.06);margin-bottom:14px">'
+    + '<div style="background:#080f00;border-radius:6px;padding:8px;position:relative;height:260px;overflow:hidden;animation:screenFlicker 10s infinite;box-shadow:inset 0 0 24px ' + (world.body && world.body.screenGlow ? world.body.screenGlow : 'rgba(155,188,15,0.06)') + '">'
     + '<div style="position:absolute;inset:0;background:rgba(155,188,15,0.03);border-radius:6px;pointer-events:none;z-index:10"></div>'
     + '<div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);border-radius:6px;pointer-events:none;z-index:11"></div>'
 
-    // Tabs
-    + '<div style="display:flex;gap:5px;margin-bottom:10px;position:relative;z-index:1">'
-    + '<button onclick="setView(\'crank\')" style="' + tabCrank + ';font-size:5px;padding:4px 8px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">CRANK</button>'
-    + '<button onclick="setView(\'collection\')" style="' + tabColl + ';font-size:5px;padding:4px 8px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">HAUL (' + S.collection.length + ')</button>'
+    // Tabs row
+    + '<div style="display:flex;gap:5px;margin-bottom:8px;position:relative;z-index:12;align-items:center">'
+    + '<button id="tab-crank" onclick="setView(\'crank\')" style="' + tabCrank + ';font-size:5px;padding:3px 7px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">CRANK</button>'
+    + '<button id="tab-coll" onclick="setView(\'collection\')" style="' + tabColl + ';font-size:5px;padding:3px 7px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">HAUL (' + packetCount + ')</button>'
+    + '<div style="flex:1"></div>'
+    + '<button onclick="cycleLens()" style="background:#0a1000;border:1px solid #1a2a00;color:#2a4a00;font-size:10px;padding:1px 4px;cursor:pointer;border-radius:2px;font-family:inherit" title="Cycle lens">' + LENS_ICONS[S.lensMode] + '</button>'
     + '</div>'
 
-    + screenContent
+    + '<div id="screen-content">' + screenContent + '</div>'
+    + '<div id="world-menu-overlay">' + (S.worldMenuOpen ? renderWorldMenuContent() : '') + '</div>'
+    + '</div></div>' // end screen inner + bezel
 
-    + '</div></div>' // end screen + bezel
+    // ── Controls area — portrait: two zones side by side, crank below center ─
+    + '<div style="margin-top:10px;padding:0 6px">'
 
-    + controls
-
-    // Crank
-    + '<div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:4px">'
-    + '<div style="font-size:5px;color:#3a1a28;text-align:right;line-height:2">'
-    + '<div>' + recipeIcon + '</div>'
-    + '<div style="color:' + worldAccent + ';opacity:0.6">' + esc(world.label) + '</div>'
+    // Top controls row: d-pad left, face buttons right — FIXED HEIGHT, no reflow
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;height:110px;overflow:visible">'
+    + '<div style="flex:0 0 126px;height:110px;display:flex;align-items:center;overflow:visible">' + renderDpad() + '</div>'
+    + '<div style="flex:0 0 110px;height:110px;display:flex;align-items:center;justify-content:flex-end;overflow:visible">' + renderStyleButtons() + '</div>'
     + '</div>'
-    + '<button id="crank-btn" onclick="handleCrank()" ' + (S.cranking ? 'disabled' : '') + ' style="background:' + (S.cranking ? '#1a0a00' : 'radial-gradient(circle at 40% 35%,#5a3010,#3d2010)') + ';border:4px solid #1a0800;border-radius:50%;width:70px;height:70px;cursor:' + (S.cranking ? 'default' : 'pointer') + ';display:flex;align-items:center;justify-content:center;box-shadow:0 5px 0 #0a0400,0 8px 16px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.1);position:relative;overflow:hidden">'
+
+    // Bottom center: crank + worlds
+    + '<div style="display:flex;align-items:center;justify-content:center;gap:14px">'
+    + '<button onclick="toggleWorldMenu()" class="btn-3d" style="background:#2a0a18;border:2px solid #3a1228;color:#664455;font-size:4px;padding:4px 8px;cursor:pointer;border-radius:3px;font-family:inherit' + (!hasCreatures ? ';animation:pulse 2s infinite' : '') + '">WORLDS</button>'
+    + '<button id="crank-btn" onclick="handleCrank()" ' + (S.cranking || !hasCreatures ? 'disabled' : '') + ' style="'
+    + 'background:' + (S.cranking ? '#1a0a00' : hasCreatures ? 'radial-gradient(circle at 40% 35%,#5a3010,#3d2010)' : '#120800') + ';'
+    + 'border:4px solid #1a0800;border-radius:50%;width:52px;height:52px;'
+    + 'cursor:' + (S.cranking || !hasCreatures ? 'default' : 'pointer') + ';'
+    + 'display:flex;align-items:center;justify-content:center;'
+    + 'box-shadow:0 5px 0 #0a0400,0 8px 16px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.1);'
+    + 'position:relative;overflow:hidden;opacity:' + (hasCreatures ? '1' : '0.4')
+    + '">'
     + sheenHtml
-    + '<div id="crank-handle" style="width:8px;height:28px;background:linear-gradient(180deg,#ffdd66,#cc8800);border-radius:4px;transform-origin:50% 100%;transform:rotate(' + S.crankAngle + 'deg);position:relative">'
-    + '<div style="position:absolute;top:-6px;left:-4px;width:16px;height:16px;background:radial-gradient(circle at 40% 35%,#ffee88,#cc8800);border-radius:50%;border:2px solid #aa6600;box-shadow:0 2px 4px rgba(0,0,0,0.4)"></div>'
+    + '<div id="crank-handle" style="width:5px;height:20px;background:linear-gradient(180deg,#ffdd66,#cc8800);border-radius:3px;transform-origin:50% 100%;transform:rotate(' + S.crankAngle + 'deg);position:relative">'
+    + '<div style="position:absolute;top:-4px;left:-4px;width:13px;height:13px;background:radial-gradient(circle at 40% 35%,#ffee88,#cc8800);border-radius:50%;border:2px solid #aa6600;box-shadow:0 2px 4px rgba(0,0,0,0.4)"></div>'
     + '</div></button>'
-    + '<div style="font-size:5px;color:#3a1a28;line-height:2">'
-    + '<div>' + (S.cranking ? '\u27F3' : '\u21BA') + '</div>'
-    + '<div>' + S.collection.length + ' kept</div>'
-    + '</div></div>'
-    + '<div style="text-align:center;font-size:5px;color:#2a0a18;margin-top:6px;letter-spacing:0.08em">'
-    + (S.cranking ? 'dispensing...' : 'TURN TO DISPENSE')
+    + '<div style="text-align:center">'
+    + '<div id="crank-label" style="font-size:4px;color:#3a1228;letter-spacing:0.06em">' + crankLabel + '</div>'
     + '</div>'
+    + '</div>' // end bottom center
 
-    + '</div>' // end machine
-    + '</div></div>';
+    + '</div>' // end controls area
+
+    // Density dial (side-mounted)
+    + renderDensityDial()
+
+    + '</div>' // end machine body
+    + '</div></div></div>'; // end max-width + scaler + outer
 }
 
-function renderCrankView() {
-  if (S.rolls.length === 0) {
-    var world = WORLDS[S.worldKey];
+function renderScreen() {
+  var world = WORLDS[S.worldKey];
+  if (!S.mainCreature) {
     return '<div style="position:relative;z-index:1">'
       + '<div style="text-align:center;padding:28px 0;color:#1a2a00">'
-      + '<div style="font-size:18px;margin-bottom:10px;opacity:0.4">' + world.icon + '</div>'
-      + '<div style="font-size:5px;line-height:2.2;color:#2a4000">turn the crank</div>'
+      + '<div style="font-size:18px;margin-bottom:8px;opacity:0.4">' + world.icon + '</div>'
+      + '<div style="font-size:5px;line-height:2.2;color:#2a4000">press a button</div>'
       + '<div style="font-size:5px;color:#1a2800;line-height:2">' + esc(world.flavor) + '</div>'
       + '</div></div>';
   }
 
-  // Build grid
-  var items = S.rolls.map(function(c, i) {
-    var isSel = S.selected === i;
-    var recipe = RECIPES[c.recipeKey];
-    var labelNote = c.worldNote ? '<span style="color:#9bbc0f;display:block;font-size:4px;opacity:0.8">' + esc(c.worldNote) + '</span>' : '';
-    return '<div class="bounce-slot' + (isSel ? ' selected' : '') + '" onclick="selectRoll('+i+')">'
-      + '<canvas class="critter" data-roll-idx="'+i+'" width="80" height="80" style="width:80px;height:80px"></canvas>'
-      + '<div class="confetti" style="position:absolute;inset:0;pointer-events:none;display:none">'
-      + [0,1,2,3,4].map(function(ci) {
-          var angle = (ci/5)*360;
-          var colors = ["#9bbc0f","#ffcc44","#ff6644","#44ccff","#cc44ff"];
-          return '<div style="position:absolute;top:50%;left:50%;width:3px;height:3px;background:'+colors[ci]+';border-radius:1px;--a:'+angle+'deg;animation:confettiFly 0.5s ease-out '+(ci*30)+'ms forwards;opacity:0"></div>';
-        }).join('')
-      + '</div>'
-      + '<div style="font-size:5px;color:#4a7a00;text-align:center;margin-top:2px;line-height:1.8">'
-      + (recipe ? recipe.icon + ' ' + c.recipeKey : '\u25C8')
-      + labelNote
-      + '</div></div>';
-  }).join("");
+  // Portrait layout:
+  // Top row: 2 creature slots | main (center) | 2 creature slots  (2+1+2 = 5 total)
+  // Bottom row: inventory 4×2 grid centered
 
-  var selectedInfo = "";
-  if (S.selected !== null && S.rolls[S.selected]) {
-    var roll = S.rolls[S.selected];
-    selectedInfo = '<div style="margin-top:10px;text-align:center;animation:critterIn 0.2s ease">'
-      + '<div style="font-size:6px;color:#9bbc0f;margin-bottom:2px">' + esc(generateName(roll.seed)) + '</div>'
-      + '<div style="font-size:5px;color:#4a6a00;margin-bottom:8px;line-height:1.8">' + esc(generateDescription(roll.seed)) + '</div>'
-      + '<button onclick="keepSelected()" class="btn-3d" style="background:#9bbc0f;border:2px solid #7a9a0a;color:#0a0f00;font-size:6px;padding:6px 16px;cursor:pointer;border-radius:3px;font-family:inherit">KEEP</button>'
+  function creatureSlot(idx) {
+    if (idx >= S.sideCreatures.length) {
+      return '<div style="width:38px;height:38px;border:1px dashed #0a1a00;border-radius:2px;opacity:0.2"></div>';
+    }
+    return '<div class="bounce-slot visible popped" style="opacity:1;transform:none;border:1px solid #1a3000;border-radius:2px;cursor:default">'
+      + '<canvas class="critter" data-side-idx="' + idx + '" width="48" height="48" style="width:38px;height:38px"></canvas>'
       + '</div>';
-  } else if (S.rolls.length > 0) {
-    selectedInfo = '<div style="text-align:center;font-size:5px;color:#1a2800;margin-top:8px">tap to meet them \u00B7 keep to collect</div>';
   }
 
-  return '<div style="position:relative;z-index:1">'
-    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
-    + items
+  // Left column: slots 0,1 stacked
+  var leftCol = '<div style="display:flex;flex-direction:column;gap:2px;justify-content:center">'
+    + creatureSlot(0) + creatureSlot(1)
+    + '</div>';
+
+  // Right column: slots 2,3 stacked
+  var rightCol = '<div style="display:flex;flex-direction:column;gap:2px;justify-content:center">'
+    + creatureSlot(2) + creatureSlot(3)
+    + '</div>';
+
+  // Fifth slot below inventory or just dropped — show as small row if present
+  var fifthSlot = S.sideCreatures.length >= 5
+    ? '<div style="display:flex;justify-content:center;margin-bottom:3px">' + creatureSlot(4) + '</div>'
+    : '';
+
+  // Main creature
+  var mc = S.mainCreature;
+  var recipe = RECIPES[mc.recipeKey];
+  var mainName = generateName(mc.seed);
+  var badges = '';
+  if (mc.voiceEmoji || mc.worldIcon) {
+    badges = '<div style="display:flex;gap:4px;justify-content:center;margin-top:2px">';
+    if (mc.voiceEmoji) badges += '<span class="type-badge">' + mc.voiceEmoji + '</span>';
+    if (mc.worldIcon) badges += '<span class="type-badge">' + mc.worldIcon + '</span>';
+    badges += '</div>';
+  }
+
+  var mainSlot = '<div class="bounce-slot visible popped" style="text-align:center;opacity:1;transform:none">'
+    + '<div style="font-size:6px;color:#9bbc0f;text-align:center;margin-bottom:2px;letter-spacing:0.06em">' + esc(mainName) + '</div>'
+    + '<canvas class="critter" data-main="1" width="96" height="96" style="width:84px;height:84px;margin:0 auto;display:block"></canvas>'
+    + '<div style="font-size:4px;color:#4a6a00;text-align:center;margin-top:2px">'
+    + (recipe ? recipe.icon + ' ' : '') + esc(mc.recipeKey)
     + '</div>'
-    + selectedInfo
+    + badges
+    + '</div>';
+
+  // Inventory: 4 columns × 2 rows, centered
+  function inventorySlot(idx) {
+    var roll = idx < S.inventorySlots.length ? S.inventorySlots[idx] : null;
+    if (!roll) {
+      return '<div style="width:26px;height:26px;border:1px dashed #0a1400;border-radius:2px;opacity:0.15"></div>';
+    }
+    var r = RECIPES[roll.recipeKey];
+    return '<div class="bounce-slot visible popped" style="opacity:1;transform:none;cursor:default;position:relative" title="' + esc(roll.recipeKey) + '">'
+      + '<canvas class="critter" data-inv-idx="' + idx + '" width="32" height="32" style="width:26px;height:26px"></canvas>'
+      + '<div style="position:absolute;bottom:0;right:0;font-size:5px;line-height:1;opacity:0.5">' + (r ? r.icon : '') + '</div>'
+      + '</div>';
+  }
+  var invGrid = '<div style="display:grid;grid-template-columns:repeat(4,26px);gap:3px;justify-content:center">';
+  for (var i = 0; i < 8; i++) invGrid += inventorySlot(i);
+  invGrid += '</div>';
+
+  // Lens indicator
+  var lensHtml = '<div id="lens-label" style="position:absolute;top:2px;right:6px;font-size:4px;color:#2a4a00;letter-spacing:0.06em;opacity:0;transition:opacity 0.3s;z-index:15">'
+    + LENS_ICONS[S.lensMode] + ' ' + LENS_LABELS[S.lensMode]
+    + '</div>';
+
+  return '<div style="position:relative;z-index:1">'
+    + lensHtml
+    // Top row: creatures flanking main
+    + '<div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:6px">'
+    + leftCol
+    + '<div style="flex:0 0 auto">' + mainSlot + '</div>'
+    + rightCol
+    + '</div>'
+    // Fifth creature if present
+    + fifthSlot
+    // Inventory row
+    + '<div style="border-top:1px solid #0a1a00;padding-top:5px;margin-top:2px">'
+    + invGrid
+    + '</div>'
     + '</div>';
 }
 
 function renderCollectionView() {
-  if (S.selectedCritter) {
-    var c = S.selectedCritter;
-    var recipe = RECIPES[c.recipeKey];
-    var recipeInfo = (recipe ? recipe.icon + ' ' : '') + (c.worldKey ? c.worldKey.toUpperCase() : '');
-
-    var descHtml;
-    if (S.editingDesc) {
-      descHtml = '<textarea id="desc-edit" onblur="saveDesc()" style="width:100%;background:#0a1400;border:1px solid #2a4000;color:#9bbc0f;font-size:5px;padding:6px;font-family:inherit;resize:none;border-radius:2px;line-height:1.8" rows="3">' + esc(S.customDesc) + '</textarea>';
-    } else {
-      descHtml = '<div onclick="startEditDesc()" style="font-size:5px;color:#4a6a00;line-height:1.8;cursor:text;border-bottom:1px dashed #1a3000">' + esc(c.description) + '</div>';
-    }
-
-    return '<div style="position:relative;z-index:1;animation:critterIn 0.2s ease">'
-      + '<button onclick="backFromCritterDetail()" style="background:none;border:none;color:#4a7a00;font-size:5px;cursor:pointer;font-family:inherit;margin-bottom:8px">\u2190 back</button>'
-      + '<div style="display:flex;gap:10px;align-items:flex-start">'
-      + '<canvas class="critter" data-coll-detail="' + c.seed + '" width="80" height="80" style="width:80px;height:80px"></canvas>'
-      + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:7px;color:#9bbc0f;margin-bottom:4px">' + esc(c.name) + '</div>'
-      + '<div style="font-size:5px;color:#3a5a00;margin-bottom:6px">' + recipeInfo + '</div>'
-      + descHtml
-      + '</div></div>'
-      + '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">'
-      + '<button onclick="exportAsEntity(S.selectedCritter)" class="btn-3d" style="background:#1a2a00;border:2px solid #3a5a00;color:#9bbc0f;font-size:5px;padding:5px 8px;cursor:pointer;border-radius:2px;font-family:inherit">\u2192 SEND TO HALL</button>'
-      + '<button onclick="releaseFromCollection(' + c.id + ')" class="btn-3d" style="background:#1a0000;border:2px solid #3a0000;color:#880000;font-size:5px;padding:5px 8px;cursor:pointer;border-radius:2px;font-family:inherit">RELEASE</button>'
-      + '</div></div>';
+  // If inside a packet, show the lens view
+  if (S.activePacket) {
+    return renderPacketView(S.activePacket);
   }
 
-  if (S.collection.length === 0) {
+  var totalPackets = S.packets.length;
+  var legacyCount = S.collection.length; // backward compat
+
+  if (totalPackets === 0 && legacyCount === 0) {
     return '<div style="position:relative;z-index:1">'
       + '<div style="text-align:center;padding:28px 0;color:#1a2a00">'
       + '<div style="font-size:5px;line-height:2.2">your haul is empty</div>'
-      + '<div style="font-size:5px;color:#0a1400">crank to find friends</div>'
+      + '<div style="font-size:5px;color:#0a1400">crank to seal a world</div>'
       + '</div></div>';
   }
 
-  var thumbs = S.collection.map(function(critter) {
-    return '<div class="coll-thumb" onclick="selectCritterInCollection(S.collection.find(function(c){return c.id===' + critter.id + '}))">'
-      + '<canvas class="critter" data-coll-id="' + critter.seed + '" data-coll-recipe="' + esc(critter.recipeKey) + '" data-coll-extras="' + esc(critter.extraShapes.join(",")) + '" data-coll-pal="' + esc(critter.palKey || "") + '" data-coll-cohesion="' + esc(critter.cohesionMode || "") + '" width="54" height="54" style="width:54px;height:54px"></canvas>'
-      + '<div style="font-size:4px;color:#2a4a00;margin-top:2px;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + esc(critter.name) + '</div>'
+  var packetCards = S.packets.map(function(pkt, i) {
+    var critterCount = 1 + (pkt.creatures ? pkt.creatures.length : 0);
+    var invCount = pkt.inventory ? pkt.inventory.length : 0;
+    var mainName = pkt.main ? pkt.main.name : "?";
+    var dateStr = new Date(pkt.sealed).toLocaleDateString(undefined, {month:'short', day:'numeric'});
+    // Preview names — main + up to 2 creatures
+    var namePreview = [pkt.main].concat((pkt.creatures || []).slice(0,2)).map(function(c){
+      return '<span style="color:#3a5a00">' + esc(c.name) + '</span>';
+    }).join('<span style="color:#1a3000"> · </span>');
+    if (critterCount > 3) namePreview += '<span style="color:#1a3000"> +' + (critterCount-3) + '</span>';
+
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;'
+      + 'background:rgba(155,188,15,0.03);border:1px solid #1a3000;border-radius:4px;'
+      + 'padding:7px 10px;margin-bottom:4px">'
+      // Left: world + date
+      + '<div style="flex:0 0 auto;min-width:60px">'
+      + '<div style="font-size:12px;line-height:1">' + esc(pkt.worldIcon || '') + '</div>'
+      + '<div style="font-size:4px;color:#4a6a00;margin-top:2px;letter-spacing:0.06em">' + esc((pkt.worldLabel||'').toUpperCase()) + '</div>'
+      + '<div style="font-size:4px;color:#2a4000;margin-top:1px">' + dateStr + '</div>'
+      + '</div>'
+      // Center: names + counts
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:5px;line-height:1.8;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + namePreview + '</div>'
+      + '<div style="font-size:4px;color:#1a3000;margin-top:1px">' + critterCount + ' critters · ' + invCount + ' items</div>'
+      + '</div>'
+      // Right: enter button
+      + '<button onclick="enterPacket(' + i + ')" class="btn-3d" style="flex:0 0 auto;background:#0a1800;border:2px solid #2a4a00;color:#9bbc0f;font-size:4px;padding:5px 9px;cursor:pointer;border-radius:2px;font-family:inherit;white-space:nowrap;letter-spacing:0.06em">ENTER</button>'
       + '</div>';
   }).join("");
 
-  return '<div style="position:relative;z-index:1">'
-    + '<div class="coll-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:200px;overflow-y:auto">'
-    + thumbs
-    + '</div></div>';
+  return '<div style="position:relative;z-index:1;width:100%">'
+    + '<div style="font-size:4px;color:#2a4a00;margin-bottom:6px;letter-spacing:0.06em">SEALED WORLDS (' + totalPackets + ')</div>'
+    + packetCards
+    + (legacyCount > 0 ? '<div style="font-size:4px;color:#1a3000;margin-top:6px">' + legacyCount + ' legacy critters in old haul</div>' : '')
+    + '</div>';
 }
 
-function renderControls() {
-  // Recipe buttons
-  var recipeButtons = Object.keys(RECIPES).map(function(k) {
-    var r = RECIPES[k];
-    var isActive = S.recipeKey === k;
-    return '<button class="recipe-btn btn-3d" onclick="setRecipe(\'' + k + '\')" style="background:' + (isActive ? '#9bbc0f' : '#1a0010') + ';border:2px solid ' + (isActive ? '#7a9a0a' : '#3a1028') + ';color:' + (isActive ? '#0a0f00' : '#6a3a5a') + ';font-size:5px;padding:5px 7px;cursor:pointer;border-radius:3px;font-family:inherit">' + r.icon + ' ' + esc(r.label.toUpperCase()) + '</button>';
-  }).join("");
+function enterPacket(idx) {
+  S.activePacket = S.packets[idx];
+  S.packets[idx].lastLens = S.lensMode;
+  render();
+}
 
-  // Extra shape buttons
-  var extraButtons = ALL_SHAPES.map(function(shape) {
-    var isActive = S.extraShapes.includes(shape);
-    return '<button class="extra-btn btn-3d" onclick="toggleExtra(\'' + shape + '\')" style="background:' + (isActive ? '#2a1a40' : '#12000e') + ';border:2px solid ' + (isActive ? '#8866cc' : '#3a1030') + ';color:' + (isActive ? '#cc99ff' : '#5a2a4a') + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">' + shape.toUpperCase() + '</button>';
-  }).join("");
+function exitPacket() {
+  S.activePacket = null;
+  render();
+}
 
-  // Palette buttons
-  var palAutoStyle = S.palKey === null
-    ? 'background:#9bbc0f;border:2px solid #7a9a0a;color:#0a0f00'
-    : 'background:#12000e;border:2px solid #2a1020;color:#4a3a40';
-  var palButtons = '<button onclick="setPalette(null)" class="btn-3d" style="' + palAutoStyle + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">AUTO</button>';
-  palButtons += Object.keys(PALETTES).map(function(pk) {
-    var pal = PALETTES[pk];
-    var isActive = S.palKey === pk;
-    return '<button onclick="setPalette(\'' + pk + '\')" class="btn-3d" style="background:' + (isActive ? pal[2] : '#12000e') + ';border:2px solid ' + (isActive ? pal[3] : '#2a1020') + ';color:' + (isActive ? '#fff' : '#4a3a40') + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">' + pk.slice(0,4).toUpperCase() + '</button>';
-  }).join("");
+function renderPacketView(pkt) {
+  var lensLabel = LENS_ICONS[S.lensMode] + ' ' + LENS_LABELS[S.lensMode];
+  var w = WORLDS[pkt.worldKey] || {};
 
-  // Cohesion buttons
-  var cohAutoStyle = S.cohesionMode === null
-    ? 'background:#9bbc0f;border:2px solid #7a9a0a;color:#0a0f00'
-    : 'background:#12000e;border:2px solid #2a1020;color:#4a3a40';
-  var cohButtons = '<button onclick="setCohesion(null)" class="btn-3d" style="' + cohAutoStyle + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">AUTO</button>';
-  cohButtons += Object.keys(COHESION_MODES).map(function(mk) {
-    var isActive = S.cohesionMode === mk;
-    return '<button onclick="setCohesion(\'' + mk + '\')" class="btn-3d" style="background:' + (isActive ? '#3a2a50' : '#12000e') + ';border:2px solid ' + (isActive ? '#8866cc' : '#2a1020') + ';color:' + (isActive ? '#cc99ff' : '#4a3a40') + ';font-size:5px;padding:4px 6px;cursor:pointer;border-radius:3px;font-family:inherit">' + mk.toUpperCase() + '</button>';
-  }).join("");
+  // Stub content for each lens — real gameplay comes in next pass
+  var lensContent = '';
+  if (S.lensMode === "sims") {
+    lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
+      + pkt.main.name + ' is here. Everyone is talking.'
+      + '</div>'
+      + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">👁 · · ·</div>';
+  } else if (S.lensMode === "grid") {
+    lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
+      + 'A grid of ' + (1 + pkt.creatures.length) + ' creatures. Press face buttons to influence.'
+      + '</div>'
+      + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">⊞ · · ·</div>';
+  } else if (S.lensMode === "platformer") {
+    lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
+      + 'You are ' + pkt.main.name + '. Tap tiles to move.'
+      + '</div>'
+      + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">▶ · · ·</div>';
+  } else if (S.lensMode === "hunter") {
+    lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
+      + 'Coach ' + pkt.main.name + '. Rock, paper, scissors. Outlast all ' + pkt.creatures.length + ' others.'
+      + '</div>'
+      + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">⚔ · · ·</div>';
+  }
 
-  return '<div style="margin-bottom:12px">'
-    + '<div style="font-size:5px;color:#cc6688;letter-spacing:0.1em;margin-bottom:6px">RECIPE</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:4px">' + recipeButtons + '</div>'
+  var cohortPreview = [pkt.main].concat(pkt.creatures).map(function(c) {
+    return '<div style="font-size:4px;color:#4a6a00;padding:1px 0">' + esc(c.name) + ' <span style="opacity:0.5">· ' + esc(c.recipeKey) + '</span></div>';
+  }).join('');
+
+  return '<div style="position:relative;z-index:1;animation:critterIn 0.2s ease">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    + '<button onclick="exitPacket()" style="background:none;border:none;color:#4a7a00;font-size:5px;cursor:pointer;font-family:inherit">\u2190 haul</button>'
+    + '<div style="font-size:5px;color:#9bbc0f;letter-spacing:0.08em">' + lensLabel + '</div>'
+    + '<button onclick="cycleLens()" style="background:#0a1400;border:1px solid #2a4000;color:#4a7a00;font-size:4px;padding:2px 5px;cursor:pointer;border-radius:2px;font-family:inherit">FLIP</button>'
     + '</div>'
-    + '<div style="margin-bottom:12px">'
-    + '<div style="font-size:5px;color:#cc6688;letter-spacing:0.1em;margin-bottom:6px">ALSO ADD</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:4px">' + extraButtons + '</div>'
+    + '<div style="font-size:5px;color:#4a6a00;margin-bottom:4px">' + esc(pkt.worldIcon || '') + ' ' + esc(pkt.worldLabel || '') + ' · ' + new Date(pkt.sealed).toLocaleDateString() + '</div>'
+    + lensContent
+    + '<div style="border-top:1px solid #0a1a00;margin-top:8px;padding-top:6px">'
+    + cohortPreview
     + '</div>'
-    + '<div style="margin-bottom:12px">'
-    + '<div style="font-size:5px;color:#cc6688;letter-spacing:0.1em;margin-bottom:6px">PALETTE \u00B7 COHESION</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">' + palButtons + '</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:4px">' + cohButtons + '</div>'
+    + '</div>';
+}
+
+function renderStyleButtons() {
+  // Proper N/S/E/W diamond layout — clear cardinal positions
+  if (S.styleSlots.length < 4) return '';
+  // Container: 110x110. Center at (55,55). Radius ~38px.
+  // 0=North, 1=West, 2=East, 3=South
+  var BTN = 40; // button diameter
+  var R = 36;   // radius from center
+  var CX = 50, CY = 50; // container center (half of 100)
+  var positions = [
+    [CX - BTN/2,         CY - R - BTN/2],  // 0: North
+    [CX - R - BTN/2,     CY - BTN/2],      // 1: West
+    [CX + R - BTN/2,     CY - BTN/2],      // 2: East
+    [CX - BTN/2,         CY + R - BTN/2],  // 3: South
+  ];
+  function sBtn(idx) {
+    var vk = S.styleSlots[idx];
+    var v = VOICES[vk];
+    if (!v) return '';
+    var isActive = S.activeStyles.indexOf(idx) >= 0;
+    var bg = isActive ? '#1a2a10' : '#12000e';
+    var bc = isActive ? '#9bbc0f' : '#3a1028';
+    var glow = isActive ? '0 0 14px rgba(155,188,15,0.7),0 3px 0 rgba(0,0,0,0.4)' : '0 3px 0 rgba(0,0,0,0.4),0 1px 0 rgba(255,200,100,0.05)';
+    var pos = positions[idx];
+    return '<button class="style-btn" data-style-idx="' + idx + '" onclick="pressStyle(' + idx + ')" style="'
+      + 'position:absolute;left:' + Math.round(pos[0]) + 'px;top:' + Math.round(pos[1]) + 'px;'
+      + 'width:' + BTN + 'px;height:' + BTN + 'px;border-radius:50%;padding:0;'
+      + 'background:' + bg + ';border:2px solid ' + bc + ';'
+      + 'cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;'
+      + 'box-shadow:' + glow + ';'
+      + 'transition:box-shadow 0.12s,border-color 0.12s,filter 0.12s;font-family:inherit'
+      + '">' + v.emoji + '</button>';
+  }
+  var size = CX * 2;
+  return '<div style="position:relative;width:' + size + 'px;height:' + size + 'px;flex-shrink:0">'
+    + sBtn(0) + sBtn(1) + sBtn(2) + sBtn(3)
     + '</div>';
 }
 
 // ── Post-Render: Draw all canvases ───────────────────────────────────────────
 function postRender() {
-  // Roll canvases
-  document.querySelectorAll("canvas[data-roll-idx]").forEach(function(canvas) {
-    var idx = parseInt(canvas.getAttribute("data-roll-idx"));
-    if (idx >= 0 && idx < S.rolls.length) {
-      var roll = S.rolls[idx];
+  var wBg = S.worldKey && WORLDS[S.worldKey] ? WORLDS[S.worldKey].bg : null;
+
+  // Main creature canvas (breathing)
+  document.querySelectorAll("canvas[data-main]").forEach(function(canvas) {
+    if (S.mainCreature) {
+      var grid = getCachedGrid(S.mainCreature);
+      startBreathing(canvas, grid, 96);
+    }
+  });
+
+  // Side creature canvases
+  document.querySelectorAll("canvas[data-side-idx]").forEach(function(canvas) {
+    var idx = parseInt(canvas.getAttribute("data-side-idx"));
+    if (idx >= 0 && idx < S.sideCreatures.length) {
+      var roll = S.sideCreatures[idx];
       var grid = getCachedGrid(roll);
-      drawCritterToCanvas(canvas, grid, 80);
+      drawCritterToCanvas(canvas, grid, 48, wBg);
     }
   });
 
@@ -1219,6 +3180,16 @@ function postRender() {
     if (S.selectedCritter) {
       var grid = getCachedGrid(S.selectedCritter);
       startBreathing(canvas, grid, 80);
+    }
+  });
+
+  // Inventory canvases
+  document.querySelectorAll("canvas[data-inv-idx]").forEach(function(canvas) {
+    var idx = parseInt(canvas.getAttribute("data-inv-idx"));
+    if (idx >= 0 && idx < S.inventorySlots.length) {
+      var roll = S.inventorySlots[idx];
+      var grid = getCachedGrid(roll);
+      drawCritterToCanvas(canvas, grid, 32, wBg);
     }
   });
 
@@ -1233,9 +3204,74 @@ function postRender() {
   });
 }
 
+var _machineScaleLocked = false;
+var _machineScaleValue = 1;
+var _machineNaturalW = 0;
+var _machineNaturalH = 0;
+
+function scaleMachine() {
+  var scaler = document.getElementById("machine-scaler");
+  if (!scaler) return;
+  var machine = scaler.firstElementChild;
+  if (!machine) return;
+  // Measure natural size only once — never reset transform to scale(1)
+  if (!_machineNaturalW) {
+    // First call: scaler hasn't been scaled yet, safe to measure
+    _machineNaturalW = machine.offsetWidth || 380;
+    _machineNaturalH = machine.offsetHeight || 680;
+  }
+  var vw = window.innerWidth;
+  var vh = window.innerHeight;
+  var pad = 24;
+  var scale = Math.min((vh - pad) / _machineNaturalH, (vw - pad) / _machineNaturalW);
+  scale = Math.min(scale, 1.8);
+  scale = Math.max(scale, 0.5);
+  _machineScaleValue = scale;
+  scaler.style.transform = "scale(" + scale + ")";
+  scaler.parentElement.style.minHeight = Math.round(_machineNaturalH * scale + pad) + "px";
+}
+
+function applyStoredScale() {
+  // Re-apply the already-computed scale without re-measuring
+  var scaler = document.getElementById("machine-scaler");
+  if (scaler && _machineScaleValue !== 1) {
+    scaler.style.transform = "scale(" + _machineScaleValue + ")";
+  }
+}
+
+function scaleMachineOnce() {
+  if (_machineScaleLocked) {
+    // Already have a scale — just reapply it, don't re-measure
+    applyStoredScale();
+    return;
+  }
+  scaleMachine();
+  _machineScaleLocked = true;
+}
+
+function onWindowResize() {
+  _machineScaleLocked = false;
+  // Re-measure natural dimensions on resize (machine padding is fixed, but good practice)
+  var scaler = document.getElementById("machine-scaler");
+  if (scaler) {
+    // Briefly remove scale to measure, but hide the flash with visibility
+    scaler.style.visibility = "hidden";
+    scaler.style.transform = "scale(1)";
+    var machine = scaler.firstElementChild;
+    if (machine) {
+      _machineNaturalW = machine.offsetWidth || _machineNaturalW || 380;
+      _machineNaturalH = machine.offsetHeight || _machineNaturalH || 680;
+    }
+  }
+  scaleMachine();
+  if (scaler) scaler.style.visibility = "";
+  _machineScaleLocked = true;
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 function init() {
   loadCollection();
+  loadPackets();
   readCrankContext();
   render();
 
@@ -1243,6 +3279,17 @@ function init() {
   if (window.parent !== window) {
     window.parent.postMessage({ type: 'hub:minimize' }, '*');
   }
+
+  // D-pad hold detection (for splash mode)
+  document.addEventListener("mousedown", function(e) {
+    if (e.target.closest && e.target.closest(".dpad-btn")) S.dpadHeld = true;
+  });
+  document.addEventListener("touchstart", function(e) {
+    if (e.target.closest && e.target.closest(".dpad-btn")) S.dpadHeld = true;
+  }, {passive:true});
+  document.addEventListener("mouseup", function() { S.dpadHeld = false; });
+  document.addEventListener("touchend", function() { S.dpadHeld = false; });
+  window.addEventListener("resize", onWindowResize);
 }
 
 document.addEventListener("DOMContentLoaded", init);
