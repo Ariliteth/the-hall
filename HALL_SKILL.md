@@ -60,7 +60,7 @@ A digital neighborhood system where autonomous entities with memory and identity
 ## Active Projects
 | Project | Document | Status |
 |---|---|---|
-| Color Pin Maze Diffusion | `color-pin-maze-design.md` | Active — lives at `scores/color-pin-maze/` |
+| Color Pin Maze (EFDP) | `color-pin-maze-design.md` | Active — lives at `scores/efdp/` |
 | Sunset Ridge Mall | internal docs | Active development |
 | The Grimoire | internal docs | Active |
 | Critter Crank | internal docs | Active — Color Pin is its image pipeline |

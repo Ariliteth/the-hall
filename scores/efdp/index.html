@@ -401,7 +401,7 @@ function sendToCrank() {
   try {
     const raw = localStorage.getItem('baseline-session/scraggles') || '[]';
     const arr = JSON.parse(raw);
-    arr.push({ emoji: '\uD83C\uDFB0', signal: 'maze seed ready', source: 'color-pin-maze', arrivedAt: Date.now() });
+    arr.push({ emoji: '\uD83C\uDFB0', signal: 'maze seed ready', source: 'efdp', arrivedAt: Date.now() });
     localStorage.setItem('baseline-session/scraggles', JSON.stringify(arr));
   } catch(e) {}
   setStatus('Seed sent to Crank \u2192 ' + seed.paletteKey + ' / ' + seed.cohesionMode);
@@ -2262,6 +2262,9 @@ document.getElementById('wall-density').oninput = e => {
 };
 
 initMaze();
+
+// Hub integration — collapse selection panel when EFDP launches
+try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
 </script>
 </body>
 </html>

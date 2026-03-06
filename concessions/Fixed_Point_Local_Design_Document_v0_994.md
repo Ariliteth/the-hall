@@ -80,7 +80,7 @@ concessions/
 scores/
   grimoire/              ← built Grimoire, served from hub (Vite build)
   critter-crank/         ← vanilla JS, no build step (ported from React March 2026)
-  color-pin-maze/        ← vanilla JS, no build step (promoted from concessions March 2026)
+  efdp/                  ← Color Pin Maze (EFDP), vanilla JS, no build step
   sunset-ridge-mall/     ← vanilla JS, no build step
   tending-field/         ← vanilla JS, no build step
 the-grimoire/            ← Vite source (build → scores/grimoire/)
@@ -311,11 +311,11 @@ Receives CrankSeed context from the Color Pin Maze via localStorage. User's manu
 
 ### Color Pin Maze
 
-*Lives at `scores/color-pin-maze/`. Diffusion tool. Vanilla JS — no build step.*
+*Lives at `scores/efdp/`. Canonical address: EFDP (Evocative FPL Diffusion Place). Vanilla JS — no build step.*
 
 A guided image generation system using maze structure as a diffusion substrate. Color pins are placed inside a maze and pulse their color outward through passages. The maze's walls shape how color travels, blends, and pools. Three pin types: circle (erodes walls, floods), square (follows passages, fortifies), triangle (beams directionally, grinds through walls). Multi-layer system with The Third as inter-layer observer reading kiwi event density.
 
-Promoted from `concessions/` to `scores/` in March 2026. Exports CrankSeed witness records to the Critter Crank. Not yet on the hub rack — operates as a pipeline tool accessible directly. Design docs remain in `concessions/`.
+Promoted from `concessions/` to `scores/` in March 2026. Folder renamed from `color-pin-maze/` to `efdp/` to match the FPL four-position naming convention. On the hub rack. Exports CrankSeed witness records to the Critter Crank (ECGP). Design docs remain in `concessions/`.
 
 ### Relationtips *(concession — not yet built)*
 
