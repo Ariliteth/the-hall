@@ -1723,13 +1723,15 @@ var S = {
   styleActive: null,    // last-toggled style index (for generation bias)
   activeStyles: [],     // all currently lit face button indices
   activeVoices: [],     // voice keys influencing generation
-  // Screen creatures
+  // Encounter
   mainCreature: null,   // the big centered roll
-  sideCreatures: [],    // up to 5 creature/spirit/flora slots (left column)
-  inventorySlots: [],   // up to 8 terrain/item/relic slots (right 2x4 grid)
+  worldInventory: null, // { tiles, flora, items, relics, spirit } — typed rolls from creature DNA
+  encounterStats: null, // { hp, atk, def, spd, traits[] } — derived from creature seed
+  encounterBiomeTags: null, // [tag1, tag2] — biome affinities for display
   // Haul packets
   packets: [],          // sealed world-packets (replaces flat collection for new haul)
   activePacket: null,   // packet currently being entered
+  activeWorld: null,    // compound key of world being viewed in haul
   lensMode: "sims",     // "sims" | "grid" | "platformer" | "hunter"
   // GBA upgrade
   density: 0.5,         // volume slider (0=sparse, 1=busy)
@@ -1874,7 +1876,9 @@ function selectWorld(key) {
   var wasWorldSelect = !S.worldKey;
   S.worldKey = key;
   S.mainCreature = null;
-  S.sideCreatures = [];
+  S.worldInventory = null;
+  S.encounterStats = null;
+  S.encounterBiomeTags = null;
   S.worldMenuOpen = false;
   S.shoulderL = null;
   S.shoulderR = null;
@@ -1922,7 +1926,6 @@ function fisherYates(arr) {
 
 // ── Generation Pipeline ──────────────────────────────────────────────────────
 var MAIN_RECIPE_POOL   = ["creature","creature","creature","spirit","spirit","flora"];
-var INVENTORY_RECIPE_POOL = ["terrain","terrain","item","item","relic"];
 
 function generateRoll(bias) {
   // bias: "creature" (main slot) or "inventory" (right column)
@@ -1938,8 +1941,6 @@ function generateRoll(bias) {
   var rKey;
   if (bias === "creature") {
     rKey = pick(MAIN_RECIPE_POOL, rng);
-  } else if (bias === "inventory") {
-    rKey = pick(INVENTORY_RECIPE_POOL, rng);
   } else {
     rKey = pick(w.recipePool, rng);
   }
@@ -2001,42 +2002,230 @@ function generateRoll(bias) {
   return { seed: seed, recipeKey: rKey, extraShapes: rExtras, palKey: rPal, cohesionMode: rCohesion, worldNote: worldNote.join(" "), voiceEmoji: voiceEmoji, worldIcon: worldIcon };
 }
 
+// ── World Inventory Generation ────────────────────────────────────────────────
+// Deterministic: same creature seed always produces the same 5-slot world portrait
+var WORLD_INV_CATS = [
+  { key: "tiles",  recipeKey: "terrain", icon: "\u25A6" },
+  { key: "flora",  recipeKey: "flora",   icon: "\u2767" },
+  { key: "items",  recipeKey: "item",    icon: "\u25C6" },
+  { key: "relics", recipeKey: "relic",   icon: "\u2726" },
+  { key: "spirit", recipeKey: "spirit",  icon: "\u25CB" },
+];
+
+function generateWorldInventory(creatureRoll) {
+  var w = WORLDS[S.worldKey];
+  if (!w) return null;
+  var inv = {};
+
+  WORLD_INV_CATS.forEach(function(cat) {
+    var catSeed = creatureRoll.seed + hashStr(cat.key);
+    var rng = seededRng(catSeed + 1234);
+    var recipe = RECIPES[cat.recipeKey];
+
+    // Extra shapes: drawn from creature's DNA + world hints
+    var hintPool = creatureRoll.extraShapes.concat(w.extraHints);
+    var rExtras = [];
+    var maxExtras = 1 + Math.floor(S.density * 2);
+    for (var i = 0; i < maxExtras; i++) {
+      var hint = pick(hintPool, rng);
+      if (rExtras.indexOf(hint) < 0) rExtras.push(hint);
+    }
+
+    // Palette: 60% creature, 40% recipe's own
+    var rPal = rng() > 0.4 ? creatureRoll.palKey : pick(recipe.paletteHints, rng);
+    // Cohesion: 50/50 creature vs world bias
+    var rCohesion = rng() > 0.5 ? creatureRoll.cohesionMode : pick(w.cohesionBias, rng);
+
+    inv[cat.key] = {
+      seed: catSeed,
+      recipeKey: cat.recipeKey,
+      extraShapes: rExtras,
+      palKey: rPal,
+      cohesionMode: rCohesion,
+      worldNote: cat.key + " (inv)",
+      voiceEmoji: creatureRoll.voiceEmoji,
+      worldIcon: creatureRoll.worldIcon,
+    };
+  });
+
+  return inv;
+}
+
+// ── Encounter Stats ──────────────────────────────────────────────────────────
+// Derived deterministically from creature seed — same creature, same stats always
+function deriveEncounterStats(roll) {
+  var rng = seededRng(roll.seed + 33333);
+
+  var STAT_BIAS = {
+    creature: { hp: 2, atk: 1, def: 0, spd: 0 },
+    spirit:   { hp: -1, atk: 0, def: -1, spd: 2 },
+    flora:    { hp: 3, atk: -2, def: 2, spd: -2 },
+    item:     { hp: 0, atk: 2, def: 1, spd: -1 },
+    terrain:  { hp: 3, atk: -2, def: 3, spd: -3 },
+    relic:    { hp: -1, atk: 1, def: 0, spd: 1 },
+  };
+  var bias = STAT_BIAS[roll.recipeKey] || { hp: 0, atk: 0, def: 0, spd: 0 };
+
+  function stat(b) { return Math.max(1, Math.min(10, b + Math.floor(rng() * 6) + 3)); }
+
+  var hp = stat(bias.hp), atk = stat(bias.atk), def = stat(bias.def), spd = stat(bias.spd);
+
+  // Traits from cohesion + shapes
+  var traits = [];
+  var cohTraits = { radial: "centered", directional: "focused", clustered: "grounded", scattered: "restless" };
+  if (cohTraits[roll.cohesionMode]) traits.push(cohTraits[roll.cohesionMode]);
+
+  var shapeTraits = { eye: "watchful", spike: "sharp", blob: "soft", ring: "resonant", scatter: "diffuse", diamond: "faceted", cross: "branching", irregular: "strange", circle: "round", rect: "solid", line: "drawn" };
+  roll.extraShapes.forEach(function(sh) {
+    if (shapeTraits[sh] && traits.indexOf(shapeTraits[sh]) < 0 && traits.length < 3) traits.push(shapeTraits[sh]);
+  });
+
+  return { hp: hp, atk: atk, def: def, spd: spd, traits: traits };
+}
+
+// ── Biome Tags ───────────────────────────────────────────────────────────────
+// Each creature gets 2 biome tags derived deterministically from its DNA.
+// The sorted pair forms a compound world key (e.g. "city+deep").
+var BIOME_KEYS = ["city","deep","forge","jungle","ruin","space"];
+
+var PALETTE_BIOME_AFF = {
+  nature:   { jungle: 2 },
+  creature: { space: 2 },
+  item:     { city: 2, ruin: 2, forge: 2 },
+  fire:     { ruin: 2, forge: 2 },
+  ice:      { space: 2, deep: 2 },
+  poison:   { jungle: 2, space: 2, deep: 2 },
+  ghost:    { city: 2, space: 2, deep: 2, ruin: 2 },
+  earth:    { city: 2, jungle: 2, ruin: 2, forge: 2 },
+  water:    { jungle: 2, deep: 2 },
+  light:    { city: 2, forge: 2 },
+};
+
+var COHESION_BIOME_AFF = {
+  directional: { city: 1, forge: 1, ruin: 1 },
+  clustered:   { city: 1, forge: 1, deep: 1 },
+  radial:      { jungle: 1, deep: 1, space: 1 },
+  scattered:   { space: 1, jungle: 1, ruin: 1 },
+};
+
+var GEOMETRIC_SHAPES = ["rect","diamond","line","cross"];
+var ORGANIC_SHAPES = ["blob","eye","scatter","ring","circle","irregular","spike"];
+
+function deriveBiomeTags(roll) {
+  var scores = { city: 0, deep: 0, forge: 0, jungle: 0, ruin: 0, space: 0 };
+  if (roll.worldKey && scores[roll.worldKey] !== undefined) scores[roll.worldKey] += 3;
+  var palAff = PALETTE_BIOME_AFF[roll.palKey];
+  if (palAff) { for (var b in palAff) scores[b] += palAff[b]; }
+  var cohAff = COHESION_BIOME_AFF[roll.cohesionMode];
+  if (cohAff) { for (var b in cohAff) scores[b] += cohAff[b]; }
+  var geoCount = 0, orgCount = 0;
+  (roll.extraShapes || []).forEach(function(s) {
+    if (GEOMETRIC_SHAPES.indexOf(s) >= 0) geoCount++;
+    if (ORGANIC_SHAPES.indexOf(s) >= 0) orgCount++;
+  });
+  geoCount = Math.min(geoCount, 2); orgCount = Math.min(orgCount, 2);
+  scores.city += geoCount; scores.forge += geoCount; scores.ruin += geoCount;
+  scores.jungle += orgCount; scores.deep += orgCount; scores.space += orgCount;
+  var sorted = BIOME_KEYS.slice().sort(function(a, b) { return scores[b] - scores[a]; });
+  return [sorted[0], sorted[1]];
+}
+
+function compoundWorldKey(tags) {
+  return tags[0] < tags[1] ? tags[0] + "+" + tags[1] : tags[1] + "+" + tags[0];
+}
+
+function compoundWorldIcon(tags) {
+  return (WORLDS[tags[0]] ? WORLDS[tags[0]].icon : "") + (WORLDS[tags[1]] ? WORLDS[tags[1]].icon : "");
+}
+
+// ── World Name Generation ────────────────────────────────────────────────────
+var WORLD_ADJ = {
+  city:   ["Neon","Civic","Wired","Storied","Cobbled","Lamplit","Paved"],
+  deep:   ["Sunken","Abyssal","Pressured","Still","Hollow","Fathom","Buried"],
+  forge:  ["Tempered","Molten","Annealed","Wrought","Smelted","Hardened","Keen"],
+  jungle: ["Overgrown","Tangled","Verdant","Humid","Canopy","Root","Feral"],
+  ruin:   ["Crumbled","Forgotten","Eroded","Mossy","Broken","Faded","Worn"],
+  space:  ["Orbital","Distant","Drifting","Void","Stellar","Quiet","Vast"],
+};
+var WORLD_NOUN = {
+  city:   ["Quarter","District","Crossing","Block","Terminal","Arcade","Row"],
+  deep:   ["Trench","Basin","Shelf","Vent","Cavern","Floor","Well"],
+  forge:  ["Crucible","Furnace","Anvil","Chamber","Kiln","Works","Hearth"],
+  jungle: ["Canopy","Thicket","Grove","Hollow","Clearing","Tangle","Basin"],
+  ruin:   ["Foundation","Remnant","Arch","Corridor","Hall","Threshold","Court"],
+  space:  ["Drift","Orbit","Nebula","Station","Field","Ring","Expanse"],
+};
+
+function generateWorldName(compKey) {
+  var parts = compKey.split("+");
+  var rng = seededRng(hashStr(compKey) + 42);
+  return pick(WORLD_ADJ[parts[0]], rng) + " " + pick(WORLD_NOUN[parts[1]], rng);
+}
+
+// ── World Pool Computation ───────────────────────────────────────────────────
+function deriveBiomeTagsForPacket(pkt) {
+  var m = pkt.main || {};
+  return deriveBiomeTags({
+    worldKey: pkt.worldKey || m.worldKey,
+    palKey: m.palKey,
+    cohesionMode: m.cohesionMode,
+    extraShapes: m.extraShapes || [],
+  });
+}
+
+function computeWorldPools(packets) {
+  var pools = {};
+  packets.forEach(function(pkt, idx) {
+    var tags = pkt.biomeTags || deriveBiomeTagsForPacket(pkt);
+    var key = compoundWorldKey(tags);
+    if (!pools[key]) {
+      pools[key] = {
+        compoundKey: key,
+        tags: key.split("+"),
+        name: generateWorldName(key),
+        icon: compoundWorldIcon(key.split("+")),
+        residents: [],
+      };
+    }
+    pools[key].residents.push({ packet: pkt, index: idx });
+  });
+  var sorted = Object.keys(pools).map(function(k) { return pools[k]; });
+  sorted.sort(function(a, b) {
+    if (b.residents.length !== a.residents.length) return b.residents.length - a.residents.length;
+    return a.compoundKey < b.compoundKey ? -1 : 1;
+  });
+  return sorted;
+}
+
+function enterWorld(compoundKey) {
+  S.activeWorld = compoundKey;
+  S.activePacket = null;
+  render();
+}
+
+function exitWorld() {
+  S.activeWorld = null;
+  render();
+}
+
 function doSingle() {
   if (!S.worldKey || S.dpadActive === null) return;
   var roll = generateRoll("creature");
   if (!roll) return;
-  // Previous main → side slot (creature column, cap at 5)
-  if (S.mainCreature) {
-    S.sideCreatures.unshift(S.mainCreature);
-    if (S.sideCreatures.length > 5) S.sideCreatures.pop();
-  }
   S.mainCreature = roll;
-  // Also fill one inventory slot (churns — replaces oldest)
-  var invRoll = generateRoll("inventory");
-  if (invRoll) {
-    S.inventorySlots.unshift(invRoll);
-    if (S.inventorySlots.length > 8) S.inventorySlots.pop();
-  }
+  S.worldInventory = generateWorldInventory(roll);
+  S.encounterStats = deriveEncounterStats(roll);
+  S.encounterBiomeTags = deriveBiomeTags({
+    worldKey: S.worldKey, palKey: roll.palKey,
+    cohesionMode: roll.cohesionMode, extraShapes: roll.extraShapes || [],
+  });
   render();
   setTimeout(function() { bounceReveal(); }, 10);
 }
 
 function doSplash() {
-  if (!S.worldKey || S.dpadActive === null) return;
-  // Generate 6 creatures (main + 5 side) and 8 inventory items
-  S.mainCreature = null;
-  S.sideCreatures = [];
-  S.inventorySlots = [];
-  var rolls = [];
-  for (var i = 0; i < 6; i++) rolls.push(generateRoll("creature"));
-  S.mainCreature = rolls[0];
-  S.sideCreatures = rolls.slice(1);
-  for (var j = 0; j < 8; j++) {
-    var ir = generateRoll("inventory");
-    if (ir) S.inventorySlots.push(ir);
-  }
-  render();
-  setTimeout(function() { bounceReveal(); }, 10);
+  // Splash mode = same as single encounter now
+  doSingle();
 }
 
 // ── Shuffle Functions ────────────────────────────────────────────────────────
@@ -2242,67 +2431,26 @@ function cycleLens() {
 }
 
 // ── Packet Sealing ────────────────────────────────────────────────────────────
-function deriveRelations(cohort) {
-  // cohort: array of 14 rolls [0=main, 1-5=creatures, 6-13=inventory]
-  // Spatial grid: main is center, creatures fill left column top-to-bottom,
-  // inventory fills right 2x4 grid. Neighbors = adjacent positions.
-  // Each entity gets affinities (neighbors) and aversions (far diagonal).
-  var relations = [];
-  for (var i = 0; i < cohort.length; i++) {
-    var affinities = [], aversions = [];
-    // Creatures: neighbors are ±1 in the left column
-    if (i >= 1 && i <= 5) {
-      if (i - 1 >= 1) affinities.push(i - 1);   // above
-      if (i + 1 <= 5) affinities.push(i + 1);   // below
-      affinities.push(0);                         // main is always adjacent
-      // Averse to far inventory
-      aversions.push(6 + (5 - i));
-    }
-    // Main (0): friendly with all immediate neighbors
-    if (i === 0) {
-      affinities = [1, 2, 6, 7]; // top creatures + top inventory
-      aversions = [5, 13];        // bottom of each column
-    }
-    // Inventory: neighbors in the 2x4 grid
-    if (i >= 6 && i <= 13) {
-      var pos = i - 6; // 0-7
-      var col = pos % 2, row = Math.floor(pos / 2);
-      if (row > 0) affinities.push(6 + (row-1)*2 + col);   // above
-      if (row < 3) affinities.push(6 + (row+1)*2 + col);   // below
-      if (col === 0) affinities.push(i + 1);                // right neighbor
-      if (col === 1) affinities.push(i - 1);                // left neighbor
-      // Averse to opposite creature
-      aversions.push(5 - Math.min(row, 4));
-    }
-    // Filter out-of-bounds
-    relations.push({
-      affinities: affinities.filter(function(x){ return x >= 0 && x < cohort.length; }),
-      aversions:  aversions.filter(function(x){ return x >= 0 && x < cohort.length; }),
-    });
-  }
-  return relations;
-}
 
 function sealPacket() {
   if (!S.mainCreature) return null;
   var world = WORLDS[S.worldKey];
 
-  // Build cohort array: [main, ...creatures(5), ...inventory(8)]
-  var creatures = S.sideCreatures.slice(0, 5);
-  var inventory = S.inventorySlots.slice(0, 8);
-  var cohort = [S.mainCreature].concat(creatures).concat(inventory);
-
-  // Derive names + descriptions for each
-  var named = cohort.map(function(roll) {
+  function nameRoll(roll) {
     return Object.assign({}, roll, {
       name: generateName(roll.seed),
       description: generateDescription(roll.seed),
       worldKey: S.worldKey,
       collected: Date.now(),
     });
-  });
+  }
 
-  var relations = deriveRelations(cohort);
+  var wi = {};
+  if (S.worldInventory) {
+    WORLD_INV_CATS.forEach(function(cat) {
+      wi[cat.key] = nameRoll(S.worldInventory[cat.key]);
+    });
+  }
 
   var packet = {
     id: Date.now(),
@@ -2311,11 +2459,11 @@ function sealPacket() {
     accent:  world.accent,
     worldLabel: world.label,
     worldIcon:  world.icon,
-    main:      named[0],
-    creatures: named.slice(1, 6),
-    inventory: named.slice(6),
-    relations: relations,
-    lastLens: null,
+    main:  nameRoll(S.mainCreature),
+    world: wi,
+    stats: S.encounterStats,
+    biomeTags: S.encounterBiomeTags || null,
+    compoundWorld: S.encounterBiomeTags ? compoundWorldKey(S.encounterBiomeTags) : null,
     sealed: Date.now(),
   };
 
@@ -2332,9 +2480,9 @@ function sealPacket() {
 }
 
 // ── Crank Save ───────────────────────────────────────────────────────────────
-function handleCrank() {
-  if (S.cranking) return;
-  if (!S.mainCreature && S.sideCreatures.length === 0) return;
+// ── Catch: seal the encounter and save ────────────────────────────────────────
+function handleCatch() {
+  if (!S.mainCreature || S.cranking) return;
 
   S.cranking = true;
   var start = Date.now();
@@ -2363,30 +2511,34 @@ function handleCrank() {
         setTimeout(function() { if (btn) btn.style.transition = ""; }, 250);
       }
 
-      // Seal the packet
+      // Seal the encounter
       var packet = sealPacket();
       if (packet) {
         S.packets.unshift(packet);
         savePackets();
-        pushScraggle("\u2728", "packet sealed: " + packet.worldLabel);
+        pushScraggle("\u2728", "caught: " + packet.main.name);
       }
 
-      // Clear screen
+      // Clear encounter
       S.mainCreature = null;
-      S.sideCreatures = [];
-      S.inventorySlots = [];
+      S.worldInventory = null;
+      S.encounterStats = null;
+      S.encounterBiomeTags = null;
       gridCache = {};
       render();
     }
   }
   requestAnimationFrame(animate);
 }
+// Legacy alias — the physical crank button now catches
+function handleCrank() { handleCatch(); }
 
 function setView(v) {
   S.view = v;
   S.selectedCritter = null;
   S.editingDesc = false;
   S.activePacket = null;
+  S.activeWorld = null;
   render();
 }
 
@@ -2551,17 +2703,17 @@ function renderScreenOnly() {
 
   // Update crank button state
   var crankBtn = document.getElementById("crank-btn");
-  var hasCreatures = S.mainCreature || S.sideCreatures.length > 0;
+  var hasCreature = !!S.mainCreature;
   if (crankBtn) {
-    crankBtn.disabled = S.cranking || !hasCreatures;
-    crankBtn.style.opacity = hasCreatures ? "1" : "0.4";
+    crankBtn.disabled = S.cranking || !hasCreature;
+    crankBtn.style.opacity = hasCreature ? "1" : "0.4";
     crankBtn.style.background = S.cranking ? "#1a0a00"
-      : hasCreatures ? "radial-gradient(circle at 40% 35%,#5a3010,#3d2010)"
+      : hasCreature ? "radial-gradient(circle at 40% 35%,#5a3010,#3d2010)"
       : "#120800";
-    crankBtn.style.cursor = (S.cranking || !hasCreatures) ? "default" : "pointer";
+    crankBtn.style.cursor = (S.cranking || !hasCreature) ? "default" : "pointer";
   }
   var crankLabel = document.getElementById("crank-label");
-  if (crankLabel) crankLabel.textContent = S.cranking ? "..." : (hasCreatures ? "KEEP" : "·");
+  if (crankLabel) crankLabel.textContent = S.cranking ? "..." : (hasCreature ? "CATCH" : "\u00B7");
 
   // Swap screen content
   screenDiv.innerHTML = S.view === "crank" ? renderScreen() : renderCollectionView();
@@ -2800,9 +2952,9 @@ function renderMachine() {
   // Screen content
   var screenContent = S.view === "crank" ? renderScreen() : renderCollectionView();
 
-  // Crank save button
-  var hasCreatures = S.mainCreature || S.sideCreatures.length > 0;
-  var crankLabel = S.cranking ? '...' : (hasCreatures ? 'KEEP' : '\u00B7');
+  // Catch button
+  var hasCreature = !!S.mainCreature;
+  var crankLabel = S.cranking ? '...' : (hasCreature ? 'CATCH' : '\u00B7');
   var sheenHtml = S.cranking ? '' : '<div style="position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);animation:shimmer 3s infinite 1s"></div>';
 
   // Shoulder buttons
@@ -2879,14 +3031,14 @@ function renderMachine() {
 
     // Bottom center: crank + worlds
     + '<div style="display:flex;align-items:center;justify-content:center;gap:14px">'
-    + '<button onclick="toggleWorldMenu()" class="btn-3d" style="background:#2a0a18;border:2px solid #3a1228;color:#664455;font-size:4px;padding:4px 8px;cursor:pointer;border-radius:3px;font-family:inherit' + (!hasCreatures ? ';animation:pulse 2s infinite' : '') + '">WORLDS</button>'
-    + '<button id="crank-btn" onclick="handleCrank()" ' + (S.cranking || !hasCreatures ? 'disabled' : '') + ' style="'
-    + 'background:' + (S.cranking ? '#1a0a00' : hasCreatures ? 'radial-gradient(circle at 40% 35%,#5a3010,#3d2010)' : '#120800') + ';'
+    + '<button onclick="toggleWorldMenu()" class="btn-3d" style="background:#2a0a18;border:2px solid #3a1228;color:#664455;font-size:4px;padding:4px 8px;cursor:pointer;border-radius:3px;font-family:inherit' + (!hasCreature ? ';animation:pulse 2s infinite' : '') + '">WORLDS</button>'
+    + '<button id="crank-btn" onclick="handleCrank()" ' + (S.cranking || !hasCreature ? 'disabled' : '') + ' style="'
+    + 'background:' + (S.cranking ? '#1a0a00' : hasCreature ? 'radial-gradient(circle at 40% 35%,#5a3010,#3d2010)' : '#120800') + ';'
     + 'border:4px solid #1a0800;border-radius:50%;width:52px;height:52px;'
-    + 'cursor:' + (S.cranking || !hasCreatures ? 'default' : 'pointer') + ';'
+    + 'cursor:' + (S.cranking || !hasCreature ? 'default' : 'pointer') + ';'
     + 'display:flex;align-items:center;justify-content:center;'
     + 'box-shadow:0 5px 0 #0a0400,0 8px 16px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.1);'
-    + 'position:relative;overflow:hidden;opacity:' + (hasCreatures ? '1' : '0.4')
+    + 'position:relative;overflow:hidden;opacity:' + (hasCreature ? '1' : '0.4')
     + '">'
     + sheenHtml
     + '<div id="crank-handle" style="width:5px;height:20px;background:linear-gradient(180deg,#ffdd66,#cc8800);border-radius:3px;transform-origin:50% 100%;transform:rotate(' + S.crankAngle + 'deg);position:relative">'
@@ -2917,70 +3069,109 @@ function renderScreen() {
       + '</div></div>';
   }
 
-  // Portrait layout:
-  // Top row: 2 creature slots | main (center) | 2 creature slots  (2+1+2 = 5 total)
-  // Bottom row: inventory 4×2 grid centered
-
-  function creatureSlot(idx) {
-    if (idx >= S.sideCreatures.length) {
-      return '<div style="width:38px;height:38px;border:1px dashed #0a1a00;border-radius:2px;opacity:0.2"></div>';
-    }
-    return '<div class="bounce-slot visible popped" style="opacity:1;transform:none;border:1px solid #1a3000;border-radius:2px;cursor:default">'
-      + '<canvas class="critter" data-side-idx="' + idx + '" width="48" height="48" style="width:38px;height:38px"></canvas>'
-      + '</div>';
-  }
-
-  // Left column: slots 0,1 stacked
-  var leftCol = '<div style="display:flex;flex-direction:column;gap:2px;justify-content:center">'
-    + creatureSlot(0) + creatureSlot(1)
-    + '</div>';
-
-  // Right column: slots 2,3 stacked
-  var rightCol = '<div style="display:flex;flex-direction:column;gap:2px;justify-content:center">'
-    + creatureSlot(2) + creatureSlot(3)
-    + '</div>';
-
-  // Fifth slot below inventory or just dropped — show as small row if present
-  var fifthSlot = S.sideCreatures.length >= 5
-    ? '<div style="display:flex;justify-content:center;margin-bottom:3px">' + creatureSlot(4) + '</div>'
-    : '';
-
-  // Main creature
+  // ── Encounter layout ─────────────────────────────────────────────────────
   var mc = S.mainCreature;
   var recipe = RECIPES[mc.recipeKey];
   var mainName = generateName(mc.seed);
+  var stats = S.encounterStats || { hp: 5, atk: 5, def: 5, spd: 5, traits: [] };
+  var accent = world.accent;
+
+  // Stat bar helper
+  function statBar(label, val) {
+    var filled = '';
+    for (var i = 0; i < 10; i++) {
+      filled += i < val
+        ? '<span style="display:inline-block;width:6px;height:4px;background:' + accent + ';margin-right:1px;border-radius:1px"></span>'
+        : '<span style="display:inline-block;width:6px;height:4px;background:#0a1a00;margin-right:1px;border-radius:1px"></span>';
+    }
+    return '<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">'
+      + '<span style="font-size:4px;color:#4a6a00;width:14px;letter-spacing:0.04em">' + label + '</span>'
+      + '<span style="display:flex;align-items:center">' + filled + '</span>'
+      + '<span style="font-size:4px;color:#6a8a20;width:8px;text-align:right">' + val + '</span>'
+      + '</div>';
+  }
+
+  // Badges
   var badges = '';
   if (mc.voiceEmoji || mc.worldIcon) {
-    badges = '<div style="display:flex;gap:4px;justify-content:center;margin-top:2px">';
+    badges = '<div style="display:flex;gap:3px;margin-top:2px">';
     if (mc.voiceEmoji) badges += '<span class="type-badge">' + mc.voiceEmoji + '</span>';
     if (mc.worldIcon) badges += '<span class="type-badge">' + mc.worldIcon + '</span>';
     badges += '</div>';
   }
 
-  var mainSlot = '<div class="bounce-slot visible popped" style="text-align:center;opacity:1;transform:none">'
-    + '<div style="font-size:6px;color:#9bbc0f;text-align:center;margin-bottom:2px;letter-spacing:0.06em">' + esc(mainName) + '</div>'
-    + '<canvas class="critter" data-main="1" width="96" height="96" style="width:84px;height:84px;margin:0 auto;display:block"></canvas>'
-    + '<div style="font-size:4px;color:#4a6a00;text-align:center;margin-top:2px">'
-    + (recipe ? recipe.icon + ' ' : '') + esc(mc.recipeKey)
-    + '</div>'
+  // Left: creature canvas
+  var creatureCol = '<div class="bounce-slot visible popped" style="flex:0 0 auto;text-align:center;opacity:1;transform:none">'
+    + '<canvas class="critter" data-main="1" width="96" height="96" style="width:84px;height:84px;display:block"></canvas>'
     + badges
     + '</div>';
 
-  // Inventory: 4 columns × 2 rows, centered
-  function inventorySlot(idx) {
-    var roll = idx < S.inventorySlots.length ? S.inventorySlots[idx] : null;
-    if (!roll) {
-      return '<div style="width:26px;height:26px;border:1px dashed #0a1400;border-radius:2px;opacity:0.15"></div>';
+  // Right: stats panel
+  var statsPanel = '<div style="flex:1;min-width:0;padding-left:8px">'
+    // Name + seed
+    + '<div style="font-size:6px;color:#9bbc0f;letter-spacing:0.06em;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(mainName) + '</div>'
+    // Recipe · palette · cohesion subtitle
+    + '<div style="font-size:3.5px;color:#3a5a00;margin-bottom:5px;letter-spacing:0.04em">'
+    + (recipe ? recipe.icon + ' ' : '') + esc(mc.recipeKey) + ' \u00B7 ' + esc(mc.palKey) + ' \u00B7 ' + esc(mc.cohesionMode)
+    + '</div>'
+    // Stat bars
+    + statBar('HP', stats.hp)
+    + statBar('ATK', stats.atk)
+    + statBar('DEF', stats.def)
+    + statBar('SPD', stats.spd)
+    // Traits
+    + (stats.traits.length > 0
+      ? '<div style="font-size:3.5px;color:#4a6a00;margin-top:3px;letter-spacing:0.04em;font-style:italic">' + stats.traits.join(' \u00B7 ') + '</div>'
+      : '')
+    // Biome tags
+    + (function() {
+      var bt = S.encounterBiomeTags;
+      if (!bt || bt.length < 2) return '';
+      var pills = bt.map(function(tag) {
+        var w = WORLDS[tag];
+        if (!w) return '';
+        var rgb = hexToRgb(w.accent);
+        return '<span style="display:inline-block;font-size:3.5px;padding:1px 4px;margin-right:3px;'
+          + 'background:rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.15);'
+          + 'border:1px solid rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.35);'
+          + 'border-radius:3px;color:' + w.accent + ';letter-spacing:0.04em">'
+          + w.icon + ' ' + tag + '</span>';
+      }).join('');
+      return '<div style="margin-top:3px">' + pills + '</div>';
+    })()
+    + '</div>';
+
+  // Top row: creature left, stats right
+  var topRow = '<div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:6px">'
+    + creatureCol + statsPanel
+    + '</div>';
+
+  // World inventory: 5 typed slots
+  var invHtml = '<div style="border-top:1px solid #0a1a00;padding-top:4px;margin-top:2px">'
+    + '<div style="display:flex;gap:4px;justify-content:center">';
+
+  WORLD_INV_CATS.forEach(function(cat) {
+    var roll = S.worldInventory ? S.worldInventory[cat.key] : null;
+    if (roll) {
+      invHtml += '<div class="bounce-slot visible popped" style="opacity:1;transform:none;text-align:center;cursor:default" title="' + esc(cat.key) + '">'
+        + '<canvas class="critter" data-world-cat="' + cat.key + '" width="32" height="32" style="width:28px;height:28px;display:block;margin:0 auto"></canvas>'
+        + '<div style="font-size:3px;color:#3a5a00;margin-top:1px;letter-spacing:0.04em">' + cat.icon + ' ' + cat.key + '</div>'
+        + '</div>';
+    } else {
+      invHtml += '<div style="width:28px;text-align:center">'
+        + '<div style="width:28px;height:28px;border:1px dashed #0a1a00;border-radius:2px;opacity:0.15"></div>'
+        + '<div style="font-size:3px;color:#1a2a00;margin-top:1px">' + cat.icon + '</div>'
+        + '</div>';
     }
-    var r = RECIPES[roll.recipeKey];
-    return '<div class="bounce-slot visible popped" style="opacity:1;transform:none;cursor:default;position:relative" title="' + esc(roll.recipeKey) + '">'
-      + '<canvas class="critter" data-inv-idx="' + idx + '" width="32" height="32" style="width:26px;height:26px"></canvas>'
-      + '<div style="position:absolute;bottom:0;right:0;font-size:5px;line-height:1;opacity:0.5">' + (r ? r.icon : '') + '</div>'
-      + '</div>';
-  }
-  var invGrid = '<div style="display:grid;grid-template-columns:repeat(4,26px);gap:3px;justify-content:center">';
-  for (var i = 0; i < 8; i++) invGrid += inventorySlot(i);
-  invGrid += '</div>';
+  });
+
+  invHtml += '</div></div>';
+
+  // Catch / Crank in-screen buttons
+  var actionRow = '<div style="display:flex;justify-content:center;gap:12px;margin-top:6px">'
+    + '<button onclick="handleCatch()" style="background:#1a2a00;border:1px solid #3a5a00;color:#9bbc0f;font-size:4px;padding:3px 10px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">CATCH</button>'
+    + '<button onclick="doSingle()" style="background:#1a0a00;border:1px solid #3a1a00;color:#6a4a20;font-size:4px;padding:3px 10px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">CRANK</button>'
+    + '</div>';
 
   // Lens indicator
   var lensHtml = '<div id="lens-label" style="position:absolute;top:2px;right:6px;font-size:4px;color:#2a4a00;letter-spacing:0.06em;opacity:0;transition:opacity 0.3s;z-index:15">'
@@ -2989,18 +3180,61 @@ function renderScreen() {
 
   return '<div style="position:relative;z-index:1">'
     + lensHtml
-    // Top row: creatures flanking main
-    + '<div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:6px">'
-    + leftCol
-    + '<div style="flex:0 0 auto">' + mainSlot + '</div>'
-    + rightCol
-    + '</div>'
-    // Fifth creature if present
-    + fifthSlot
-    // Inventory row
-    + '<div style="border-top:1px solid #0a1a00;padding-top:5px;margin-top:2px">'
-    + invGrid
-    + '</div>'
+    + topRow
+    + invHtml
+    + actionRow
+    + '</div>';
+}
+
+function renderWorldDetailView(compoundKey) {
+  var pools = computeWorldPools(S.packets);
+  var pool = null;
+  for (var p = 0; p < pools.length; p++) {
+    if (pools[p].compoundKey === compoundKey) { pool = pools[p]; break; }
+  }
+  if (!pool) { S.activeWorld = null; return renderCollectionView(); }
+
+  var t0 = pool.tags[0], t1 = pool.tags[1];
+  var w0 = WORLDS[t0] || {}, w1 = WORLDS[t1] || {};
+  var rgb0 = hexToRgb(w0.accent || '#888');
+  var rgb1 = hexToRgb(w1.accent || '#888');
+
+  var header = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+    + '<button onclick="exitWorld()" style="background:none;border:none;color:#4a7a00;font-size:5px;cursor:pointer;font-family:inherit">\u2190 worlds</button>'
+    + '<div style="font-size:8px;line-height:1">' + esc(pool.icon) + '</div>'
+    + '<div style="font-size:6px;color:#9bbc0f;letter-spacing:0.06em">' + esc(pool.name) + '</div>'
+    + '</div>';
+
+  // Tag pair + resident count
+  var tagLine = '<div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">'
+    + '<span style="font-size:3.5px;padding:1px 4px;background:rgba(' + rgb0.r + ',' + rgb0.g + ',' + rgb0.b + ',0.15);border:1px solid rgba(' + rgb0.r + ',' + rgb0.g + ',' + rgb0.b + ',0.35);border-radius:3px;color:' + (w0.accent||'#888') + ';letter-spacing:0.04em">' + (w0.icon||'') + ' ' + t0 + '</span>'
+    + '<span style="font-size:3.5px;padding:1px 4px;background:rgba(' + rgb1.r + ',' + rgb1.g + ',' + rgb1.b + ',0.15);border:1px solid rgba(' + rgb1.r + ',' + rgb1.g + ',' + rgb1.b + ',0.35);border-radius:3px;color:' + (w1.accent||'#888') + ';letter-spacing:0.04em">' + (w1.icon||'') + ' ' + t1 + '</span>'
+    + '<span style="font-size:4px;color:#2a4a00;margin-left:4px">' + pool.residents.length + ' resident' + (pool.residents.length !== 1 ? 's' : '') + '</span>'
+    + '</div>';
+
+  // Resident list
+  var resCards = pool.residents.map(function(r) {
+    var pkt = r.packet;
+    var name = pkt.main ? pkt.main.name : '?';
+    var dateStr = new Date(pkt.sealed).toLocaleDateString(undefined, {month:'short', day:'numeric'});
+    var traits = '';
+    if (pkt.stats && pkt.stats.traits && pkt.stats.traits.length > 0) {
+      traits = '<div style="font-size:3.5px;color:#3a5a00;font-style:italic;margin-top:1px">' + pkt.stats.traits.join(' \u00B7 ') + '</div>';
+    }
+    return '<div style="display:flex;align-items:center;justify-content:space-between;'
+      + 'background:rgba(155,188,15,0.03);border:1px solid #1a3000;border-radius:4px;'
+      + 'padding:6px 8px;margin-bottom:3px">'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:5px;color:#9bbc0f;letter-spacing:0.04em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + esc(name) + '</div>'
+      + '<div style="font-size:3.5px;color:#2a4000;margin-top:1px">' + esc(pkt.worldIcon || '') + ' ' + esc(pkt.worldLabel || '') + ' \u00B7 ' + dateStr + '</div>'
+      + traits
+      + '</div>'
+      + '<button onclick="enterPacket(' + r.index + ')" class="btn-3d" style="flex:0 0 auto;background:#0a1800;border:2px solid #2a4a00;color:#9bbc0f;font-size:4px;padding:4px 8px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">VIEW</button>'
+      + '</div>';
+  }).join('');
+
+  return '<div style="position:relative;z-index:1;width:100%">'
+    + header + tagLine + resCards
     + '</div>';
 }
 
@@ -3008,6 +3242,11 @@ function renderCollectionView() {
   // If inside a packet, show the lens view
   if (S.activePacket) {
     return renderPacketView(S.activePacket);
+  }
+
+  // If viewing a specific world, show detail
+  if (S.activeWorld) {
+    return renderWorldDetailView(S.activeWorld);
   }
 
   var totalPackets = S.packets.length;
@@ -3021,39 +3260,44 @@ function renderCollectionView() {
       + '</div></div>';
   }
 
-  var packetCards = S.packets.map(function(pkt, i) {
-    var critterCount = 1 + (pkt.creatures ? pkt.creatures.length : 0);
-    var invCount = pkt.inventory ? pkt.inventory.length : 0;
-    var mainName = pkt.main ? pkt.main.name : "?";
-    var dateStr = new Date(pkt.sealed).toLocaleDateString(undefined, {month:'short', day:'numeric'});
-    // Preview names — main + up to 2 creatures
-    var namePreview = [pkt.main].concat((pkt.creatures || []).slice(0,2)).map(function(c){
-      return '<span style="color:#3a5a00">' + esc(c.name) + '</span>';
-    }).join('<span style="color:#1a3000"> · </span>');
-    if (critterCount > 3) namePreview += '<span style="color:#1a3000"> +' + (critterCount-3) + '</span>';
+  // Compute world pools
+  var pools = computeWorldPools(S.packets);
+  var totalCreatures = S.packets.length;
 
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;'
+  var worldCards = pools.map(function(pool) {
+    var t0 = pool.tags[0], t1 = pool.tags[1];
+    var w0 = WORLDS[t0] || {}, w1 = WORLDS[t1] || {};
+    var rgb0 = hexToRgb(w0.accent || '#888');
+    var rgb1 = hexToRgb(w1.accent || '#888');
+
+    // Resident names preview (up to 3)
+    var resNames = pool.residents.slice(0, 3).map(function(r) {
+      return esc(r.packet.main ? r.packet.main.name : '?');
+    }).join(' \u00B7 ');
+    if (pool.residents.length > 3) resNames += ' +' + (pool.residents.length - 3);
+
+    return '<div onclick="enterWorld(\'' + esc(pool.compoundKey) + '\')" style="'
       + 'background:rgba(155,188,15,0.03);border:1px solid #1a3000;border-radius:4px;'
-      + 'padding:7px 10px;margin-bottom:4px">'
-      // Left: world + date
-      + '<div style="flex:0 0 auto;min-width:60px">'
-      + '<div style="font-size:12px;line-height:1">' + esc(pkt.worldIcon || '') + '</div>'
-      + '<div style="font-size:4px;color:#4a6a00;margin-top:2px;letter-spacing:0.06em">' + esc((pkt.worldLabel||'').toUpperCase()) + '</div>'
-      + '<div style="font-size:4px;color:#2a4000;margin-top:1px">' + dateStr + '</div>'
+      + 'padding:7px 10px;margin-bottom:4px;cursor:pointer">'
+      // Row 1: icon + name
+      + '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'
+      + '<span style="font-size:10px;line-height:1">' + esc(pool.icon) + '</span>'
+      + '<span style="font-size:5.5px;color:#9bbc0f;letter-spacing:0.06em">' + esc(pool.name) + '</span>'
       + '</div>'
-      // Center: names + counts
-      + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:5px;line-height:1.8;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + namePreview + '</div>'
-      + '<div style="font-size:4px;color:#1a3000;margin-top:1px">' + critterCount + ' critters · ' + invCount + ' items</div>'
+      // Row 2: tag pills + resident count
+      + '<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px">'
+      + '<span style="font-size:3px;padding:1px 3px;background:rgba(' + rgb0.r + ',' + rgb0.g + ',' + rgb0.b + ',0.15);border:1px solid rgba(' + rgb0.r + ',' + rgb0.g + ',' + rgb0.b + ',0.3);border-radius:2px;color:' + (w0.accent||'#888') + '">' + t0 + '</span>'
+      + '<span style="font-size:3px;padding:1px 3px;background:rgba(' + rgb1.r + ',' + rgb1.g + ',' + rgb1.b + ',0.15);border:1px solid rgba(' + rgb1.r + ',' + rgb1.g + ',' + rgb1.b + ',0.3);border-radius:2px;color:' + (w1.accent||'#888') + '">' + t1 + '</span>'
+      + '<span style="font-size:3.5px;color:#2a4a00;margin-left:3px">' + pool.residents.length + ' resident' + (pool.residents.length !== 1 ? 's' : '') + '</span>'
       + '</div>'
-      // Right: enter button
-      + '<button onclick="enterPacket(' + i + ')" class="btn-3d" style="flex:0 0 auto;background:#0a1800;border:2px solid #2a4a00;color:#9bbc0f;font-size:4px;padding:5px 9px;cursor:pointer;border-radius:2px;font-family:inherit;white-space:nowrap;letter-spacing:0.06em">ENTER</button>'
+      // Row 3: resident names
+      + '<div style="font-size:3.5px;color:#3a5a00;letter-spacing:0.04em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + resNames + '</div>'
       + '</div>';
-  }).join("");
+  }).join('');
 
   return '<div style="position:relative;z-index:1;width:100%">'
-    + '<div style="font-size:4px;color:#2a4a00;margin-bottom:6px;letter-spacing:0.06em">SEALED WORLDS (' + totalPackets + ')</div>'
-    + packetCards
+    + '<div style="font-size:4px;color:#2a4a00;margin-bottom:6px;letter-spacing:0.06em">WORLDS (' + pools.length + ') \u00B7 ' + totalCreatures + ' creature' + (totalCreatures !== 1 ? 's' : '') + '</div>'
+    + worldCards
     + (legacyCount > 0 ? '<div style="font-size:4px;color:#1a3000;margin-top:6px">' + legacyCount + ' legacy critters in old haul</div>' : '')
     + '</div>';
 }
@@ -3066,52 +3310,89 @@ function enterPacket(idx) {
 
 function exitPacket() {
   S.activePacket = null;
+  // If viewing from a world, return to world detail, not flat list
   render();
 }
 
 function renderPacketView(pkt) {
   var lensLabel = LENS_ICONS[S.lensMode] + ' ' + LENS_LABELS[S.lensMode];
   var w = WORLDS[pkt.worldKey] || {};
+  var isEncounter = !!pkt.world;
 
-  // Stub content for each lens — real gameplay comes in next pass
-  var lensContent = '';
-  if (S.lensMode === "sims") {
-    lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
-      + pkt.main.name + ' is here. Everyone is talking.'
-      + '</div>'
-      + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">👁 · · ·</div>';
-  } else if (S.lensMode === "grid") {
-    lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
-      + 'A grid of ' + (1 + pkt.creatures.length) + ' creatures. Press face buttons to influence.'
-      + '</div>'
-      + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">⊞ · · ·</div>';
-  } else if (S.lensMode === "platformer") {
-    lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
-      + 'You are ' + pkt.main.name + '. Tap tiles to move.'
-      + '</div>'
-      + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">▶ · · ·</div>';
-  } else if (S.lensMode === "hunter") {
-    lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
-      + 'Coach ' + pkt.main.name + '. Rock, paper, scissors. Outlast all ' + pkt.creatures.length + ' others.'
-      + '</div>'
-      + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">⚔ · · ·</div>';
-  }
-
-  var cohortPreview = [pkt.main].concat(pkt.creatures).map(function(c) {
-    return '<div style="font-size:4px;color:#4a6a00;padding:1px 0">' + esc(c.name) + ' <span style="opacity:0.5">· ' + esc(c.recipeKey) + '</span></div>';
-  }).join('');
-
-  return '<div style="position:relative;z-index:1;animation:critterIn 0.2s ease">'
-    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
-    + '<button onclick="exitPacket()" style="background:none;border:none;color:#4a7a00;font-size:5px;cursor:pointer;font-family:inherit">\u2190 haul</button>'
+  var headerRow = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    + '<button onclick="exitPacket()" style="background:none;border:none;color:#4a7a00;font-size:5px;cursor:pointer;font-family:inherit">\u2190 ' + (S.activeWorld ? 'world' : 'haul') + '</button>'
     + '<div style="font-size:5px;color:#9bbc0f;letter-spacing:0.08em">' + lensLabel + '</div>'
     + '<button onclick="cycleLens()" style="background:#0a1400;border:1px solid #2a4000;color:#4a7a00;font-size:4px;padding:2px 5px;cursor:pointer;border-radius:2px;font-family:inherit">FLIP</button>'
     + '</div>'
-    + '<div style="font-size:5px;color:#4a6a00;margin-bottom:4px">' + esc(pkt.worldIcon || '') + ' ' + esc(pkt.worldLabel || '') + ' · ' + new Date(pkt.sealed).toLocaleDateString() + '</div>'
-    + lensContent
-    + '<div style="border-top:1px solid #0a1a00;margin-top:8px;padding-top:6px">'
-    + cohortPreview
-    + '</div>'
+    + '<div style="font-size:5px;color:#4a6a00;margin-bottom:4px">' + esc(pkt.worldIcon || '') + ' ' + esc(pkt.worldLabel || '') + ' \u00B7 ' + new Date(pkt.sealed).toLocaleDateString() + '</div>';
+
+  var detailContent = '';
+
+  if (isEncounter) {
+    // New encounter format — show creature + stats + world inventory list
+    detailContent += '<div style="font-size:6px;color:#9bbc0f;margin-bottom:4px">' + esc(pkt.main.name) + '</div>';
+    detailContent += '<div style="font-size:3.5px;color:#3a5a00;margin-bottom:4px">'
+      + esc(pkt.main.recipeKey) + ' \u00B7 ' + esc(pkt.main.palKey) + ' \u00B7 ' + esc(pkt.main.cohesionMode)
+      + '</div>';
+    if (pkt.stats) {
+      var s = pkt.stats;
+      detailContent += '<div style="font-size:4px;color:#4a6a00;margin-bottom:2px">HP ' + s.hp + ' \u00B7 ATK ' + s.atk + ' \u00B7 DEF ' + s.def + ' \u00B7 SPD ' + s.spd + '</div>';
+      if (s.traits && s.traits.length > 0) {
+        detailContent += '<div style="font-size:3.5px;color:#3a5a00;font-style:italic;margin-bottom:4px">' + s.traits.join(' \u00B7 ') + '</div>';
+      }
+    }
+    if (pkt.main.description) {
+      detailContent += '<div style="font-size:3.5px;color:#2a4a00;margin-bottom:6px;line-height:1.6">' + esc(pkt.main.description) + '</div>';
+    }
+    // World inventory list
+    detailContent += '<div style="border-top:1px solid #0a1a00;padding-top:4px;margin-top:4px">';
+    WORLD_INV_CATS.forEach(function(cat) {
+      var item = pkt.world[cat.key];
+      if (item) {
+        detailContent += '<div style="font-size:4px;color:#4a6a00;padding:1px 0">'
+          + cat.icon + ' ' + esc(item.name) + ' <span style="opacity:0.5">\u00B7 ' + esc(cat.key) + '</span></div>';
+      }
+    });
+    detailContent += '</div>';
+  } else {
+    // Legacy format — old cohort list
+    var lensContent = '';
+    var creatures = pkt.creatures || [];
+    if (S.lensMode === "sims") {
+      lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
+        + pkt.main.name + ' is here. Everyone is talking.'
+        + '</div>'
+        + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">\uD83D\uDC41 \u00B7 \u00B7 \u00B7</div>';
+    } else if (S.lensMode === "grid") {
+      lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
+        + 'A grid of ' + (1 + creatures.length) + ' creatures. Press face buttons to influence.'
+        + '</div>'
+        + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">\u229E \u00B7 \u00B7 \u00B7</div>';
+    } else if (S.lensMode === "platformer") {
+      lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
+        + 'You are ' + pkt.main.name + '. Tap tiles to move.'
+        + '</div>'
+        + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">\u25B6 \u00B7 \u00B7 \u00B7</div>';
+    } else if (S.lensMode === "hunter") {
+      lensContent = '<div style="font-size:4px;color:#3a5a00;line-height:2;margin-top:8px">'
+        + 'Coach ' + pkt.main.name + '. Rock, paper, scissors. Outlast all ' + creatures.length + ' others.'
+        + '</div>'
+        + '<div style="font-size:16px;text-align:center;margin:8px 0;opacity:0.6">\u2694 \u00B7 \u00B7 \u00B7</div>';
+    }
+
+    var cohortPreview = [pkt.main].concat(creatures).map(function(c) {
+      return '<div style="font-size:4px;color:#4a6a00;padding:1px 0">' + esc(c.name) + ' <span style="opacity:0.5">\u00B7 ' + esc(c.recipeKey) + '</span></div>';
+    }).join('');
+
+    detailContent = lensContent
+      + '<div style="border-top:1px solid #0a1a00;margin-top:8px;padding-top:6px">'
+      + cohortPreview
+      + '</div>';
+  }
+
+  return '<div style="position:relative;z-index:1;animation:critterIn 0.2s ease">'
+    + headerRow
+    + detailContent
     + '</div>';
 }
 
@@ -3165,13 +3446,13 @@ function postRender() {
     }
   });
 
-  // Side creature canvases
-  document.querySelectorAll("canvas[data-side-idx]").forEach(function(canvas) {
-    var idx = parseInt(canvas.getAttribute("data-side-idx"));
-    if (idx >= 0 && idx < S.sideCreatures.length) {
-      var roll = S.sideCreatures[idx];
+  // World inventory canvases (encounter arc)
+  document.querySelectorAll("canvas[data-world-cat]").forEach(function(canvas) {
+    var catKey = canvas.getAttribute("data-world-cat");
+    if (S.worldInventory && S.worldInventory[catKey]) {
+      var roll = S.worldInventory[catKey];
       var grid = getCachedGrid(roll);
-      drawCritterToCanvas(canvas, grid, 48, wBg);
+      drawCritterToCanvas(canvas, grid, 32, wBg);
     }
   });
 
@@ -3180,16 +3461,6 @@ function postRender() {
     if (S.selectedCritter) {
       var grid = getCachedGrid(S.selectedCritter);
       startBreathing(canvas, grid, 80);
-    }
-  });
-
-  // Inventory canvases
-  document.querySelectorAll("canvas[data-inv-idx]").forEach(function(canvas) {
-    var idx = parseInt(canvas.getAttribute("data-inv-idx"));
-    if (idx >= 0 && idx < S.inventorySlots.length) {
-      var roll = S.inventorySlots[idx];
-      var grid = getCachedGrid(roll);
-      drawCritterToCanvas(canvas, grid, 32, wBg);
     }
   });
 
