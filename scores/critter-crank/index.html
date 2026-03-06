@@ -392,10 +392,39 @@ var VOICE_KEYS = Object.keys(VOICES);
 // ── Pixel Renderer ───────────────────────────────────────────────────────────
 var GRID = 48;
 
-function renderCritter(seed, recipeKey, extraShapes, palKey, cohesionMode) {
+// Pose vocabulary — mirrors EFDP's 5 poses as procedural transform params.
+// dx/dy = body lean, sizeMod = radius delta, spreadMod = feature distance mult,
+// angleBias = feature angle shift (radians). All scaled by pulseDepth (0–1).
+var CRANK_POSES = {
+  idle:   { dx: 0,  dy: -1,  sizeMod: 0.5,  spreadMod: 0.08, angleBias: 0,            label: "idle" },
+  jump:   { dx: 0,  dy: -2,  sizeMod: 0.5,  spreadMod: 0.2,  angleBias: -Math.PI/2,   label: "jump" },
+  land:   { dx: 0,  dy: 2,   sizeMod: -0.5, spreadMod: -0.15,angleBias: Math.PI/2,    label: "land" },
+  run:    { dx: 2,  dy: 0,   sizeMod: 0,    spreadMod: 0.1,  angleBias: 0,            label: "run" },
+  attack: { dx: 2,  dy: -1,  sizeMod: 1,    spreadMod: 0.25, angleBias: -Math.PI/4,   label: "attack" }
+};
+
+// Per-creature idle tempo — derived from seed so each creature breathes at its own pace.
+// SPD stat biases faster, DEF biases slower, seed adds ±0.3 jitter.
+// Range: ~2.0–4.5 fps. Most land near 3 (current default).
+function creatureIdleFps(roll) {
+  var rng = seededRng(roll.seed + 51749);  // offset prime — independent from visual + stats RNG
+  rng(); rng(); rng();                      // warm up LCG
+  var stats = deriveEncounterStats(roll);
+  // base 3fps, SPD pulls up (+0.15 per point above 5), DEF pulls down (-0.12 per point above 5)
+  var base = 3 + (stats.spd - 5) * 0.15 - (stats.def - 5) * 0.12;
+  // seed jitter: ±0.3
+  var jitter = (rng() - 0.5) * 0.6;
+  return Math.max(2, Math.min(4.5, base + jitter));
+}
+
+function renderCritter(seed, recipeKey, extraShapes, palKey, cohesionMode, poseKey, pulseDepth) {
   var rng = seededRng(seed);
   var recipe = RECIPES[recipeKey] || RECIPES.creature;
   var pal = PALETTES[palKey] || PALETTES.creature;
+
+  // Pose resolution — defaults to idle/0 when omitted (zero transform)
+  var pose = (poseKey && CRANK_POSES[poseKey]) ? CRANK_POSES[poseKey] : CRANK_POSES.idle;
+  var depth = typeof pulseDepth === "number" ? pulseDepth : 0;
 
   // Build shape pool
   var pool = recipe.shapeTypes.slice();
@@ -479,8 +508,8 @@ function renderCritter(seed, recipeKey, extraShapes, palKey, cohesionMode) {
   var darkColor   = pal[1];
   var lightColor  = pal[5];
 
-  var cx = GRID/2 + (rng()-0.5)*6;
-  var cy = GRID/2 + (rng()-0.5)*6;
+  var cx = GRID/2 + (rng()-0.5)*6 + pose.dx * depth;
+  var cy = GRID/2 + (rng()-0.5)*6 + pose.dy * depth;
 
   // Cohesion parameters
   var mode = cohesionMode || "radial";
@@ -541,7 +570,7 @@ function renderCritter(seed, recipeKey, extraShapes, palKey, cohesionMode) {
   var bodyRadius = 0;
   if (recipeKey === "creature") {
     var baseRadius = 5 + Math.floor(rng() * 6);
-    bodyRadius = Math.max(3, Math.min(13, baseRadius + tagBias.sizeBoost));
+    bodyRadius = Math.max(3, Math.min(13, baseRadius + tagBias.sizeBoost + Math.round(pose.sizeMod * depth)));
 
     var hasAngular = extraShapes.some(function(s) { return s === "rect" || s === "diamond" || s === "cross"; });
     var hasOrganic = extraShapes.some(function(s) { return s === "blob" || s === "circle"; });
@@ -639,24 +668,24 @@ function renderCritter(seed, recipeKey, extraShapes, palKey, cohesionMode) {
 
     var ox, oy;
     if (recipeKey === "creature" && bodyRadius > 0) {
-      var featureAngle = rng() * Math.PI * 2;
+      var featureAngle = rng() * Math.PI * 2 + pose.angleBias * depth * 0.3;
       var featureDist;
       if (shapeType === "eye") {
         var faceSpread = tagBias.faceHeavy ? 0.55 : 0.85;
-        featureAngle = -Math.PI * 0.5 + (rng() - 0.5) * Math.PI * faceSpread;
-        featureDist = bodyRadius * (0.45 + rng() * 0.4);
+        featureAngle = -Math.PI * 0.5 + (rng() - 0.5) * Math.PI * faceSpread + pose.angleBias * depth * 0.15;
+        featureDist = bodyRadius * (0.45 + rng() * 0.4) * (1 + pose.spreadMod * depth);
         sz = Math.max(2, Math.min(sz, 4));
       } else if (shapeType === "spike" || shapeType === "line") {
         var limbPush = tagBias.limbHeavy ? 1.1 : 0.9;
-        featureDist = bodyRadius * (limbPush + rng() * 0.45);
+        featureDist = bodyRadius * (limbPush + rng() * 0.45) * (1 + pose.spreadMod * depth);
         sz = 4 + Math.floor(rng() * 7);
       } else if (shapeType === "scatter") {
-        featureDist = tagBias.surfaceLight ? bodyRadius * rng() * 0.6 : bodyRadius * (rng() * 0.75);
+        featureDist = (tagBias.surfaceLight ? bodyRadius * rng() * 0.6 : bodyRadius * (rng() * 0.75)) * (1 + pose.spreadMod * depth);
       } else {
         if (tagBias.faceHeavy && rng() > 0.5) {
-          featureAngle = -Math.PI * 0.5 + (rng() - 0.5) * Math.PI * 1.1;
+          featureAngle = -Math.PI * 0.5 + (rng() - 0.5) * Math.PI * 1.1 + pose.angleBias * depth * 0.15;
         }
-        featureDist = bodyRadius * (0.55 + rng() * 0.55);
+        featureDist = bodyRadius * (0.55 + rng() * 0.55) * (1 + pose.spreadMod * depth);
         sz = Math.max(2, sz - 2);
       }
       ox = cx + Math.cos(featureAngle) * featureDist;
@@ -1671,7 +1700,7 @@ function drawCritterToCanvas(canvas, grid, size) {
     }
 }
 
-// ── Breathing Animation ──────────────────────────────────────────────────────
+// ── Animation Sequencer ──────────────────────────────────────────────────────
 var activeAnimations = [];
 
 function cancelAllAnimations() {
@@ -1681,26 +1710,61 @@ function cancelAllAnimations() {
   activeAnimations = [];
 }
 
-function startBreathing(canvas, grid, size) {
+// Frame-based animation: cycles pre-rendered grids at target fps.
+// mode: "pingpong" (idle), "once" (action burst), "loop" (continuous)
+function startAnimating(canvas, frames, size, fps, mode) {
+  if (!frames || frames.length === 0) return;
   var ctx = canvas.getContext("2d");
   var ps = size / GRID;
   canvas.width = size; canvas.height = size;
-  var start = Date.now();
-  function draw() {
-    var t = (Date.now() - start) / 1000;
+
+  var frameIndex = 0;
+  var direction = 1;
+  var interval = 1000 / fps;
+  var lastFrameTime = 0;
+  var stopped = false;
+
+  function drawFrame(grid) {
     ctx.clearRect(0, 0, size, size);
     for (var y = 0; y < GRID; y++)
       for (var x = 0; x < GRID; x++) {
         var color = grid[y * GRID + x];
-        if (!color) continue;
-        var breathe = Math.sin(t * 1.6 + (x + y) * 0.18) * 0.9;
-        ctx.fillStyle = color;
-        ctx.fillRect(x * ps, y * ps + breathe, ps, ps);
+        if (color) { ctx.fillStyle = color; ctx.fillRect(x * ps, y * ps, ps, ps); }
       }
-    var id = requestAnimationFrame(draw);
+  }
+
+  function tick(now) {
+    if (stopped) return;
+    if (now - lastFrameTime >= interval) {
+      lastFrameTime = now;
+      drawFrame(frames[frameIndex]);
+      if (frames.length > 1) {
+        if (mode === "pingpong") {
+          frameIndex += direction;
+          if (frameIndex >= frames.length - 1) direction = -1;
+          if (frameIndex <= 0) direction = 1;
+        } else if (mode === "loop") {
+          frameIndex = (frameIndex + 1) % frames.length;
+        } else if (mode === "once") {
+          if (frameIndex < frames.length - 1) { frameIndex++; }
+          else { stopped = true; return; }
+        }
+      }
+    }
+    var id = requestAnimationFrame(tick);
     activeAnimations.push(id);
   }
-  draw(); // First frame synchronous — no blank-canvas flash
+
+  drawFrame(frames[0]); // First frame synchronous — no blank flash
+  if (frames.length > 1) {
+    var id = requestAnimationFrame(tick);
+    activeAnimations.push(id);
+  }
+}
+
+// Backward compat — wraps single grid as 1-frame static draw
+function startBreathing(canvas, grid, size) {
+  startAnimating(canvas, [grid], size, 1, "loop");
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -1724,6 +1788,7 @@ var S = {
   activeStyles: [],     // all currently lit face button indices
   activeVoices: [],     // voice keys influencing generation
   // Encounter
+  activePose: "idle",   // current pose key for main creature animation
   mainCreature: null,   // the big centered roll
   worldInventory: null, // { tiles, flora, items, relics, spirit } — typed rolls from creature DNA
   encounterStats: null, // { hp, atk, def, spd, traits[] } — derived from creature seed
@@ -1744,6 +1809,10 @@ var S = {
   shoulderRRevealed: false, // has R shoulder been discovered
   _shoulderLastTap: 0,  // timestamp of last shoulder+style tap (cheat code)
   _shoulderLastSide: null, // which shoulder was used for last tap
+  _shoulderCleanTap: false, // true while shoulder held, cleared if style pressed
+  // Quiet squatters
+  pendingSquatters: [], // delayed squatters waiting to manifest
+  _cranksSinceSquatter: 0, // cranks since last delayed squatter drain
 };
 
 // Grid cache: stores rendered grids to avoid re-rendering on every frame
@@ -1755,6 +1824,28 @@ function getCachedGrid(roll) {
     gridCache[key] = renderCritter(roll.seed, roll.recipeKey, roll.extraShapes, roll.palKey, roll.cohesionMode);
   }
   return gridCache[key];
+}
+
+function getFrameCacheKey(roll, poseKey, depth) {
+  return roll.seed + ":" + roll.recipeKey + ":" + roll.extraShapes.join(",")
+    + ":" + roll.palKey + ":" + roll.cohesionMode
+    + ":" + (poseKey || "idle") + ":" + (depth || 0).toFixed(2);
+}
+
+function generateFrames(roll, poseKey, frameCount) {
+  var frames = [];
+  for (var f = 0; f < frameCount; f++) {
+    var d = frameCount <= 1 ? 0 : f / (frameCount - 1);
+    var cacheKey = getFrameCacheKey(roll, poseKey, d);
+    if (!gridCache[cacheKey]) {
+      gridCache[cacheKey] = renderCritter(
+        roll.seed, roll.recipeKey, roll.extraShapes,
+        roll.palKey, roll.cohesionMode, poseKey, d
+      );
+    }
+    frames.push(gridCache[cacheKey]);
+  }
+  return frames;
 }
 
 // ── Persistence ──────────────────────────────────────────────────────────────
@@ -2210,6 +2301,24 @@ function exitWorld() {
 
 function doSingle() {
   if (!S.worldKey || S.dpadActive === null) return;
+
+  // ── Quiet squatter: does the outgoing creature want to stay? ──
+  if (S.mainCreature) {
+    var squat = checkSquatter(S.mainCreature);
+    if (squat) handleSquatter(S.mainCreature, squat);
+  }
+
+  // ── Drain pending squatters after enough cranks ──
+  S._cranksSinceSquatter++;
+  if (S.pendingSquatters.length > 0 && S._cranksSinceSquatter >= 3) {
+    var pkt = S.pendingSquatters.shift();
+    S.packets.unshift(pkt);
+    savePackets();
+    savePendingSquatters();
+    pushScraggle("\uD83D\uDEAA", "something moved in.");
+    S._cranksSinceSquatter = 0;
+  }
+
   var roll = generateRoll("creature");
   if (!roll) return;
   S.mainCreature = roll;
@@ -2220,6 +2329,7 @@ function doSingle() {
     cohesionMode: roll.cohesionMode, extraShapes: roll.extraShapes || [],
   });
   render();
+  playPose("land");
   setTimeout(function() { bounceReveal(); }, 10);
 }
 
@@ -2307,6 +2417,7 @@ function pressDpad(idx) {
 
 function holdShoulder(side) {
   S['shoulderHeld' + side] = true;
+  S._shoulderCleanTap = true;
   // First press: reveal the shoulder button via in-place DOM patch (no full re-render)
   if (!S['shoulder' + side + 'Revealed']) {
     S['shoulder' + side + 'Revealed'] = true;
@@ -2331,11 +2442,17 @@ function holdShoulder(side) {
 }
 function releaseShoulder(side) {
   S['shoulderHeld' + side] = false;
+  // Clean tap (no style interaction while held) → run pose
+  if (S._shoulderCleanTap && S.mainCreature) {
+    S._shoulderCleanTap = false;
+    playPose("run");
+  }
 }
 
 function pressStyle(idx) {
   // Shoulder intercept: hold/deposit voice
   if (S.shoulderHeldL || S.shoulderHeldR) {
+    S._shoulderCleanTap = false; // style was pressed while holding — not a clean tap
     var side = S.shoulderHeldL ? 'L' : 'R';
     var shoulderKey = 'shoulder' + side;
     if (S[shoulderKey] === null) {
@@ -2430,6 +2547,107 @@ function cycleLens() {
   }
 }
 
+// ── Quiet Squatter Logic ─────────────────────────────────────────────────────
+// Some creatures decide to stay even when you crank past them.
+// The creature's seed decides — ~15% are squatters.
+
+function checkSquatter(roll) {
+  var rng = seededRng(roll.seed + 7919); // offset so squatter fate ≠ creature appearance
+  rng(); rng(); rng(); // warm up — LCG needs several iterations to decorrelate nearby seeds
+  var chance = rng();
+  if (chance >= 0.15) return null;       // ~85% leave normally
+  var mode = rng();
+  if (mode < 0.50) return "silent";      // silent immediate — discover in haul later
+  if (mode < 0.80) return "noted";       // soft scraggle notification
+  return "delayed";                       // appears after a few more cranks
+}
+
+function buildSquatterPacket(roll) {
+  if (!roll) return null;
+  var world = WORLDS[S.worldKey];
+  if (!world) return null;
+
+  function nameRoll(r) {
+    return Object.assign({}, r, {
+      name: generateName(r.seed),
+      description: generateDescription(r.seed),
+      worldKey: S.worldKey,
+      collected: Date.now(),
+    });
+  }
+
+  var wi = {};
+  if (S.worldInventory) {
+    WORLD_INV_CATS.forEach(function(cat) {
+      wi[cat.key] = nameRoll(S.worldInventory[cat.key]);
+    });
+  }
+
+  var packet = {
+    id: Date.now(),
+    worldKey: S.worldKey,
+    palette: world.bg,
+    accent:  world.accent,
+    worldLabel: world.label,
+    worldIcon:  world.icon,
+    main:  nameRoll(roll),
+    world: wi,
+    stats: S.encounterStats,
+    biomeTags: S.encounterBiomeTags || null,
+    compoundWorld: S.encounterBiomeTags ? compoundWorldKey(S.encounterBiomeTags) : null,
+    sealed: Date.now(),
+    squatter: true,
+  };
+
+  if (S.crankContext && S.crankContext.source === "efdp") {
+    var ms = S.crankContext;
+    packet.mazeOrigin = {
+      meanStrength: ms.meanStrength, calcifiedRatio: ms.calcifiedRatio,
+      dominantHex: ms.dominantHex,
+    };
+  }
+
+  return packet;
+}
+
+function handleSquatter(roll, mode) {
+  var packet = buildSquatterPacket(roll);
+  if (!packet) return;
+
+  if (mode === "delayed") {
+    S.pendingSquatters.push(packet);
+    savePendingSquatters();
+  } else {
+    S.packets.unshift(packet);
+    savePackets();
+    if (mode === "noted") {
+      pushScraggle("\uD83D\uDEAA", "something moved in.");
+    }
+  }
+}
+
+function savePendingSquatters() {
+  try { localStorage.setItem("critter-pending-squatters", JSON.stringify(S.pendingSquatters)); } catch(e) {}
+}
+
+function loadPendingSquatters() {
+  try {
+    var raw = localStorage.getItem("critter-pending-squatters");
+    if (raw) S.pendingSquatters = JSON.parse(raw);
+  } catch(e) {}
+}
+
+function drainPendingSquatters() {
+  if (S.pendingSquatters.length === 0) return;
+  while (S.pendingSquatters.length > 0) {
+    var pkt = S.pendingSquatters.shift();
+    S.packets.unshift(pkt);
+    pushScraggle("\uD83D\uDEAA", "something moved in.");
+  }
+  savePackets();
+  savePendingSquatters();
+}
+
 // ── Packet Sealing ────────────────────────────────────────────────────────────
 
 function sealPacket() {
@@ -2483,6 +2701,7 @@ function sealPacket() {
 // ── Catch: seal the encounter and save ────────────────────────────────────────
 function handleCatch() {
   if (!S.mainCreature || S.cranking) return;
+  playPose("attack");
 
   S.cranking = true;
   var start = Date.now();
@@ -3102,7 +3321,7 @@ function renderScreen() {
 
   // Left: creature canvas
   var creatureCol = '<div class="bounce-slot visible popped" style="flex:0 0 auto;text-align:center;opacity:1;transform:none">'
-    + '<canvas class="critter" data-main="1" width="96" height="96" style="width:84px;height:84px;display:block"></canvas>'
+    + '<canvas class="critter" data-main="1" width="96" height="96" onclick="playPose(\'jump\')" style="width:84px;height:84px;display:block;cursor:pointer"></canvas>'
     + badges
     + '</div>';
 
@@ -3438,15 +3657,16 @@ function renderStyleButtons() {
 function postRender() {
   var wBg = S.worldKey && WORLDS[S.worldKey] ? WORLDS[S.worldKey].bg : null;
 
-  // Main creature canvas (breathing)
+  // Main creature canvas (pose-aware frame animation, per-creature tempo)
   document.querySelectorAll("canvas[data-main]").forEach(function(canvas) {
     if (S.mainCreature) {
-      var grid = getCachedGrid(S.mainCreature);
-      startBreathing(canvas, grid, 96);
+      var fps = creatureIdleFps(S.mainCreature);
+      var frames = generateFrames(S.mainCreature, S.activePose || "idle", 2);
+      startAnimating(canvas, frames, 96, fps, "pingpong");
     }
   });
 
-  // World inventory canvases (encounter arc)
+  // World inventory canvases (static — 32px too small for animation)
   document.querySelectorAll("canvas[data-world-cat]").forEach(function(canvas) {
     var catKey = canvas.getAttribute("data-world-cat");
     if (S.worldInventory && S.worldInventory[catKey]) {
@@ -3456,23 +3676,48 @@ function postRender() {
     }
   });
 
-  // Collection detail (animated)
+  // Collection detail (idle animation, per-creature tempo)
   document.querySelectorAll("canvas[data-coll-detail]").forEach(function(canvas) {
     if (S.selectedCritter) {
-      var grid = getCachedGrid(S.selectedCritter);
-      startBreathing(canvas, grid, 80);
+      var fps = creatureIdleFps(S.selectedCritter);
+      var frames = generateFrames(S.selectedCritter, "idle", 2);
+      startAnimating(canvas, frames, 80, fps, "pingpong");
     }
   });
 
-  // Collection thumbnails (animated)
+  // Collection thumbnails (idle animation, per-creature tempo)
   document.querySelectorAll("canvas[data-coll-id]").forEach(function(canvas) {
     var seed = parseInt(canvas.getAttribute("data-coll-id"));
     var critter = S.collection.find(function(c) { return c.seed === seed; });
     if (critter) {
-      var grid = getCachedGrid(critter);
-      startBreathing(canvas, grid, 54);
+      var fps = creatureIdleFps(critter);
+      var frames = generateFrames(critter, "idle", 2);
+      startAnimating(canvas, frames, 54, fps, "pingpong");
     }
   });
+}
+
+// Play an action pose on the main creature, then return to idle.
+// Not wired to UI yet — callable from handleCatch() or future battle system.
+function playPose(poseKey, onComplete) {
+  if (!S.mainCreature || !CRANK_POSES[poseKey]) return;
+  S.activePose = poseKey;
+  var canvas = document.querySelector("canvas[data-main]");
+  if (!canvas) return;
+  cancelAllAnimations();
+  var frames = generateFrames(S.mainCreature, poseKey, 3);
+  startAnimating(canvas, frames, 96, 7, "pingpong");
+  // Ping-pong at 7fps: ~143ms per frame, 3 frames = ~430ms per half-cycle
+  // ~1400ms gives 2-3 full bounces before settling back to idle
+  setTimeout(function() {
+    if (!S.mainCreature) return;
+    S.activePose = "idle";
+    cancelAllAnimations();
+    var fps = creatureIdleFps(S.mainCreature);
+    var idleFrames = generateFrames(S.mainCreature, "idle", 2);
+    startAnimating(canvas, idleFrames, 96, fps, "pingpong");
+    if (onComplete) onComplete();
+  }, 1400);
 }
 
 var _machineScaleLocked = false;
@@ -3543,6 +3788,8 @@ function onWindowResize() {
 function init() {
   loadCollection();
   loadPackets();
+  loadPendingSquatters();
+  drainPendingSquatters(); // flush any waiting squatters from previous session
   readCrankContext();
   render();
 
