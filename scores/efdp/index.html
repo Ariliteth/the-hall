@@ -2488,6 +2488,30 @@ document.getElementById('wall-density').oninput = e => {
 
 initMaze();
 
+// Hub greeting — if opened from the hub (iframe) with no incoming context,
+// the maze says hello with one of each pin type in random colors.
+(function mazeGreeting() {
+  var inHub = window !== window.parent;
+  var hasContext = !!localStorage.getItem('baseline-session/crank-seed');
+  if (!inHub || hasContext || !maze) return;
+  var palette = ['#f5c842','#e85e1a','#c8411e','#3a8fe8','#44cc77','#cc44aa','#9966ff'];
+  var types = ['circle','square','triangle'];
+  var used = [];
+  types.forEach(function(type) {
+    var hex;
+    do { hex = palette[Math.floor(Math.random() * palette.length)]; } while (used.indexOf(hex) !== -1 && used.length < palette.length);
+    used.push(hex);
+    var c = hexToRgb(hex);
+    var rx = 3 + Math.floor(Math.random() * (maze.W - 6));
+    var ry = 3 + Math.floor(Math.random() * (maze.H - 6));
+    var dir = Math.floor(Math.random() * 4);
+    pins.push({ x: rx, y: ry, color: [c[0], c[1], c[2]], strength: 4, initialStrength: 4, type: type, direction: dir, limit: null, legacyDone: false });
+  });
+  updatePinList();
+  renderMaze();
+  setStatus('The maze says hello.');
+})();
+
 // Hub integration — collapse selection panel when EFDP launches
 try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
 </script>
