@@ -186,6 +186,7 @@
     </select>
     <button id="btn-add-layer">+ Add</button>
     <button id="btn-send-crank" class="crank-send" onclick="sendToCrank()" title="Export maze as Crank seed" disabled>&rarr; Crank</button>
+    <button id="btn-send-chunxly" class="crank-send" onclick="sendToChunxly()" title="Send maze snapshot back to Chunxly" disabled>&rarr; Chunxly</button>
   </div>
   <div id="layer-list"></div>
 </div>
@@ -426,6 +427,121 @@ function sendToCrank() {
     localStorage.setItem('baseline-session/scraggles', JSON.stringify(arr));
   } catch(e) {}
   setStatus('Seed sent to Crank \u2192 ' + seed.paletteKey + ' / ' + seed.cohesionMode);
+}
+
+function sendToChunxly() {
+  if (pins.length === 0 && totalPulses === 0) { setStatus('Load a template first'); return; }
+
+  // Multi-phase diffusion: fill gaps while staying true to pin sources
+  // Phase 1: initial diffusion — also captures pinMemory for phases 2-3
+  if (totalPulses === 0 || pins.length > 0) pulse(5);
+
+  const mem = layers[activeLayerIndex].pinMemory;
+  // Phase 2: restore pins at 60% strength, fill gaps
+  if (mem) {
+    pins.length = 0;
+    mem.forEach(function(p) {
+      pins.push({
+        x: p.x, y: p.y, color: [...p.color],
+        strength: Math.max(1, Math.round(p.strength * 0.6)),
+        initialStrength: Math.max(1, Math.round(p.strength * 0.6)),
+        type: p.type, direction: p.direction,
+        limit: null, legacyDone: false
+      });
+    });
+    pulse(4);
+
+    // Phase 3: restore at 30% strength, touch-up pass
+    pins.length = 0;
+    mem.forEach(function(p) {
+      pins.push({
+        x: p.x, y: p.y, color: [...p.color],
+        strength: Math.max(1, Math.round(p.strength * 0.3)),
+        initialStrength: Math.max(1, Math.round(p.strength * 0.3)),
+        type: p.type, direction: p.direction,
+        limit: null, legacyDone: false
+      });
+    });
+    pulse(2);
+  }
+
+  // Check for touch-up layer from Chunxly's comparison
+  const touchupRaw = localStorage.getItem('baseline-session/chunxly-cpm-touchup');
+  if (touchupRaw) {
+    loadTouchupLayer();
+    pulse(4); // diffuse the corrections
+    localStorage.removeItem('baseline-session/chunxly-cpm-touchup');
+  }
+
+  renderMaze();
+  try {
+    const dataUrl = canvas.toDataURL('image/png');
+    localStorage.setItem('baseline-session/efdp-snapshot', dataUrl);
+  } catch(e) { setStatus('Failed to save snapshot'); return; }
+  try {
+    const raw = localStorage.getItem('baseline-session/scraggles') || '[]';
+    const arr = JSON.parse(raw);
+    arr.push({ emoji: '\uD83D\uDD2C', signal: 'maze snapshot ready', source: 'efdp', arrivedAt: Date.now() });
+    localStorage.setItem('baseline-session/scraggles', JSON.stringify(arr));
+  } catch(e) {}
+  const layerInfo = layers.length > 1 ? `, ${layers.length} layers` : '';
+  setStatus(`Snapshot sent to Chunxly (3-phase diffusion${layerInfo}).`);
+}
+
+function loadTouchupLayer() {
+  // Load Chunxly's touch-up CPM as a new layer on the existing maze
+  if (!maze) { setStatus('No maze loaded. Load base template first.'); return; }
+  const raw = localStorage.getItem('baseline-session/chunxly-cpm-touchup');
+  if (!raw) { setStatus('No touch-up layer available.'); return; }
+
+  const template = parseTemplate(raw);
+  if (!template || !template.grid.length) { setStatus('Touch-up template invalid.'); return; }
+
+  // Save current layer, create new one
+  saveActiveLayer();
+  const layer = createLayer('Touch-up');
+  layer.blendMode = 'alpha';
+  layer.opacity = 1.0;
+  layers.push(layer);
+  activeLayerIndex = layers.length - 1;
+  loadActiveLayer();
+
+  const scale = template.scale;
+  const gridH = template.grid.length;
+  const gridW = Math.max(...template.grid.map(r => r.length));
+
+  // Place pins from touch-up template onto existing maze grid
+  // Map touch-up grid coords to maze coords
+  const mazeW = maze.W, mazeH = maze.H;
+  const scaleX = mazeW / (gridW * scale);
+  const scaleY = mazeH / (gridH * scale);
+
+  for (let gy = 0; gy < gridH; gy++) {
+    for (let gx = 0; gx < gridW; gx++) {
+      const ch = template.grid[gy]?.[gx] || '.';
+      const pinDef = template.pins[ch];
+      if (!pinDef) continue;
+
+      const cx = Math.round((gx * scale + Math.floor(scale / 2)) * scaleX);
+      const cy = Math.round((gy * scale + Math.floor(scale / 2)) * scaleY);
+      if (cx >= mazeW || cy >= mazeH) continue;
+
+      pins.push({
+        x: cx, y: cy,
+        color: [...pinDef.color],
+        strength: pinDef.strength,
+        initialStrength: pinDef.strength,
+        limit: null, legacyDone: false,
+        type: pinDef.type,
+        direction: pinDef.direction
+      });
+    }
+  }
+
+  renderMaze();
+  updatePinList();
+  updateLayerPanel();
+  setStatus(`Touch-up layer loaded: ${pins.length} corrective pins on Layer ${layers.length}.`);
 }
 
 // --- Maze generation (unchanged) ---
@@ -1778,13 +1894,14 @@ function parseTemplate(text) {
   // Parse pins: "A = circle #f5c842 str:6 [dir:up]"
   const dirMap = { up: 0, right: 1, down: 2, left: 3 };
   for (const line of (sections.pins || [])) {
-    const m = line.match(/^(\S+)\s*=\s*(\w+)\s+(#[0-9a-fA-F]{6})\s+str:(\d+)(?:\s+dir:(\w+))?/);
+    const m = line.match(/^(\S+)\s*=\s*(\w+)\s+(#[0-9a-fA-F]{6})\s+str:(\d+)/);
+    const dm = line.match(/dir:(\w+)/);
     if (m) {
       template.pins[m[1]] = {
         type: m[2],
         color: hexToRgb(m[3]),
         strength: parseInt(m[4]),
-        direction: m[5] ? (dirMap[m[5]] ?? 1) : 1
+        direction: dm ? (dirMap[dm[1]] ?? 1) : 1
       };
     }
   }
@@ -1792,6 +1909,19 @@ function parseTemplate(text) {
   // Parse grid: space-separated rows
   for (const line of (sections.grid || [])) {
     template.grid.push(line.split(/\s+/));
+  }
+
+  // Parse edges: "gx1,gy1 gx2,gy2" — structural connections between grid cells
+  template.edges = [];
+  for (const line of (sections.edges || [])) {
+    const parts = line.split(/\s+/);
+    if (parts.length >= 2) {
+      const [ax, ay] = parts[0].split(',').map(Number);
+      const [bx, by] = parts[1].split(',').map(Number);
+      if (!isNaN(ax) && !isNaN(ay) && !isNaN(bx) && !isNaN(by)) {
+        template.edges.push({ ax, ay, bx, by });
+      }
+    }
   }
 
   return template;
@@ -1849,6 +1979,39 @@ function loadTemplate(template) {
         if (x - 1 >= 0) rw[idx(x - 1, y)] = 1;
         if (y + 1 < mazeH) bw[idx(x, y)] = 1;
         if (y - 1 >= 0) bw[idx(x, y - 1)] = 1;
+      }
+    }
+  }
+
+  // Skeleton: erase walls along fairy-traced edges between connected pins
+  // This creates corridors that let diffusion flow along the creature's structure
+  if (template.edges && template.edges.length > 0) {
+    for (const edge of template.edges) {
+      // convert grid coords to maze coords (center of grid block)
+      const x0 = edge.ax * scale + Math.floor(scale / 2);
+      const y0 = edge.ay * scale + Math.floor(scale / 2);
+      const x1 = edge.bx * scale + Math.floor(scale / 2);
+      const y1 = edge.by * scale + Math.floor(scale / 2);
+      // walk from (x0,y0) to (x1,y1) erasing walls along the path (Bresenham)
+      let cx = x0, cy = y0;
+      const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+      const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+      let err = dx - dy;
+      while (true) {
+        // erase walls toward next step
+        const nx = cx + sx, ny = cy + sy;
+        if (cx >= 0 && cx < mazeW && cy >= 0 && cy < mazeH) {
+          // erase right wall if moving right, or left wall of next cell if moving left
+          if (sx > 0 && cx + 1 < mazeW) rw[idx(cx, cy)] = 0;
+          if (sx < 0 && cx - 1 >= 0) rw[idx(cx - 1, cy)] = 0;
+          // erase bottom wall if moving down, or top wall if moving up
+          if (sy > 0 && cy + 1 < mazeH) bw[idx(cx, cy)] = 0;
+          if (sy < 0 && cy - 1 >= 0) bw[idx(cx, cy - 1)] = 0;
+        }
+        if (cx === x1 && cy === y1) break;
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; cx += sx; }
+        if (e2 < dx) { err += dx; cy += sy; }
       }
     }
   }
@@ -2203,6 +2366,8 @@ function pulse(n) {
   // Enable Crank export after diffusion has run
   const crankBtn = document.getElementById('btn-send-crank');
   if (crankBtn && totalPulses > 0) crankBtn.disabled = false;
+  const chunxlyBtn = document.getElementById('btn-send-chunxly');
+  if (chunxlyBtn && totalPulses > 0) chunxlyBtn.disabled = false;
 }
 
 function updatePinList() {

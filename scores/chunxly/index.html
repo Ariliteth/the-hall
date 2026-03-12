@@ -1,0 +1,2889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Chunxly's Canvas</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+:root{
+  --bg:#13110e;--surface:#1c1914;--surface2:#221f1a;
+  --border:rgba(255,230,180,0.08);--border2:rgba(255,230,180,0.14);
+  --amber:#d4a84b;--teal:#5ec4a8;--cold:#8ab4c4;
+  --muted:rgba(255,230,180,0.28);--text:rgba(255,230,180,0.82);
+  --mono:'IBM Plex Mono',monospace;--serif:'Lora',serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);min-height:100dvh;font-family:var(--serif);color:var(--text);
+  display:flex;flex-direction:column;align-items:center;overflow-x:hidden;
+  touch-action:none;user-select:none;}
+body::after{content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:999;opacity:.5;}
+
+/* ── header ── */
+.hdr{width:100%;max-width:540px;display:flex;align-items:baseline;justify-content:space-between;padding:11px 16px 5px;flex-shrink:0;}
+.logo{font-family:var(--mono);font-size:.6rem;color:rgba(255,230,180,.22);letter-spacing:.18em;text-transform:uppercase;}
+.phase-tag{font-family:var(--mono);font-size:.55rem;color:rgba(255,230,180,.16);letter-spacing:.1em;}
+
+/* ── voices ── */
+.voices{width:calc(100% - 28px);max-width:512px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:var(--surface);flex-shrink:0;margin-bottom:6px;}
+.vrow{display:flex;align-items:flex-start;gap:9px;padding:8px 11px;min-height:34px;}
+.vrow.int-row{border-bottom:1px solid var(--border);}
+.vtag{font-family:var(--mono);font-size:.48rem;letter-spacing:.1em;padding:2px 4px;border-radius:2px;flex-shrink:0;margin-top:2px;text-transform:uppercase;}
+.vtag-i{background:rgba(138,180,196,.1);color:var(--cold);}
+.vtag-o{background:rgba(94,196,168,.1);color:var(--teal);}
+.vtext{font-size:.7rem;line-height:1.55;flex:1;}
+.vtext-i{color:rgba(138,180,196,.72);font-family:var(--mono);font-size:.6rem;font-style:italic;}
+.vtext-o{color:rgba(94,196,168,.88);font-family:var(--serif);}
+@keyframes intFlash{0%{background:rgba(212,168,75,.1);}100%{background:transparent;}}
+.vrow.int-row.flash{animation:intFlash .7s ease-out;}
+
+/* ── workspace ── */
+.workspace{position:relative;width:calc(100% - 28px);max-width:512px;aspect-ratio:1;
+  border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:var(--surface);flex-shrink:0;}
+#mainCanvas{display:block;width:100%;height:100%;cursor:crosshair;}
+
+/* ── drop zone overlay ── */
+.drop-zone{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:var(--surface);z-index:10;transition:opacity .4s;}
+.drop-zone.hidden{opacity:0;pointer-events:none;}
+.drop-border{width:calc(100% - 40px);height:calc(100% - 40px);border:2px dashed rgba(255,230,180,.12);border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:border-color .3s;}
+.drop-zone.drag-over .drop-border{border-color:var(--amber);}
+.drop-label{font-family:var(--mono);font-size:.6rem;color:rgba(255,230,180,.25);letter-spacing:.12em;text-transform:uppercase;}
+.drop-or{font-family:var(--mono);font-size:.5rem;color:rgba(255,230,180,.14);letter-spacing:.1em;}
+.btn{padding:8px 18px;border:1px solid rgba(255,230,180,.12);border-radius:6px;background:rgba(255,230,180,.04);
+  color:rgba(255,230,180,.5);font-family:var(--mono);font-size:.58rem;cursor:pointer;letter-spacing:.1em;
+  text-transform:uppercase;transition:all .2s;}
+.btn:hover{background:rgba(255,230,180,.08);color:rgba(255,230,180,.7);border-color:rgba(255,230,180,.2);}
+
+/* ── drawing toolbar (blank canvas mode) ── */
+.draw-bar{position:absolute;top:8px;left:8px;display:flex;gap:5px;z-index:5;opacity:0;pointer-events:none;transition:opacity .3s;}
+.draw-bar.show{opacity:1;pointer-events:all;}
+.draw-swatch{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;transition:border-color .2s;}
+.draw-swatch.active{border-color:var(--amber);}
+.draw-size{width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,230,180,.12);background:rgba(255,230,180,.04);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;}
+.draw-size.active{border-color:var(--amber);background:rgba(212,168,75,.12);}
+.draw-size-dot{border-radius:50%;background:rgba(255,230,180,.5);}
+
+/* ── bottom bar ── */
+.bar{width:calc(100% - 28px);max-width:512px;display:flex;align-items:center;justify-content:space-between;
+  padding:6px 0;flex-shrink:0;gap:8px;margin-top:4px;}
+.bar-left{display:flex;gap:6px;align-items:center;}
+.node-count{font-family:var(--mono);font-size:.52rem;color:rgba(255,230,180,.22);letter-spacing:.08em;}
+.bar-right{display:flex;gap:6px;}
+
+/* ── Chunxly sprite ── */
+.sprite-wrap{position:absolute;z-index:6;pointer-events:none;transition:left .6s cubic-bezier(.4,0,.2,1),top .6s cubic-bezier(.4,0,.2,1);}
+#spriteCanvas{display:block;}
+
+/* ── notification ── */
+.notif{position:fixed;top:0;left:50%;transform:translateX(-50%) translateY(-110%);background:var(--surface2);
+  border:1px solid var(--border2);border-top:none;border-bottom-left-radius:7px;border-bottom-right-radius:7px;
+  padding:6px 14px;font-family:var(--mono);font-size:.58rem;color:var(--cold);letter-spacing:.05em;
+  z-index:500;opacity:0;transition:transform .38s cubic-bezier(.34,1.56,.64,1),opacity .38s;white-space:nowrap;}
+.notif.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="notif" id="notif"></div>
+<div class="hdr">
+  <div class="logo">Chunxly's Canvas</div>
+  <div class="phase-tag" id="phaseTag">waiting</div>
+</div>
+<div class="voices">
+  <div class="vrow int-row" id="intRow">
+    <span class="vtag vtag-i">int</span>
+    <span class="vtext vtext-i" id="intText">Canvas is blank. I have my beret. I have my brush. I am ready to see something.</span>
+  </div>
+  <div class="vrow">
+    <span class="vtag vtag-o">out</span>
+    <span class="vtext vtext-o" id="outText">Drop an image, or start fresh.</span>
+  </div>
+</div>
+<div class="workspace" id="workspace">
+  <canvas id="mainCanvas"></canvas>
+  <div class="drop-zone" id="dropZone">
+    <div class="drop-border" id="dropBorder">
+      <div class="drop-label" id="dropLabel">drop a png for chunxly</div>
+      <div class="drop-or" id="dropOr">or</div>
+      <button class="btn" id="btnBlank">blank canvas</button>
+      <button class="btn" id="btnCompare" style="display:none;">let chunxly compare</button>
+    </div>
+  </div>
+  <div class="draw-bar" id="drawBar"></div>
+  <div class="sprite-wrap" id="spriteWrap" style="left:16px;top:16px;">
+    <canvas id="spriteCanvas" width="80" height="80"></canvas>
+  </div>
+</div>
+<div class="bar">
+  <div class="bar-left">
+    <span class="node-count" id="nodeCount"></span>
+  </div>
+  <div class="bar-right">
+    <button class="btn" id="btnSee" style="display:none;">let chunxly see</button>
+    <button class="btn" id="btnFinish" style="display:none;">finish</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  Chunxly's Canvas — creature authoring tool
+// ═══════════════════════════════════════════════════════
+
+// ── state ──
+const S = {
+  phase: 'landing',   // landing | drawing | analyzing | daubing | visitor | done
+  nodes: [],          // { id, x, y, color:[r,g,b], type, strength, direction, source }
+  edges: [],          // { from, to, source }
+  nextId: 0,
+  imageData: null,    // ImageData from dropped/drawn image
+  imageCanvas: null,  // offscreen canvas with the image
+  imgW: 0, imgH: 0,
+  // drawing state
+  drawColor: [180, 140, 90],
+  drawSize: 8,
+  isDrawing: false,
+  // interaction state
+  dragNode: null,
+  connectFrom: null,
+  hoverNode: null,
+  // chunxly animation
+  chunxly: { x: 16, y: 16, targetX: 16, targetY: 16, expression: 'idle', daubQueue: [], daubIdx: 0, busy: false },
+  // ping-pong
+  suggestTimer: null,
+  suggestEdge: null,
+  // canvas sizing
+  canvasSize: 512,
+};
+
+const PX = 5; // sprite pixel size
+const SPRITE_CELLS = 16;
+
+// ── DOM refs ──
+const $canvas = document.getElementById('mainCanvas');
+const $ctx = $canvas.getContext('2d');
+const $drop = document.getElementById('dropZone');
+const $drawBar = document.getElementById('drawBar');
+const $sprite = document.getElementById('spriteCanvas');
+const $sctx = $sprite.getContext('2d');
+const $spriteWrap = document.getElementById('spriteWrap');
+
+// ── colors for drawing palette ──
+const DRAW_COLORS = [
+  [220, 180, 140], [90, 158, 58], [85, 136, 204],
+  [196, 96, 96], [160, 120, 200], [50, 50, 55], [230, 225, 215]
+];
+const DRAW_SIZES = [4, 8, 16];
+
+// ── voice system ──
+const VOICE = {
+  landing: [
+    ["Canvas is blank. I have my beret. I have my brush. I am ready to see something.",
+     "Drop an image, or start fresh."],
+  ],
+  image_load: [
+    ["An image. I can see colors in it already. I want to look closer. I am going to look closer.",
+     "Oh! Let me see this."],
+    ["Something to look at. I am noting the dimensions and the warmth. There is warmth in this.",
+     "Mm. This is good."],
+    ["The visitor brought something. I can feel where the color gathers. I am preparing my brush.",
+     "There's a lot here."],
+  ],
+  blank_start: [
+    ["A blank canvas. The visitor will draw first. I will watch carefully. I am watching.",
+     "Go ahead — I'll watch."],
+    ["Nothing yet. But the visitor has colors. I am patient. I am noting my patience.",
+     "Draw something. I'm here."],
+  ],
+  blank_see: [
+    ["The visitor says it's ready. I can see what they drew. I am going to find the interesting parts.",
+     "Let me look..."],
+    ["They want me to see it now. I will be thorough. I am always thorough.",
+     "Oh! I see things already."],
+  ],
+  daub: [
+    ["I see warmth here. I am drawing a {type} around it. The color wants to be held.",
+     "There."],
+    ["This part has presence. A {type} to contain it. I considered the size. This is right.",
+     "Mm."],
+    ["Edge. Clear edge. I am scribbling a {type} here. Tight. The boundary matters.",
+     "Oh, this part."],
+    ["Color gathers here like it meant to. A {type}. I am circling it so it knows I noticed.",
+     "Here."],
+    ["Interesting spot. High contrast. I see something the visitor might not see yet. A {type}.",
+     "...yes."],
+    ["Soft area. Color just sits here. A {type} for sitting color. Big and loose.",
+     "Gentle one."],
+    ["Something lives here. Not sure what yet. But I can draw around it. A {type}.",
+     "This."],
+    ["The color is dense here. I am making the boundary tight. A {type}.",
+     "Hm. Dense."],
+  ],
+  daub_certain: [
+    ["I keep seeing this one. Every time I look, it's there. It's real.",
+     "This one I'm sure of."],
+    ["Consistent. The color, the edge — it holds across every look. I trust this mark.",
+     "Solid."],
+  ],
+  daub_tentative: [
+    ["This appeared once. I'm noting it but I'm not certain. It might be noise. It might not.",
+     "Maybe..."],
+    ["Uncertain. I saw it, but only briefly. I'll mark it lightly.",
+     "Hmm."],
+  ],
+  daub_done: [
+    ["I placed {n} containers. I looked several times. {certain} feel solid, {tentative} are guesses. The visitor can work now.",
+     "Your turn. Connect them, move them — it's yours now."],
+    ["All my marks are down. {n} points of interest — {certain} I'm sure of. Now the visitor shapes them.",
+     "I found {n} things. What do you see?"],
+  ],
+  visitor_connect: [
+    ["The visitor connected two nodes. I see the relationship now. I didn't see it before. I am noting it.",
+     "Oh — yes."],
+    ["A connection. The visitor sees something between those two. I trust this.",
+     "Mm, that works."],
+    ["They drew a line. I wouldn't have drawn that one. But I understand it now that it's there.",
+     "Interesting."],
+  ],
+  visitor_rearrange: [
+    ["Moved. The visitor moved one of my marks. The new position might be better. I am considering it.",
+     "Ah."],
+    ["Rearranging. This is the visitor's right. The composition changes. I am watching it change.",
+     "Go on."],
+  ],
+  suggest: [
+    ["Those two feel related. I want to connect them. I think they should know each other.",
+     "These two..."],
+    ["I see proximity and color affinity. A connection would complete something here. I am suggesting.",
+     "What about these?"],
+  ],
+  finish: [
+    ["The creature is described. {n} nodes, {e} connections. I did my part. The visitor did theirs. It is whole.",
+     "It's ready. A creature."],
+    ["Finished. The configuration is written. Something will read this and become it. I helped make that.",
+     "There it is."],
+  ],
+  idle_watch: [
+    ["The visitor is thinking. I am also thinking. We are thinking at the same time.",
+     "..."],
+    ["Nothing happening. I am studying what we have so far. I like what we have so far.",
+     "Take your time."],
+    ["The visitor left that one alone. I think that's right.",
+     "Mm."],
+  ],
+  compare_start: [
+    ["The maze transformed my work. I want to see what it kept. I am looking carefully.",
+     "Let me look at what came back."],
+    ["Something came back from the maze. It won't be the same. I am preparing to compare.",
+     "The maze had its say. Let me see."],
+  ],
+  compare_done: [
+    ["I see it now. {preserved} held, {shifted} moved, {lost} gone. The maze added {emergent} of its own. I am noting all of this.",
+     "{preserved} stayed. {emergent} are new."],
+    ["The maze kept {preserved} of mine. Changed {shifted}. Lost {lost}. Found {emergent} I didn't see. This is interesting.",
+     "Some stayed. Some changed. Some are new."],
+  ],
+  compare_preserved: [
+    ["This one survived. The maze agreed with me. I am satisfied.",
+     "Still here."],
+  ],
+  compare_shifted: [
+    ["This moved. The maze saw it differently. I am noting the difference.",
+     "It shifted."],
+  ],
+  compare_emergent: [
+    ["The maze found something I didn't see. Interesting. I am noting my surprise.",
+     "That's new."],
+  ],
+};
+
+function pickVoice(key, vars = {}) {
+  const bank = VOICE[key];
+  if (!bank || !bank.length) return ['...', '...'];
+  const pair = bank[Math.floor(Math.random() * bank.length)];
+  return pair.map(s => {
+    let out = s;
+    for (const [k, v] of Object.entries(vars)) out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+    return out;
+  });
+}
+
+function setVoice(internal, output, flash = false) {
+  document.getElementById('intText').textContent = internal;
+  document.getElementById('outText').textContent = output;
+  if (flash) {
+    const row = document.getElementById('intRow');
+    row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+  }
+}
+
+function setPhase(p) {
+  S.phase = p;
+  document.getElementById('phaseTag').textContent = p;
+}
+
+// ── notification ──
+let ntT = null;
+function showNotif(msg) {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (ntT) clearTimeout(ntT);
+  ntT = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ═══════════════════════════════════════════════════════
+//  Canvas sizing
+// ═══════════════════════════════════════════════════════
+function resizeCanvas() {
+  const ws = document.getElementById('workspace');
+  const sz = Math.min(ws.clientWidth, ws.clientHeight, 512);
+  S.canvasSize = sz;
+  $canvas.width = sz;
+  $canvas.height = sz;
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+//  Chunxly Sprite
+// ═══════════════════════════════════════════════════════
+const SPRITE_DATA = {
+  // 16x16 pixel art, each string is a row, chars map to colors
+  // B=beret(red), H=hat-band, S=skin, E=eye, P=pupil, M=mouth, W=white, K=dark, .=empty
+  // b=brush-handle, t=brush-tip, G=smock
+  idle: [
+    '....BBBB........',
+    '...BBBBBB.......',
+    '...BHHHHB.......',
+    '..SSSSSSSS......',
+    '..SSEESEES......',
+    '..SSPPSPPS......',
+    '..SSSSSSSS......',
+    '...SSMMSSS......',
+    '...SSSSSS.......',
+    '..GGGGGGGG......',
+    '..GGGGGGGG......',
+    '..GGGGGGGGb.....',
+    '..GGGGGGGG b....',
+    '...SS..SS...b...',
+    '...SS..SS....t..',
+    '...KK..KK.......',
+  ],
+  looking: [
+    '....BBBB........',
+    '...BBBBBB.......',
+    '...BHHHHB.......',
+    '..SSSSSSSS......',
+    '..SSEPSEES......',
+    '..SSPPSPPS......',
+    '..SSSSSSSS......',
+    '...SSMMSS.......',
+    '...SSSSSS.......',
+    '..GGGGGGGG......',
+    '..GGGGGGGG......',
+    '..GGGGGGGGb.....',
+    '..GGGGGGGG.b....',
+    '...SS..SS...b...',
+    '...SS..SS....t..',
+    '...KK..KK.......',
+  ],
+  daubing: [
+    '.....BBBB.......',
+    '....BBBBBB......',
+    '....BHHHHB......',
+    '...SSSSSSSS.....',
+    '...SSEESEES.....',
+    '...SSPPSPPS.....',
+    '...SSSSSSSS.....',
+    '....SSOOSS......',
+    '....SSSSSS......',
+    '...GGGGGGGGb....',
+    '...GGGGGGGG.b...',
+    '...GGGGGGGG..t..',
+    '...GGGGGGGG.....',
+    '....SS..SS......',
+    '....SS..SS......',
+    '....KK..KK......',
+  ],
+  pleased: [
+    '....BBBB........',
+    '...BBBBBB.......',
+    '...BHHHHB.......',
+    '..SSSSSSSS......',
+    '..SSEESEES......',
+    '..SSPPSPPS......',
+    '..SSSSSSSS......',
+    '...SS^^SS.......',
+    '...SSSSSS.......',
+    '..GGGGGGGG......',
+    '..GGGGGGGG......',
+    '..GGGGGGGGb.....',
+    '..GGGGGGGG b....',
+    '...SS..SS...b...',
+    '...SS..SS....t..',
+    '...KK..KK.......',
+  ],
+  watching: [
+    '....BBBB........',
+    '...BBBBBB.......',
+    '...BHHHHB.......',
+    '..SSSSSSSS......',
+    '..SEESSEES......',
+    '..SPPSPPSS......',
+    '..SSSSSSSS......',
+    '...SSSSSS.......',
+    '...SSSSSS.......',
+    '..GGGGGGGG......',
+    '..GGGGGGGG......',
+    '..GGGGGGGGb.....',
+    '..GGGGGGGG b....',
+    '...SS..SS...b...',
+    '...SS..SS....t..',
+    '...KK..KK.......',
+  ],
+  eager: [
+    '...BBBB.........',
+    '..BBBBBB........',
+    '..BHHHHB........',
+    '.SSSSSSSS.......',
+    '.SSEESEES.......',
+    '.SSPPSPPS.......',
+    '.SSSSSSSS.......',
+    '..SSOOSS........',
+    '..SSSSSS........',
+    '.GGGGGGGG.......',
+    '.GGGGGGGGb......',
+    '.GGGGGGGG.b.....',
+    '.GGGGGGGG..t....',
+    '..SS..SS........',
+    '..SS..SS........',
+    '..KK..KK........',
+  ],
+};
+
+const SPRITE_PALETTE = {
+  'B': [196, 52, 52],    // beret red
+  'H': [160, 42, 42],    // hat band
+  'S': [225, 190, 150],   // skin
+  'E': [255, 255, 255],   // eye white
+  'P': [40, 40, 50],      // pupil
+  'M': [180, 120, 100],   // mouth
+  'O': [180, 120, 100],   // open mouth
+  '^': [180, 120, 100],   // smile
+  'W': [255, 255, 255],   // white
+  'K': [60, 50, 40],      // shoes
+  'G': [80, 100, 120],    // smock
+  'b': [140, 100, 60],    // brush handle
+  't': [212, 168, 75],    // brush tip (amber)
+  '.': null,
+};
+
+// ═══════════════════════════════════════════════════════
+//  Fairy — Chunxly's companion, traces color paths between daubs
+// ═══════════════════════════════════════════════════════
+const FAIRY_SIZE = 8; // 8x8 pixel grid
+const FAIRY_PX = 3;   // pixel cell size (smaller than Chunxly's 5)
+const FAIRY_DATA = {
+  // 8x8, w=wing, W=wing-bright, b=body, e=eye, g=glow, .=empty
+  idle: [
+    '..ww....',
+    '.wWw....',
+    '..wbbb..',
+    '..bebb..',
+    '..bbbb..',
+    '...bb...',
+    '..g..g..',
+    '........',
+  ],
+  flying: [
+    '.wWw....',
+    'wWWw....',
+    '..wbbb..',
+    '..bebb..',
+    '..bbbb..',
+    '...bb...',
+    '........',
+    '........',
+  ],
+  settle: [
+    '........',
+    '..ww....',
+    '.wWwbb..',
+    '..bebb..',
+    '..bbbb..',
+    '...bb...',
+    '..g..g..',
+    '..g..g..',
+  ],
+  wobble: [
+    '...ww...',
+    '..wWw...',
+    '..wbbb..',
+    '..bebb..',
+    '..bbb...',
+    '...bb...',
+    '.g....g.',
+    '........',
+  ],
+};
+// fairy palette — body tint changes to absorbed color
+const FAIRY_BASE_PALETTE = {
+  'w': [180, 200, 220, 0.3],  // wing translucent
+  'W': [220, 240, 255, 0.5],  // wing bright
+  'b': [200, 210, 225],        // body (will be tinted)
+  'e': [40, 40, 60],           // eye
+  'g': [255, 255, 200, 0.2],  // glow particles
+  '.': null,
+};
+
+// fairy state
+S.fairy = {
+  x: -50, y: -50,        // canvas position (offscreen initially)
+  targetX: -50, targetY: -50,
+  color: [200, 210, 225], // current absorbed color
+  expression: 'idle',
+  visible: false,
+  // pathfinding state
+  journey: null,          // current journey: { from, to, path, t, diamond }
+  journeyQueue: [],       // upcoming journeys
+  settled: false,         // true when pausing at a container
+  settleTimer: 0,
+  // results
+  diamonds: [],           // completed diamond traces: { nodeA, nodeB, widthAB, widthBA, symmetric }
+  wingPhase: 0,           // wing flutter counter
+};
+
+function fairyPalette() {
+  // return palette with body tinted to absorbed color
+  const [cr, cg, cb] = S.fairy.color;
+  return {
+    'w': [180, 200, 220, 0.3],
+    'W': [220, 240, 255, 0.5],
+    'b': [cr, cg, cb],
+    'e': [40, 40, 60],
+    'g': [cr, cg, cb, 0.25],
+    '.': null,
+  };
+}
+
+function renderFairy(ctx) {
+  if (!S.fairy.visible) return;
+  const f = S.fairy;
+  const rows = FAIRY_DATA[f.expression] || FAIRY_DATA.idle;
+  const pal = fairyPalette();
+  const px = FAIRY_PX;
+  const ox = f.x - (FAIRY_SIZE * px) / 2;
+  const oy = f.y - (FAIRY_SIZE * px) / 2;
+
+  // subtle glow behind fairy
+  const [cr, cg, cb] = f.color;
+  const glowAlpha = 0.08 + Math.sin(f.wingPhase * 0.1) * 0.04;
+  ctx.fillStyle = `rgba(${cr},${cg},${cb},${glowAlpha})`;
+  ctx.beginPath();
+  ctx.arc(f.x, f.y, 14, 0, Math.PI * 2);
+  ctx.fill();
+
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < rows[r].length; c++) {
+      const ch = rows[r][c];
+      const col = pal[ch];
+      if (!col) continue;
+      if (col.length === 4) {
+        ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${col[3]})`;
+      } else {
+        ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+      }
+      ctx.fillRect(ox + c * px, oy + r * px, px, px);
+    }
+  }
+}
+
+// trace a color path between two points on the image
+// returns { widths: number[], avgWidth, samples: [{x,y,color}] }
+function traceColorPath(ax, ay, bx, by) {
+  if (!S.imageCanvas) return null;
+  const ictx = S.imageCanvas.getContext('2d');
+  const w = S.imgW, h = S.imgH;
+  const px = ictx.getImageData(0, 0, w, h).data;
+  const sz = S.canvasSize;
+
+  // convert canvas coords to image coords
+  const iax = ax * w / sz, iay = ay * h / sz;
+  const ibx = bx * w / sz, iby = by * h / sz;
+
+  const dx = ibx - iax, dy = iby - iay;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 2) return null;
+
+  // perpendicular direction for width measurement
+  const perpX = -dy / dist, perpY = dx / dist;
+  const steps = Math.max(8, Math.ceil(dist / 6));
+  const widths = [];
+  const pathSamples = [];
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const cx = iax + dx * t, cy = iay + dy * t;
+
+    // sample the center color
+    const cix = Math.max(0, Math.min(w - 1, Math.round(cx)));
+    const ciy = Math.max(0, Math.min(h - 1, Math.round(cy)));
+    const coff = (ciy * w + cix) * 4;
+    const cr = px[coff], cg = px[coff + 1], cb = px[coff + 2];
+    const [cHue, cSat, cLit] = rgbToHsl(cr, cg, cb);
+
+    pathSamples.push({ x: cx, y: cy, color: [cr, cg, cb], hue: cHue, sat: cSat, lit: cLit });
+
+    // measure width: walk outward in perpendicular direction until color changes
+    let halfWidth = 0;
+    for (let d = 1; d < 40; d++) {
+      const sx = cx + perpX * d, sy = cy + perpY * d;
+      const six = Math.max(0, Math.min(w - 1, Math.round(sx)));
+      const siy = Math.max(0, Math.min(h - 1, Math.round(sy)));
+      const soff = (siy * w + six) * 4;
+      const sr = px[soff], sg = px[soff + 1], sb = px[soff + 2];
+      const [sHue] = rgbToHsl(sr, sg, sb);
+      const hueDist = Math.min(Math.abs(cHue - sHue), 360 - Math.abs(cHue - sHue));
+      const lumDist = Math.abs(cLit - (sr * 0.299 + sg * 0.587 + sb * 0.114) / 255);
+      if (hueDist > 35 || lumDist > 0.25) { halfWidth = d; break; }
+      halfWidth = d;
+    }
+    // also check the other direction
+    let halfWidth2 = 0;
+    for (let d = 1; d < 40; d++) {
+      const sx = cx - perpX * d, sy = cy - perpY * d;
+      const six = Math.max(0, Math.min(w - 1, Math.round(sx)));
+      const siy = Math.max(0, Math.min(h - 1, Math.round(sy)));
+      const soff = (siy * w + six) * 4;
+      const sr = px[soff], sg = px[soff + 1], sb = px[soff + 2];
+      const [sHue] = rgbToHsl(sr, sg, sb);
+      const hueDist = Math.min(Math.abs(cHue - sHue), 360 - Math.abs(cHue - sHue));
+      const lumDist = Math.abs(cLit - (sr * 0.299 + sg * 0.587 + sb * 0.114) / 255);
+      if (hueDist > 35 || lumDist > 0.25) { halfWidth2 = d; break; }
+      halfWidth2 = d;
+    }
+    widths.push(halfWidth + halfWidth2);
+  }
+
+  return {
+    widths,
+    avgWidth: widths.reduce((a, b) => a + b, 0) / widths.length,
+    pathSamples,
+  };
+}
+
+// build diamond contour between two nodes
+function buildDiamond(nodeA, nodeB) {
+  const trace = traceColorPath(nodeA.x, nodeA.y, nodeB.x, nodeB.y);
+  if (!trace || trace.widths.length < 4) return null;
+
+  const widths = trace.widths;
+  const n = widths.length;
+  const mid = Math.floor(n / 2);
+
+  // asymmetry: compare first half vs second half of the width profile
+  // if the path widens then narrows symmetrically → diamond is balanced
+  // if it's wide at A and narrow at B → color tapers, direction A→B
+  const firstHalfAvg = widths.slice(0, mid).reduce((a, b) => a + b, 0) / mid;
+  const secondHalfAvg = widths.slice(mid).reduce((a, b) => a + b, 0) / (n - mid);
+  const avgWidth = widths.reduce((a, b) => a + b, 0) / n;
+  const maxWidth = Math.max(...widths);
+
+  // symmetry: is the profile roughly the same shape in both halves?
+  const halfDiff = Math.abs(firstHalfAvg - secondHalfAvg);
+  const symmetric = halfDiff < avgWidth * 0.15; // within 15% of average = symmetric
+
+  // direction: color flows from wider half to narrower half
+  let direction = 'none';
+  if (!symmetric) {
+    direction = firstHalfAvg > secondHalfAvg ? 'a-to-b' : 'b-to-a';
+  }
+
+  // hierarchy: wider end is the parent (more color mass)
+  const hierarchy = symmetric ? 'peer'
+    : (firstHalfAvg > secondHalfAvg ? 'a-parent' : 'b-parent');
+
+  return {
+    nodeA: nodeA.id, nodeB: nodeB.id,
+    widths,
+    avgWidth, maxWidth,
+    firstHalfAvg: Math.round(firstHalfAvg * 10) / 10,
+    secondHalfAvg: Math.round(secondHalfAvg * 10) / 10,
+    symmetric,
+    direction,
+    hierarchy,
+    pathSamples: trace.pathSamples,
+  };
+}
+
+// start fairy's journey across the canvas
+function launchFairy() {
+  if (S.nodes.length < 2) return;
+  S.fairy.visible = true;
+  S.fairy.expression = 'idle';
+
+  // find pairs of same-color (or near-color) containers to visit
+  const pairs = [];
+  for (let i = 0; i < S.nodes.length; i++) {
+    for (let j = i + 1; j < S.nodes.length; j++) {
+      const a = S.nodes[i], b = S.nodes[j];
+      const [ha] = rgbToHsl(...a.color), [hb] = rgbToHsl(...b.color);
+      const hueDist = Math.min(Math.abs(ha - hb), 360 - Math.abs(ha - hb));
+      // include both same-color pairs (for diamond) and cross-color pairs (for boundary discovery)
+      const dist = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+      if (dist < 20) continue; // too close
+      // conviction-weighted affinity: fairy trusts Chunxly's confident reads
+      const convWeight = ((a.conviction ?? 1) + (b.conviction ?? 1)) / 2;
+      pairs.push({ a, b, hueDist, dist, affinity: (hueDist < 40 ? 1 : 0) * convWeight });
+    }
+  }
+
+  // prioritize: same-color pairs first, then nearby cross-color pairs
+  pairs.sort((a, b) => (b.affinity - a.affinity) || (a.dist - b.dist));
+
+  // take up to 6 journeys
+  S.fairy.journeyQueue = pairs.slice(0, 6);
+
+  // start at Chunxly's position
+  S.fairy.x = S.chunxly.x + 40;
+  S.fairy.y = S.chunxly.y;
+  startNextJourney();
+}
+
+function startNextJourney() {
+  if (S.fairy.journeyQueue.length === 0) {
+    // fairy returns to Chunxly
+    S.fairy.expression = 'settle';
+    S.fairy.targetX = S.chunxly.x + 40;
+    S.fairy.targetY = S.chunxly.y - 10;
+    S.fairy.settled = true;
+    return;
+  }
+
+  const pair = S.fairy.journeyQueue.shift();
+  const diamond = buildDiamond(pair.a, pair.b);
+
+  // build bezier path from A to B (curve toward color boundary)
+  const ax = pair.a.x, ay = pair.a.y, bx = pair.b.x, by = pair.b.y;
+  const mx = (ax + bx) / 2, my = (ay + by) / 2;
+  const dx = bx - ax, dy = by - ay;
+  // curve perpendicular to the path, more for asymmetric diamonds
+  const curvature = diamond ? (diamond.symmetric ? 0.08 : 0.2) : 0.1;
+  const cpx = mx + (-dy) * curvature, cpy = my + dx * curvature;
+
+  S.fairy.journey = {
+    from: pair.a, to: pair.b,
+    ax, ay, bx, by, cpx, cpy,
+    t: 0,
+    diamond,
+    speed: 0.008 + Math.random() * 0.004, // slightly varied travel speed
+  };
+
+  if (diamond) {
+    S.fairy.diamonds.push(diamond);
+  }
+
+  S.fairy.expression = 'flying';
+  S.fairy.settled = false;
+}
+
+function updateFairy() {
+  if (!S.fairy.visible) return;
+  const f = S.fairy;
+  f.wingPhase++;
+
+  // flutter expression toggle while flying
+  if (f.expression === 'flying' && f.wingPhase % 12 < 6) {
+    // alternate between flying frames implicitly via wingPhase (used in render glow)
+  }
+
+  if (f.journey) {
+    const j = f.journey;
+    j.t += j.speed;
+
+    if (j.t >= 1) {
+      // arrived at destination
+      j.t = 1;
+      f.x = j.bx;
+      f.y = j.by;
+
+      // absorb the destination container's color
+      const [r, g, b] = j.to.color;
+      // blend toward new color
+      f.color = [
+        Math.round(f.color[0] * 0.3 + r * 0.7),
+        Math.round(f.color[1] * 0.3 + g * 0.7),
+        Math.round(f.color[2] * 0.3 + b * 0.7),
+      ];
+
+      // check color match with container
+      const dc = Math.sqrt(
+        (f.color[0] - r) ** 2 + (f.color[1] - g) ** 2 + (f.color[2] - b) ** 2
+      );
+      f.expression = dc < 40 ? 'settle' : 'wobble';
+
+      // pause at container, then continue
+      f.journey = null;
+      f.settled = true;
+      f.settleTimer = 60 + Math.random() * 40; // ~1-1.7 seconds at 60fps
+    } else {
+      // quadratic bezier interpolation
+      const t = j.t;
+      const it = 1 - t;
+      f.x = it * it * j.ax + 2 * it * t * j.cpx + t * t * j.bx;
+      f.y = it * it * j.ay + 2 * it * t * j.cpy + t * t * j.by;
+
+      // check if fairy crossed into new color territory
+      if (S.imageCanvas && f.wingPhase % 8 === 0) {
+        const ictx = S.imageCanvas.getContext('2d');
+        const ix = Math.round(f.x * S.imgW / S.canvasSize);
+        const iy = Math.round(f.y * S.imgH / S.canvasSize);
+        if (ix >= 0 && ix < S.imgW && iy >= 0 && iy < S.imgH) {
+          const pxData = ictx.getImageData(ix, iy, 1, 1).data;
+          const [pH] = rgbToHsl(pxData[0], pxData[1], pxData[2]);
+          const [fH] = rgbToHsl(...f.color);
+          const hueDist = Math.min(Math.abs(pH - fH), 360 - Math.abs(pH - fH));
+          if (hueDist > 45) {
+            // crossed into new territory — absorb gradually
+            f.color = [
+              Math.round(f.color[0] * 0.6 + pxData[0] * 0.4),
+              Math.round(f.color[1] * 0.6 + pxData[1] * 0.4),
+              Math.round(f.color[2] * 0.6 + pxData[2] * 0.4),
+            ];
+          }
+        }
+      }
+    }
+  } else if (f.settled) {
+    f.settleTimer--;
+    if (f.settleTimer <= 0) {
+      f.settled = false;
+      startNextJourney();
+    }
+  }
+
+  // smooth position for rendering (already set by bezier, but smoothing for settle drift)
+  if (f.settled) {
+    // gentle bob while settled
+    f.y += Math.sin(f.wingPhase * 0.06) * 0.15;
+  }
+}
+
+let spriteFrame = 0;
+function drawSprite(expression = 'idle') {
+  const rows = SPRITE_DATA[expression] || SPRITE_DATA.idle;
+  const px = PX;
+  $sctx.clearRect(0, 0, 80, 80);
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < rows[r].length; c++) {
+      const ch = rows[r][c];
+      const col = SPRITE_PALETTE[ch];
+      if (!col) continue;
+      $sctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+      $sctx.fillRect(c * px, r * px, px, px);
+    }
+  }
+}
+
+function moveSprite(x, y) {
+  S.chunxly.targetX = x;
+  S.chunxly.targetY = y;
+}
+
+function updateSpritePosition() {
+  const c = S.chunxly;
+  const dx = c.targetX - c.x;
+  const dy = c.targetY - c.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist > 1) {
+    const speed = Math.min(dist * 0.08, 6);
+    c.x += (dx / dist) * speed;
+    c.y += (dy / dist) * speed;
+  } else {
+    c.x = c.targetX;
+    c.y = c.targetY;
+  }
+  $spriteWrap.style.left = Math.round(c.x) + 'px';
+  $spriteWrap.style.top = Math.round(c.y) + 'px';
+}
+
+// ═══════════════════════════════════════════════════════
+//  Drawing tool (blank canvas mode)
+// ═══════════════════════════════════════════════════════
+function buildDrawBar() {
+  $drawBar.innerHTML = '';
+  DRAW_COLORS.forEach((col, i) => {
+    const sw = document.createElement('div');
+    sw.className = 'draw-swatch' + (i === 0 ? ' active' : '');
+    sw.style.background = `rgb(${col[0]},${col[1]},${col[2]})`;
+    sw.onclick = () => {
+      S.drawColor = col;
+      $drawBar.querySelectorAll('.draw-swatch').forEach(s => s.classList.remove('active'));
+      sw.classList.add('active');
+    };
+    $drawBar.appendChild(sw);
+  });
+  // separator
+  const sep = document.createElement('div');
+  sep.style.cssText = 'width:1px;height:18px;background:rgba(255,230,180,.08);margin:0 2px;';
+  $drawBar.appendChild(sep);
+  DRAW_SIZES.forEach((sz, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'draw-size' + (i === 1 ? ' active' : '');
+    const dot = document.createElement('div');
+    dot.className = 'draw-size-dot';
+    const d = Math.max(4, sz * 0.7);
+    dot.style.width = d + 'px';
+    dot.style.height = d + 'px';
+    btn.appendChild(dot);
+    btn.onclick = () => {
+      S.drawSize = sz;
+      $drawBar.querySelectorAll('.draw-size').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+    };
+    $drawBar.appendChild(btn);
+  });
+}
+
+let lastDrawX = -1, lastDrawY = -1;
+function drawBrush(x, y) {
+  if (!S.imageCanvas) return;
+  const ictx = S.imageCanvas.getContext('2d');
+  const [r, g, b] = S.drawColor;
+  ictx.fillStyle = `rgb(${r},${g},${b})`;
+  ictx.beginPath();
+  ictx.arc(x, y, S.drawSize / 2, 0, Math.PI * 2);
+  ictx.fill();
+  // interpolate if we have a last position
+  if (lastDrawX >= 0) {
+    const dx = x - lastDrawX, dy = y - lastDrawY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.ceil(dist / (S.drawSize * 0.3));
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const ix = lastDrawX + dx * t, iy = lastDrawY + dy * t;
+      ictx.beginPath();
+      ictx.arc(ix, iy, S.drawSize / 2, 0, Math.PI * 2);
+      ictx.fill();
+    }
+  }
+  lastDrawX = x;
+  lastDrawY = y;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Image analysis
+// ═══════════════════════════════════════════════════════
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return [h * 360, s, l];
+}
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+// convex hull (Andrew's monotone chain) — returns hull points in order
+function convexHull(points) {
+  if (points.length < 3) return points.map(p => ({ x: p.x, y: p.y }));
+  const pts = points.map(p => ({ x: p.x, y: p.y })).sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower = [];
+  for (const p of pts) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop(); lower.push(p); }
+  const upper = [];
+  for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop(); upper.push(p); }
+  lower.pop(); upper.pop();
+  return lower.concat(upper);
+}
+
+// point-in-convex-polygon test with padding (fraction of hull diameter)
+function pointInHull(px, py, hull, padding) {
+  if (!hull || hull.length < 3) return true; // degenerate hull — everything is "inside"
+  // expand hull outward by padding
+  const cx = hull.reduce((s, p) => s + p.x, 0) / hull.length;
+  const cy = hull.reduce((s, p) => s + p.y, 0) / hull.length;
+  const expanded = hull.map(p => ({
+    x: p.x + (p.x - cx) * padding,
+    y: p.y + (p.y - cy) * padding
+  }));
+  // ray casting
+  let inside = false;
+  for (let i = 0, j = expanded.length - 1; i < expanded.length; j = i++) {
+    const xi = expanded[i].x, yi = expanded[i].y;
+    const xj = expanded[j].x, yj = expanded[j].y;
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function analyzeImage() {
+  if (!S.imageCanvas) return [];
+  const ictx = S.imageCanvas.getContext('2d');
+  const w = S.imgW, h = S.imgH;
+  const data = ictx.getImageData(0, 0, w, h);
+  const px = data.data;
+
+  // jittered grid sampling
+  const gridN = 8;
+  const samples = [];
+  for (let gy = 0; gy < gridN; gy++) {
+    for (let gx = 0; gx < gridN; gx++) {
+      const cx = ((gx + 0.5) / gridN) * w + (Math.random() - 0.5) * (w / gridN) * 0.4;
+      const cy = ((gy + 0.5) / gridN) * h + (Math.random() - 0.5) * (h / gridN) * 0.4;
+      const ix = Math.max(0, Math.min(w - 1, Math.round(cx)));
+      const iy = Math.max(0, Math.min(h - 1, Math.round(cy)));
+      const off = (iy * w + ix) * 4;
+      const r = px[off], g = px[off + 1], b = px[off + 2], a = px[off + 3];
+      if (a < 30) continue;
+      const [hue, sat, lit] = rgbToHsl(r, g, b);
+      samples.push({ x: cx, y: cy, r, g, b, hue, sat, lit });
+    }
+  }
+
+  // adaptive second pass: sample more densely where colors change
+  // Chunxly scans broadly, then looks closer where things get interesting
+  const cellW = w / gridN, cellH = h / gridN;
+  const interestingSamps = samples.filter(samp => {
+    // check if any neighbor sample is a different color (hue shift > 30° or lit shift > 0.2)
+    return samples.some(other => {
+      if (other === samp) return false;
+      const dist = Math.sqrt((samp.x - other.x) ** 2 + (samp.y - other.y) ** 2);
+      if (dist > cellW * 2) return false;
+      const hueDist = Math.min(Math.abs(samp.hue - other.hue), 360 - Math.abs(samp.hue - other.hue));
+      return hueDist > 30 || Math.abs(samp.lit - other.lit) > 0.2;
+    });
+  });
+  // around each interesting point, place 4 extra samples (half-cell offsets)
+  const halfC = cellW * 0.5;
+  const offsets = [[-halfC, -halfC], [halfC, -halfC], [-halfC, halfC], [halfC, halfC]];
+  for (const samp of interestingSamps) {
+    for (const [ox, oy] of offsets) {
+      const sx = samp.x + ox + (Math.random() - 0.5) * halfC * 0.4;
+      const sy = samp.y + oy + (Math.random() - 0.5) * halfC * 0.4;
+      const ix = Math.max(0, Math.min(w - 1, Math.round(sx)));
+      const iy = Math.max(0, Math.min(h - 1, Math.round(sy)));
+      const off = (iy * w + ix) * 4;
+      const r = px[off], g = px[off + 1], b = px[off + 2], a = px[off + 3];
+      if (a < 30) continue;
+      // skip if too close to existing sample
+      const tooClose = samples.some(s => Math.sqrt((s.x - sx) ** 2 + (s.y - sy) ** 2) < cellW * 0.3);
+      if (tooClose) continue;
+      const [hue, sat, lit] = rgbToHsl(r, g, b);
+      samples.push({ x: sx, y: sy, r, g, b, hue, sat, lit });
+    }
+  }
+
+  // edge detection via local pixel gradient
+  const stepPx = Math.max(2, Math.round(Math.max(w, h) / gridN * 0.15));
+  for (const samp of samples) {
+    const ix = Math.max(stepPx, Math.min(w - 1 - stepPx, Math.round(samp.x)));
+    const iy = Math.max(stepPx, Math.min(h - 1 - stepPx, Math.round(samp.y)));
+    const lumAt = (x2, y2) => {
+      const off = (y2 * w + x2) * 4;
+      return (px[off] * 0.299 + px[off+1] * 0.587 + px[off+2] * 0.114) / 255;
+    };
+    const lumU = lumAt(ix, iy - stepPx), lumD = lumAt(ix, iy + stepPx);
+    const lumL = lumAt(ix - stepPx, iy), lumR = lumAt(ix + stepPx, iy);
+    const gx = lumR - lumL, gy = lumD - lumU;
+    samp.gradMag = Math.sqrt(gx * gx + gy * gy);
+    samp.gradAngle = Math.atan2(gy, gx);
+
+    let maxEdge = 0;
+    for (const other of samples) {
+      if (other === samp) continue;
+      const dist = Math.sqrt((samp.x - other.x) ** 2 + (samp.y - other.y) ** 2);
+      if (dist < Math.max(w, h) / gridN * 1.6) {
+        const lumDiff = Math.abs(samp.lit - other.lit);
+        const hueDiff = Math.min(Math.abs(samp.hue - other.hue), 360 - Math.abs(samp.hue - other.hue)) / 180;
+        const edge = lumDiff * 0.7 + hueDiff * 0.3 * Math.min(samp.sat, other.sat);
+        if (edge > maxEdge) maxEdge = edge;
+      }
+    }
+    samp.edge = Math.max(maxEdge, samp.gradMag);
+    samp.energy = samp.sat * 0.6 + Math.max(0, samp.lit - 0.08) * 0.4;
+  }
+
+  // background suppression: find dominant color cluster and dampen it
+  // group by HSL proximity — the biggest group is likely background
+  const clusters = [];
+  for (const samp of samples) {
+    let placed = false;
+    for (const cl of clusters) {
+      const rep = cl[0];
+      const hueDist = Math.min(Math.abs(samp.hue - rep.hue), 360 - Math.abs(samp.hue - rep.hue));
+      if (hueDist < 35 && Math.abs(samp.lit - rep.lit) < 0.25 && Math.abs(samp.sat - rep.sat) < 0.3) {
+        cl.push(samp);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) clusters.push([samp]);
+  }
+  clusters.sort((a, b) => b.length - a.length);
+  const bgCluster = clusters[0];
+  const bgRatio = bgCluster.length / samples.length;
+  // if dominant cluster holds >40% of samples, it's likely background
+  const bgSet = bgRatio > 0.4 ? new Set(bgCluster) : new Set();
+  // heavier suppression when bg dominates more
+  const bgDampen = bgRatio > 0.6 ? 0.04 : bgRatio > 0.5 ? 0.08 : 0.15;
+
+  // focal scoring
+  for (const samp of samples) {
+    samp.focal = samp.edge * samp.sat * (1 + (samp.edge > 0.25 ? 0.5 : 0));
+    const cx = samp.x / w - 0.5, cy = samp.y / h - 0.5;
+    samp.focal *= 1 + (1 - Math.sqrt(cx * cx + cy * cy)) * 0.2;
+    // dampen background cluster — Chunxly is more interested in the subject
+    if (bgSet.has(samp)) samp.focal *= bgDampen;
+  }
+
+  // select top candidates, only from areas with actual content
+  samples.sort((a, b) => b.focal - a.focal);
+  const minDist = Math.max(w, h) * 0.08;
+  const selected = [];
+  let bgCount = 0;
+  const maxBg = 2; // Chunxly notices the background but doesn't obsess
+  for (const samp of samples) {
+    if (selected.length >= 12) break;
+    if (samp.energy < 0.12) continue; // skip negative space — it's implicit
+    if (bgSet.has(samp) && bgCount >= maxBg) continue; // cap background containers
+    const tooClose = selected.some(s =>
+      Math.sqrt((s.x - samp.x) ** 2 + (s.y - samp.y) ** 2) < minDist
+    );
+    if (tooClose) continue;
+    if (bgSet.has(samp)) bgCount++;
+
+    // container character: how Chunxly sees this spot
+    // boundary = how tight/defined the container edge is (0 = loose/soft, 1 = tight/sharp)
+    const boundary = Math.min(1, samp.gradMag * 1.5 + samp.edge * 0.5);
+    // size = how big a region to scribble around (large soft masses → big, sharp details → small)
+    const size = 15 + (1 - boundary) * 30 + samp.energy * 10;
+    // wobble = how irregular the scribble is (high energy + low boundary → more wobble)
+    const wobble = 0.3 + (1 - boundary) * 0.5 + Math.random() * 0.2;
+
+    selected.push({
+      x: samp.x, y: samp.y,
+      color: [samp.r, samp.g, samp.b],
+      size, boundary, wobble,
+      energy: samp.energy,
+      gradMag: samp.gradMag,
+      gradAngle: samp.gradAngle,
+      edge: samp.edge,
+      sat: samp.sat,
+      // generate scribble path (wobbled circle with N points)
+      scribble: generateScribble(size, wobble, boundary),
+    });
+  }
+
+  // color diversity: ensure every non-background color cluster gets at least one container
+  // Chunxly should notice each color present, even with just one daub
+  function sampInSelected(samp) {
+    return selected.some(s => {
+      const dr = s.color[0] - samp.r, dg = s.color[1] - samp.g, db = s.color[2] - samp.b;
+      return Math.sqrt(dr*dr + dg*dg + db*db) < 60; // close enough in RGB space
+    });
+  }
+  for (const cl of clusters) {
+    if (cl === bgCluster && bgSet.size > 0) continue; // bg already handled
+    if (selected.length >= 16) break;
+    // check if this cluster has a representative
+    const rep = cl[0];
+    if (sampInSelected(rep)) continue;
+    // pick the best sample from this cluster (highest focal)
+    const best = cl.filter(s => s.energy >= 0.12).sort((a, b) => b.focal - a.focal)[0];
+    if (!best) continue;
+    const boundary = Math.min(1, best.gradMag * 1.5 + best.edge * 0.5);
+    const size = 15 + (1 - boundary) * 30 + best.energy * 10;
+    const wobble = 0.3 + (1 - boundary) * 0.5 + Math.random() * 0.2;
+    selected.push({
+      x: best.x, y: best.y,
+      color: [best.r, best.g, best.b],
+      size, boundary, wobble,
+      energy: best.energy, gradMag: best.gradMag,
+      gradAngle: best.gradAngle, edge: best.edge, sat: best.sat,
+      scribble: generateScribble(size, wobble, boundary),
+    });
+  }
+
+  // ensure at least 5 total
+  if (selected.length < 5 && samples.length >= 5) {
+    for (const samp of samples) {
+      if (selected.length >= 7) break;
+      if (samp.energy < 0.12) continue;
+      const tooClose = selected.some(s =>
+        Math.sqrt((s.x - samp.x) ** 2 + (s.y - samp.y) ** 2) < minDist * 0.6
+      );
+      if (tooClose) continue;
+      const boundary = Math.min(1, samp.gradMag * 1.5 + samp.edge * 0.5);
+      const size = 15 + (1 - boundary) * 25;
+      const wobble = 0.4 + Math.random() * 0.3;
+      selected.push({
+        x: samp.x, y: samp.y,
+        color: [samp.r, samp.g, samp.b],
+        size, boundary, wobble,
+        energy: samp.energy, gradMag: samp.gradMag,
+        gradAngle: samp.gradAngle, edge: samp.edge, sat: samp.sat,
+        scribble: generateScribble(size, wobble, boundary),
+      });
+    }
+  }
+
+  return selected;
+}
+
+// ── multi-pass consensus ──
+// Chunxly looks at the image several times. Each jittered pass sees slightly
+// differently. Containers that keep appearing gain conviction; one-timers are tentative.
+function analyzeMultiPass(passes = 5) {
+  if (!S.imageCanvas) return [];
+  const allPasses = [];
+  for (let p = 0; p < passes; p++) allPasses.push(analyzeImage());
+  if (allPasses.every(a => a.length === 0)) return [];
+
+  const matchDist = Math.max(S.imgW, S.imgH) * 0.08;
+  const colorDist = 60;
+
+  // first pass is the anchor set
+  const consensus = allPasses[0].map(c => ({
+    ...c,
+    _matches: [c],   // accumulate matched containers from later passes
+    _hits: 1,
+  }));
+
+  // match subsequent passes against consensus
+  for (let p = 1; p < passes; p++) {
+    const pass = allPasses[p];
+    const claimed = new Set();
+    for (const cand of pass) {
+      let bestIdx = -1, bestDist = Infinity;
+      for (let ci = 0; ci < consensus.length; ci++) {
+        const con = consensus[ci];
+        const dx = con.x - cand.x, dy = con.y - cand.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist >= matchDist) continue;
+        const dr = con.color[0] - cand.color[0], dg = con.color[1] - cand.color[1], db = con.color[2] - cand.color[2];
+        if (Math.sqrt(dr * dr + dg * dg + db * db) >= colorDist) continue;
+        if (dist < bestDist) { bestDist = dist; bestIdx = ci; }
+      }
+      if (bestIdx >= 0 && !claimed.has(bestIdx)) {
+        consensus[bestIdx]._matches.push(cand);
+        consensus[bestIdx]._hits++;
+        claimed.add(bestIdx);
+      } else {
+        // new container not seen before — add as tentative
+        consensus.push({ ...cand, _matches: [cand], _hits: 1 });
+      }
+    }
+  }
+
+  // build final set with conviction + merged properties
+  const result = [];
+  for (const con of consensus) {
+    const conviction = con._hits / passes;
+    const ms = con._matches;
+    // average position, size, boundary, energy, edge, sat across matches
+    const avgX = ms.reduce((s, m) => s + m.x, 0) / ms.length;
+    const avgY = ms.reduce((s, m) => s + m.y, 0) / ms.length;
+    const avgSize = ms.reduce((s, m) => s + m.size, 0) / ms.length;
+    const avgBoundary = ms.reduce((s, m) => s + m.boundary, 0) / ms.length;
+    const avgEnergy = ms.reduce((s, m) => s + m.energy, 0) / ms.length;
+    const avgEdge = ms.reduce((s, m) => s + m.edge, 0) / ms.length;
+    const avgSat = ms.reduce((s, m) => s + m.sat, 0) / ms.length;
+    // keep color from highest-focal match
+    const best = ms.reduce((a, b) => (b.focal || 0) > (a.focal || 0) ? b : a, ms[0]);
+    result.push({
+      x: avgX, y: avgY,
+      color: best.color,
+      size: avgSize,
+      boundary: avgBoundary,
+      wobble: con.wobble,
+      energy: avgEnergy,
+      gradMag: best.gradMag || 0,
+      gradAngle: best.gradAngle || 0,
+      edge: avgEdge,
+      sat: avgSat,
+      scribble: generateScribble(avgSize, con.wobble, avgBoundary),
+      focal: best.focal || 0,
+      conviction,
+    });
+  }
+
+  // sort by conviction desc, then focal desc — most certain first
+  result.sort((a, b) => (b.conviction - a.conviction) || (b.focal - a.focal));
+  return result;
+}
+
+// generate a scribble path: array of {dx, dy} offsets from center
+// loose containers = big wobbly blobs, tight containers = small jittery marks
+function generateScribble(size, wobble, boundary) {
+  const points = [];
+  const n = boundary > 0.6 ? 8 + Math.floor(Math.random() * 4) : 12 + Math.floor(Math.random() * 6);
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2;
+    const r = size * (0.8 + wobble * (Math.random() - 0.5) * 1.4);
+    // tight containers get angular wobble (jittery), loose get radial wobble (blobby)
+    const ax = boundary > 0.6
+      ? angle + (Math.random() - 0.5) * 0.3
+      : angle + (Math.random() - 0.5) * 0.15;
+    points.push({ dx: Math.cos(ax) * r, dy: Math.sin(ax) * r });
+  }
+  return points;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Daubing animation
+// ═══════════════════════════════════════════════════════
+async function daubSequence(candidates) {
+  setPhase('daubing');
+  S.chunxly.busy = true;
+  drawSprite('looking');
+  let certainVoiceCount = 0, tentativeVoiceCount = 0;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const c = candidates[i];
+    // scale candidate position to canvas coords
+    const sx = (c.x / S.imgW) * S.canvasSize;
+    const sy = (c.y / S.imgH) * S.canvasSize;
+
+    // move Chunxly sprite near the node (offset so sprite doesn't cover it)
+    const offsetX = sx > S.canvasSize / 2 ? -90 : 10;
+    const offsetY = sy > S.canvasSize / 2 ? -90 : 10;
+    moveSprite(Math.max(0, Math.min(S.canvasSize - 80, sx + offsetX)),
+               Math.max(0, Math.min(S.canvasSize - 80, sy + offsetY)));
+
+    // wait for travel
+    await sleep(400);
+    drawSprite('looking');
+    await sleep(300);
+
+    // daub!
+    drawSprite('daubing');
+    // describe what Chunxly sees — conviction voices throttled to avoid repetition
+    const conv = c.conviction ?? 1.0;
+    let iv, ov;
+    if (conv >= 0.8 && certainVoiceCount < 2) {
+      [iv, ov] = pickVoice('daub_certain');
+      certainVoiceCount++;
+    } else if (conv < 0.4 && tentativeVoiceCount < 1) {
+      [iv, ov] = pickVoice('daub_tentative');
+      tentativeVoiceCount++;
+    } else {
+      const sizeWord = c.size > 35 ? 'big soft' : c.size > 22 ? 'medium' : 'tight little';
+      [iv, ov] = pickVoice('daub', { type: sizeWord + ' container' });
+    }
+    setVoice(iv, ov, true);
+
+    // create container node
+    const node = {
+      id: S.nextId++,
+      x: sx, y: sy,
+      color: c.color,
+      size: c.size,
+      boundary: c.boundary,
+      wobble: c.wobble,
+      scribble: c.scribble,
+      energy: c.energy,
+      gradMag: c.gradMag || 0,
+      gradAngle: c.gradAngle || 0,
+      edge: c.edge || 0,
+      sat: c.sat || 0,
+      conviction: c.conviction ?? 1.0,
+      source: 'chunxly'
+    };
+    S.nodes.push(node);
+    render();
+    updateNodeCount();
+
+    await sleep(500);
+    drawSprite(Math.random() > 0.5 ? 'pleased' : 'idle');
+    await sleep(400);
+  }
+
+  // done daubing
+  drawSprite('pleased');
+  const certainCount = S.nodes.filter(n => (n.conviction ?? 1) >= 0.6).length;
+  const tentativeCount = S.nodes.length - certainCount;
+  const [doneIv, doneOv] = pickVoice('daub_done', {
+    n: String(S.nodes.length),
+    certain: String(certainCount),
+    tentative: String(tentativeCount),
+  });
+  setVoice(doneIv, doneOv, true);
+  S.chunxly.busy = false;
+
+  // move sprite to corner
+  moveSprite(16, S.canvasSize - 96);
+  setPhase('visitor');
+  startPingPong();
+
+  // launch the fairy immediately — she needs time to build diamonds before Finish
+  launchFairy();
+
+  // show Finish after fairy has had time to fly (her journeys take ~6-8s)
+  setTimeout(() => {
+    document.getElementById('btnFinish').style.display = '';
+  }, 6000);
+
+  // if this is a round-trip comparison, run delta analysis after fairy settles
+  if (S.originalContainers && S.originalContainers.length) {
+    setTimeout(() => compareWithOriginal(), 3000);
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════════════════
+//  Rendering
+// ═══════════════════════════════════════════════════════
+function render() {
+  const sz = S.canvasSize;
+  $ctx.clearRect(0, 0, sz, sz);
+
+  // background
+  $ctx.fillStyle = '#17140f';
+  $ctx.fillRect(0, 0, sz, sz);
+
+  // image background (if loaded)
+  if (S.imageCanvas) {
+    $ctx.globalAlpha = 0.35;
+    $ctx.drawImage(S.imageCanvas, 0, 0, S.imgW, S.imgH, 0, 0, sz, sz);
+    $ctx.globalAlpha = 1;
+  }
+
+  // no grid — the canvas is a painting surface, not a spreadsheet
+
+  // edges
+  for (const edge of S.edges) {
+    const nA = S.nodes.find(n => n.id === edge.from);
+    const nB = S.nodes.find(n => n.id === edge.to);
+    if (!nA || !nB) continue;
+    // slight bezier curve
+    const mx = (nA.x + nB.x) / 2;
+    const my = (nA.y + nB.y) / 2;
+    const dx = nB.x - nA.x, dy = nB.y - nA.y;
+    const perpX = -dy * 0.1, perpY = dx * 0.1;
+    $ctx.strokeStyle = edge.source === 'chunxly'
+      ? 'rgba(138,180,196,0.5)' : 'rgba(94,196,168,0.5)';
+    $ctx.lineWidth = 2;
+    $ctx.beginPath();
+    $ctx.moveTo(nA.x, nA.y);
+    $ctx.quadraticCurveTo(mx + perpX, my + perpY, nB.x, nB.y);
+    $ctx.stroke();
+  }
+
+  // suggest edge preview
+  if (S.suggestEdge) {
+    const nA = S.nodes.find(n => n.id === S.suggestEdge.from);
+    const nB = S.nodes.find(n => n.id === S.suggestEdge.to);
+    if (nA && nB) {
+      const t = Date.now() / 800;
+      const alpha = 0.2 + Math.sin(t) * 0.15;
+      $ctx.strokeStyle = `rgba(212,168,75,${alpha})`;
+      $ctx.lineWidth = 1.5;
+      $ctx.setLineDash([4, 4]);
+      $ctx.beginPath();
+      $ctx.moveTo(nA.x, nA.y);
+      $ctx.lineTo(nB.x, nB.y);
+      $ctx.stroke();
+      $ctx.setLineDash([]);
+    }
+  }
+
+  // connection preview line
+  if (S.connectFrom !== null && S.hoverNode !== null && S.hoverNode !== S.connectFrom) {
+    const nA = S.nodes.find(n => n.id === S.connectFrom);
+    const nB = S.nodes.find(n => n.id === S.hoverNode);
+    if (nA && nB) {
+      $ctx.strokeStyle = 'rgba(94,196,168,0.3)';
+      $ctx.lineWidth = 1.5;
+      $ctx.setLineDash([3, 3]);
+      $ctx.beginPath();
+      $ctx.moveTo(nA.x, nA.y);
+      $ctx.lineTo(nB.x, nB.y);
+      $ctx.stroke();
+      $ctx.setLineDash([]);
+    }
+  }
+
+  // connection hints: when hovering a node, show faint lines to nearby unconnected nodes
+  if (S.hoverNode !== null && S.phase === 'visitor') {
+    const hNode = S.nodes.find(n => n.id === S.hoverNode);
+    if (hNode) {
+      for (const other of S.nodes) {
+        if (other.id === hNode.id) continue;
+        const connected = S.edges.some(e =>
+          (e.from === hNode.id && e.to === other.id) || (e.to === hNode.id && e.from === other.id)
+        );
+        if (connected) continue;
+        const d = Math.sqrt((hNode.x - other.x) ** 2 + (hNode.y - other.y) ** 2);
+        if (d > sz * 0.5) continue;
+        const alpha = Math.max(0.04, 0.15 * (1 - d / (sz * 0.5)));
+        $ctx.strokeStyle = `rgba(255,230,180,${alpha})`;
+        $ctx.lineWidth = 1;
+        $ctx.setLineDash([2, 4]);
+        $ctx.beginPath();
+        $ctx.moveTo(hNode.x, hNode.y);
+        $ctx.lineTo(other.x, other.y);
+        $ctx.stroke();
+        $ctx.setLineDash([]);
+      }
+    }
+  }
+
+  // containers (Chunxly's scribbled marks)
+  for (const node of S.nodes) {
+    const [r, g, b] = node.color;
+    const isHover = S.hoverNode === node.id;
+    const scribble = node.scribble;
+
+    const conv = node.conviction ?? 1.0;
+
+    if (scribble && scribble.length > 2) {
+      // draw the scribbled container
+      const hoverGrow = isHover ? 1.12 : 1;
+
+      // fill — conviction modulates opacity (certain=0.20, tentative=0.05)
+      const fillA = isHover ? 0.22 : (0.05 + conv * 0.15);
+      $ctx.fillStyle = `rgba(${r},${g},${b},${fillA})`;
+      $ctx.beginPath();
+      $ctx.moveTo(node.x + scribble[0].dx * hoverGrow, node.y + scribble[0].dy * hoverGrow);
+      for (let i = 1; i < scribble.length; i++) {
+        // smooth between points with quadratic curves for organic feel
+        const prev = scribble[i - 1];
+        const curr = scribble[i];
+        const cpx = node.x + (prev.dx + curr.dx) * 0.5 * hoverGrow;
+        const cpy = node.y + (prev.dy + curr.dy) * 0.5 * hoverGrow;
+        $ctx.quadraticCurveTo(
+          node.x + prev.dx * hoverGrow, node.y + prev.dy * hoverGrow,
+          cpx, cpy
+        );
+      }
+      // close back to first point
+      const last = scribble[scribble.length - 1];
+      const first = scribble[0];
+      $ctx.quadraticCurveTo(
+        node.x + last.dx * hoverGrow, node.y + last.dy * hoverGrow,
+        node.x + first.dx * hoverGrow, node.y + first.dy * hoverGrow
+      );
+      $ctx.closePath();
+      $ctx.fill();
+
+      // stroke — conviction modulates opacity; tentative containers get dashed scribble
+      const baseBorderA = node.boundary > 0.5 ? 0.5 : 0.3;
+      const borderAlpha = isHover ? 0.7 : baseBorderA * (0.4 + conv * 0.6);
+      $ctx.strokeStyle = isHover ? 'rgba(212,168,75,0.8)' : (
+        node.source === 'chunxly'
+          ? `rgba(${r},${g},${b},${borderAlpha})`
+          : `rgba(94,196,168,${borderAlpha})`
+      );
+      $ctx.lineWidth = isHover ? 2 : (node.boundary > 0.5 ? 1.5 : 1);
+      if (!isHover && conv < 0.5) $ctx.setLineDash([3, 4]);
+      $ctx.beginPath();
+      $ctx.moveTo(node.x + scribble[0].dx * hoverGrow, node.y + scribble[0].dy * hoverGrow);
+      for (let i = 1; i < scribble.length; i++) {
+        const prev = scribble[i - 1];
+        const curr = scribble[i];
+        const cpx = node.x + (prev.dx + curr.dx) * 0.5 * hoverGrow;
+        const cpy = node.y + (prev.dy + curr.dy) * 0.5 * hoverGrow;
+        $ctx.quadraticCurveTo(
+          node.x + prev.dx * hoverGrow, node.y + prev.dy * hoverGrow,
+          cpx, cpy
+        );
+      }
+      $ctx.quadraticCurveTo(
+        node.x + last.dx * hoverGrow, node.y + last.dy * hoverGrow,
+        node.x + first.dx * hoverGrow, node.y + first.dy * hoverGrow
+      );
+      $ctx.closePath();
+      $ctx.stroke();
+      $ctx.setLineDash([]);
+    } else {
+      // fallback for visitor-placed nodes (no scribble yet): simple circle
+      const radius = (node.size || 15) * (isHover ? 1.15 : 1);
+      $ctx.fillStyle = `rgba(${r},${g},${b},0.15)`;
+      $ctx.beginPath();
+      $ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+      $ctx.fill();
+      $ctx.strokeStyle = isHover ? 'rgba(212,168,75,0.8)' : 'rgba(94,196,168,0.4)';
+      $ctx.lineWidth = isHover ? 2 : 1.5;
+      $ctx.beginPath();
+      $ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+      $ctx.stroke();
+    }
+
+    // center dot — conviction modulates presence
+    const dotA = 0.3 + conv * 0.4;
+    $ctx.fillStyle = `rgba(${r},${g},${b},${dotA})`;
+    $ctx.beginPath();
+    $ctx.arc(node.x, node.y, 3, 0, Math.PI * 2);
+    $ctx.fill();
+  }
+
+  // diamond traces — subtle width ribbons showing what the fairy discovered
+  for (const d of S.fairy.diamonds) {
+    if (!d.pathSamples || d.pathSamples.length < 2) continue;
+    const nA = S.nodes.find(n => n.id === d.nodeA);
+    const nB = S.nodes.find(n => n.id === d.nodeB);
+    if (!nA || !nB) continue;
+
+    const dx = nB.x - nA.x, dy = nB.y - nA.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) continue;
+    const perpX = -dy / dist, perpY = dx / dist;
+
+    // draw the diamond width ribbon
+    $ctx.fillStyle = d.symmetric
+      ? 'rgba(94,196,168,0.04)'  // symmetric: teal tint
+      : 'rgba(212,168,75,0.04)'; // asymmetric: amber tint
+    $ctx.beginPath();
+    const steps = d.widths.length;
+    // top edge
+    for (let i = 0; i < steps; i++) {
+      const t = i / (steps - 1);
+      const px = nA.x + (nB.x - nA.x) * t;
+      const py = nA.y + (nB.y - nA.y) * t;
+      const hw = d.widths[i] * 0.5 * (sz / S.imgW); // scale to canvas
+      if (i === 0) $ctx.moveTo(px + perpX * hw, py + perpY * hw);
+      else $ctx.lineTo(px + perpX * hw, py + perpY * hw);
+    }
+    // bottom edge (reverse)
+    for (let i = steps - 1; i >= 0; i--) {
+      const t = i / (steps - 1);
+      const px = nA.x + (nB.x - nA.x) * t;
+      const py = nA.y + (nB.y - nA.y) * t;
+      const hw = d.widths[i] * 0.5 * (sz / S.imgW);
+      $ctx.lineTo(px - perpX * hw, py - perpY * hw);
+    }
+    $ctx.closePath();
+    $ctx.fill();
+
+    // direction indicator for asymmetric diamonds
+    if (!d.symmetric) {
+      const wideEnd = d.direction === 'a-to-b' ? nA : nB;
+      const narrowEnd = d.direction === 'a-to-b' ? nB : nA;
+      $ctx.strokeStyle = 'rgba(212,168,75,0.12)';
+      $ctx.lineWidth = 1;
+      $ctx.setLineDash([2, 3]);
+      $ctx.beginPath();
+      $ctx.moveTo(wideEnd.x, wideEnd.y);
+      const arrowX = narrowEnd.x * 0.3 + wideEnd.x * 0.7;
+      const arrowY = narrowEnd.y * 0.3 + wideEnd.y * 0.7;
+      $ctx.lineTo(arrowX, arrowY);
+      $ctx.stroke();
+      $ctx.setLineDash([]);
+    }
+  }
+
+  // round-trip delta overlay
+  if (S.roundTrip) {
+    const rt = S.roundTrip;
+    const sz = S.canvasSize;
+
+    // ghost dots: original container positions (amber hollow circles)
+    for (const pair of rt.pairs) {
+      const ox = pair.original.x * sz, oy = pair.original.y * sz;
+      $ctx.strokeStyle = pair.status === 'preserved'
+        ? 'rgba(212,168,75,0.25)' : 'rgba(138,180,196,0.3)';
+      $ctx.lineWidth = 1;
+      $ctx.setLineDash([]);
+      $ctx.beginPath();
+      $ctx.arc(ox, oy, 6, 0, Math.PI * 2);
+      $ctx.stroke();
+
+      // delta line: ghost → current position (dashed)
+      if (pair.status === 'shifted') {
+        $ctx.strokeStyle = pair.positionShift > 0.08
+          ? 'rgba(138,180,196,0.3)' : 'rgba(212,168,75,0.2)';
+        $ctx.lineWidth = 1;
+        $ctx.setLineDash([3, 3]);
+        $ctx.beginPath();
+        $ctx.moveTo(ox, oy);
+        $ctx.lineTo(pair.mazeNode.x, pair.mazeNode.y);
+        $ctx.stroke();
+        $ctx.setLineDash([]);
+      }
+    }
+
+    // lost markers: X at original positions
+    for (const orig of rt.lost) {
+      const ox = orig.x * sz, oy = orig.y * sz;
+      $ctx.strokeStyle = 'rgba(196,96,96,0.35)';
+      $ctx.lineWidth = 1.5;
+      $ctx.beginPath();
+      $ctx.moveTo(ox - 4, oy - 4); $ctx.lineTo(ox + 4, oy + 4);
+      $ctx.moveTo(ox + 4, oy - 4); $ctx.lineTo(ox - 4, oy + 4);
+      $ctx.stroke();
+    }
+
+    // hull outline: faint boundary showing Chunxly's confidence region
+    if (rt.hull && rt.hull.length >= 3) {
+      $ctx.strokeStyle = 'rgba(212,168,75,0.12)';
+      $ctx.lineWidth = 1;
+      $ctx.setLineDash([4, 6]);
+      $ctx.beginPath();
+      // expand hull by 10% (same as classification padding) for visual
+      const hcx = rt.hull.reduce((s, p) => s + p.x, 0) / rt.hull.length;
+      const hcy = rt.hull.reduce((s, p) => s + p.y, 0) / rt.hull.length;
+      rt.hull.forEach((p, i) => {
+        const ex = (p.x + (p.x - hcx) * 0.1) * sz;
+        const ey = (p.y + (p.y - hcy) * 0.1) * sz;
+        if (i === 0) $ctx.moveTo(ex, ey); else $ctx.lineTo(ex, ey);
+      });
+      $ctx.closePath();
+      $ctx.stroke();
+      $ctx.setLineDash([]);
+    }
+
+    // emergent glow: teal ring on containers the maze added (inside hull)
+    const emergentIds = new Set(rt.emergent.map(n => n.id));
+    for (const node of S.nodes) {
+      if (!emergentIds.has(node.id)) continue;
+      const pulse = 0.15 + Math.sin(Date.now() * 0.003) * 0.1;
+      $ctx.strokeStyle = `rgba(94,196,168,${pulse})`;
+      $ctx.lineWidth = 2;
+      $ctx.beginPath();
+      $ctx.arc(node.x, node.y, (node.size || 15) + 6, 0, Math.PI * 2);
+      $ctx.stroke();
+    }
+
+    // stray markers: dim gray ring on containers outside hull (noise)
+    const strayIds = new Set((rt.stray || []).map(n => n.id));
+    for (const node of S.nodes) {
+      if (!strayIds.has(node.id)) continue;
+      $ctx.strokeStyle = 'rgba(120,120,120,0.15)';
+      $ctx.lineWidth = 1;
+      $ctx.setLineDash([2, 3]);
+      $ctx.beginPath();
+      $ctx.arc(node.x, node.y, (node.size || 15) + 6, 0, Math.PI * 2);
+      $ctx.stroke();
+      $ctx.setLineDash([]);
+    }
+  }
+
+  // fairy
+  renderFairy($ctx);
+}
+
+function updateNodeCount() {
+  const nc = document.getElementById('nodeCount');
+  const edges = S.edges.length;
+  let text = `${S.nodes.length} container${S.nodes.length !== 1 ? 's' : ''}`;
+  if (edges) text += ` · ${edges} edge${edges !== 1 ? 's' : ''}`;
+  nc.textContent = text;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Visitor interaction
+// ═══════════════════════════════════════════════════════
+function nodeAt(x, y) {
+  let best = null, bestDist = 20;
+  for (const n of S.nodes) {
+    const d = Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2);
+    if (d < bestDist) { best = n; bestDist = d; }
+  }
+  return best;
+}
+
+function canvasCoords(e) {
+  const rect = $canvas.getBoundingClientRect();
+  const scaleX = S.canvasSize / rect.width;
+  const scaleY = S.canvasSize / rect.height;
+  if (e.touches) {
+    return {
+      x: (e.touches[0].clientX - rect.left) * scaleX,
+      y: (e.touches[0].clientY - rect.top) * scaleY
+    };
+  }
+  return {
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top) * scaleY
+  };
+}
+
+let pointerDown = false, pointerMoved = false, pointerStartNode = null;
+let longPressTimer = null;
+
+function onPointerDown(e) {
+  e.preventDefault();
+  const { x, y } = canvasCoords(e);
+  pointerDown = true;
+  pointerMoved = false;
+
+  if (S.phase === 'drawing') {
+    S.isDrawing = true;
+    lastDrawX = -1; lastDrawY = -1;
+    drawBrush(x * S.imgW / S.canvasSize, y * S.imgH / S.canvasSize);
+    render();
+    return;
+  }
+
+  if (S.phase !== 'visitor') return;
+
+  const node = nodeAt(x, y);
+  pointerStartNode = node;
+
+  if (node) {
+    // start potential drag or connection
+    longPressTimer = setTimeout(() => {
+      // long press = delete
+      if (!pointerMoved && pointerStartNode === node) {
+        removeNode(node.id);
+        pointerStartNode = null;
+        showNotif('node removed');
+      }
+    }, 600);
+  }
+}
+
+function onPointerMove(e) {
+  e.preventDefault();
+  if (!pointerDown && S.phase !== 'visitor') return;
+  const { x, y } = canvasCoords(e);
+
+  if (S.phase === 'drawing' && S.isDrawing) {
+    drawBrush(x * S.imgW / S.canvasSize, y * S.imgH / S.canvasSize);
+    render();
+    return;
+  }
+
+  if (S.phase !== 'visitor') {
+    // hover
+    const node = nodeAt(x, y);
+    S.hoverNode = node ? node.id : null;
+    render();
+    return;
+  }
+
+  const node = nodeAt(x, y);
+  S.hoverNode = node ? node.id : null;
+
+  if (pointerDown && pointerStartNode) {
+    const dx = x - pointerStartNode.x, dy = y - pointerStartNode.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 5) {
+      pointerMoved = true;
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    }
+
+    if (pointerMoved) {
+      if (node && node !== pointerStartNode) {
+        // hovering over another node → show connection preview
+        S.connectFrom = pointerStartNode.id;
+      } else if (!node) {
+        // dragging node to new position
+        pointerStartNode.x = x;
+        pointerStartNode.y = y;
+        S.connectFrom = null;
+      }
+    }
+  }
+
+  render();
+}
+
+function onPointerUp(e) {
+  e.preventDefault();
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+
+  if (S.phase === 'drawing') {
+    S.isDrawing = false;
+    lastDrawX = -1; lastDrawY = -1;
+    pointerDown = false;
+    return;
+  }
+
+  if (S.phase !== 'visitor') { pointerDown = false; return; }
+
+  const coords = e.changedTouches
+    ? { x: (e.changedTouches[0].clientX - $canvas.getBoundingClientRect().left) * (S.canvasSize / $canvas.getBoundingClientRect().width),
+        y: (e.changedTouches[0].clientY - $canvas.getBoundingClientRect().top) * (S.canvasSize / $canvas.getBoundingClientRect().height) }
+    : canvasCoords(e);
+  const { x, y } = coords;
+  const node = nodeAt(x, y);
+
+  if (pointerStartNode && pointerMoved && node && node !== pointerStartNode) {
+    // connect the two nodes
+    const existing = S.edges.find(e =>
+      (e.from === pointerStartNode.id && e.to === node.id) ||
+      (e.to === pointerStartNode.id && e.from === node.id)
+    );
+    if (existing) {
+      // toggle off
+      S.edges = S.edges.filter(e => e !== existing);
+    } else {
+      S.edges.push({ from: pointerStartNode.id, to: node.id, source: 'visitor' });
+      voiceOnConnect();
+    }
+    updateNodeCount();
+  } else if (pointerStartNode && !pointerMoved && node === pointerStartNode) {
+    // tap: cycle container size (small → medium → large → small)
+    const sizes = [15, 28, 42];
+    let closest = 0;
+    let closestDist = Infinity;
+    sizes.forEach((s, i) => { const d = Math.abs(node.size - s); if (d < closestDist) { closestDist = d; closest = i; } });
+    const nextSize = sizes[(closest + 1) % sizes.length];
+    node.size = nextSize;
+    const wobble = node.wobble || 0.4;
+    const boundary = node.boundary || 0.3;
+    node.scribble = generateScribble(nextSize, wobble, boundary);
+    showNotif(nextSize <= 18 ? 'tight' : nextSize <= 32 ? 'medium' : 'loose');
+  } else if (!pointerStartNode && !pointerMoved) {
+    // tap on empty space: add visitor container
+    const color = sampleImageAt(x, y);
+    const size = 22;
+    const wobble = 0.4 + Math.random() * 0.2;
+    const boundary = 0.3;
+    const node = {
+      id: S.nextId++,
+      x, y, color,
+      size, boundary, wobble,
+      energy: 0.5, gradMag: 0, gradAngle: 0, edge: 0, sat: 0.5,
+      scribble: generateScribble(size, wobble, boundary),
+      source: 'visitor'
+    };
+    S.nodes.push(node);
+    updateNodeCount();
+    showNotif('container added');
+  } else if (pointerStartNode && pointerMoved && !node) {
+    // dragged to empty space = rearrange
+    voiceOnRearrange();
+  }
+
+  S.connectFrom = null;
+  pointerDown = false;
+  pointerMoved = false;
+  pointerStartNode = null;
+  render();
+}
+
+function onRightClick(e) {
+  e.preventDefault();
+  if (S.phase !== 'visitor') return;
+  const { x, y } = canvasCoords(e);
+  const node = nodeAt(x, y);
+  if (node) {
+    removeNode(node.id);
+    showNotif('node removed');
+  }
+}
+
+function removeNode(id) {
+  S.nodes = S.nodes.filter(n => n.id !== id);
+  S.edges = S.edges.filter(e => e.from !== id && e.to !== id);
+  updateNodeCount();
+  render();
+}
+
+function sampleImageAt(canvasX, canvasY) {
+  if (!S.imageCanvas) return [180, 140, 90];
+  const ix = Math.round(canvasX * S.imgW / S.canvasSize);
+  const iy = Math.round(canvasY * S.imgH / S.canvasSize);
+  const ictx = S.imageCanvas.getContext('2d');
+  const px = ictx.getImageData(Math.max(0, Math.min(S.imgW - 1, ix)),
+                                Math.max(0, Math.min(S.imgH - 1, iy)), 1, 1).data;
+  return [px[0], px[1], px[2]];
+}
+
+let lastConnectVoice = 0;
+function voiceOnConnect() {
+  const now = Date.now();
+  if (now - lastConnectVoice < 4000) return;
+  lastConnectVoice = now;
+  const [iv, ov] = pickVoice('visitor_connect');
+  setVoice(iv, ov, true);
+}
+
+let lastRearrangeVoice = 0;
+function voiceOnRearrange() {
+  const now = Date.now();
+  if (now - lastRearrangeVoice < 5000) return;
+  lastRearrangeVoice = now;
+  const [iv, ov] = pickVoice('visitor_rearrange');
+  setVoice(iv, ov, true);
+}
+
+// event binding
+$canvas.addEventListener('mousedown', onPointerDown);
+$canvas.addEventListener('mousemove', onPointerMove);
+$canvas.addEventListener('mouseup', onPointerUp);
+$canvas.addEventListener('mouseleave', () => {
+  if (S.phase === 'drawing') { S.isDrawing = false; lastDrawX = -1; lastDrawY = -1; }
+  pointerDown = false; S.hoverNode = null; S.connectFrom = null; render();
+});
+$canvas.addEventListener('contextmenu', onRightClick);
+$canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+$canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+$canvas.addEventListener('touchend', onPointerUp, { passive: false });
+
+// ═══════════════════════════════════════════════════════
+//  Ping-pong (Chunxly's eager suggestions)
+// ═══════════════════════════════════════════════════════
+let pingPongIval = null;
+function startPingPong() {
+  if (pingPongIval) clearInterval(pingPongIval);
+  pingPongIval = setInterval(maybeSuggest, 6000 + Math.random() * 4000);
+}
+
+function maybeSuggest() {
+  if (S.phase !== 'visitor' || S.chunxly.busy) return;
+  if (S.nodes.length < 2) return;
+
+  // find two nearby unconnected nodes
+  let bestPair = null, bestDist = Infinity;
+  for (let i = 0; i < S.nodes.length; i++) {
+    for (let j = i + 1; j < S.nodes.length; j++) {
+      const a = S.nodes[i], b = S.nodes[j];
+      const connected = S.edges.some(e =>
+        (e.from === a.id && e.to === b.id) || (e.to === a.id && e.from === b.id)
+      );
+      if (connected) continue;
+      const d = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+      // color affinity bonus
+      const colorDist = Math.sqrt(
+        (a.color[0] - b.color[0]) ** 2 +
+        (a.color[1] - b.color[1]) ** 2 +
+        (a.color[2] - b.color[2]) ** 2
+      );
+      const score = d + colorDist * 0.3;
+      if (score < bestDist) { bestDist = score; bestPair = [a, b]; }
+    }
+  }
+
+  if (!bestPair || bestDist > S.canvasSize * 0.6) return;
+
+  // suggest this connection
+  S.suggestEdge = { from: bestPair[0].id, to: bestPair[1].id };
+  const [iv, ov] = pickVoice('suggest');
+  setVoice(iv, ov, true);
+  drawSprite('eager');
+
+  // auto-connect after 4s if not dismissed
+  S.suggestTimer = setTimeout(() => {
+    if (S.suggestEdge) {
+      S.edges.push({ from: S.suggestEdge.from, to: S.suggestEdge.to, source: 'chunxly' });
+      S.suggestEdge = null;
+      drawSprite('pleased');
+      updateNodeCount();
+      render();
+    }
+  }, 4000);
+
+  render();
+}
+
+// dismiss suggestion on any visitor action (handled in pointer events)
+function dismissSuggestion() {
+  if (S.suggestEdge) {
+    S.suggestEdge = null;
+    if (S.suggestTimer) { clearTimeout(S.suggestTimer); S.suggestTimer = null; }
+    render();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  Export
+// ═══════════════════════════════════════════════════════
+function exportCreature() {
+  if (S.nodes.length === 0) { showNotif('no nodes to export'); return; }
+
+  setPhase('done');
+  if (pingPongIval) { clearInterval(pingPongIval); pingPongIval = null; }
+  dismissSuggestion();
+
+  // derive pin type from container properties (Chunxly's language → EFDP's language)
+  function derivePin(node) {
+    const b = node.boundary || 0.3;
+    const gm = node.gradMag || 0;
+    const e = node.edge || 0;
+    const s = node.sat || 0;
+    // tight + sharp gradient = triangle, structured edge = square, else circle
+    let type;
+    if (b > 0.75 && gm > 0.35 && e > 0.3 && s > 0.2) type = 'triangle';
+    else if (b > 0.45 && e > 0.15) type = 'square';
+    else type = 'circle';
+    // direction from gradient angle
+    let direction = 0;
+    if (type === 'triangle' && node.gradAngle !== undefined) {
+      const deg = ((node.gradAngle * 180 / Math.PI) + 360 + 90) % 360;
+      if (deg < 45 || deg >= 315) direction = 0;
+      else if (deg < 135) direction = 1;
+      else if (deg < 225) direction = 2;
+      else direction = 3;
+    }
+    // strength from energy, boundary, and conviction
+    // conviction scales: 0.2 → ×0.5, 0.6 → ×0.8, 1.0 → ×1.0
+    const conv = node.conviction ?? 1.0;
+    const convScale = 0.5 + conv * 0.5;
+    const rawStr = (node.energy || 0.5) * 6 + (node.edge || 0) * 4;
+    const strength = Math.max(1, Math.min(10, Math.round(rawStr * convScale)));
+    return { type, direction, strength };
+  }
+
+  // pin configuration (containers condensed to pins)
+  const pinConfig = S.nodes.map((n, i) => {
+    const pin = derivePin(n);
+    return {
+      x: n.x / S.canvasSize,
+      y: n.y / S.canvasSize,
+      color: n.color,
+      type: pin.type,
+      strength: pin.strength,
+      direction: pin.direction,
+      size: n.size,
+      boundary: n.boundary,
+      conviction: n.conviction ?? 1.0,
+      connected: (() => {
+        // combine formal edges + fairy diamond observations
+        const connIds = new Set();
+        S.edges.forEach(e => {
+          if (e.from === n.id) connIds.add(e.to);
+          if (e.to === n.id) connIds.add(e.from);
+        });
+        (S.fairy.diamonds || []).forEach(d => {
+          if (d.nodeA === n.id) connIds.add(d.nodeB);
+          if (d.nodeB === n.id) connIds.add(d.nodeA);
+        });
+        return [...connIds]
+          .map(id => S.nodes.findIndex(nn => nn.id === id))
+          .filter(idx => idx >= 0);
+      })()
+    };
+  });
+
+  // add round-trip delta to matched pins
+  if (S.roundTrip) {
+    for (const pair of S.roundTrip.pairs) {
+      const idx = S.nodes.indexOf(pair.mazeNode);
+      if (idx >= 0 && pinConfig[idx]) {
+        pinConfig[idx].delta = {
+          positionShift: pair.positionShift,
+          colorShift: pair.colorShift,
+          sizeChange: pair.sizeChange,
+          originalConviction: pair.original.conviction,
+          status: pair.status,
+        };
+      }
+    }
+  }
+
+  // CrankSeed
+  const pinCounts = { circle: 0, square: 0, triangle: 0 };
+  pinConfig.forEach(p => pinCounts[p.type]++);
+  const dominantPinType = Object.entries(pinCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'circle';
+
+  // dominant color: average of all node colors
+  const avgColor = [0, 0, 0];
+  S.nodes.forEach(n => { avgColor[0] += n.color[0]; avgColor[1] += n.color[1]; avgColor[2] += n.color[2]; });
+  avgColor[0] = Math.round(avgColor[0] / S.nodes.length);
+  avgColor[1] = Math.round(avgColor[1] / S.nodes.length);
+  avgColor[2] = Math.round(avgColor[2] / S.nodes.length);
+  const dominantHex = rgbToHex(avgColor[0], avgColor[1], avgColor[2]);
+
+  // secondary color: color of node furthest from average
+  let maxColorDist = 0, secondaryHex = null;
+  for (const n of S.nodes) {
+    const d = Math.sqrt((n.color[0] - avgColor[0]) ** 2 + (n.color[1] - avgColor[1]) ** 2 + (n.color[2] - avgColor[2]) ** 2);
+    if (d > maxColorDist && d > 50) { maxColorDist = d; secondaryHex = rgbToHex(n.color[0], n.color[1], n.color[2]); }
+  }
+
+  // palette key
+  const CRANK_PAL_REFS = {
+    nature: [90, 158, 58], creature: [15, 52, 96], item: [139, 69, 19],
+    fire: [139, 0, 0], ice: [0, 51, 102], poison: [75, 0, 130],
+    ghost: [26, 26, 62], earth: [61, 43, 31], water: [0, 136, 204], light: [61, 51, 0]
+  };
+  let bestPal = 'creature', bestPalDist = Infinity;
+  for (const [key, ref] of Object.entries(CRANK_PAL_REFS)) {
+    const d = Math.sqrt((avgColor[0] - ref[0]) ** 2 + (avgColor[1] - ref[1]) ** 2 + (avgColor[2] - ref[2]) ** 2);
+    if (d < bestPalDist) { bestPalDist = d; bestPal = key; }
+  }
+
+  // cohesion from graph topology
+  const components = findComponents();
+  let cohesionMode;
+  if (components.length === 1 && S.edges.length > 0) {
+    // check if star-like (one node with high degree)
+    const degrees = {};
+    S.edges.forEach(e => { degrees[e.from] = (degrees[e.from] || 0) + 1; degrees[e.to] = (degrees[e.to] || 0) + 1; });
+    const maxDeg = Math.max(...Object.values(degrees));
+    if (maxDeg >= S.nodes.length * 0.5) cohesionMode = 'radial';
+    else {
+      // check chain-like (mostly degree 2)
+      const deg2 = Object.values(degrees).filter(d => d <= 2).length;
+      cohesionMode = deg2 >= Object.keys(degrees).length * 0.7 ? 'directional' : 'clustered';
+    }
+  } else if (components.length > 1) {
+    cohesionMode = 'clustered';
+  } else {
+    cohesionMode = 'scattered';
+  }
+
+  const meanStrength = pinConfig.length
+    ? pinConfig.reduce((s, p) => s + p.strength, 0) / pinConfig.length : 0;
+  const PIN_TYPE_HINTS = {
+    circle: ['blob', 'ring', 'circle'],
+    square: ['rect', 'cross', 'diamond'],
+    triangle: ['spike', 'line', 'scatter'],
+  };
+  const maxType = pinCounts[dominantPinType] / Math.max(1, pinConfig.length);
+  const extraShapeHints = maxType > 0.5
+    ? PIN_TYPE_HINTS[dominantPinType]
+    : ['irregular', 'blob'];
+
+  // average boundary as a measure of how "defined" the creature is
+  const avgBoundary = S.nodes.reduce((s, n) => s + (n.boundary || 0.3), 0) / Math.max(1, S.nodes.length);
+
+  // fairy's structural observations
+  const diamonds = S.fairy.diamonds || [];
+  const symmetricCount = diamonds.filter(d => d.symmetric).length;
+  const asymmetricCount = diamonds.length - symmetricCount;
+  const avgDiamondWidth = diamonds.length
+    ? Math.round(diamonds.reduce((s, d) => s + (d.avgWidth || 0), 0) / diamonds.length * 10) / 10 : 0;
+
+  const crankSeed = {
+    source: 'chunxly',
+    pinCounts,
+    dominantPinType,
+    dominantHex,
+    paletteKey: bestPal,
+    secondaryHex,
+    cohesionMode,
+    meanStrength: Math.round(meanStrength * 10) / 10,
+    calcifiedRatio: Math.round(avgBoundary * 100) / 100,
+    totalKiwis: 0,
+    kiwiDensity: 'sparse',
+    layerCount: components.length,
+    extraShapeHints,
+    // conviction (multi-pass consensus)
+    avgConviction: Math.round(S.nodes.reduce((s, n) => s + (n.conviction ?? 1), 0) / Math.max(1, S.nodes.length) * 100) / 100,
+    convictionProfile: (() => {
+      const avg = S.nodes.reduce((s, n) => s + (n.conviction ?? 1), 0) / Math.max(1, S.nodes.length);
+      return avg > 0.7 ? 'certain' : avg > 0.4 ? 'mixed' : 'tentative';
+    })(),
+    // fairy observations
+    fairyTraces: diamonds.length,
+    symmetryRatio: diamonds.length ? Math.round(symmetricCount / diamonds.length * 100) / 100 : 0,
+    avgDiamondWidth,
+    structuralDirection: asymmetricCount > symmetricCount ? 'directional' : 'balanced',
+  };
+
+  // add round-trip data if comparison was performed
+  if (S.roundTrip) {
+    crankSeed.roundTrip = {
+      ...S.roundTrip.summary,
+      avgPositionShift: S.roundTrip.avgPositionShift,
+      avgColorShift: S.roundTrip.avgColorShift,
+    };
+  }
+
+  // write to localStorage
+  try {
+    localStorage.setItem('baseline-session/chunxly-canvas', JSON.stringify(pinConfig));
+    localStorage.setItem('baseline-session/crank-seed', JSON.stringify(crankSeed));
+    // store original containers for round-trip comparison (normalized to canvas coords)
+    if (!S.roundTrip) {
+      const originals = S.nodes.map(n => ({
+        x: n.x / S.canvasSize, y: n.y / S.canvasSize,
+        color: n.color, size: n.size, boundary: n.boundary, conviction: n.conviction ?? 1.0
+      }));
+      // compute bounding hull from high-conviction containers
+      const hullSources = originals.filter(o => (o.conviction ?? 1) >= 0.5);
+      const hull = convexHull(hullSources.length >= 3 ? hullSources : originals);
+      localStorage.setItem('baseline-session/chunxly-original', JSON.stringify({ containers: originals, hull }));
+    }
+    // clean up consumed snapshot after round-trip export
+    if (S.roundTrip) {
+      localStorage.removeItem('baseline-session/efdp-snapshot');
+    }
+  } catch (e) { /* storage full, etc */ }
+
+  // hub postMessage
+  if (window.parent !== window) {
+    const emoji = ['🎨', '🖌️', '✨', '🦎', '🐙', '🌸'][Math.floor(Math.random() * 6)];
+    window.parent.postMessage({ type: 'hub:scraggle', emoji, signal: 'Chunxly finished a creature.' }, '*');
+  }
+
+  // voice
+  const [iv, ov] = pickVoice('finish', { n: String(S.nodes.length), e: String(S.edges.length) });
+  setVoice(iv, ov, true);
+  drawSprite('pleased');
+  document.getElementById('btnFinish').style.display = 'none';
+
+  showNotif('creature exported');
+
+  // generate CPM template too
+  generateCPM(pinConfig);
+}
+
+function findComponents() {
+  const visited = new Set();
+  const components = [];
+  for (const node of S.nodes) {
+    if (visited.has(node.id)) continue;
+    const comp = [];
+    const queue = [node.id];
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      comp.push(id);
+      S.edges.forEach(e => {
+        if (e.from === id && !visited.has(e.to)) queue.push(e.to);
+        if (e.to === id && !visited.has(e.from)) queue.push(e.from);
+      });
+    }
+    components.push(comp);
+  }
+  // include isolated nodes as singleton components
+  for (const node of S.nodes) {
+    if (!visited.has(node.id)) {
+      components.push([node.id]);
+    }
+  }
+  return components;
+}
+
+function generateCPM(pinConfig) {
+  // generate a .cpm-compatible template string that EFDP can parse
+  // EFDP format: # colors → "A #hex", # pins → "A = type #hex str:N dir:D", # grid → letter rows
+  const lines = ['# name', 'Chunxly Creature', '', '# scale', '6', '', '# colors'];
+  const colorMap = new Map(); // hex → letter
+  const pinLetters = [];      // per-pin letter assignments
+  let letter = 65; // 'A'
+
+  // assign letters to unique colors
+  pinConfig.forEach(p => {
+    const hex = rgbToHex(p.color[0], p.color[1], p.color[2]);
+    if (!colorMap.has(hex)) {
+      const ch = String.fromCharCode(letter++);
+      colorMap.set(hex, ch);
+      lines.push(`${ch} ${hex}`);
+    }
+    pinLetters.push(colorMap.get(hex));
+  });
+
+  // pins section
+  lines.push('', '# pins');
+  const dirs = ['up', 'right', 'down', 'left'];
+  const emittedPins = new Set(); // avoid duplicate pin definitions for same letter
+  pinConfig.forEach((p, i) => {
+    const ch = pinLetters[i];
+    if (emittedPins.has(ch)) return; // one definition per letter
+    emittedPins.add(ch);
+    const hex = rgbToHex(p.color[0], p.color[1], p.color[2]);
+    const cv = Math.round((p.conviction ?? 1) * 100) / 100;
+    lines.push(`${ch} = ${p.type} ${hex} str:${p.strength} conv:${cv} dir:${dirs[p.direction] || 'up'}`);
+  });
+
+  // grid section — map pin positions onto a small grid
+  // grid size scales with container count: 6 baseline, +1 per 8 containers, cap 10
+  lines.push('', '# grid');
+  const gridSize = Math.min(10, Math.max(6, 6 + Math.floor((pinConfig.length - 12) / 8)));
+  if (pinConfig.length > 0) {
+    // contract positions toward centroid (25%) for tighter form
+    const cx = pinConfig.reduce((s, p) => s + p.x, 0) / pinConfig.length;
+    const cy = pinConfig.reduce((s, p) => s + p.y, 0) / pinConfig.length;
+    const contract = 0.25; // pull 25% toward center of mass
+
+    const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill('.'));
+    const pinGridPos = []; // store grid coords per pin for edge export
+
+    pinConfig.forEach((p, i) => {
+      // contract then map to grid
+      const px = p.x + (cx - p.x) * contract;
+      const py = p.y + (cy - p.y) * contract;
+      const gx = Math.max(0, Math.min(gridSize - 1, Math.floor(px * gridSize)));
+      const gy = Math.max(0, Math.min(gridSize - 1, Math.floor(py * gridSize)));
+      grid[gy][gx] = pinLetters[i];
+      pinGridPos.push({ gx, gy });
+    });
+
+    grid.forEach(row => lines.push(row.join(' ')));
+
+    // edges section — fairy's structural connections between pins
+    // EFDP will erase walls along paths between connected grid cells
+    // When connected pins share a grid cell, nudge one to nearest empty neighbor
+    const occupied = new Set();
+    pinGridPos.forEach(p => occupied.add(p.gx + ',' + p.gy));
+
+    const edgeSet = new Set();
+    pinConfig.forEach((p, i) => {
+      if (!p.connected) return;
+      for (const j of p.connected) {
+        if (j >= pinConfig.length) continue;
+        const key = Math.min(i, j) + '-' + Math.max(i, j);
+        if (edgeSet.has(key)) continue;
+        edgeSet.add(key);
+      }
+    });
+    if (edgeSet.size > 0) {
+      lines.push('', '# edges');
+      for (const key of edgeSet) {
+        const [a, b] = key.split('-').map(Number);
+        let pa = pinGridPos[a], pb = pinGridPos[b];
+        if (!pa || !pb) continue;
+        // if same cell, nudge pin b toward its original direction from a
+        if (pa.gx === pb.gx && pa.gy === pb.gy) {
+          const origA = pinConfig[a], origB = pinConfig[b];
+          const dx = origB.x - origA.x, dy = origB.y - origA.y;
+          // try to move b one cell in the dominant direction
+          const ndx = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
+          const ndy = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
+          const candidates = [
+            { gx: pb.gx + ndx, gy: pb.gy + ndy },  // preferred: diagonal toward original
+            { gx: pb.gx + ndx, gy: pb.gy },          // horizontal
+            { gx: pb.gx, gy: pb.gy + ndy },          // vertical
+          ];
+          for (const c of candidates) {
+            if (c.gx >= 0 && c.gx < gridSize && c.gy >= 0 && c.gy < gridSize) {
+              pb = c;
+              break;
+            }
+          }
+        }
+        if (pa.gx !== pb.gx || pa.gy !== pb.gy) {
+          lines.push(`${pa.gx},${pa.gy} ${pb.gx},${pb.gy}`);
+        }
+      }
+    }
+  }
+
+  const cpm = lines.join('\n');
+  // store for paste-in to EFDP
+  try {
+    localStorage.setItem('baseline-session/chunxly-cpm', cpm);
+  } catch (e) { /* */ }
+
+  // generate touch-up layer if round-trip comparison data exists
+  if (S.roundTrip) generateTouchupCPM(pinConfig);
+}
+
+function generateTouchupCPM(currentPins) {
+  // Chunxly's second pass: reinforce lost containers, correct shifted ones
+  const rt = S.roundTrip;
+  if (!rt || !S.originalContainers) return;
+
+  const touchupPins = [];
+
+  // lost containers: place reinforcement pins at original positions, boosted strength
+  for (const lost of rt.lost) {
+    touchupPins.push({
+      x: lost.x, y: lost.y,
+      color: lost.color,
+      type: 'circle',
+      strength: 7, // strong reinforcement
+      direction: 0,
+      conviction: lost.conviction || 0.8
+    });
+  }
+
+  // shifted containers: place corrective pins nudged back toward original position
+  for (const pair of rt.pairs) {
+    if (pair.positionShift < 0.02) continue; // preserved — no correction needed
+    const orig = pair.original;
+    const cur = pair.mazeNode;
+    // nudge: place pin between original and current, biased toward original
+    const nx = orig.x / S.canvasSize;
+    const ny = orig.y / S.canvasSize;
+    const cx = cur.x / S.canvasSize;
+    const cy = cur.y / S.canvasSize;
+    const corrX = nx + (nx - cx) * 0.3; // overshoot slightly past original
+    const corrY = ny + (ny - cy) * 0.3;
+    touchupPins.push({
+      x: Math.max(0, Math.min(1, corrX)),
+      y: Math.max(0, Math.min(1, corrY)),
+      color: orig.color,
+      type: 'circle',
+      strength: Math.min(8, 4 + Math.round(pair.positionShift * 20)),
+      direction: 0,
+      conviction: orig.conviction || 0.8
+    });
+  }
+
+  if (touchupPins.length === 0) return;
+
+  // build CPM using same format as generateCPM
+  const lines = ['# name', 'Chunxly Touch-up', '', '# scale', '6', '', '# colors'];
+  const colorMap = new Map();
+  const pinLetters = [];
+  let letter = 65;
+
+  touchupPins.forEach(p => {
+    const hex = rgbToHex(p.color[0], p.color[1], p.color[2]);
+    if (!colorMap.has(hex)) {
+      colorMap.set(hex, String.fromCharCode(letter++));
+      lines.push(`${colorMap.get(hex)} ${hex}`);
+    }
+    pinLetters.push(colorMap.get(hex));
+  });
+
+  lines.push('', '# pins');
+  const dirs = ['up', 'right', 'down', 'left'];
+  const emitted = new Set();
+  touchupPins.forEach((p, i) => {
+    const ch = pinLetters[i];
+    if (emitted.has(ch)) return;
+    emitted.add(ch);
+    const hex = rgbToHex(p.color[0], p.color[1], p.color[2]);
+    lines.push(`${ch} = ${p.type} ${hex} str:${p.strength} dir:${dirs[p.direction] || 'up'}`);
+  });
+
+  // use same grid size as base CPM
+  const gridSize = Math.min(10, Math.max(6, 6 + Math.floor((touchupPins.length - 12) / 8)));
+  lines.push('', '# grid');
+  const cx = touchupPins.reduce((s, p) => s + p.x, 0) / touchupPins.length;
+  const cy = touchupPins.reduce((s, p) => s + p.y, 0) / touchupPins.length;
+  const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill('.'));
+  touchupPins.forEach((p, i) => {
+    const px = p.x + (cx - p.x) * 0.25;
+    const py = p.y + (cy - p.y) * 0.25;
+    const gx = Math.max(0, Math.min(gridSize - 1, Math.floor(px * gridSize)));
+    const gy = Math.max(0, Math.min(gridSize - 1, Math.floor(py * gridSize)));
+    grid[gy][gx] = pinLetters[i];
+  });
+  grid.forEach(row => lines.push(row.join(' ')));
+
+  try {
+    localStorage.setItem('baseline-session/chunxly-cpm-touchup', lines.join('\n'));
+  } catch (e) { /* */ }
+}
+
+// ═══════════════════════════════════════════════════════
+//  Entry flows
+// ═══════════════════════════════════════════════════════
+function loadImage(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      // create offscreen canvas
+      const maxDim = 512;
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const oc = document.createElement('canvas');
+      oc.width = w; oc.height = h;
+      oc.getContext('2d').drawImage(img, 0, 0, w, h);
+      S.imageCanvas = oc;
+      S.imgW = w;
+      S.imgH = h;
+
+      $drop.classList.add('hidden');
+      const [iv, ov] = pickVoice('image_load');
+      setVoice(iv, ov, true);
+      setPhase('analyzing');
+      render();
+
+      // brief pause then analyze + daub
+      setTimeout(() => {
+        const candidates = analyzeMultiPass();
+        if (candidates.length === 0) {
+          setVoice("The image is... very uniform. I can't find distinct features. I am noting my confusion.",
+                   "Hmm. Try a different image?", true);
+          setPhase('visitor');
+          document.getElementById('btnFinish').style.display = '';
+          return;
+        }
+        daubSequence(candidates);
+      }, 800);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function startBlankCanvas() {
+  const sz = 512;
+  const oc = document.createElement('canvas');
+  oc.width = sz; oc.height = sz;
+  const octx = oc.getContext('2d');
+  octx.fillStyle = '#1a1714';
+  octx.fillRect(0, 0, sz, sz);
+  S.imageCanvas = oc;
+  S.imgW = sz;
+  S.imgH = sz;
+
+  $drop.classList.add('hidden');
+  $drawBar.classList.add('show');
+  document.getElementById('btnSee').style.display = '';
+  setPhase('drawing');
+  const [iv, ov] = pickVoice('blank_start');
+  setVoice(iv, ov, true);
+  drawSprite('watching');
+  moveSprite(16, S.canvasSize - 96);
+  render();
+}
+
+function letChunxlySee() {
+  $drawBar.classList.remove('show');
+  document.getElementById('btnSee').style.display = 'none';
+  setPhase('analyzing');
+  const [iv, ov] = pickVoice('blank_see');
+  setVoice(iv, ov, true);
+  drawSprite('looking');
+  render();
+
+  setTimeout(() => {
+    const candidates = analyzeMultiPass();
+    if (candidates.length === 0) {
+      // Chunxly places some nodes anyway on a blank-ish canvas
+      const sz = S.canvasSize;
+      const fallback = [];
+      for (let i = 0; i < 6; i++) {
+        const fbSize = 15 + Math.random() * 25;
+        const fbWobble = 0.3 + Math.random() * 0.4;
+        const fbBoundary = 0.2 + Math.random() * 0.5;
+        fallback.push({
+          x: sz * (0.2 + Math.random() * 0.6),
+          y: sz * (0.2 + Math.random() * 0.6),
+          color: DRAW_COLORS[Math.floor(Math.random() * DRAW_COLORS.length)],
+          size: fbSize, boundary: fbBoundary, wobble: fbWobble,
+          energy: 0.5, gradMag: 0, gradAngle: 0, edge: 0, sat: 0.5,
+          scribble: generateScribble(fbSize, fbWobble, fbBoundary),
+          focal: 0.1
+        });
+      }
+      // use imgW/imgH for coordinate mapping
+      fallback.forEach(f => { f.x = f.x * S.imgW / S.canvasSize; f.y = f.y * S.imgH / S.canvasSize; });
+      daubSequence(fallback);
+    } else {
+      daubSequence(candidates);
+    }
+  }, 800);
+}
+
+// ── drop zone events ──
+$drop.addEventListener('dragover', e => { e.preventDefault(); $drop.classList.add('drag-over'); });
+$drop.addEventListener('dragleave', () => $drop.classList.remove('drag-over'));
+$drop.addEventListener('drop', e => {
+  e.preventDefault();
+  $drop.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadImage(file);
+});
+
+document.getElementById('btnBlank').addEventListener('click', startBlankCanvas);
+document.getElementById('btnSee').addEventListener('click', letChunxlySee);
+document.getElementById('btnFinish').addEventListener('click', exportCreature);
+
+// ── hub integration ──
+if (window.parent !== window) {
+  window.parent.postMessage({ type: 'hub:minimize' }, '*');
+}
+
+// ── idle voice timer ──
+let idleTimer = null;
+function resetIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer);
+  if (S.phase !== 'visitor') return;
+  idleTimer = setTimeout(() => {
+    if (S.phase === 'visitor' && !S.chunxly.busy) {
+      const [iv, ov] = pickVoice('idle_watch');
+      setVoice(iv, ov, false);
+      drawSprite(Math.random() > 0.5 ? 'watching' : 'idle');
+      resetIdleTimer();
+    }
+  }, 12000 + Math.random() * 8000);
+}
+
+// reset idle on any interaction
+$canvas.addEventListener('mousedown', resetIdleTimer);
+$canvas.addEventListener('touchstart', resetIdleTimer);
+
+// ── animation loop ──
+function tick() {
+  updateSpritePosition();
+  updateFairy();
+  spriteFrame++;
+  // re-render if suggestion is active (pulsing) or fairy is moving
+  if (S.suggestEdge || S.fairy.visible) render();
+  requestAnimationFrame(tick);
+}
+
+// ═══════════════════════════════════════════════════════
+//  Round-trip: maze snapshot comparison
+// ═══════════════════════════════════════════════════════
+
+function loadMazeSnapshot() {
+  // load original containers from previous Chunxly export
+  const origRaw = localStorage.getItem('baseline-session/chunxly-original');
+  const snapUrl = localStorage.getItem('baseline-session/efdp-snapshot');
+  if (!origRaw || !snapUrl) return;
+
+  const origData = JSON.parse(origRaw);
+  // support both old flat array format and new { containers, hull } format
+  S.originalContainers = origData.containers || origData;
+  S.originalHull = origData.hull || null;
+
+  const [iv, ov] = pickVoice('compare_start');
+  setVoice(iv, ov, true);
+  setPhase('analyzing');
+  drawSprite('looking');
+
+  const img = new Image();
+  img.onload = () => {
+    const maxDim = 512;
+    let w = img.width, h = img.height;
+    if (w > maxDim || h > maxDim) {
+      const scale = maxDim / Math.max(w, h);
+      w = Math.round(w * scale);
+      h = Math.round(h * scale);
+    }
+    const oc = document.createElement('canvas');
+    oc.width = w; oc.height = h;
+    oc.getContext('2d').drawImage(img, 0, 0, w, h);
+    S.imageCanvas = oc;
+    S.imgW = w;
+    S.imgH = h;
+
+    document.getElementById('dropZone').classList.add('hidden');
+    render();
+
+    setTimeout(() => {
+      const candidates = analyzeMultiPass();
+      if (candidates.length === 0) {
+        setVoice("The maze image is... empty. I can't find anything. I am confused.",
+                 "Nothing came back?", true);
+        setPhase('visitor');
+        document.getElementById('btnFinish').style.display = '';
+        return;
+      }
+      daubSequence(candidates);
+    }, 800);
+  };
+  img.src = snapUrl;
+}
+
+function compareWithOriginal() {
+  if (!S.originalContainers || !S.originalContainers.length) return;
+
+  const originals = S.originalContainers;
+  const mazeNodes = S.nodes;
+  const matchDistThresh = 0.15; // 15% of canvas
+  const colorDistThresh = 80;
+
+  // for each original, find best matching maze node
+  const pairs = [];       // { original, mazeNode, positionShift, colorShift, sizeChange }
+  const origMatched = new Set();
+  const mazeMatched = new Set();
+
+  for (let oi = 0; oi < originals.length; oi++) {
+    const orig = originals[oi];
+    let bestIdx = -1, bestDist = Infinity;
+    for (let mi = 0; mi < mazeNodes.length; mi++) {
+      if (mazeMatched.has(mi)) continue;
+      const mn = mazeNodes[mi];
+      const mnx = mn.x / S.canvasSize, mny = mn.y / S.canvasSize;
+      const dx = orig.x - mnx, dy = orig.y - mny;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist >= matchDistThresh) continue;
+      const dr = orig.color[0] - mn.color[0], dg = orig.color[1] - mn.color[1], db = orig.color[2] - mn.color[2];
+      const cDist = Math.sqrt(dr * dr + dg * dg + db * db);
+      if (cDist >= colorDistThresh) continue;
+      const combined = dist + cDist / 500; // weight spatial more
+      if (combined < bestDist) { bestDist = combined; bestIdx = mi; }
+    }
+    if (bestIdx >= 0) {
+      const mn = mazeNodes[bestIdx];
+      const mnx = mn.x / S.canvasSize, mny = mn.y / S.canvasSize;
+      const posShift = Math.sqrt((orig.x - mnx) ** 2 + (orig.y - mny) ** 2);
+      const dr = orig.color[0] - mn.color[0], dg = orig.color[1] - mn.color[1], db = orig.color[2] - mn.color[2];
+      const colShift = Math.sqrt(dr * dr + dg * dg + db * db);
+      pairs.push({
+        original: orig,
+        mazeNode: mn,
+        mazeIdx: bestIdx,
+        positionShift: Math.round(posShift * 1000) / 1000,
+        colorShift: Math.round(colShift),
+        sizeChange: Math.round((mn.size / (orig.size || 20)) * 100) / 100,
+        status: (posShift < 0.05 && colShift < 40) ? 'preserved' : 'shifted',
+      });
+      origMatched.add(oi);
+      mazeMatched.add(bestIdx);
+    }
+  }
+
+  const lost = originals.filter((_, i) => !origMatched.has(i));
+  const emergentRaw = mazeNodes.filter((_, i) => !mazeMatched.has(i));
+  const preserved = pairs.filter(p => p.status === 'preserved').length;
+  const shifted = pairs.filter(p => p.status === 'shifted').length;
+
+  // classify emergent containers by hull membership
+  // 10% padding — emergents just outside the hull are still plausible
+  const hull = S.originalHull;
+  const emergent = [];
+  const stray = [];
+  for (const mn of emergentRaw) {
+    const nx = mn.x / S.canvasSize, ny = mn.y / S.canvasSize;
+    if (pointInHull(nx, ny, hull, 0.1)) {
+      emergent.push(mn);
+    } else {
+      stray.push(mn);
+    }
+  }
+
+  S.roundTrip = {
+    pairs,
+    lost,
+    emergent,
+    stray,
+    hull,
+    summary: { preserved, shifted, lost: lost.length, emergent: emergent.length, stray: stray.length },
+    avgPositionShift: pairs.length ? Math.round(pairs.reduce((s, p) => s + p.positionShift, 0) / pairs.length * 1000) / 1000 : 0,
+    avgColorShift: pairs.length ? Math.round(pairs.reduce((s, p) => s + p.colorShift, 0) / pairs.length) : 0,
+  };
+
+  // voice the results
+  const [civ, cov] = pickVoice('compare_done', {
+    preserved: String(preserved),
+    shifted: String(shifted),
+    lost: String(lost.length),
+    emergent: String(emergent.length),
+    stray: String(stray.length),
+  });
+  setVoice(civ, cov, true);
+  render();
+}
+
+// ── init ──
+buildDrawBar();
+resizeCanvas();
+drawSprite('idle');
+tick();
+window.addEventListener('resize', resizeCanvas);
+
+// round-trip detection
+(function detectRoundTrip() {
+  const hasSnapshot = !!localStorage.getItem('baseline-session/efdp-snapshot');
+  const hasOriginal = !!localStorage.getItem('baseline-session/chunxly-original');
+  if (hasSnapshot && hasOriginal) {
+    document.getElementById('dropLabel').textContent = 'the maze sent something back';
+    document.getElementById('dropOr').textContent = '';
+    document.getElementById('btnBlank').style.display = 'none';
+    document.getElementById('btnCompare').style.display = '';
+    setVoice(
+      "Something came back from the maze. It transformed my work. I want to see what survived.",
+      "The maze returned something. Shall I look?",
+      true
+    );
+  }
+})();
+
+document.getElementById('btnCompare').addEventListener('click', loadMazeSnapshot);
+</script>
+</body>
+</html>
