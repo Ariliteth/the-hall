@@ -611,6 +611,62 @@
   }
 
   /* ── LOADING SCREEN ── */
+  /* ── ANTEROOM ── */
+  #anteroom {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: opacity 0.8s ease;
+  }
+
+  #anteroom.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #anteroom-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  #anteroom-label {
+    position: absolute;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.18);
+    text-transform: uppercase;
+    transform: rotate(-2deg);
+    pointer-events: none;
+    bottom: 18%;
+    right: 14%;
+  }
+
+  #anteroom-enter {
+    position: absolute;
+    bottom: 6%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 6px;
+    color: rgba(255,255,255,0);
+    text-transform: uppercase;
+    pointer-events: none;
+    transition: color 3s ease;
+  }
+
+  #anteroom-enter.visible {
+    color: rgba(255,255,255,0.12);
+  }
+
   #loading-screen {
     position: fixed;
     inset: 0;
@@ -819,6 +875,13 @@
 <div id="loading-screen">
   <div id="loading-title">FIXED POINT LOCAL</div>
   <div id="loading-msg">TUNING IN...</div>
+</div>
+
+<!-- Anteroom — the place before the rack -->
+<div id="anteroom" style="display:none;">
+  <canvas id="anteroom-canvas"></canvas>
+  <div id="anteroom-label">YOU ARE HERE</div>
+  <div id="anteroom-enter">ENTER</div>
 </div>
 
 <div id="hub-shell">
@@ -1052,6 +1115,265 @@ let selectedScoreUrl    = "neighborhoods/mucklerbuckler/scores/hunter-encounter/
 let activeThemes        = new Set();
 let activeNeighborhoods = new Set();
 let scoreRunning        = false;
+let anteroomActive      = true;
+
+// ============================================================
+// ANTEROOM — the place before the rack
+// ============================================================
+
+const anteroomState = {
+  walkers: [],       // entities crossing the floor
+  scanPhase: 0,      // Third's warm scan sweep (0→1)
+  scanDone: false,
+  gridPulse: 0,      // gentle breathing after scan
+  entityPool: [],    // shuffled entity names from registry
+  poolIdx: 0,
+  animId: null,
+};
+
+function anteroomInit(entities) {
+  const canvas = document.getElementById('anteroom-canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  function resize() {
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Build entity pool — shuffled names
+  anteroomState.entityPool = entities.slice().sort(() => Math.random() - 0.5);
+  anteroomState.poolIdx = 0;
+
+  // Spawn initial walkers (staggered)
+  for (let i = 0; i < 3; i++) {
+    setTimeout(() => spawnWalker(), i * 2200);
+  }
+
+  // Start animation
+  const startTime = performance.now();
+  function frame(now) {
+    const dt = Math.min((now - (anteroomState.lastFrame || now)) / 1000, 0.1);
+    anteroomState.lastFrame = now;
+    const elapsed = (now - startTime) / 1000;
+
+    // Third scan: warm sweep across the floor, 2.5 seconds
+    if (!anteroomState.scanDone) {
+      anteroomState.scanPhase = Math.min(1, elapsed / 2.5);
+      if (anteroomState.scanPhase >= 1) anteroomState.scanDone = true;
+    }
+
+    // Breathing pulse after scan
+    anteroomState.gridPulse = Math.sin(now / 3000) * 0.5 + 0.5;
+
+    anteroomDraw(ctx, canvas.width / dpr, canvas.height / dpr, dt);
+    anteroomState.animId = requestAnimationFrame(frame);
+  }
+  anteroomState.animId = requestAnimationFrame(frame);
+
+  // Show ENTER hint after a few seconds
+  setTimeout(() => {
+    document.getElementById('anteroom-enter').classList.add('visible');
+  }, 4000);
+
+  // Click to enter
+  document.getElementById('anteroom').addEventListener('click', anteroomEnter);
+}
+
+function spawnWalker() {
+  if (!anteroomActive) return;
+  const pool = anteroomState.entityPool;
+  if (pool.length === 0) return;
+
+  const name = pool[anteroomState.poolIdx % pool.length];
+  anteroomState.poolIdx++;
+
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+
+  // Pick entry and exit edges (different)
+  const edges = ['top', 'right', 'bottom', 'left'];
+  const entryEdge = edges[Math.floor(Math.random() * 4)];
+  let exitEdge;
+  do { exitEdge = edges[Math.floor(Math.random() * 4)]; } while (exitEdge === entryEdge);
+
+  function edgePoint(edge) {
+    const margin = 60;
+    switch(edge) {
+      case 'top':    return { x: margin + Math.random() * (W - margin*2), y: -20 };
+      case 'bottom': return { x: margin + Math.random() * (W - margin*2), y: H + 20 };
+      case 'left':   return { x: -80, y: margin + Math.random() * (H - margin*2) };
+      case 'right':  return { x: W + 80, y: margin + Math.random() * (H - margin*2) };
+    }
+  }
+
+  const start = edgePoint(entryEdge);
+  const end = edgePoint(exitEdge);
+
+  // Midpoint with organic arc offset
+  const mx = (start.x + end.x) / 2 + (Math.random() - 0.5) * 200;
+  const my = (start.y + end.y) / 2 + (Math.random() - 0.5) * 150;
+
+  const duration = 10 + Math.random() * 8; // 10-18 seconds to cross
+  const walker = {
+    name: formatSlug(name),
+    t: 0,
+    duration,
+    sx: start.x, sy: start.y,
+    mx: mx, my: my,
+    ex: end.x, ey: end.y,
+  };
+  anteroomState.walkers.push(walker);
+
+  // Schedule next spawn
+  const nextDelay = 4000 + Math.random() * 6000;
+  setTimeout(() => spawnWalker(), nextDelay);
+}
+
+function anteroomDraw(ctx, W, H, dt) {
+  ctx.clearRect(0, 0, W, H);
+
+  const scan = anteroomState.scanPhase;
+  const pulse = anteroomState.gridPulse;
+
+  // Grid
+  const gridSize = 40;
+  const baseAlpha = anteroomState.scanDone
+    ? 0.04 + pulse * 0.015
+    : 0.0;
+
+  // Draw grid lines that the scan has revealed
+  const scanX = scan * (W + 200) - 100; // sweep left to right
+
+  ctx.strokeStyle = `rgba(255,255,255,${baseAlpha})`;
+  ctx.lineWidth = 0.5;
+
+  for (let x = gridSize; x < W; x += gridSize) {
+    if (!anteroomState.scanDone && x > scanX) continue;
+    const localAlpha = anteroomState.scanDone
+      ? baseAlpha
+      : Math.max(0, 0.06 - Math.abs(x - scanX) * 0.0004);
+    ctx.strokeStyle = `rgba(255,255,255,${localAlpha})`;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+
+  for (let y = gridSize; y < H; y += gridSize) {
+    const localAlpha = anteroomState.scanDone
+      ? baseAlpha
+      : Math.max(0, 0.06 * Math.min(1, scan * 3));
+    ctx.strokeStyle = `rgba(255,255,255,${localAlpha})`;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(anteroomState.scanDone ? W : scanX, y);
+    ctx.stroke();
+  }
+
+  // Third's scan line — warm amber sweep
+  if (!anteroomState.scanDone) {
+    const gradient = ctx.createLinearGradient(scanX - 80, 0, scanX + 20, 0);
+    gradient.addColorStop(0, 'rgba(200, 130, 10, 0)');
+    gradient.addColorStop(0.7, 'rgba(200, 130, 10, 0.06)');
+    gradient.addColorStop(1, 'rgba(200, 130, 10, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(scanX - 80, 0, 100, H);
+  }
+
+  // Walkers
+  ctx.font = '9px "Share Tech Mono", monospace';
+  ctx.textAlign = 'center';
+
+  for (let i = anteroomState.walkers.length - 1; i >= 0; i--) {
+    const w = anteroomState.walkers[i];
+    w.t += dt / w.duration;
+
+    if (w.t >= 1) {
+      anteroomState.walkers.splice(i, 1);
+      continue;
+    }
+
+    // Quadratic bezier
+    const t = w.t;
+    const it = 1 - t;
+    const x = it*it*w.sx + 2*it*t*w.mx + t*t*w.ex;
+    const y = it*it*w.sy + 2*it*t*w.my + t*t*w.ey;
+
+    // Fade in/out at edges
+    const edgeFade = Math.min(1, t * 5, (1 - t) * 5);
+    const alpha = edgeFade * 0.2;
+
+    ctx.fillStyle = `rgba(212, 200, 168, ${alpha})`;
+    ctx.fillText(w.name, x, y);
+  }
+}
+
+function anteroomEnter() {
+  if (!anteroomActive) return;
+  anteroomActive = false;
+
+  const el = document.getElementById('anteroom');
+  el.classList.add('hidden');
+
+  // Reveal the selection panel
+  document.getElementById('selection-panel').classList.remove('collapsed');
+
+  setTimeout(() => {
+    el.style.display = 'none';
+    if (anteroomState.animId) cancelAnimationFrame(anteroomState.animId);
+  }, 800);
+}
+
+function anteroomShow() {
+  anteroomActive = true;
+  const el = document.getElementById('anteroom');
+  el.style.display = '';
+  // Reset and restart — small delay so display:none clears first
+  requestAnimationFrame(() => {
+    el.classList.remove('hidden');
+    // Restart animation
+    anteroomState.scanPhase = 0;
+    anteroomState.scanDone = false;
+    anteroomState.walkers = [];
+    anteroomState.lastFrame = null;
+    document.getElementById('anteroom-enter').classList.remove('visible');
+
+    const startTime = performance.now();
+    const canvas = document.getElementById('anteroom-canvas');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+
+    function frame(now) {
+      if (!anteroomActive) return;
+      const dt = Math.min((now - (anteroomState.lastFrame || now)) / 1000, 0.1);
+      anteroomState.lastFrame = now;
+      const elapsed = (now - startTime) / 1000;
+
+      if (!anteroomState.scanDone) {
+        anteroomState.scanPhase = Math.min(1, elapsed / 2.5);
+        if (anteroomState.scanPhase >= 1) anteroomState.scanDone = true;
+      }
+      anteroomState.gridPulse = Math.sin(now / 3000) * 0.5 + 0.5;
+
+      anteroomDraw(ctx, canvas.width / dpr, canvas.height / dpr, dt);
+      anteroomState.animId = requestAnimationFrame(frame);
+    }
+    anteroomState.animId = requestAnimationFrame(frame);
+
+    // Respawn walkers
+    for (let i = 0; i < 2; i++) {
+      setTimeout(() => spawnWalker(), i * 2500 + 1000);
+    }
+
+    setTimeout(() => {
+      document.getElementById('anteroom-enter').classList.add('visible');
+    }, 4000);
+  });
+}
 
 // ============================================================
 // BOOT
@@ -1092,9 +1414,24 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   updateLaunchButton();
 
+  // Collect entities for anteroom walkers
+  const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
+  const allEntities = registry
+    ? Object.values(registry.neighborhoods).flatMap(getEntities)
+    : [];
+
+  // Transition: loading → anteroom (hub stays hidden underneath)
+  document.getElementById('selection-panel').classList.add('collapsed');
+
   setTimeout(() => {
     document.getElementById('loading-screen').classList.add('fade');
-    setTimeout(() => document.getElementById('loading-screen').remove(), 700);
+    setTimeout(() => {
+      document.getElementById('loading-screen').remove();
+      // Show anteroom
+      const anteroomEl = document.getElementById('anteroom');
+      anteroomEl.style.display = '';
+      anteroomInit(allEntities);
+    }, 700);
   }, 900);
 });
 
@@ -1452,6 +1789,9 @@ function launchScore() {
 
 function ejectScore() {
   setHubMode('selection');
+  // Return to the anteroom — the place before the rack
+  document.getElementById('selection-panel').classList.add('collapsed');
+  anteroomShow();
 }
 
 // ============================================================
