@@ -79,6 +79,34 @@ body::after{content:'';position:fixed;inset:0;
 .sprite-wrap{position:absolute;z-index:6;pointer-events:none;transition:left .6s cubic-bezier(.4,0,.2,1),top .6s cubic-bezier(.4,0,.2,1);}
 #spriteCanvas{display:block;}
 
+/* ── CrankSeed reveal panel ── */
+.seed-panel{width:calc(100% - 28px);max-width:512px;border:1px solid var(--border2);border-radius:8px;
+  background:var(--surface);margin-top:6px;overflow:hidden;flex-shrink:0;
+  display:none;animation:seedReveal .5s cubic-bezier(.4,0,.2,1);}
+.seed-panel.show{display:block;}
+@keyframes seedReveal{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.seed-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 11px;border-bottom:1px solid var(--border);}
+.seed-hdr-label{font-family:var(--mono);font-size:.52rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--amber);}
+.seed-copy{font-family:var(--mono);font-size:.5rem;letter-spacing:.08em;
+  text-transform:uppercase;color:rgba(255,230,180,.3);cursor:pointer;
+  padding:2px 6px;border:1px solid rgba(255,230,180,.1);border-radius:3px;
+  transition:all .2s;background:none;}
+.seed-copy:hover{color:var(--amber);border-color:var(--amber);}
+.seed-body{padding:10px 11px;display:flex;flex-direction:column;gap:6px;}
+.seed-row{display:flex;align-items:baseline;gap:8px;}
+.seed-key{font-family:var(--mono);font-size:.5rem;color:rgba(255,230,180,.3);
+  letter-spacing:.08em;text-transform:uppercase;min-width:90px;flex-shrink:0;}
+.seed-val{font-family:var(--mono);font-size:.6rem;color:rgba(255,230,180,.85);word-break:break-all;}
+.seed-swatch{display:inline-block;width:10px;height:10px;border-radius:2px;
+  margin-right:5px;vertical-align:middle;border:1px solid rgba(255,255,255,.1);}
+.seed-divider{height:1px;background:var(--border);margin:2px 0;}
+.seed-aspect{background:rgba(255,230,180,.03);border:1px solid var(--border);
+  border-radius:4px;padding:6px 8px;display:flex;flex-direction:column;gap:3px;}
+.seed-aspect-role{font-family:var(--mono);font-size:.48rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--teal);margin-bottom:1px;}
+
 /* ── notification ── */
 .notif{position:fixed;top:0;left:50%;transform:translateX(-50%) translateY(-110%);background:var(--surface2);
   border:1px solid var(--border2);border-top:none;border-bottom-left-radius:7px;border-bottom-right-radius:7px;
@@ -126,6 +154,14 @@ body::after{content:'';position:fixed;inset:0;
     <button class="btn" id="btnSee" style="display:none;">let chunxly see</button>
     <button class="btn" id="btnFinish" style="display:none;">finish</button>
   </div>
+</div>
+
+<div class="seed-panel" id="seedPanel">
+  <div class="seed-hdr">
+    <span class="seed-hdr-label">CrankSeed</span>
+    <button class="seed-copy" id="seedCopy">copy json</button>
+  </div>
+  <div class="seed-body" id="seedBody"></div>
 </div>
 
 <script>
@@ -265,6 +301,14 @@ const VOICE = {
      "It's ready. A creature."],
     ["Finished. The configuration is written. Something will read this and become it. I helped make that.",
      "There it is."],
+  ],
+  fairy_first_vision: [
+    ["The fairy is here. She sees something I didn't name. I am watching her.",
+     "Oh."],
+  ],
+  fairy_done: [
+    ["She showed me things. I understand the shape better now. We did this together.",
+     "There."],
   ],
   idle_watch: [
     ["The visitor is thinking. I am also thinking. We are thinking at the same time.",
@@ -539,6 +583,217 @@ const FAIRY_BASE_PALETTE = {
   '.': null,
 };
 
+// ── fairy seep constant ──
+const SEEP_WEIGHT = 0.2; // how much of a fairy designation bleeds to connected neighbors
+
+// ── fairy emoji vocabulary ──
+// weighted pools keyed to structural signals — tendencies, not rules
+const FAIRY_VOCAB = {
+  body_core:  ['🫀','🪨','🥚','🌕'],   // high bodyWeight, symmetric, central
+  limb_reach: ['🦵','🐍','🌿','🪡'],   // asymmetric limb, directional
+  accent_tip: ['✨','🌟','💫','🪄'],   // narrow terminus, low conviction
+  detail_eye: ['👁️','🫛','🔮'],        // tight cluster, high conviction, small
+  ambient:    ['🌫️','🌊','🍄'],        // wide scattered, low conviction
+  flow:       ['🌊','🫧'],             // strong directional diamond
+  mirror:     ['🫂','🪞','👂'],        // symmetric peer pair, similar color
+  outlier:    ['🌙','🦋','🍃'],        // isolated, few diamonds
+};
+
+// part-label picker palette — what the visitor can choose from
+const PICKER_PALETTE = [
+  // body parts
+  '🦵','🦴','👁️','🫀','🧠','👂','🦷',
+  // creature features
+  '🐍','🦋','🪸','🐚','🦎','🐙',
+  // textures & elements
+  '🌊','🔥','💎','🌿','🪨','🍄','🌙',
+  // expression
+  '✨','💫','🔮','🫧','🌫️',
+];
+const PICKER_UNKNOWN = '❓'; // always available — "something is here"
+
+// picker state (null = closed)
+S.picker = null; // { visionIndex, x, y, tiles: [{emoji, tx, ty, radius}] }
+
+function visionAt(x, y) {
+  // find a settled vision near (x,y) — check from newest to oldest
+  const FLOAT_DIST = 28;
+  for (let i = S.fairy.visions.length - 1; i >= 0; i--) {
+    const v = S.fairy.visions[i];
+    if (v.age < 48) continue; // still bursting
+    const vy = v.y - FLOAT_DIST;
+    const dx = x - v.x, dy = y - vy;
+    if (Math.sqrt(dx * dx + dy * dy) < 16 * v.scale) return i;
+  }
+  return -1;
+}
+
+function openPicker(visionIndex, cx, cy) {
+  // arrange ~10 emoji in a loose organic ring around the tap point
+  const count = 10;
+  const pool = [];
+  // pick a sample from the palette — loosely relevant but with some randomness
+  const shuffled = [...PICKER_PALETTE].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < count - 1 && i < shuffled.length; i++) pool.push(shuffled[i]);
+  pool.push(PICKER_UNKNOWN); // always last
+
+  const tiles = pool.map((emoji, i) => {
+    const angle = (Math.PI * 2 * i / pool.length) + (Math.random() - 0.5) * 0.3;
+    const dist = 32 + Math.random() * 12;
+    return {
+      emoji,
+      tx: cx + Math.cos(angle) * dist,
+      ty: cy + Math.sin(angle) * dist,
+      radius: 12,
+      rotation: (Math.random() - 0.5) * 0.2,
+    };
+  });
+
+  S.picker = { visionIndex, x: cx, y: cy, tiles };
+  render();
+}
+
+function closePicker() {
+  S.picker = null;
+  render();
+}
+
+function pickerTileAt(x, y) {
+  if (!S.picker) return null;
+  for (const tile of S.picker.tiles) {
+    const dx = x - tile.tx, dy = y - tile.ty;
+    if (Math.sqrt(dx * dx + dy * dy) < tile.radius + 4) return tile;
+  }
+  return null;
+}
+
+function renderPicker(ctx) {
+  if (!S.picker) return;
+  const p = S.picker;
+
+  // dim background ring
+  ctx.fillStyle = 'rgba(23,20,15,0.3)';
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 52, 0, Math.PI * 2);
+  ctx.fill();
+
+  for (const tile of p.tiles) {
+    // glow under each tile
+    ctx.fillStyle = 'rgba(255,240,200,0.08)';
+    ctx.beginPath();
+    ctx.arc(tile.tx, tile.ty, tile.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // emoji
+    ctx.save();
+    ctx.translate(tile.tx, tile.ty);
+    ctx.rotate(tile.rotation);
+    ctx.font = '14px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(tile.emoji, 0, 0);
+    ctx.restore();
+  }
+}
+
+// ── connectivity helper (shared by seep, export, corridor width) ──
+function getConnectedNodeIds(nodeId) {
+  const connIds = new Set();
+  S.edges.forEach(e => {
+    if (e.from === nodeId) connIds.add(e.to);
+    if (e.to === nodeId) connIds.add(e.from);
+  });
+  (S.fairy.diamonds || []).forEach(d => {
+    if (d.nodeA === nodeId) connIds.add(d.nodeB);
+    if (d.nodeB === nodeId) connIds.add(d.nodeA);
+  });
+  return connIds;
+}
+
+function pickFairyEmoji(node, diamonds) {
+  const bw = node.fairyBodyWeight ?? 0;
+  const as = node.fairyAccentScore ?? 0;
+  const conv = node.conviction ?? 1;
+  const role = node.structuralRole || 'detail';
+
+  // count diamonds involving this node
+  const myDiamonds = diamonds.filter(d => d.nodeA === node.id || d.nodeB === node.id);
+  const diamondCount = myDiamonds.length;
+
+  // check for strong symmetry or direction in connected diamonds
+  const symCount = myDiamonds.filter(d => d.symmetric).length;
+  const dirCount = myDiamonds.filter(d => d.direction !== 'none').length;
+  const symRatio = diamondCount > 0 ? symCount / diamondCount : 0;
+  const dirRatio = diamondCount > 0 ? dirCount / diamondCount : 0;
+
+  // check for color similarity with connected nodes (mirror signal)
+  let mirrorSignal = 0;
+  for (const d of myDiamonds) {
+    if (!d.symmetric) continue;
+    const otherId = d.nodeA === node.id ? d.nodeB : d.nodeA;
+    const other = S.nodes.find(n => n.id === otherId);
+    if (!other) continue;
+    const [nH] = rgbToHsl(...node.color);
+    const [oH] = rgbToHsl(...other.color);
+    const hueDist = Math.min(Math.abs(nH - oH), 360 - Math.abs(nH - oH));
+    if (hueDist < 30) mirrorSignal += 0.5;
+  }
+  mirrorSignal = Math.min(1, mirrorSignal);
+
+  // score each vocab pool
+  const scores = {};
+  scores.body_core  = (role === 'body' ? 0.6 : 0) + bw * 0.3 + symRatio * 0.1;
+  scores.limb_reach = (role === 'limb' ? 0.5 : 0) + dirRatio * 0.3 + (1 - bw) * 0.1 + as * 0.1;
+  scores.accent_tip = (role === 'accent' ? 0.5 : 0) + as * 0.3 + (1 - conv) * 0.2;
+  scores.detail_eye = (role === 'detail' ? 0.4 : 0) + conv * 0.3 + (diamondCount <= 1 ? 0.2 : 0) + (bw < 0.2 ? 0.1 : 0);
+  scores.ambient    = (bw < 0.2 ? 0.3 : 0) + (conv < 0.5 ? 0.3 : 0) + (node.size > 30 ? 0.2 : 0);
+  scores.flow       = dirRatio * 0.6 + (1 - symRatio) * 0.2;
+  scores.mirror     = mirrorSignal * 0.5 + symRatio * 0.3 + (role === 'body' ? 0.1 : 0);
+  scores.outlier    = (diamondCount <= 1 ? 0.5 : 0) + (diamondCount === 0 ? 0.3 : 0) + as * 0.1;
+
+  // sort pools by score descending
+  const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+
+  // record winning pool on node — used by seep propagation for role hints
+  node.fairyPool = ranked[0][0];
+
+  // primary pool — pick from top scorer
+  const topPool = FAIRY_VOCAB[ranked[0][0]];
+  const primary = topPool[Math.floor(Math.random() * topPool.length)];
+
+  // ~25% chance of combination if second pool is also strong (score > 0.35)
+  if (ranked[1][1] > 0.35 && Math.random() < 0.25) {
+    const secPool = FAIRY_VOCAB[ranked[1][0]];
+    const secondary = secPool[Math.floor(Math.random() * secPool.length)];
+    if (secondary !== primary) return primary + secondary;
+  }
+
+  // ~10% surprise — pick from an adjacent pool instead
+  if (Math.random() < 0.1 && ranked.length > 1) {
+    const surprisePool = FAIRY_VOCAB[ranked[1][0]];
+    return surprisePool[Math.floor(Math.random() * surprisePool.length)];
+  }
+
+  return primary;
+}
+
+// ── seep propagation ──
+// when fairy designates a node, a fraction bleeds to connected neighbors
+function propagateSeep(node) {
+  const emoji = node.fairyEmoji;
+  const pool = node.fairyPool;
+  if (!emoji) return;
+  const neighbors = getConnectedNodeIds(node.id);
+  for (const nid of neighbors) {
+    const nb = S.nodes.find(n => n.id === nid);
+    if (!nb || nb.fairyEmoji) continue; // fairy-direct always wins
+    if (!nb.seepInfluence) nb.seepInfluence = {};
+    if (!nb.seepRoleHints) nb.seepRoleHints = {};
+    nb.seepInfluence[emoji] = (nb.seepInfluence[emoji] || 0) + SEEP_WEIGHT;
+    if (pool) nb.seepRoleHints[pool] = (nb.seepRoleHints[pool] || 0) + SEEP_WEIGHT;
+  }
+}
+
 // fairy state
 S.fairy = {
   x: -50, y: -50,        // canvas position (offscreen initially)
@@ -554,6 +809,9 @@ S.fairy = {
   // results
   diamonds: [],           // completed diamond traces: { nodeA, nodeB, widthAB, widthBA, symmetric }
   wingPhase: 0,           // wing flutter counter
+  // visions
+  visions: [],            // conjured visions: { nodeId, emoji, x, y, rotation, scale, opacity, glitter, age, settled }
+  firstVisionFired: false,
 };
 
 function fairyPalette() {
@@ -598,6 +856,97 @@ function renderFairy(ctx) {
       }
       ctx.fillRect(ox + c * px, oy + r * px, px, px);
     }
+  }
+}
+
+function renderVisions(ctx) {
+  // ── seep labels: quiet inheritance from neighbors ──
+  // render BEFORE fairy visions so they sit underneath
+  if (S.fairy.settled) {
+    const maxSeep = Math.max(0.01, ...S.nodes.map(n => n.seepWeight || 0));
+    for (const n of S.nodes) {
+      if (!n.seepEmoji || n.fairyEmoji) continue; // fairy-direct takes precedence
+      const [cr, cg, cb] = n.color;
+      const seepAlpha = 0.35 + 0.25 * (n.seepWeight / maxSeep); // 0.35–0.60
+      const floatY = n.y - 22; // float above node, less than fairy visions
+
+      // cool teal glow (distinguished from fairy's warm amber)
+      const glowR = 14;
+      ctx.fillStyle = `rgba(80,${Math.min(255, cg + 60)},${Math.min(255, cb + 40)},${(seepAlpha * 0.3).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.arc(n.x, floatY, glowR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // emoji text at reduced opacity
+      ctx.save();
+      ctx.translate(n.x, floatY);
+      ctx.globalAlpha = seepAlpha;
+      ctx.font = '18px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(n.seepEmoji, 0, 0);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  const visions = S.fairy.visions;
+  if (!visions || visions.length === 0) return;
+
+  const BURST_FRAMES = 48; // ~0.8s at 60fps
+  const FLOAT_DIST = 28;   // emoji floats above conjuration point
+
+  for (const v of visions) {
+    const node = S.nodes.find(n => n.id === v.nodeId);
+    if (!node) continue;
+    const [cr, cg, cb] = node.color;
+
+    // glitter burst — active during first 48 frames
+    if (v.age < BURST_FRAMES) {
+      const progress = v.age / BURST_FRAMES;
+      const burstAlpha = 1 - progress;
+      for (let i = 0; i < v.glitter.length; i++) {
+        const g = v.glitter[i];
+        const gx = v.x + g.dx * progress * g.dist;
+        const gy = v.y + g.dy * progress * g.dist;
+        const radius = 1.5 + g.size * (1 - progress * 0.5);
+        const alpha = burstAlpha * g.alpha;
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha.toFixed(2)})`;
+        ctx.beginPath();
+        ctx.arc(gx, gy, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // emoji label — fades in as burst progresses, then stays
+    const burstDone = v.age >= BURST_FRAMES;
+    const floatT = burstDone ? 1 : Math.min(1, v.age / BURST_FRAMES);
+    const easeT = floatT < 1 ? floatT * floatT * (3 - 2 * floatT) : 1; // smoothstep
+    const emojiY = v.y - easeT * FLOAT_DIST;
+    const emojiAlpha = Math.min(1, v.age / 20); // fade in over ~0.33s
+
+    // glow underneath — warm halo so emoji reads against any background
+    const glowR = 18 * v.scale;
+    const glowA = (v.isVisitor ? 0.22 : 0.16) * emojiAlpha;
+    const tintR = v.isVisitor ? Math.min(255, cr + 30) : cr;
+    const tintG = v.isVisitor ? cg : cg;
+    const tintB = v.isVisitor ? Math.max(0, cb - 20) : cb;
+    ctx.fillStyle = `rgba(${tintR},${tintG},${tintB},${glowA.toFixed(2)})`;
+    ctx.beginPath();
+    ctx.arc(v.x, emojiY, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // emoji text
+    ctx.save();
+    ctx.translate(v.x, emojiY);
+    ctx.rotate(v.rotation);
+    ctx.globalAlpha = emojiAlpha;
+    ctx.font = `${Math.round(22 * v.scale)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(v.emoji, 0, 0);
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -747,10 +1096,135 @@ function launchFairy() {
   // take up to 6 journeys
   S.fairy.journeyQueue = pairs.slice(0, 6);
 
+  // initialize seep state on all nodes
+  for (const n of S.nodes) {
+    n.seepInfluence = {};
+    n.seepRoleHints = {};
+    n.seepEmoji = null;
+    n.seepWeight = 0;
+  }
+
   // start at Chunxly's position
   S.fairy.x = S.chunxly.x + 40;
   S.fairy.y = S.chunxly.y;
   startNextJourney();
+}
+
+// ═══════════════════════════════════════════════════════
+//  Fairy structural reweighting
+//  Called once the fairy completes all journeys.
+//  Uses diamond width data to distinguish body mass from accent/extremity.
+//  Adjusts node conviction and tags nodes with structuralRole before export.
+// ═══════════════════════════════════════════════════════
+function applyFairyReweighting() {
+  const diamonds = S.fairy.diamonds;
+  if (!diamonds || diamonds.length === 0) {
+    document.getElementById('btnFinish').style.display = '';
+    return;
+  }
+
+  // build per-node metrics from diamonds
+  // wideMass: sum of avgWidth for diamonds where this node is the wide end (or symmetric)
+  // narrowCount: times this node was the narrow/accent terminus of an asymmetric diamond
+  const nodeMetrics = {};
+  for (const n of S.nodes) {
+    nodeMetrics[n.id] = { wideMass: 0, narrowCount: 0, totalDiamonds: 0 };
+  }
+
+  for (const d of diamonds) {
+    const mA = nodeMetrics[d.nodeA];
+    const mB = nodeMetrics[d.nodeB];
+    if (!mA || !mB) continue;
+
+    mA.totalDiamonds++;
+    mB.totalDiamonds++;
+
+    if (d.symmetric) {
+      // both nodes are equal contributors — body mass
+      mA.wideMass += d.avgWidth;
+      mB.wideMass += d.avgWidth;
+    } else if (d.hierarchy === 'a-parent') {
+      mA.wideMass += d.avgWidth;
+      mB.narrowCount++;
+    } else if (d.hierarchy === 'b-parent') {
+      mB.wideMass += d.avgWidth;
+      mA.narrowCount++;
+    }
+  }
+
+  // normalize wideMass across all nodes to get relative body weight 0–1
+  const maxMass = Math.max(...Object.values(nodeMetrics).map(m => m.wideMass), 1);
+
+  for (const n of S.nodes) {
+    const m = nodeMetrics[n.id];
+    if (!m || m.totalDiamonds === 0) continue;
+
+    const bodyWeight = m.wideMass / maxMass;          // 0–1, how much body mass this node anchors
+    const accentScore = m.narrowCount / m.totalDiamonds; // 0–1, how often it was the narrow end
+
+    // structural role classification
+    if (bodyWeight > 0.5 && accentScore < 0.4) {
+      n.structuralRole = 'body';
+    } else if (accentScore > 0.5 && bodyWeight < 0.3) {
+      n.structuralRole = 'accent';
+    } else if (bodyWeight > 0.3) {
+      n.structuralRole = 'limb';
+    } else {
+      n.structuralRole = 'detail';
+    }
+    n.structuralRoleSource = 'diamond';
+
+    // conviction boost for body anchors, gentle reduction for pure accents
+    const prevConviction = n.conviction ?? 1.0;
+    if (n.structuralRole === 'body') {
+      n.conviction = Math.min(1.0, prevConviction + bodyWeight * 0.25);
+    } else if (n.structuralRole === 'accent') {
+      // don't eliminate — accents are real — but don't let them dominate color output
+      n.conviction = Math.max(0.2, prevConviction - accentScore * 0.2);
+    }
+
+    n.fairyBodyWeight = Math.round(bodyWeight * 100) / 100;
+    n.fairyAccentScore = Math.round(accentScore * 100) / 100;
+  }
+
+  // ── resolve seep: unvisited nodes inherit from neighbors ──
+  const POOL_TO_ROLE = {
+    body_core: 'body', mirror: 'body',
+    limb_reach: 'limb', flow: 'limb',
+    accent_tip: 'accent',
+    detail_eye: 'detail', ambient: 'detail', outlier: 'detail',
+  };
+
+  for (const n of S.nodes) {
+    // resolve seep emoji for unvisited nodes
+    if (!n.fairyEmoji && n.seepInfluence) {
+      const entries = Object.entries(n.seepInfluence);
+      if (entries.length > 0) {
+        entries.sort((a, b) => b[1] - a[1]);
+        n.seepEmoji = entries[0][0];
+        n.seepWeight = entries[0][1];
+      }
+    }
+
+    // resolve seep structural role for unclassified nodes
+    if (!n.structuralRole && n.seepRoleHints) {
+      const hints = Object.entries(n.seepRoleHints);
+      if (hints.length > 0) {
+        hints.sort((a, b) => b[1] - a[1]);
+        const topPool = hints[0][0];
+        const topWeight = hints[0][1];
+        n.structuralRole = POOL_TO_ROLE[topPool] || 'detail';
+        n.structuralRoleSource = 'seep';
+        // gentle conviction bump for body seep
+        if (n.structuralRole === 'body') {
+          n.conviction = Math.min(1.0, (n.conviction ?? 1.0) + topWeight * 0.1);
+        }
+      }
+    }
+  }
+
+  render(); // re-render so conviction changes show in container opacity
+  document.getElementById('btnFinish').style.display = '';
 }
 
 function startNextJourney() {
@@ -760,6 +1234,13 @@ function startNextJourney() {
     S.fairy.targetX = S.chunxly.x + 40;
     S.fairy.targetY = S.chunxly.y - 10;
     S.fairy.settled = true;
+    // fairy is done — apply structural reweighting then reveal Finish
+    applyFairyReweighting();
+    // Chunxly acknowledges the fairy's work
+    if (S.fairy.visions.length > 0) {
+      const [iv, ov] = pickVoice('fairy_done');
+      setVoice(iv, ov, true);
+    }
     return;
   }
 
@@ -788,6 +1269,54 @@ function startNextJourney() {
 
   S.fairy.expression = 'flying';
   S.fairy.settled = false;
+}
+
+function conjureFairyVision(node) {
+  if (!node || !node.id) return;
+  const f = S.fairy;
+
+  // don't re-vision a node already labeled
+  if (f.visions.some(v => v.nodeId === node.id)) return;
+
+  const emoji = pickFairyEmoji(node, f.diamonds);
+  node.fairyEmoji = emoji;
+
+  // seep: designation bleeds to connected neighbors
+  propagateSeep(node);
+
+  // generate glitter particles for the burst
+  const glitter = [];
+  const particleCount = 8 + Math.floor(Math.random() * 5); // 8-12
+  for (let i = 0; i < particleCount; i++) {
+    const angle = (Math.PI * 2 * i / particleCount) + (Math.random() - 0.5) * 0.4;
+    glitter.push({
+      dx: Math.cos(angle),
+      dy: Math.sin(angle),
+      dist: 12 + Math.random() * 16, // how far they travel
+      size: 1 + Math.random() * 1.5,
+      alpha: 0.3 + Math.random() * 0.5,
+    });
+  }
+
+  f.visions.push({
+    nodeId: node.id,
+    emoji,
+    x: node.x,
+    y: node.y,
+    rotation: (Math.random() - 0.5) * 0.28, // ±8° in radians
+    scale: 1.3 + Math.random() * 0.3,        // 1.3–1.6×
+    opacity: 1,
+    glitter,
+    age: 0,
+    isVisitor: false,
+  });
+
+  // first vision — Chunxly notices
+  if (!f.firstVisionFired) {
+    f.firstVisionFired = true;
+    const [iv, ov] = pickVoice('fairy_first_vision');
+    setVoice(iv, ov, true);
+  }
 }
 
 function updateFairy() {
@@ -829,6 +1358,9 @@ function updateFairy() {
       f.journey = null;
       f.settled = true;
       f.settleTimer = 60 + Math.random() * 40; // ~1-1.7 seconds at 60fps
+
+      // conjure a vision at this settle point
+      conjureFairyVision(j.to);
     } else {
       // quadratic bezier interpolation
       const t = j.t;
@@ -869,6 +1401,11 @@ function updateFairy() {
   if (f.settled) {
     // gentle bob while settled
     f.y += Math.sin(f.wingPhase * 0.06) * 0.15;
+  }
+
+  // advance vision ages every frame
+  for (const v of f.visions) {
+    if (v.age < 200) v.age++; // cap to avoid overflow, burst is 48 frames
   }
 }
 
@@ -1246,6 +1783,61 @@ function analyzeImage() {
 // ── multi-pass consensus ──
 // Chunxly looks at the image several times. Each jittered pass sees slightly
 // differently. Containers that keep appearing gain conviction; one-timers are tentative.
+// ── border sampling: detect background color from canvas edges ──
+function sampleBorderColor() {
+  if (!S.imageCanvas) return null;
+  const ctx = S.imageCanvas.getContext('2d');
+  const w = S.imgW, h = S.imgH;
+  const px = ctx.getImageData(0, 0, w, h).data;
+
+  // sample ~60 pixels along each edge (evenly spaced), skip corners
+  const samples = [];
+  const step = Math.max(1, Math.floor(Math.max(w, h) / 60));
+  // top and bottom rows
+  for (let x = step; x < w - step; x += step) {
+    const ti = (x + 0 * w) * 4;
+    samples.push([px[ti], px[ti + 1], px[ti + 2]]);
+    const bi = (x + (h - 1) * w) * 4;
+    samples.push([px[bi], px[bi + 1], px[bi + 2]]);
+  }
+  // left and right columns
+  for (let y = step; y < h - step; y += step) {
+    const li = (0 + y * w) * 4;
+    samples.push([px[li], px[li + 1], px[li + 2]]);
+    const ri = ((w - 1) + y * w) * 4;
+    samples.push([px[ri], px[ri + 1], px[ri + 2]]);
+  }
+
+  if (samples.length === 0) return null;
+
+  // cluster border samples by color proximity (threshold 45 RGB distance)
+  const clusters = [];
+  for (const s of samples) {
+    let placed = false;
+    for (const cl of clusters) {
+      const dr = cl.avg[0] - s[0], dg = cl.avg[1] - s[1], db = cl.avg[2] - s[2];
+      if (Math.sqrt(dr * dr + dg * dg + db * db) < 45) {
+        cl.members.push(s);
+        cl.avg = [
+          cl.members.reduce((a, m) => a + m[0], 0) / cl.members.length,
+          cl.members.reduce((a, m) => a + m[1], 0) / cl.members.length,
+          cl.members.reduce((a, m) => a + m[2], 0) / cl.members.length,
+        ];
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) clusters.push({ avg: [...s], members: [s] });
+  }
+
+  // dominant cluster = background
+  clusters.sort((a, b) => b.members.length - a.members.length);
+  const dominant = clusters[0];
+  // only treat as background if it covers >30% of border samples
+  if (dominant.members.length / samples.length < 0.3) return null;
+  return dominant.avg.map(Math.round);
+}
+
 function analyzeMultiPass(passes = 5) {
   if (!S.imageCanvas) return [];
   const allPasses = [];
@@ -1322,6 +1914,22 @@ function analyzeMultiPass(passes = 5) {
 
   // sort by conviction desc, then focal desc — most certain first
   result.sort((a, b) => (b.conviction - a.conviction) || (b.focal - a.focal));
+
+  // ── border-sampled background filter ──
+  // remove containers whose color matches the dominant border color
+  const bgColor = sampleBorderColor();
+  if (bgColor) {
+    const BG_THRESHOLD = 50; // RGB distance — generous to catch near-background
+    const filtered = result.filter(c => {
+      const dr = c.color[0] - bgColor[0];
+      const dg = c.color[1] - bgColor[1];
+      const db = c.color[2] - bgColor[2];
+      return Math.sqrt(dr * dr + dg * dg + db * db) > BG_THRESHOLD;
+    });
+    // only apply filter if it doesn't remove everything
+    if (filtered.length >= 2) return filtered;
+  }
+
   return result;
 }
 
@@ -1428,13 +2036,8 @@ async function daubSequence(candidates) {
   setPhase('visitor');
   startPingPong();
 
-  // launch the fairy immediately — she needs time to build diamonds before Finish
+  // launch the fairy — Finish button reveals only after she completes all journeys
   launchFairy();
-
-  // show Finish after fairy has had time to fly (her journeys take ~6-8s)
-  setTimeout(() => {
-    document.getElementById('btnFinish').style.display = '';
-  }, 6000);
 
   // if this is a round-trip comparison, run delta analysis after fairy settles
   if (S.originalContainers && S.originalContainers.length) {
@@ -1772,8 +2375,14 @@ function render() {
     }
   }
 
-  // fairy
+  // fairy visions (behind sprite, accumulate on canvas)
+  renderVisions($ctx);
+
+  // fairy sprite
   renderFairy($ctx);
+
+  // part-label picker (topmost layer)
+  renderPicker($ctx);
 }
 
 function updateNodeCount() {
@@ -1910,6 +2519,44 @@ function onPointerUp(e) {
         y: (e.changedTouches[0].clientY - $canvas.getBoundingClientRect().top) * (S.canvasSize / $canvas.getBoundingClientRect().height) }
     : canvasCoords(e);
   const { x, y } = coords;
+
+  // picker interaction — check before normal node handling
+  if (S.picker && !pointerMoved) {
+    const tile = pickerTileAt(x, y);
+    if (tile) {
+      // visitor selected a label
+      const v = S.fairy.visions[S.picker.visionIndex];
+      if (v) {
+        const node = S.nodes.find(n => n.id === v.nodeId);
+        if (node) {
+          node.partLabel = tile.emoji;
+          v.emoji = tile.emoji;
+          v.isVisitor = true;
+        }
+      }
+      closePicker();
+      pointerDown = false;
+      pointerMoved = false;
+      pointerStartNode = null;
+      return;
+    }
+    // tapped outside picker — dismiss
+    closePicker();
+  }
+
+  // vision tap — open picker if tapping a settled emoji
+  if (!pointerMoved) {
+    const vi = visionAt(x, y);
+    if (vi >= 0) {
+      const v = S.fairy.visions[vi];
+      openPicker(vi, v.x, v.y - 20);
+      pointerDown = false;
+      pointerMoved = false;
+      pointerStartNode = null;
+      return;
+    }
+  }
+
   const node = nodeAt(x, y);
 
   if (pointerStartNode && pointerMoved && node && node !== pointerStartNode) {
@@ -2143,21 +2790,15 @@ function exportCreature() {
       size: n.size,
       boundary: n.boundary,
       conviction: n.conviction ?? 1.0,
-      connected: (() => {
-        // combine formal edges + fairy diamond observations
-        const connIds = new Set();
-        S.edges.forEach(e => {
-          if (e.from === n.id) connIds.add(e.to);
-          if (e.to === n.id) connIds.add(e.from);
-        });
-        (S.fairy.diamonds || []).forEach(d => {
-          if (d.nodeA === n.id) connIds.add(d.nodeB);
-          if (d.nodeB === n.id) connIds.add(d.nodeA);
-        });
-        return [...connIds]
-          .map(id => S.nodes.findIndex(nn => nn.id === id))
-          .filter(idx => idx >= 0);
-      })()
+      structuralRole: n.structuralRole || 'unclassified',
+      fairyBodyWeight: n.fairyBodyWeight ?? null,
+      fairyAccentScore: n.fairyAccentScore ?? null,
+      fairyEmoji: n.fairyEmoji || n.seepEmoji || null,
+      partLabel: n.partLabel || n.fairyEmoji || n.seepEmoji || null,
+      partLabelSource: n.partLabel ? 'visitor' : (n.fairyEmoji ? 'fairy' : (n.seepEmoji ? 'seep' : null)),
+      connected: [...getConnectedNodeIds(n.id)]
+        .map(id => S.nodes.findIndex(nn => nn.id === id))
+        .filter(idx => idx >= 0)
     };
   });
 
@@ -2182,12 +2823,33 @@ function exportCreature() {
   pinConfig.forEach(p => pinCounts[p.type]++);
   const dominantPinType = Object.entries(pinCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'circle';
 
-  // dominant color: average of all node colors
-  const avgColor = [0, 0, 0];
-  S.nodes.forEach(n => { avgColor[0] += n.color[0]; avgColor[1] += n.color[1]; avgColor[2] += n.color[2]; });
-  avgColor[0] = Math.round(avgColor[0] / S.nodes.length);
-  avgColor[1] = Math.round(avgColor[1] / S.nodes.length);
-  avgColor[2] = Math.round(avgColor[2] / S.nodes.length);
+  // dominant color: weighted average by fairy body mass (accent nodes contribute less)
+  // falls back to flat average if fairy data isn't available
+  const colorWeightSum = [0, 0, 0];
+  let totalWeight = 0;
+  S.nodes.forEach(n => {
+    // body nodes get full weight, accents get 0.15, limbs/details get 0.5
+    const roleWeight = n.structuralRole === 'body' ? 1.0
+      : n.structuralRole === 'accent' ? 0.15
+      : n.structuralRole === 'limb' ? 0.6
+      : 0.4;
+    const w = (n.fairyBodyWeight ?? 0.5) * roleWeight * (n.conviction ?? 1.0);
+    colorWeightSum[0] += n.color[0] * w;
+    colorWeightSum[1] += n.color[1] * w;
+    colorWeightSum[2] += n.color[2] * w;
+    totalWeight += w;
+  });
+  const avgColor = totalWeight > 0
+    ? [
+        Math.round(colorWeightSum[0] / totalWeight),
+        Math.round(colorWeightSum[1] / totalWeight),
+        Math.round(colorWeightSum[2] / totalWeight),
+      ]
+    : (() => {
+        const flat = [0, 0, 0];
+        S.nodes.forEach(n => { flat[0] += n.color[0]; flat[1] += n.color[1]; flat[2] += n.color[2]; });
+        return flat.map(v => Math.round(v / S.nodes.length));
+      })();
   const dominantHex = rgbToHex(avgColor[0], avgColor[1], avgColor[2]);
 
   // secondary color: color of node furthest from average
@@ -2271,11 +2933,62 @@ function exportCreature() {
       const avg = S.nodes.reduce((s, n) => s + (n.conviction ?? 1), 0) / Math.max(1, S.nodes.length);
       return avg > 0.7 ? 'certain' : avg > 0.4 ? 'mixed' : 'tentative';
     })(),
-    // fairy observations
+    // fairy structural observations
     fairyTraces: diamonds.length,
     symmetryRatio: diamonds.length ? Math.round(symmetricCount / diamonds.length * 100) / 100 : 0,
     avgDiamondWidth,
     structuralDirection: asymmetricCount > symmetricCount ? 'directional' : 'balanced',
+    // structural role breakdown (from fairy reweighting)
+    structuralProfile: (() => {
+      const roles = { body: 0, limb: 0, accent: 0, detail: 0, unclassified: 0 };
+      S.nodes.forEach(n => {
+        const r = n.structuralRole || 'unclassified';
+        roles[r] = (roles[r] || 0) + 1;
+      });
+      return roles;
+    })(),
+    // per-aspect shape vocabulary (populated after export, but seeded here from node data)
+    aspects: (() => {
+      const bodyNodes = pinConfig.filter(p => p.structuralRole === 'body' || p.structuralRole === 'limb');
+      const accentNodes = pinConfig.filter(p => p.structuralRole === 'accent' || p.structuralRole === 'detail');
+      if (bodyNodes.length === 0 && accentNodes.length === 0) return null;
+      const result = [];
+      if (bodyNodes.length >= 2) {
+        const avg = [0,0,0];
+        bodyNodes.forEach(p => { avg[0]+=p.color[0]; avg[1]+=p.color[1]; avg[2]+=p.color[2]; });
+        result.push({
+          role: 'body',
+          hex: rgbToHex(Math.round(avg[0]/bodyNodes.length), Math.round(avg[1]/bodyNodes.length), Math.round(avg[2]/bodyNodes.length)),
+          pinCount: bodyNodes.length,
+          shape: inferAspectShape(bodyNodes),
+          avgConviction: Math.round(bodyNodes.reduce((s,p) => s+(p.conviction??1),0)/bodyNodes.length*100)/100,
+        });
+      }
+      if (accentNodes.length >= 2) {
+        const avg = [0,0,0];
+        accentNodes.forEach(p => { avg[0]+=p.color[0]; avg[1]+=p.color[1]; avg[2]+=p.color[2]; });
+        result.push({
+          role: 'accent',
+          hex: rgbToHex(Math.round(avg[0]/accentNodes.length), Math.round(avg[1]/accentNodes.length), Math.round(avg[2]/accentNodes.length)),
+          pinCount: accentNodes.length,
+          shape: inferAspectShape(accentNodes),
+          avgConviction: Math.round(accentNodes.reduce((s,p) => s+(p.conviction??1),0)/accentNodes.length*100)/100,
+        });
+      }
+      return result.length > 0 ? result : null;
+    })(),
+    // fairy visions
+    fairyVisions: S.fairy.visions.length,
+    partLabels: (() => {
+      let fairy = 0, visitor = 0, seep = 0, unlabeled = 0;
+      S.nodes.forEach(n => {
+        if (n.partLabel) visitor++;
+        else if (n.fairyEmoji) fairy++;
+        else if (n.seepEmoji) seep++;
+        else unlabeled++;
+      });
+      return { fairy, visitor, seep, unlabeled };
+    })(),
   };
 
   // add round-trip data if comparison was performed
@@ -2321,9 +3034,90 @@ function exportCreature() {
   document.getElementById('btnFinish').style.display = 'none';
 
   showNotif('creature exported');
+  showSeedPanel(crankSeed);
 
-  // generate CPM template too
+  // generate CPM templates — full single + per-aspect (backward compat, derived from layers)
   generateCPM(pinConfig);
+
+  // ── layer clustering: identity-based grouping from fairy signal ──
+  const layers = clusterLayers(pinConfig);
+  if (layers && layers.length > 0) {
+    // render filled PNGs per layer and store
+    const layerPNGs = [];
+    for (const layer of layers) {
+      const dataUrl = renderLayerPNG(layer, pinConfig);
+      const storageKey = `baseline-session/chunxly-layer-${layer.id}`;
+      try { localStorage.setItem(storageKey, dataUrl); } catch(e) {}
+      layerPNGs.push({ id: layer.id, key: storageKey });
+    }
+
+    // store layer metadata (includes PNG storage keys)
+    try {
+      const layerMeta = layers.map((l, i) => ({
+        id: l.id, emoji: l.emoji, role: l.role, source: l.source,
+        hex: l.hex, bounds: l.bounds, order: l.order,
+        avgConviction: l.avgConviction, nodeCount: l.nodeCount, shape: l.shape,
+        pngKey: layerPNGs[i]?.key || null,
+      }));
+      localStorage.setItem('baseline-session/chunxly-layer-meta', JSON.stringify(layerMeta));
+    } catch(e) {}
+
+    // update crankSeed layerCount to reflect identity-based layers
+    crankSeed.layerCount = layers.length;
+
+    // derive aspects from layers (Option B: backward-compat projection)
+    // body aspect = all layers with role body or limb
+    // accent aspect = all layers with role accent or detail
+    const bodyLayerPins = [];
+    const accentLayerPins = [];
+    for (const layer of layers) {
+      const pins = layer.nodeIndices.map(idx => pinConfig[idx]);
+      if (layer.role === 'body' || layer.role === 'limb') bodyLayerPins.push(...pins);
+      else if (layer.role === 'accent' || layer.role === 'detail') accentLayerPins.push(...pins);
+      else bodyLayerPins.push(...pins); // unclassified → body bucket
+    }
+
+    // update crankSeed aspects from layer-derived buckets
+    const derivedAspects = [];
+    if (bodyLayerPins.length >= 2) {
+      const avg = [0,0,0];
+      bodyLayerPins.forEach(p => { avg[0]+=p.color[0]; avg[1]+=p.color[1]; avg[2]+=p.color[2]; });
+      derivedAspects.push({
+        role: 'body',
+        hex: rgbToHex(Math.round(avg[0]/bodyLayerPins.length), Math.round(avg[1]/bodyLayerPins.length), Math.round(avg[2]/bodyLayerPins.length)),
+        pinCount: bodyLayerPins.length,
+        shape: inferAspectShape(bodyLayerPins),
+        avgConviction: Math.round(bodyLayerPins.reduce((s,p) => s+(p.conviction??1),0)/bodyLayerPins.length*100)/100,
+      });
+    }
+    if (accentLayerPins.length >= 2) {
+      const avg = [0,0,0];
+      accentLayerPins.forEach(p => { avg[0]+=p.color[0]; avg[1]+=p.color[1]; avg[2]+=p.color[2]; });
+      derivedAspects.push({
+        role: 'accent',
+        hex: rgbToHex(Math.round(avg[0]/accentLayerPins.length), Math.round(avg[1]/accentLayerPins.length), Math.round(avg[2]/accentLayerPins.length)),
+        pinCount: accentLayerPins.length,
+        shape: inferAspectShape(accentLayerPins),
+        avgConviction: Math.round(accentLayerPins.reduce((s,p) => s+(p.conviction??1),0)/accentLayerPins.length*100)/100,
+      });
+    }
+    if (derivedAspects.length > 0) crankSeed.aspects = derivedAspects;
+
+    // re-persist updated crankSeed
+    try {
+      localStorage.setItem('baseline-session/crank-seed', JSON.stringify(crankSeed));
+    } catch(e) {}
+
+    // update panel to reflect layer-derived aspects
+    showSeedPanel(crankSeed);
+
+    // generate backward-compat aspect CPMs from layer-derived buckets
+    generateAspectCPMs(pinConfig);
+  } else {
+    // no layers (no fairy data) — fall back to old aspect generation
+    generateAspectCPMs(pinConfig);
+    try { localStorage.removeItem('baseline-session/chunxly-layer-meta'); } catch(e) {}
+  }
 }
 
 function findComponents() {
@@ -2354,10 +3148,445 @@ function findComponents() {
   return components;
 }
 
-function generateCPM(pinConfig) {
+// ═══════════════════════════════════════════════════════
+//  clusterLayers — group nodes by fairy signal identity
+//  Priority: visitor label > fairy emoji > fairy pool >
+//            seep cluster > structural role fallback
+//  Spatially disjoint clusters with same emoji → separate layers
+//  Single-node layers merge into nearest layer by role
+// ═══════════════════════════════════════════════════════
+function clusterLayers(pinConfig) {
+  const nodeById = new Map();
+  S.nodes.forEach((n, i) => nodeById.set(n.id, { node: n, idx: i, pin: pinConfig[i] }));
+
+  // ── Step 1: assign each node to a layer key by priority cascade ──
+  const layerAssign = new Map(); // nodeIndex → layerKey
+
+  const POOL_TO_ROLE = {
+    body_core: 'body', mirror: 'body',
+    limb_reach: 'limb', flow: 'limb',
+    accent_tip: 'accent',
+    detail_eye: 'detail', ambient: 'detail', outlier: 'detail',
+  };
+
+  S.nodes.forEach((n, i) => {
+    let key = null;
+    let source = null;
+
+    // Priority 1: visitor label
+    if (n.partLabel) {
+      key = `visitor:${n.partLabel}`;
+      source = 'visitor';
+    }
+    // Priority 2: fairy emoji (direct vision)
+    else if (n.fairyEmoji) {
+      key = `fairy:${n.fairyEmoji}`;
+      source = 'fairy';
+    }
+    // Priority 3: fairy pool (structural intuition, even if emoji differ)
+    else if (n.fairyPool) {
+      key = `pool:${n.fairyPool}`;
+      source = 'pool';
+    }
+    // Priority 4: seep cluster — dominant seep influence source
+    else if (n.seepInfluence) {
+      const entries = Object.entries(n.seepInfluence);
+      if (entries.length > 0) {
+        entries.sort((a, b) => b[1] - a[1]);
+        key = `seep:${entries[0][0]}`;
+        source = 'seep';
+      }
+    }
+
+    // Priority 5: structural role fallback
+    if (!key) {
+      const role = n.structuralRole || 'unclassified';
+      if (role === 'body' || role === 'limb') key = 'role:body-limb';
+      else if (role === 'accent' || role === 'detail') key = 'role:accent-detail';
+      else key = 'role:unclassified';
+      source = source || 'role';
+    }
+
+    layerAssign.set(i, { key, source });
+  });
+
+  // ── Step 2: group nodes by layer key ──
+  const keyGroups = new Map(); // key → [nodeIndex, ...]
+  for (const [idx, assign] of layerAssign) {
+    if (!keyGroups.has(assign.key)) keyGroups.set(assign.key, []);
+    keyGroups.get(assign.key).push(idx);
+  }
+
+  // ── Step 3: spatial separation — split disjoint clusters within same key ──
+  // Two nodes in the same key-group are "spatially connected" if they share
+  // an edge (fairy diamond or drawn edge). Disjoint subgraphs become separate layers.
+  const preLayers = []; // { key, emoji, role, source, nodeIndices }
+
+  for (const [key, indices] of keyGroups) {
+    // BFS within this group using graph connectivity
+    const inGroup = new Set(indices);
+    const visited = new Set();
+
+    for (const startIdx of indices) {
+      if (visited.has(startIdx)) continue;
+      const cluster = [];
+      const queue = [startIdx];
+      while (queue.length) {
+        const idx = queue.shift();
+        if (visited.has(idx)) continue;
+        visited.add(idx);
+        cluster.push(idx);
+        // walk connected neighbors that are in this same key-group
+        const pin = pinConfig[idx];
+        if (pin.connected) {
+          for (const nIdx of pin.connected) {
+            if (inGroup.has(nIdx) && !visited.has(nIdx)) queue.push(nIdx);
+          }
+        }
+      }
+      // also pull in spatially close nodes in the same group that lack edges
+      // (proximity fallback: within 0.08 normalized distance)
+      for (const cIdx of indices) {
+        if (visited.has(cIdx)) continue;
+        const cp = pinConfig[cIdx];
+        for (const inIdx of cluster) {
+          const ip = pinConfig[inIdx];
+          const dx = cp.x - ip.x, dy = cp.y - ip.y;
+          if (Math.sqrt(dx * dx + dy * dy) < 0.08) {
+            visited.add(cIdx);
+            cluster.push(cIdx);
+            break;
+          }
+        }
+      }
+
+      // derive emoji and role for this cluster
+      const keyParts = key.split(':');
+      const keyType = keyParts[0];
+      const keyVal = keyParts.slice(1).join(':');
+      let emoji = null, role = null;
+
+      if (keyType === 'visitor') {
+        emoji = keyVal;
+        // derive role from the majority structural role in this cluster
+        role = majorityRole(cluster);
+      } else if (keyType === 'fairy') {
+        emoji = keyVal;
+        role = majorityRole(cluster);
+      } else if (keyType === 'pool') {
+        emoji = clusterDominantEmoji(cluster);
+        role = POOL_TO_ROLE[keyVal] || majorityRole(cluster);
+      } else if (keyType === 'seep') {
+        emoji = keyVal;
+        role = majorityRole(cluster);
+      } else {
+        // role fallback
+        emoji = clusterDominantEmoji(cluster);
+        role = keyVal === 'body-limb' ? 'body' : keyVal === 'accent-detail' ? 'accent' : 'unclassified';
+      }
+
+      preLayers.push({
+        key, emoji, role,
+        source: layerAssign.get(cluster[0])?.source || 'role',
+        nodeIndices: cluster,
+      });
+    }
+  }
+
+  // ── Step 4: minimum layer size — merge single-node layers ──
+  const layers = [];
+  const orphans = [];
+
+  for (const layer of preLayers) {
+    if (layer.nodeIndices.length >= 2) {
+      layers.push(layer);
+    } else {
+      orphans.push(layer.nodeIndices[0]);
+    }
+  }
+
+  // merge each orphan into nearest layer by structural role, then by spatial distance
+  for (const orphIdx of orphans) {
+    const orphNode = S.nodes[orphIdx];
+    const orphRole = orphNode.structuralRole || 'unclassified';
+    const orphPos = pinConfig[orphIdx];
+
+    let bestLayer = null, bestDist = Infinity;
+
+    for (const layer of layers) {
+      // prefer role match
+      const roleMatch = (
+        (orphRole === 'body' || orphRole === 'limb') && (layer.role === 'body' || layer.role === 'limb')
+      ) || (
+        (orphRole === 'accent' || orphRole === 'detail') && (layer.role === 'accent' || layer.role === 'detail')
+      );
+
+      // spatial distance to nearest node in layer
+      let minDist = Infinity;
+      for (const lIdx of layer.nodeIndices) {
+        const lp = pinConfig[lIdx];
+        const dx = orphPos.x - lp.x, dy = orphPos.y - lp.y;
+        minDist = Math.min(minDist, Math.sqrt(dx * dx + dy * dy));
+      }
+
+      // role match gets a big distance bonus
+      const effectiveDist = roleMatch ? minDist * 0.5 : minDist;
+      if (effectiveDist < bestDist) {
+        bestDist = effectiveDist;
+        bestLayer = layer;
+      }
+    }
+
+    if (bestLayer) {
+      bestLayer.nodeIndices.push(orphIdx);
+    }
+    // if no layers exist at all (extreme edge case), orphan is dropped — creature is too sparse
+  }
+
+  // ── Step 5: compute layer metadata ──
+  const result = layers.map((layer, i) => {
+    const pins = layer.nodeIndices.map(idx => pinConfig[idx]);
+    const nodes = layer.nodeIndices.map(idx => S.nodes[idx]);
+
+    // averaged hex color for this layer
+    const avg = [0, 0, 0];
+    nodes.forEach(n => { avg[0] += n.color[0]; avg[1] += n.color[1]; avg[2] += n.color[2]; });
+    const count = nodes.length;
+    const hex = rgbToHex(
+      Math.round(avg[0] / count),
+      Math.round(avg[1] / count),
+      Math.round(avg[2] / count)
+    );
+
+    // spatial bounds (normalized 0-1)
+    const xs = pins.map(p => p.x), ys = pins.map(p => p.y);
+    const bounds = {
+      minX: Math.min(...xs), maxX: Math.max(...xs),
+      minY: Math.min(...ys), maxY: Math.max(...ys),
+    };
+    bounds.centroidX = (bounds.minX + bounds.maxX) / 2;
+    bounds.centroidY = (bounds.minY + bounds.maxY) / 2;
+
+    // conviction average
+    const avgConviction = Math.round(
+      nodes.reduce((s, n) => s + (n.conviction ?? 1), 0) / count * 100
+    ) / 100;
+
+    return {
+      id: `${layer.emoji || layer.role}-${i}`,
+      emoji: layer.emoji,
+      role: layer.role,
+      source: layer.source,
+      hex,
+      bounds,
+      avgConviction,
+      nodeCount: count,
+      nodeIndices: layer.nodeIndices,
+      shape: inferAspectShape(pins),
+    };
+  });
+
+  // ── Step 6: layer ordering for compositing ──
+  // body core → limbs (by centroid proximity to body) → detail → accent
+  const ROLE_ORDER = { body: 0, limb: 1, detail: 2, accent: 3, unclassified: 1 };
+  // find body centroid for limb ordering
+  const bodyLayers = result.filter(l => l.role === 'body');
+  const bodyCentroid = bodyLayers.length > 0
+    ? {
+        x: bodyLayers.reduce((s, l) => s + l.bounds.centroidX, 0) / bodyLayers.length,
+        y: bodyLayers.reduce((s, l) => s + l.bounds.centroidY, 0) / bodyLayers.length,
+      }
+    : { x: 0.5, y: 0.5 };
+
+  result.sort((a, b) => {
+    const ra = ROLE_ORDER[a.role] ?? 1, rb = ROLE_ORDER[b.role] ?? 1;
+    if (ra !== rb) return ra - rb;
+    // within same role tier, closer to body centroid = lower in stack
+    const da = Math.sqrt((a.bounds.centroidX - bodyCentroid.x) ** 2 + (a.bounds.centroidY - bodyCentroid.y) ** 2);
+    const db = Math.sqrt((b.bounds.centroidX - bodyCentroid.x) ** 2 + (b.bounds.centroidY - bodyCentroid.y) ** 2);
+    return da - db;
+  });
+
+  // assign compositing order
+  result.forEach((layer, i) => { layer.order = i; });
+
+  return result;
+
+  // ── helpers ──
+  function majorityRole(indices) {
+    const counts = {};
+    indices.forEach(idx => {
+      const r = S.nodes[idx].structuralRole || 'unclassified';
+      counts[r] = (counts[r] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unclassified';
+  }
+
+  function clusterDominantEmoji(indices) {
+    const counts = {};
+    indices.forEach(idx => {
+      const n = S.nodes[idx];
+      const e = n.partLabel || n.fairyEmoji || n.seepEmoji;
+      if (e) counts[e] = (counts[e] || 0) + 1;
+    });
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    return top ? top[0] : null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  renderLayerPNG — render a single layer as a filled PNG
+//  Takes a layer object (from clusterLayers) and pinConfig,
+//  returns a data URL (PNG, 512×512, transparent background,
+//  flat color fill with hard edges)
+// ═══════════════════════════════════════════════════════
+function renderLayerPNG(layer, pinConfig) {
+  const size = S.canvasSize || 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  // parse layer hex to RGB
+  const hex = layer.hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+
+  // work on a binary mask (1 = filled, 0 = empty) at canvas resolution
+  const mask = new Uint8Array(size * size);
+
+  // ── inflate each node: circle of radius based on node size ──
+  // node.size is 4/8/16 px (container size), inflate further for solid body
+  const layerIdxSet = new Set(layer.nodeIndices);
+
+  for (const idx of layer.nodeIndices) {
+    const n = S.nodes[idx];
+    const cx = Math.round(n.x);
+    const cy = Math.round(n.y);
+    // inflation radius: node size + conviction-scaled padding
+    const baseR = (n.size || 8) * 1.2;
+    const conv = n.conviction ?? 1.0;
+    const inflateR = Math.round(baseR + conv * 6);
+
+    for (let dy = -inflateR; dy <= inflateR; dy++) {
+      for (let dx = -inflateR; dx <= inflateR; dx++) {
+        if (dx * dx + dy * dy > inflateR * inflateR) continue;
+        const px = cx + dx, py = cy + dy;
+        if (px >= 0 && px < size && py >= 0 && py < size) {
+          mask[py * size + px] = 1;
+        }
+      }
+    }
+  }
+
+  // ── walk edges between connected nodes within this layer ──
+  // Bresenham with inflation radius along the path
+  const edgeSet = new Set();
+  for (const idx of layer.nodeIndices) {
+    const pin = pinConfig[idx];
+    if (!pin.connected) continue;
+    for (const jIdx of pin.connected) {
+      if (!layerIdxSet.has(jIdx)) continue;
+      const key = Math.min(idx, jIdx) + '-' + Math.max(idx, jIdx);
+      if (edgeSet.has(key)) continue;
+      edgeSet.add(key);
+
+      const nA = S.nodes[idx], nB = S.nodes[jIdx];
+      // corridor width: average of both node sizes, scaled by conviction
+      const avgSize = ((nA.size || 8) + (nB.size || 8)) / 2;
+      const avgConv = ((nA.conviction ?? 1) + (nB.conviction ?? 1)) / 2;
+      const corridorR = Math.round(avgSize * 0.8 + avgConv * 4);
+
+      // Bresenham walk at canvas resolution
+      let x0 = Math.round(nA.x), y0 = Math.round(nA.y);
+      const x1 = Math.round(nB.x), y1 = Math.round(nB.y);
+      const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+      const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+      let err = dx - dy;
+      let steps = 0;
+      const maxSteps = dx + dy + 1;
+
+      while (steps++ < maxSteps + size) {
+        // inflate around current position
+        for (let iy = -corridorR; iy <= corridorR; iy++) {
+          for (let ix = -corridorR; ix <= corridorR; ix++) {
+            if (ix * ix + iy * iy > corridorR * corridorR) continue;
+            const px = x0 + ix, py = y0 + iy;
+            if (px >= 0 && px < size && py >= 0 && py < size) {
+              mask[py * size + px] = 1;
+            }
+          }
+        }
+        if (x0 === x1 && y0 === y1) break;
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x0 += sx; }
+        if (e2 < dx) { err += dx; y0 += sy; }
+      }
+    }
+  }
+
+  // ── flood-fill interior gaps ──
+  // find enclosed regions: any 0-cell fully surrounded by 1-cells that
+  // can't reach the canvas border should be filled
+  const visited = new Uint8Array(size * size);
+  // BFS from all border 0-cells to mark exterior
+  const queue = [];
+  for (let x = 0; x < size; x++) {
+    if (!mask[x]) queue.push(x); // top row
+    if (!mask[(size - 1) * size + x]) queue.push((size - 1) * size + x); // bottom
+  }
+  for (let y = 1; y < size - 1; y++) {
+    if (!mask[y * size]) queue.push(y * size); // left
+    if (!mask[y * size + size - 1]) queue.push(y * size + size - 1); // right
+  }
+  for (const idx of queue) visited[idx] = 1;
+
+  let qi = 0;
+  while (qi < queue.length) {
+    const pos = queue[qi++];
+    const px = pos % size, py = (pos - px) / size;
+    const neighbors = [
+      py > 0 ? pos - size : -1,
+      py < size - 1 ? pos + size : -1,
+      px > 0 ? pos - 1 : -1,
+      px < size - 1 ? pos + 1 : -1,
+    ];
+    for (const np of neighbors) {
+      if (np >= 0 && !mask[np] && !visited[np]) {
+        visited[np] = 1;
+        queue.push(np);
+      }
+    }
+  }
+
+  // any unvisited 0-cell is interior — fill it
+  for (let i = 0; i < size * size; i++) {
+    if (!mask[i] && !visited[i]) mask[i] = 1;
+  }
+
+  // ── render mask to canvas ──
+  const imgData = ctx.createImageData(size, size);
+  const data = imgData.data;
+  for (let i = 0; i < size * size; i++) {
+    if (mask[i]) {
+      const off = i * 4;
+      data[off] = r;
+      data[off + 1] = g;
+      data[off + 2] = b;
+      data[off + 3] = 255;
+    }
+    // else: stays transparent (0,0,0,0)
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  return canvas.toDataURL('image/png');
+}
+
+function generateCPM(pinConfig, name) {
   // generate a .cpm-compatible template string that EFDP can parse
   // EFDP format: # colors → "A #hex", # pins → "A = type #hex str:N dir:D", # grid → letter rows
-  const lines = ['# name', 'Chunxly Creature', '', '# scale', '6', '', '# colors'];
+  const lines = ['# name', name || 'Chunxly Creature', '', '# scale', '6', '', '# colors'];
   const colorMap = new Map(); // hex → letter
   const pinLetters = [];      // per-pin letter assignments
   let letter = 65; // 'A'
@@ -2383,24 +3612,24 @@ function generateCPM(pinConfig) {
     emittedPins.add(ch);
     const hex = rgbToHex(p.color[0], p.color[1], p.color[2]);
     const cv = Math.round((p.conviction ?? 1) * 100) / 100;
-    lines.push(`${ch} = ${p.type} ${hex} str:${p.strength} conv:${cv} dir:${dirs[p.direction] || 'up'}`);
+    const rolePart = p.structuralRole && p.structuralRole !== 'unclassified' ? ` role:${p.structuralRole}` : '';
+    lines.push(`${ch} = ${p.type} ${hex} str:${p.strength} conv:${cv} dir:${dirs[p.direction] || 'up'}${rolePart}`);
   });
 
-  // grid section — map pin positions onto a small grid
-  // grid size scales with container count: 6 baseline, +1 per 8 containers, cap 10
+  // grid section — map pin positions onto a grid
+  // larger grid = more shape fidelity for skeleton inflation
   lines.push('', '# grid');
-  const gridSize = Math.min(10, Math.max(6, 6 + Math.floor((pinConfig.length - 12) / 8)));
+  const gridSize = Math.min(18, Math.max(10, 10 + Math.floor((pinConfig.length - 8) / 6)));
   if (pinConfig.length > 0) {
-    // contract positions toward centroid (25%) for tighter form
+    // contract positions toward centroid (20%) for tighter form
     const cx = pinConfig.reduce((s, p) => s + p.x, 0) / pinConfig.length;
     const cy = pinConfig.reduce((s, p) => s + p.y, 0) / pinConfig.length;
-    const contract = 0.25; // pull 25% toward center of mass
+    const contract = 0.20;
 
     const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill('.'));
     const pinGridPos = []; // store grid coords per pin for edge export
 
     pinConfig.forEach((p, i) => {
-      // contract then map to grid
       const px = p.x + (cx - p.x) * contract;
       const py = p.y + (cy - p.y) * contract;
       const gx = Math.max(0, Math.min(gridSize - 1, Math.floor(px * gridSize)));
@@ -2409,11 +3638,92 @@ function generateCPM(pinConfig) {
       pinGridPos.push({ gx, gy });
     });
 
+    // ── skeleton inflation ──
+    // instead of a convex hull, inflate the fairy's edge paths
+    // this preserves concavities, limbs, and actual creature topology
+    // each edge is walked (Bresenham) and cells within radius are filled
+
+    // average color for fill cells
+    const fillColor = [0, 0, 0];
+    pinConfig.forEach(p => { fillColor[0] += p.color[0]; fillColor[1] += p.color[1]; fillColor[2] += p.color[2]; });
+    fillColor[0] = Math.round(fillColor[0] / pinConfig.length);
+    fillColor[1] = Math.round(fillColor[1] / pinConfig.length);
+    fillColor[2] = Math.round(fillColor[2] / pinConfig.length);
+
+    const fillCh = String.fromCharCode(letter++);
+    const fillHex = rgbToHex(fillColor[0], fillColor[1], fillColor[2]);
+
+    // collect all edge pairs (fairy connections)
+    const skelEdges = [];
+    const skelEdgeSet = new Set();
+    pinConfig.forEach((p, i) => {
+      if (!p.connected) return;
+      for (const j of p.connected) {
+        if (j >= pinConfig.length) continue;
+        const key = Math.min(i, j) + '-' + Math.max(i, j);
+        if (skelEdgeSet.has(key)) continue;
+        skelEdgeSet.add(key);
+        skelEdges.push([i, j]);
+      }
+    });
+
+    // inflation radius scales with grid: ~1 cell on small grids, ~2 on larger
+    const radius = gridSize >= 14 ? 2 : 1;
+
+    // mark a cell and its neighbors within radius as fill
+    function inflateMark(gx, gy) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (dx * dx + dy * dy > radius * radius + 0.5) continue; // circular
+          const nx = gx + dx, ny = gy + dy;
+          if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+            if (grid[ny][nx] === '.') grid[ny][nx] = fillCh;
+          }
+        }
+      }
+    }
+
+    // walk each edge and inflate along the path
+    for (const [a, b] of skelEdges) {
+      const pa = pinGridPos[a], pb = pinGridPos[b];
+      if (!pa || !pb) continue;
+      // Bresenham walk
+      let x0 = pa.gx, y0 = pa.gy, x1 = pb.gx, y1 = pb.gy;
+      const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+      const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+      let err = dx - dy;
+      while (true) {
+        inflateMark(x0, y0);
+        if (x0 === x1 && y0 === y1) break;
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x0 += sx; }
+        if (e2 < dx) { err += dx; y0 += sy; }
+      }
+    }
+
+    // also inflate around each pin position (ensure pins have body)
+    pinGridPos.forEach(p => inflateMark(p.gx, p.gy));
+
+    // insert fill color into colors section
+    const pinsIdx = lines.indexOf('# pins');
+    if (pinsIdx > 0) {
+      lines.splice(pinsIdx - 1, 0, `${fillCh} ${fillHex}`);
+    }
+
     grid.forEach(row => lines.push(row.join(' ')));
 
     // edges section — fairy's structural connections between pins
     // EFDP will erase walls along paths between connected grid cells
     // When connected pins share a grid cell, nudge one to nearest empty neighbor
+
+    // pre-compute connection density per node for corridor width formula
+    const densityMap = new Map();
+    S.nodes.forEach(n => densityMap.set(n.id, getConnectedNodeIds(n.id).size));
+    const maxDensity = Math.max(1, ...densityMap.values());
+
+    // role → width contribution
+    const ROLE_WIDTH = { body: 1.0, limb: 0.7, accent: 0.3, detail: 0.2, unclassified: 0.5 };
+
     const occupied = new Set();
     pinGridPos.forEach(p => occupied.add(p.gx + ',' + p.gy));
 
@@ -2428,6 +3738,9 @@ function generateCPM(pinConfig) {
       }
     });
     if (edgeSet.size > 0) {
+      // build node ID lookup for diamond width matching
+      const nodeIdForPin = S.nodes.map(n => n.id);
+
       lines.push('', '# edges');
       for (const key of edgeSet) {
         const [a, b] = key.split('-').map(Number);
@@ -2453,20 +3766,214 @@ function generateCPM(pinConfig) {
           }
         }
         if (pa.gx !== pb.gx || pa.gy !== pb.gy) {
-          lines.push(`${pa.gx},${pa.gy} ${pb.gx},${pb.gy}`);
+          // look up diamond + node data for organic corridor width
+          const idA = nodeIdForPin[a], idB = nodeIdForPin[b];
+          const nA = S.nodes.find(n => n.id === idA);
+          const nB = S.nodes.find(n => n.id === idB);
+          const diamond = (S.fairy.diamonds || []).find(d =>
+            (d.nodeA === idA && d.nodeB === idB) || (d.nodeA === idB && d.nodeB === idA)
+          );
+
+          // blended corridor width from structural data
+          const widthF = diamond ? Math.min(1, diamond.avgWidth / 25) : 0.3;
+          const convA = nA?.conviction ?? 1, convB = nB?.conviction ?? 1;
+          const convF = (convA + convB) / 2;
+          const roleA = ROLE_WIDTH[nA?.structuralRole || 'unclassified'];
+          const roleB = ROLE_WIDTH[nB?.structuralRole || 'unclassified'];
+          const roleF = (roleA + roleB) / 2;
+          const dA = densityMap.get(idA) || 0, dB = densityMap.get(idB) || 0;
+          const densityF = ((dA + dB) / 2) / maxDensity;
+          const symF = diamond ? (diamond.symmetric ? 0.8 : 0.4) : 0.5;
+
+          const raw = diamond
+            ? widthF * 0.35 + convF * 0.20 + roleF * 0.20 + densityF * 0.15 + symF * 0.10
+            : convF * 0.35 + roleF * 0.35 + densityF * 0.30; // no diamond: rely on node data
+          const corridorW = raw >= 0.65 ? 3 : raw >= 0.38 ? 2 : 1;
+
+          lines.push(`${pa.gx},${pa.gy} ${pb.gx},${pb.gy} w:${corridorW}`);
         }
       }
+    }
+
+    // annotations section — per-pin fairy emoji, visitor labels, roles at grid positions
+    const annotLines = [];
+    pinGridPos.forEach((pg, i) => {
+      if (!pg) return;
+      const p = pinConfig[i];
+      const emoji = p.partLabel || p.fairyEmoji;
+      if (!emoji) return;
+      const src = p.partLabelSource || '';
+      const role = p.structuralRole || '';
+      annotLines.push(`${pg.gx},${pg.gy} emoji:${emoji}${src ? ' src:' + src : ''}${role ? ' role:' + role : ''}`);
+    });
+    if (annotLines.length > 0) {
+      lines.push('', '# annotations');
+      lines.push(...annotLines);
     }
   }
 
   const cpm = lines.join('\n');
-  // store for paste-in to EFDP
-  try {
-    localStorage.setItem('baseline-session/chunxly-cpm', cpm);
-  } catch (e) { /* */ }
+  // store for paste-in to EFDP (backward compat — full single CPM)
+  if (!name || name === 'Chunxly Creature') {
+    try {
+      localStorage.setItem('baseline-session/chunxly-cpm', cpm);
+    } catch (e) { /* */ }
+  }
 
   // generate touch-up layer if round-trip comparison data exists
-  if (S.roundTrip) generateTouchupCPM(pinConfig);
+  if (S.roundTrip && (!name || name === 'Chunxly Creature')) generateTouchupCPM(pinConfig);
+
+  return cpm;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Per-aspect CPM export
+//  Groups nodes by structural role into body/accent buckets,
+//  assigns unclassified nodes by color similarity,
+//  generates a separate CPM for each aspect.
+// ═══════════════════════════════════════════════════════
+function generateAspectCPMs(pinConfig) {
+  // bucket classified nodes
+  const bodyPins = [];
+  const accentPins = [];
+  const unclassified = [];
+
+  pinConfig.forEach(p => {
+    if (p.structuralRole === 'body' || p.structuralRole === 'limb') {
+      bodyPins.push(p);
+    } else if (p.structuralRole === 'accent' || p.structuralRole === 'detail') {
+      accentPins.push(p);
+    } else {
+      unclassified.push(p);
+    }
+  });
+
+  // if no fairy classification at all, no aspects to split
+  if (bodyPins.length === 0 && accentPins.length === 0) {
+    try { localStorage.removeItem('baseline-session/chunxly-aspects'); } catch(e) {}
+    return null;
+  }
+
+  // compute average color per bucket for assignment of unclassified nodes
+  function avgColor(pins) {
+    if (pins.length === 0) return [128, 128, 128];
+    const s = [0, 0, 0];
+    pins.forEach(p => { s[0] += p.color[0]; s[1] += p.color[1]; s[2] += p.color[2]; });
+    return s.map(v => v / pins.length);
+  }
+
+  function colorDist(c1, c2) {
+    return Math.sqrt((c1[0]-c2[0])**2 + (c1[1]-c2[1])**2 + (c1[2]-c2[2])**2);
+  }
+
+  // assign unclassified nodes
+  if (accentPins.length > 0 && bodyPins.length > 0) {
+    // both buckets exist — assign by nearest color
+    const bodyAvgC = avgColor(bodyPins);
+    const accentAvgC = avgColor(accentPins);
+    unclassified.forEach(p => {
+      if (colorDist(p.color, bodyAvgC) <= colorDist(p.color, accentAvgC)) {
+        bodyPins.push(p);
+      } else {
+        accentPins.push(p);
+      }
+    });
+  } else if (unclassified.length >= 4) {
+    // only one bucket (or none) has classified nodes — try color-distance split
+    // use body centroid as anchor; nodes far from it become accent
+    const anchor = bodyPins.length > 0 ? avgColor(bodyPins) : avgColor(unclassified);
+    const distances = unclassified.map(p => ({ p, d: colorDist(p.color, anchor) }));
+    distances.sort((a, b) => a.d - b.d);
+
+    // split at the largest gap in sorted distances (natural color boundary)
+    let bestGap = 0, splitIdx = distances.length;
+    for (let i = 1; i < distances.length; i++) {
+      const gap = distances[i].d - distances[i - 1].d;
+      if (gap > bestGap && distances[i].d > 30) { // min 30 color distance to split
+        bestGap = gap;
+        splitIdx = i;
+      }
+    }
+
+    // only split if the gap is meaningful (> 20 color units)
+    if (bestGap > 20 && splitIdx < distances.length) {
+      distances.slice(0, splitIdx).forEach(({ p }) => bodyPins.push(p));
+      distances.slice(splitIdx).forEach(({ p }) => accentPins.push(p));
+    } else {
+      // no clear color boundary — all go to body
+      unclassified.forEach(p => bodyPins.push(p));
+    }
+  } else {
+    // few unclassified — just add to body
+    unclassified.forEach(p => bodyPins.push(p));
+  }
+
+  // flatten each bucket to a single uniform color
+  // shape is the signal — color is just metadata the CrankSeed carries as hex
+  function flattenToSolidColor(pins) {
+    const avg = avgColor(pins).map(Math.round);
+    return pins.map(p => ({
+      ...p,
+      color: [...avg],
+    }));
+  }
+
+  // build aspect entries (only buckets with >= 2 nodes)
+  const aspects = [];
+  if (bodyPins.length >= 2) {
+    const solidBody = flattenToSolidColor(bodyPins);
+    aspects.push({
+      role: 'body',
+      cpm: generateCPM(solidBody, 'Chunxly Body'),
+      hex: rgbToHex(...avgColor(bodyPins).map(Math.round)),
+      pinCount: bodyPins.length,
+      shape: inferAspectShape(bodyPins),
+      avgConviction: Math.round(bodyPins.reduce((s, p) => s + (p.conviction ?? 1), 0) / bodyPins.length * 100) / 100,
+    });
+  }
+  if (accentPins.length >= 2) {
+    const solidAccent = flattenToSolidColor(accentPins);
+    aspects.push({
+      role: 'accent',
+      cpm: generateCPM(solidAccent, 'Chunxly Accent'),
+      hex: rgbToHex(...avgColor(accentPins).map(Math.round)),
+      pinCount: accentPins.length,
+      shape: inferAspectShape(accentPins),
+      avgConviction: Math.round(accentPins.reduce((s, p) => s + (p.conviction ?? 1), 0) / accentPins.length * 100) / 100,
+    });
+  }
+
+  // store for EFDP
+  if (aspects.length > 0) {
+    try {
+      localStorage.setItem('baseline-session/chunxly-aspects', JSON.stringify(aspects));
+    } catch(e) {}
+  }
+
+  return aspects;
+}
+
+function inferAspectShape(pins) {
+  if (pins.length < 2) return 'compact';
+  const xs = pins.map(p => p.x);
+  const ys = pins.map(p => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const w = maxX - minX || 0.01;
+  const h = maxY - minY || 0.01;
+  const ratio = Math.max(w, h) / Math.min(w, h);
+
+  // spatial spread: standard deviation of positions
+  const meanX = xs.reduce((a, b) => a + b, 0) / xs.length;
+  const meanY = ys.reduce((a, b) => a + b, 0) / ys.length;
+  const stddev = Math.sqrt(
+    pins.reduce((s, p) => s + (p.x - meanX) ** 2 + (p.y - meanY) ** 2, 0) / pins.length
+  );
+
+  if (ratio > 1.5) return 'elongated';
+  if (stddev < 0.15) return 'compact';
+  if (stddev > 0.3) return 'scattered';
+  return 'blob';
 }
 
 function generateTouchupCPM(currentPins) {
@@ -2857,6 +4364,97 @@ function compareWithOriginal() {
   });
   setVoice(civ, cov, true);
   render();
+}
+
+// ═══════════════════════════════════════════════════════
+//  CrankSeed reveal panel
+// ═══════════════════════════════════════════════════════
+function showSeedPanel(seed) {
+  const panel = document.getElementById('seedPanel');
+  const body = document.getElementById('seedBody');
+  body.innerHTML = '';
+
+  function row(key, valHtml) {
+    const r = document.createElement('div');
+    r.className = 'seed-row';
+    r.innerHTML = `<span class="seed-key">${key}</span><span class="seed-val">${valHtml}</span>`;
+    body.appendChild(r);
+  }
+  function divider() {
+    const d = document.createElement('div');
+    d.className = 'seed-divider';
+    body.appendChild(d);
+  }
+  function swatch(hex) {
+    return `<span class="seed-swatch" style="background:${hex}"></span>${hex}`;
+  }
+
+  // shape
+  const shapeHints = seed.extraShapeHints ? seed.extraShapeHints.join(', ') : '—';
+  row('shape', `${seed.dominantPinType} — ${shapeHints}`);
+  row('cohesion', seed.cohesionMode || '—');
+  row('conviction', `${seed.convictionProfile} (${seed.avgConviction})`);
+
+  divider();
+
+  // color + affinity
+  const KITCHENDOM_AFFINITY = {
+    earth: 'Umamian', creature: 'Umamian',
+    ice: 'Salterran', item: 'Salterran',
+    poison: 'Sourvren', nature: 'Sourvren',
+    ghost: 'Bitterish', fire: 'Bitterish',
+    light: 'Sweetese', water: 'Sweetese',
+  };
+  const affinity = KITCHENDOM_AFFINITY[seed.paletteKey];
+  row('dominant', swatch(seed.dominantHex));
+  if (seed.secondaryHex) row('secondary', swatch(seed.secondaryHex));
+  row('palette key', seed.paletteKey || '—');
+  if (affinity) row('affinity', `<span style="color:var(--teal)">${affinity}</span>`);
+
+  divider();
+
+  // structure
+  const sp = seed.structuralProfile || {};
+  const spParts = Object.entries(sp).filter(([,v]) => v > 0).map(([k,v]) => `${k}×${v}`).join('  ');
+  row('structure', spParts || '—');
+  row('layers', String(seed.layerCount ?? '—'));
+  row('fairy traces', `${seed.fairyTraces ?? 0} (sym ${seed.symmetryRatio ?? 0}, dir ${seed.structuralDirection || '—'})`);
+
+  // pin breakdown
+  const pc = seed.pinCounts || {};
+  const pinStr = Object.entries(pc).filter(([,v])=>v>0).map(([k,v])=>`${k}×${v}`).join('  ');
+  row('pins', pinStr || '—');
+
+  // aspects
+  if (seed.aspects && seed.aspects.length > 0) {
+    divider();
+    for (const asp of seed.aspects) {
+      const el = document.createElement('div');
+      el.className = 'seed-aspect';
+      el.innerHTML = `
+        <div class="seed-aspect-role">${asp.role}</div>
+        <div class="seed-row"><span class="seed-key">color</span><span class="seed-val">${swatch(asp.hex)}</span></div>
+        <div class="seed-row"><span class="seed-key">shape</span><span class="seed-val">${asp.shape || '—'}</span></div>
+        <div class="seed-row"><span class="seed-key">pins</span><span class="seed-val">${asp.pinCount}</span></div>
+        <div class="seed-row"><span class="seed-key">conviction</span><span class="seed-val">${asp.avgConviction}</span></div>
+      `;
+      body.appendChild(el);
+    }
+  }
+
+  // round-trip if present
+  if (seed.roundTrip) {
+    divider();
+    const rt = seed.roundTrip;
+    row('round-trip', `preserved ${rt.preserved}  shifted ${rt.shifted}  lost ${rt.lost}  emergent ${rt.emergent}`);
+  }
+
+  panel.classList.add('show');
+
+  // copy button
+  document.getElementById('seedCopy').onclick = () => {
+    navigator.clipboard.writeText(JSON.stringify(seed, null, 2)).then(() => showNotif('copied'));
+  };
 }
 
 // ── init ──

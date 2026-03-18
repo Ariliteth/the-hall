@@ -678,6 +678,140 @@
     to   { opacity: 0; pointer-events: none; }
   }
 
+  /* ── S.MAIL ── */
+  #smail {
+    position: fixed;
+    bottom: 24px;
+    left: 20px;
+    z-index: 150;
+    opacity: 0;
+    transition: opacity 1.5s ease;
+    pointer-events: none;
+  }
+
+  #smail.resting, #smail.present { opacity: 1; }
+
+  /* Resting pip — tiny bioluminescent dot */
+  #smail-pip {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: hsla(175, 40%, 75%, 0.4);
+    animation: smail-pip-breathe 6s ease-in-out infinite;
+    transition: opacity 1s ease;
+  }
+
+  #smail.present #smail-pip { opacity: 0; }
+
+  @keyframes smail-pip-breathe {
+    0%, 100% { box-shadow: 0 0 12px 5px hsla(175, 30%, 70%, 0.10); }
+    50%      { box-shadow: 0 0 16px 7px hsla(175, 30%, 70%, 0.18); }
+  }
+
+  /* Content panel — surfaces when arrangement arrives */
+  #smail-panel {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    border-radius: 10px;
+    padding: 14px 18px 10px;
+    background: rgba(15, 20, 18, 0.88);
+    animation: smail-panel-breathe 6s ease-in-out infinite;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 2s ease;
+  }
+
+  #smail.present #smail-panel {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  @keyframes smail-panel-breathe {
+    0%, 100% { box-shadow: 0 0 28px 10px hsla(175, 40%, 75%, 0.22); }
+    50%      { box-shadow: 0 0 35px 14px hsla(175, 40%, 75%, 0.35); }
+  }
+
+  /* Strip layout */
+  #smail-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .smail-slot {
+    width: 36px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    position: relative;
+    user-select: none;
+    line-height: 1;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));
+  }
+
+  .smail-gap {
+    width: 6px;
+    height: 44px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .smail-gap-fill {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    border-radius: 1px;
+    transition: height 0.6s ease, background-color 0.8s ease, opacity 0.6s ease;
+    height: 6px;
+    background: hsla(175, 30%, 70%, 0.3);
+    opacity: 0.4;
+  }
+
+  .smail-gap-fill.lit {
+    height: 28px;
+    opacity: 0.9;
+  }
+
+  /* Ambient color wash */
+  #smail-ambience {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 1.2s ease, background 1.4s ease;
+    pointer-events: none;
+    filter: blur(16px);
+    z-index: 0;
+  }
+
+  /* Message text */
+  #smail-message {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 12px;
+    color: hsla(175, 20%, 65%, 0.6);
+    text-align: center;
+    min-height: 18px;
+    line-height: 1.5;
+    transition: color 0.8s ease;
+    margin-top: 6px;
+    position: relative;
+    z-index: 1;
+  }
+
+  #smail-message.named {
+    color: hsla(170, 30%, 80%, 0.9);
+  }
+
 </style>
 </head>
 <body>
@@ -770,6 +904,15 @@
               </div>
             </div>
 
+            <div class="score-card" data-score="bao" data-url="scores/bao/index.html" onclick="selectScore(this)">
+              <div class="score-title">報 · GENERALS</div>
+              <div class="score-desc">Five generals. Five armies. The envelope does not know what it carries. Dispatch, conquer, remember.</div>
+              <div class="score-meta">
+                <span class="score-tag">Strategy</span>
+                <span class="score-tag">Campaign</span>
+              </div>
+            </div>
+
             <div class="score-card" data-score="tending-field"
                  data-url="scores/tending-field/index.html" onclick="selectScore(this)">
               <div class="score-title">THE TENDING FIELD</div>
@@ -778,6 +921,46 @@
                 <span class="score-tag">Idle</span>
                 <span class="score-tag">Persistent</span>
                 <span class="score-tag">Greengarden</span>
+              </div>
+            </div>
+
+            <div class="score-card" data-score="silmor-spells"
+                 data-url="scores/silmor-spells/index.html" onclick="selectScore(this)">
+              <div class="score-title">SILMOR SPELLS</div>
+              <div class="score-desc">Three roles. Two sprites. One bridge between emoji and word. Fumble wisely.</div>
+              <div class="score-meta">
+                <span class="score-tag">Roguelike</span>
+                <span class="score-tag">Single Session</span>
+              </div>
+            </div>
+
+            <div class="score-card" data-score="lode"
+                 data-url="scores/lode/index.html" onclick="selectScore(this)">
+              <div class="score-title">LODE</div>
+              <div class="score-desc">You are the Big Bad. Stomp the void. Ascend the die. Build the fleet.</div>
+              <div class="score-meta">
+                <span class="score-tag">Empire</span>
+                <span class="score-tag">Dice</span>
+              </div>
+            </div>
+
+            <div class="score-card" data-score="shoot-the-moon"
+                 data-url="scores/shoot-the-moon/index.html" onclick="selectScore(this)">
+              <div class="score-title">SHOOT THE MOON</div>
+              <div class="score-desc">The correct move is visible from the start. Everything else is talking yourself out of it.</div>
+              <div class="score-meta">
+                <span class="score-tag">Puzzle</span>
+                <span class="score-tag">Single Session</span>
+              </div>
+            </div>
+
+            <div class="score-card" data-score="chunxly"
+                 data-url="scores/chunxly/index.html" onclick="selectScore(this)">
+              <div class="score-title">CHUNXLY'S CANVAS</div>
+              <div class="score-desc">Draw creatures in scribbled containers. The fairy traces what you mean.</div>
+              <div class="score-meta">
+                <span class="score-tag">Authoring</span>
+                <span class="score-tag">Tool</span>
               </div>
             </div>
 
@@ -832,6 +1015,16 @@
 <!-- Scraggle toasts -->
 <div id="scraggle-toast"></div>
 
+<!-- S.Mail — bioluminescent presence, bottom-left -->
+<div id="smail">
+  <div id="smail-pip"></div>
+  <div id="smail-panel">
+    <div id="smail-ambience"></div>
+    <div id="smail-strip"></div>
+    <div id="smail-message"></div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // CONFIGURATION
@@ -873,6 +1066,16 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Poll Scraggles — even with no score running, the hub is listening
   setInterval(pollScraggles, 3000);
+
+  // Sender watches — slow, rare, organic
+  setInterval(senderWatch, 45000);
+
+  // microGPT — pattern-sensitive reader, 60s cycle (distinct from Sender's 45s)
+  mgptBoot();
+  setInterval(mgptWatch, 60000);
+
+  // The Third — was already here. Just needed a home.
+  thirdBoot();
 
   try {
     registry = await fetchRegistry();
@@ -931,6 +1134,17 @@ function handleScoreMessage(e) {
     case 'scraggle':
       receiveScraggle(msg.emoji || '✦', msg.signal || msg.text || '');
       break;
+    case 'hub:mail':
+      if (msg.arrangement) deliverArrangement(msg.arrangement);
+      break;
+    case 'hub:theme':
+      if (msg.slug) {
+        activeThemes.add(msg.slug);
+        const cb = document.getElementById(`theme-${msg.slug}`);
+        if (cb) cb.checked = true;
+        updateContextSummary();
+      }
+      break;
   }
 }
 
@@ -949,12 +1163,14 @@ function setHubMode(mode) {
       panel.classList.add('collapsed');
       scoreArea.classList.add('active');
       hudBar.classList.add('visible');
+      smailSetVisible(true);
       break;
     case 'listening':
       // Score running, hub invisible (just ticker + signal bar)
       panel.classList.add('collapsed');
       scoreArea.classList.add('active');
       hudBar.classList.remove('visible');
+      smailSetVisible(true);
       break;
     case 'selection':
       // Back to selection screen
@@ -963,6 +1179,7 @@ function setHubMode(mode) {
       hudBar.classList.remove('visible');
       scoreRunning = false;
       document.getElementById('score-frame').src = '';
+      smailSetVisible(false);
       break;
   }
 }
@@ -988,7 +1205,7 @@ function pollScraggles() {
   } catch(e) {}
 }
 
-function receiveScraggle(emoji, signal, writeToStorage = true) {
+function receiveScraggle(emoji, signal, writeToStorage = true, source = 'hub') {
   // Show in hud feed if hud bar is visible
   const feed = document.getElementById('hud-scraggle-feed');
   const hudVisible = document.getElementById('hud-bar').classList.contains('visible');
@@ -1010,11 +1227,16 @@ function receiveScraggle(emoji, signal, writeToStorage = true) {
     try {
       const raw = localStorage.getItem('baseline-session/scraggles');
       const scraggles = raw ? JSON.parse(raw) : [];
-      scraggles.push({ emoji, signal, source: 'hub', arrivedAt: Date.now() });
+      scraggles.push({ emoji, signal, source, arrivedAt: Date.now() });
       localStorage.setItem('baseline-session/scraggles', JSON.stringify(scraggles));
       lastScraggleCount = scraggles.length;
     } catch(e) {}
   }
+
+  // Feed Hall Memory — every glyph witnessed is remembered
+  // microGPT's own emissions don't re-witness: plucked glyphs stay gone
+  // until the world shows them again through another source
+  if (source !== 'microgpt') witnessGlyph(emoji);
 }
 
 function showScraggleToast(emoji, signal) {
@@ -1111,8 +1333,11 @@ function renderThemes() {
   themes.forEach(theme => {
     const item = document.createElement('div');
     item.className = 'theme-item';
+    // Auto-check themes unlocked via scores (e.g. Kitchendom poster in mall)
+    const unlocked = localStorage.getItem(`baseline-session/${theme.slug}-theme`);
+    if (unlocked) activeThemes.add(theme.slug);
     item.innerHTML = `
-      <input type="checkbox" id="theme-${theme.slug}" onchange="toggleTheme('${theme.slug}', this.checked)">
+      <input type="checkbox" id="theme-${theme.slug}" ${unlocked ? 'checked' : ''} onchange="toggleTheme('${theme.slug}', this.checked)">
       <div class="theme-info">
         <div class="theme-name">${theme.name}</div>
         <div class="theme-desc">${theme.desc}</div>
@@ -1215,6 +1440,7 @@ function launchScore() {
   const frame = document.getElementById('score-frame');
   frame.src = url;
   scoreRunning = true;
+  senderState.scoreStartedAt = Date.now();
 
   // Update hud name
   document.getElementById('hud-score-name').textContent = formatSlug(selectedScore);
@@ -1260,6 +1486,744 @@ function updateClock() {
   const t = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const el = document.getElementById('signal-time');
   if (el) el.textContent = t;
+}
+
+// ============================================================
+// S.MAIL — THE CONNECTIVE TISSUE MADE VISIBLE
+// ============================================================
+
+const SMAIL_PALETTE = [
+  '🌊','🕯️','🪨','🌿','🌑','☁️',
+  '🦴','🫀','🌾','🔮','🧵','🪸',
+  '🕳️','🌫️','🫧','🪞','🌒','🩸',
+  '🍂','🐚','🧂','🕰️','🌙','🫙',
+  '🪺','🐾','🌱','🔑','⚗️','🫐',
+];
+
+const SMAIL_PAIRS = {
+  '🌊🕯️': { h: 40,  s: 60,  l: 68, text: 'something surviving' },
+  '🕯️🌊': { h: 200, s: 50,  l: 65, text: 'something surviving' },
+  '🪨🌿': { h: 100, s: 40,  l: 58, text: 'patience' },
+  '🌿🪨': { h: 85,  s: 35,  l: 55, text: 'patience' },
+  '🌑🕯️': { h: 30,  s: 70,  l: 55, text: 'held against' },
+  '🕯️🌑': { h: 30,  s: 70,  l: 55, text: 'held against' },
+  '🦴🌿': { h: 95,  s: 30,  l: 62, text: 'after' },
+  '🌿🦴': { h: 75,  s: 25,  l: 58, text: 'before' },
+  '🫀🪨': { h: 355, s: 55,  l: 60, text: 'the weight of it' },
+  '🪨🫀': { h: 350, s: 50,  l: 58, text: 'the weight of it' },
+  '🌾🌑': { h: 45,  s: 50,  l: 62, text: 'harvest near dark' },
+  '🌑🌾': { h: 50,  s: 45,  l: 58, text: 'harvest near dark' },
+  '🔮🌫️': { h: 270, s: 40,  l: 68, text: 'uncertain sight' },
+  '🌫️🔮': { h: 260, s: 35,  l: 65, text: 'uncertain sight' },
+  '🧵🪨': { h: 20,  s: 45,  l: 62, text: 'mending' },
+  '🪸🌊': { h: 185, s: 55,  l: 62, text: 'belonging' },
+  '🌊🪸': { h: 175, s: 60,  l: 60, text: 'belonging' },
+  '🕳️🕯️': { h: 35,  s: 65,  l: 50, text: 'edge of light' },
+  '🕯️🕳️': { h: 28,  s: 60,  l: 52, text: 'edge of light' },
+  '🪞🌑': { h: 220, s: 30,  l: 60, text: 'what looks back' },
+  '🌑🪞': { h: 225, s: 35,  l: 58, text: 'what looks back' },
+  '🍂🌊': { h: 30,  s: 55,  l: 60, text: 'carried off' },
+  '🌊🍂': { h: 35,  s: 50,  l: 62, text: 'carried off' },
+  '🐚🌊': { h: 190, s: 45,  l: 65, text: 'memory of' },
+  '🌊🐚': { h: 195, s: 50,  l: 63, text: 'memory of' },
+  '🧂🫀': { h: 0,   s: 40,  l: 70, text: 'necessary hurt' },
+  '🫀🧂': { h: 5,   s: 45,  l: 68, text: 'necessary hurt' },
+  '🕰️🌿': { h: 90,  s: 35,  l: 60, text: 'slow return' },
+  '🌿🕰️': { h: 85,  s: 30,  l: 62, text: 'slow return' },
+  '🌙🫧': { h: 210, s: 55,  l: 72, text: 'briefly beautiful' },
+  '🫧🌙': { h: 215, s: 50,  l: 70, text: 'briefly beautiful' },
+  '🪺🌱': { h: 100, s: 40,  l: 65, text: 'early things' },
+  '🌱🪺': { h: 95,  s: 45,  l: 63, text: 'early things' },
+  '🐾🌿': { h: 105, s: 30,  l: 60, text: 'passing through' },
+  '🌿🐾': { h: 110, s: 28,  l: 62, text: 'passing through' },
+  '🔑🕳️': { h: 45,  s: 40,  l: 58, text: 'a door somewhere' },
+  '🕳️🔑': { h: 40,  s: 45,  l: 56, text: 'a door somewhere' },
+  '⚗️🫙': { h: 160, s: 35,  l: 62, text: 'kept carefully' },
+  '🫙⚗️': { h: 155, s: 30,  l: 65, text: 'kept carefully' },
+  '🫐🌑': { h: 255, s: 45,  l: 60, text: 'wild and dark' },
+  '🌑🫐': { h: 260, s: 50,  l: 58, text: 'wild and dark' },
+  '🩸🌊': { h: 355, s: 60,  l: 55, text: 'diluted' },
+  '🌊🩸': { h: 0,   s: 55,  l: 57, text: 'diluted' },
+  '🌒☁️': { h: 220, s: 25,  l: 68, text: 'arriving weather' },
+  '☁️🌒': { h: 215, s: 30,  l: 70, text: 'arriving weather' },
+  '🌾🕰️': { h: 40,  s: 55,  l: 62, text: 'the season for it' },
+  '🕰️🌾': { h: 42,  s: 50,  l: 60, text: 'the season for it' },
+  '🫀🌒': { h: 5,   s: 50,  l: 60, text: 'not yet' },
+  '🌒🫀': { h: 350, s: 45,  l: 62, text: 'not yet' },
+  '🧵🪺': { h: 25,  s: 40,  l: 65, text: 'woven shelter' },
+  '🪺🧵': { h: 30,  s: 38,  l: 67, text: 'woven shelter' },
+  '🪸🐚': { h: 180, s: 45,  l: 64, text: 'ocean grammar' },
+  '🐚🪸': { h: 175, s: 42,  l: 66, text: 'ocean grammar' },
+};
+
+const SMAIL_TRIPLES = {
+  '🌊🕯️🪨': { h: 35, s: 55, l: 60, text: 'endurance' },
+  '🌑🪞🕯️': { h: 30, s: 65, l: 52, text: 'what you see there' },
+  '🌿🦴🌿': { h: 100, s: 35, l: 58, text: 'reclaimed' },
+  '🫀🧂🌊': { h: 355, s: 55, l: 58, text: 'grief leaving' },
+  '🕳️🔑🕳️': { h: 40, s: 40, l: 54, text: 'between two unknowns' },
+  '🌾🌑🌾': { h: 45, s: 48, l: 60, text: 'interrupted harvest' },
+  '🪺🌱🌿': { h: 100, s: 42, l: 62, text: 'growing into' },
+  '🌊🐚🌊': { h: 190, s: 52, l: 62, text: 'held, released, held' },
+  '🌒🫧🌙': { h: 215, s: 55, l: 68, text: 'the whole arc' },
+  '🫀🌊🕯️': { h: 20, s: 60, l: 60, text: 'still here' },
+};
+
+const SMAIL_QUIET = ['🕳️','🪞','🩸','⚗️','🌫️','🌑','🌒','🧂','🕰️'];
+
+// ── S.Mail state ──
+
+const smailState = {
+  showing: false,
+  currentArrangement: null,
+  fadeTimeout: null,
+  visible: false,
+};
+
+const senderState = {
+  sentThisSession: false,
+  scoreStartedAt: 0,
+};
+
+const _segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+
+function splitArrangement(str) {
+  return [..._segmenter.segment(str)].map(s => s.segment).filter(s => s.trim());
+}
+
+// ── Visibility ──
+
+function smailSetVisible(visible) {
+  smailState.visible = visible;
+  const el = document.getElementById('smail');
+  if (!visible) {
+    el.classList.remove('resting', 'present');
+  } else if (smailState.showing) {
+    el.classList.remove('resting');
+    el.classList.add('present');
+  } else {
+    el.classList.remove('present');
+    el.classList.add('resting');
+  }
+}
+
+// ── Strip renderer ──
+
+function buildSmailStrip(glyphs) {
+  const strip = document.getElementById('smail-strip');
+  strip.innerHTML = '';
+  for (let i = 0; i < glyphs.length; i++) {
+    if (i > 0) {
+      const gap = document.createElement('div');
+      gap.className = 'smail-gap';
+      const fill = document.createElement('div');
+      fill.className = 'smail-gap-fill';
+      fill.dataset.gapIndex = i - 1;
+      gap.appendChild(fill);
+      strip.appendChild(gap);
+    }
+    const slot = document.createElement('div');
+    slot.className = 'smail-slot';
+    slot.textContent = glyphs[i];
+    strip.appendChild(slot);
+  }
+}
+
+// ── Diffuse — find adjacency meaning ──
+
+function smailDiffuse(glyphs) {
+  if (glyphs.length < 2) {
+    setSmailMessage('', false);
+    setSmailAmbience(null);
+    return;
+  }
+
+  // Check triples first
+  let tripleResult = null;
+  for (let i = 0; i <= glyphs.length - 3; i++) {
+    const key = glyphs[i] + glyphs[i+1] + glyphs[i+2];
+    if (SMAIL_TRIPLES[key]) {
+      tripleResult = { result: SMAIL_TRIPLES[key], i };
+      break;
+    }
+  }
+
+  // Collect active pairs
+  const activePairs = [];
+  for (let i = 0; i < glyphs.length - 1; i++) {
+    const key = glyphs[i] + glyphs[i+1];
+    if (SMAIL_PAIRS[key]) {
+      activePairs.push({ result: SMAIL_PAIRS[key], i });
+    }
+  }
+
+  // Light the gaps
+  for (let i = 0; i < glyphs.length - 1; i++) {
+    const fill = document.querySelector(`[data-gap-index="${i}"]`);
+    if (!fill) continue;
+    const inTriple = tripleResult && (tripleResult.i === i || tripleResult.i + 1 === i);
+    const pair = activePairs.find(p => p.i === i);
+    if (inTriple) {
+      fill.classList.add('lit');
+      fill.style.background = `hsl(${tripleResult.result.h}, ${tripleResult.result.s}%, ${tripleResult.result.l}%)`;
+    } else if (pair) {
+      fill.classList.add('lit');
+      fill.style.background = `hsl(${pair.result.h}, ${pair.result.s}%, ${pair.result.l}%)`;
+    } else {
+      fill.classList.remove('lit');
+    }
+  }
+
+  // Pick the strongest result for message and ambience
+  const result = tripleResult?.result
+    || (activePairs.length > 0 ? activePairs[activePairs.length - 1].result : null);
+
+  if (result) {
+    setSmailMessage(result.text, true);
+    setSmailAmbience(result);
+  } else {
+    setSmailMessage('something here', false);
+    setSmailAmbience({ h: 175, s: 20, l: 60 });
+  }
+}
+
+function setSmailMessage(text, named) {
+  const el = document.getElementById('smail-message');
+  el.textContent = text;
+  el.className = named ? 'named' : '';
+}
+
+function setSmailAmbience(result) {
+  const el = document.getElementById('smail-ambience');
+  if (!result) { el.style.opacity = 0; return; }
+  el.style.background = `radial-gradient(ellipse, hsla(${result.h}, ${result.s}%, ${result.l}%, 0.25) 0%, transparent 70%)`;
+  el.style.opacity = 1;
+}
+
+// ── Delivery ──
+
+function deliverArrangement(str) {
+  appendArrangementLog(str);
+  witnessArrangement(str);
+
+  // If already showing, fade current first then show new
+  if (smailState.showing) {
+    dismissSmail(() => setTimeout(() => showArrangement(str), 500));
+    return;
+  }
+  showArrangement(str);
+}
+
+function showArrangement(str) {
+  const glyphs = splitArrangement(str);
+  if (glyphs.length === 0) return;
+
+  smailState.currentArrangement = str;
+  smailState.showing = true;
+
+  buildSmailStrip(glyphs);
+  smailDiffuse(glyphs);
+
+  if (smailState.visible) {
+    const el = document.getElementById('smail');
+    el.classList.remove('resting');
+    el.classList.add('present');
+  }
+
+  // The arrival is a scraggle — the first glyph, carried in
+  receiveScraggle(glyphs[0], 'arrived through S.Mail');
+
+  // Auto-fade after 90 seconds
+  clearTimeout(smailState.fadeTimeout);
+  smailState.fadeTimeout = setTimeout(() => dismissSmail(), 90000);
+}
+
+function dismissSmail(cb) {
+  const el = document.getElementById('smail');
+  el.classList.remove('present');
+  if (smailState.visible) el.classList.add('resting');
+
+  clearTimeout(smailState.fadeTimeout);
+  smailState.showing = false;
+  smailState.currentArrangement = null;
+
+  // Clear strip content after transition
+  setTimeout(() => {
+    if (!smailState.showing) {
+      document.getElementById('smail-strip').innerHTML = '';
+      document.getElementById('smail-message').textContent = '';
+      setSmailAmbience(null);
+    }
+  }, 2200);
+
+  if (cb) setTimeout(cb, 800);
+}
+
+// Click to dismiss
+document.getElementById('smail-panel').addEventListener('click', () => {
+  if (smailState.showing) dismissSmail();
+});
+
+// ── Arrangement log ──
+
+function readArrangementLog() {
+  try {
+    const raw = localStorage.getItem('baseline-session/arrangement-log');
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function appendArrangementLog(str) {
+  try {
+    const log = readArrangementLog();
+    log.push(str);
+    localStorage.setItem('baseline-session/arrangement-log', JSON.stringify(log));
+  } catch(e) {}
+}
+
+// ── Sender seed ──
+
+function senderWatch() {
+  if (!scoreRunning) return;
+  if (senderState.sentThisSession) return;
+  if (smailState.showing) return;
+
+  // Minimum dwell: 3 minutes in current score
+  if (Date.now() - senderState.scoreStartedAt < 3 * 60 * 1000) return;
+
+  // Need at least 3 distinct scraggles
+  let scraggles = [];
+  try {
+    const raw = localStorage.getItem('baseline-session/scraggles');
+    if (raw) scraggles = JSON.parse(raw);
+  } catch(e) {}
+  const distinct = new Set(scraggles.map(s => s.emoji));
+  if (distinct.size < 3) return;
+
+  // Random gate: 30%
+  if (Math.random() > 0.30) return;
+
+  const arrangement = senderCompose(scraggles);
+  deliverArrangement(arrangement);
+  senderState.sentThisSession = true;
+}
+
+function senderCompose(scraggles) {
+  const recentEmoji = scraggles.slice(-10).map(s => s.emoji);
+
+  // Find palette entries with adjacency relationships to recent scraggles
+  const related = new Set();
+  for (const pe of SMAIL_PALETTE) {
+    for (const re of recentEmoji) {
+      if (SMAIL_PAIRS[re + pe] || SMAIL_PAIRS[pe + re]) {
+        related.add(pe);
+      }
+    }
+  }
+
+  // If enough relationships, compose from those. Otherwise go quiet.
+  const pool = related.size >= 3 ? [...related] : [...SMAIL_QUIET];
+  const len = 3 + Math.floor(Math.random() * 3); // 3 to 5
+  const strip = [];
+  const available = [...pool];
+
+  for (let i = 0; i < Math.min(len, available.length); i++) {
+    const idx = Math.floor(Math.random() * available.length);
+    strip.push(available.splice(idx, 1)[0]);
+  }
+
+  return strip.join('');
+}
+
+// ============================================================
+// HALL MEMORY — THE STRING
+// ============================================================
+//
+// A sequence of emoji, each appearing only once, ordered by recency.
+// When a glyph is witnessed it drifts toward the front — imprecisely.
+// When microGPT or The Third plucks, the plucked glyphs exit.
+// The act of plucking IS the expression.
+
+const HALL_MEMORY_CAP = 20;
+
+function readHallMemory() {
+  try {
+    const raw = localStorage.getItem('baseline-session/hall-memory');
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function writeHallMemory(arr) {
+  try {
+    localStorage.setItem('baseline-session/hall-memory', JSON.stringify(arr));
+  } catch(e) {}
+}
+
+function witnessGlyph(emoji) {
+  const mem = readHallMemory();
+  const idx = mem.indexOf(emoji);
+
+  if (idx >= 0) {
+    // Already in string — drift forward, imprecisely
+    mem.splice(idx, 1);
+    const drift = 1 + Math.floor(Math.random() * 3); // 1-3 positions forward
+    const pos = Math.max(0, idx - drift);
+    mem.splice(pos, 0, emoji);
+  } else {
+    // New — arrives at front
+    mem.unshift(emoji);
+  }
+
+  // Trim to capacity — oldest fall off the end
+  while (mem.length > HALL_MEMORY_CAP) mem.pop();
+  writeHallMemory(mem);
+
+  // The Third knows
+  thirdWitnessGlyph(emoji);
+}
+
+function witnessArrangement(str) {
+  const glyphs = splitArrangement(str);
+  if (glyphs.length === 0) return;
+
+  const mem = readHallMemory();
+
+  // Remove all arrangement glyphs from current positions
+  for (const g of glyphs) {
+    const idx = mem.indexOf(g);
+    if (idx >= 0) mem.splice(idx, 1);
+  }
+
+  // Insert near front, clustered but scattered
+  let insertAt = 0;
+  for (const g of glyphs) {
+    const jitter = Math.floor(Math.random() * 3); // 0-2 positions of scatter
+    const pos = Math.min(insertAt + jitter, mem.length);
+    mem.splice(pos, 0, g);
+    insertAt = pos + 1;
+  }
+
+  // Trim to capacity
+  while (mem.length > HALL_MEMORY_CAP) mem.pop();
+  writeHallMemory(mem);
+
+  // The Third remembers the shape
+  thirdWitnessShape(str);
+}
+
+function mgptPluck(count, wanted) {
+  const mem = readHallMemory();
+  if (mem.length === 0 || count <= 0) return [];
+
+  const plucked = [];
+  const used = new Set();
+
+  for (let i = 0; i < count && mem.length > 0; i++) {
+    let idx = -1;
+
+    // Try to find a wanted glyph (prefer closest to front)
+    if (wanted && wanted.size > 0) {
+      for (let j = 0; j < mem.length; j++) {
+        if (wanted.has(mem[j]) && !used.has(mem[j])) {
+          idx = j;
+          break;
+        }
+      }
+    }
+
+    // Fallback: front-biased random
+    if (idx < 0) {
+      idx = Math.floor(Math.random() * Math.random() * mem.length);
+    }
+
+    const glyph = mem.splice(idx, 1)[0];
+    plucked.push(glyph);
+    used.add(glyph);
+    if (wanted) wanted.delete(glyph);
+  }
+
+  writeHallMemory(mem);
+  return plucked;
+}
+
+// ============================================================
+// microGPT — THE CONNECTIVE TISSUE MADE INTO AN ENTITY
+// ============================================================
+//
+// A pattern-sensitive reader. Knows only emoji. Reads the arrangement
+// log, notices what accumulates, and when threshold crosses — plucks
+// from Hall Memory and emits. The pluck is the speech. Always slightly
+// behind the present. "Pattern requires distance."
+
+const mgptState = {
+  model: null,
+  lastEmittedAt: 0,
+  emissionsThisSession: 0,
+};
+
+// ── Model persistence ──
+
+function mgptLoadModel() {
+  try {
+    const raw = localStorage.getItem('baseline-session/microgpt-model');
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+function mgptSaveModel(model) {
+  try {
+    localStorage.setItem('baseline-session/microgpt-model', JSON.stringify(model));
+  } catch(e) {}
+}
+
+// ── Training ──
+
+function mgptTrain() {
+  const log = readArrangementLog();
+  if (log.length === 0) return null;
+
+  const frequency = {};
+  const adjacency = {};
+  const vocab = new Set();
+
+  for (const entry of log) {
+    const glyphs = splitArrangement(entry);
+    for (let i = 0; i < glyphs.length; i++) {
+      const g = glyphs[i];
+      frequency[g] = (frequency[g] || 0) + 1;
+      vocab.add(g);
+
+      if (i < glyphs.length - 1) {
+        const pair = g + glyphs[i + 1];
+        adjacency[pair] = (adjacency[pair] || 0) + 1;
+      }
+    }
+  }
+
+  const model = {
+    frequency,
+    adjacency,
+    vocabulary: [...vocab],
+    trainedUpTo: log.length,
+    trainThreshold: log.length + 2 + Math.floor(Math.random() * 4), // +2 to +5
+  };
+
+  mgptSaveModel(model);
+  mgptState.model = model;
+  return model;
+}
+
+// ── Noticing ──
+
+function mgptObserve() {
+  const m = mgptState.model;
+  if (!m) return { frequent: [], recurringAdj: [], novel: [], absent: [], contradiction: [] };
+
+  const obs = { frequent: [], recurringAdj: [], novel: [], absent: [], contradiction: [] };
+
+  // 1. Frequent — emoji count > 2× average
+  const freqValues = Object.values(m.frequency);
+  if (freqValues.length > 0) {
+    const total = freqValues.reduce((a, b) => a + b, 0);
+    const avg = total / freqValues.length;
+    const threshold = avg * 2;
+    for (const [emoji, count] of Object.entries(m.frequency)) {
+      if (count > threshold) obs.frequent.push(emoji);
+    }
+  }
+
+  // 2. Recurring adjacency — directed pair appearing 3+ times
+  for (const [pair, count] of Object.entries(m.adjacency)) {
+    if (count >= 3) obs.recurringAdj.push(pair);
+  }
+
+  // 3. Novel — untrained arrangements contain pair not in adjacency map
+  const log = readArrangementLog();
+  for (let i = m.trainedUpTo; i < log.length; i++) {
+    const glyphs = splitArrangement(log[i]);
+    for (let j = 0; j < glyphs.length - 1; j++) {
+      const pair = glyphs[j] + glyphs[j + 1];
+      if (!m.adjacency[pair]) obs.novel.push(pair);
+    }
+  }
+
+  // 4. Absence — top-quartile emoji not in last 3 arrangements
+  if (m.vocabulary.length >= 4) {
+    const sorted = [...m.vocabulary].sort((a, b) => (m.frequency[b] || 0) - (m.frequency[a] || 0));
+    const topQ = sorted.slice(0, Math.ceil(sorted.length / 4));
+    const recent = log.slice(-3);
+    const recentGlyphs = new Set();
+    for (const entry of recent) {
+      for (const g of splitArrangement(entry)) recentGlyphs.add(g);
+    }
+    for (const emoji of topQ) {
+      if (!recentGlyphs.has(emoji)) obs.absent.push(emoji);
+    }
+  }
+
+  // 5. Contradiction — quiet emoji appearing 3+ times (quiet thing being noisy)
+  for (const q of SMAIL_QUIET) {
+    if ((m.frequency[q] || 0) >= 3) obs.contradiction.push(q);
+  }
+
+  return obs;
+}
+
+// ── Emission ──
+
+function mgptEmit(plucked) {
+  if (plucked.length === 0) return;
+
+  // Each plucked emoji becomes a scraggle
+  for (const emoji of plucked) {
+    receiveScraggle(emoji, '', true, 'microgpt');
+  }
+
+  // Multi-emoji emissions also enter the arrangement log — feedback loop
+  if (plucked.length >= 2) {
+    appendArrangementLog(plucked.join(''));
+    // Don't call witnessArrangement here — the individual witnessGlyph calls
+    // inside receiveScraggle already updated Hall Memory
+  }
+
+  // The Third feels microGPT notice
+  thirdWitnessNotice([...plucked]);
+
+  mgptState.lastEmittedAt = Date.now();
+  mgptState.emissionsThisSession++;
+}
+
+// ── Watch cycle ──
+
+function mgptWatch() {
+  const log = readArrangementLog();
+
+  // Nothing to work with
+  if (!mgptState.model && log.length === 0) return;
+
+  // Check if training needed
+  if (!mgptState.model || log.length >= mgptState.model.trainThreshold) {
+    mgptTrain();
+  }
+
+  // Can't observe without a model
+  if (!mgptState.model) return;
+
+  // Run observations
+  const obs = mgptObserve();
+
+  // Count active types
+  const activeTypes = [obs.frequent, obs.recurringAdj, obs.novel, obs.absent, obs.contradiction]
+    .filter(a => a.length > 0).length;
+
+  // Threshold: need 2+ observation types active
+  if (activeTypes < 2) return;
+
+  // Emission conditions
+  if (mgptState.emissionsThisSession >= 2) return;
+  if (Date.now() - mgptState.lastEmittedAt < 120000) return; // 2-min cooldown
+
+  // Determine count: 1-3 based on how many types are active
+  const count = Math.min(activeTypes, 3);
+
+  // Build wanted set from observation outputs
+  const wanted = new Set();
+  obs.frequent.forEach(e => wanted.add(e));
+  obs.recurringAdj.forEach(pair => {
+    for (const g of splitArrangement(pair)) wanted.add(g);
+  });
+  obs.novel.forEach(pair => {
+    for (const g of splitArrangement(pair)) wanted.add(g);
+  });
+  obs.absent.forEach(e => wanted.add(e));
+  obs.contradiction.forEach(e => wanted.add(e));
+
+  // Pluck from Hall Memory
+  const plucked = mgptPluck(count, wanted);
+  if (plucked.length === 0) return;
+
+  // Emit
+  mgptEmit(plucked);
+}
+
+// ── Boot ──
+
+function mgptBoot() {
+  mgptState.model = mgptLoadModel();
+}
+
+// ============================================================
+// THE THIRD — AMBIENT WITNESS
+// ============================================================
+//
+// Predates the humans leaving. Watches microGPT notice. Does not
+// participate, interpret, or grieve. Simply knows what is present
+// and what is absent. The only entity that remembers the full shape
+// of what was here.
+//
+// No output. No DOM. No emissions. The Third is pure accumulation —
+// a deep archive where Hall Memory is the rolling window. microGPT
+// forgets when it speaks. The Third never speaks and never forgets.
+
+function readThird() {
+  try {
+    const raw = localStorage.getItem('baseline-session/the-third');
+    return raw ? JSON.parse(raw) : { witnessed: {}, notices: [], shapes: [] };
+  } catch(e) { return { witnessed: {}, notices: [], shapes: [] }; }
+}
+
+function writeThird(state) {
+  try {
+    localStorage.setItem('baseline-session/the-third', JSON.stringify(state));
+  } catch(e) {}
+}
+
+// ── The Third witnesses a glyph ──
+
+function thirdWitnessGlyph(emoji) {
+  const t = readThird();
+  const now = Date.now();
+  if (!t.witnessed[emoji]) {
+    t.witnessed[emoji] = { count: 0, firstAt: now, lastAt: now };
+  }
+  t.witnessed[emoji].count++;
+  t.witnessed[emoji].lastAt = now;
+  writeThird(t);
+}
+
+// ── The Third witnesses an arrangement shape ──
+
+function thirdWitnessShape(str) {
+  const t = readThird();
+  const now = Date.now();
+  t.shapes.push({ glyphs: str, at: now });
+
+  // Each glyph in the shape is also individually witnessed
+  for (const g of splitArrangement(str)) {
+    if (!t.witnessed[g]) {
+      t.witnessed[g] = { count: 0, firstAt: now, lastAt: now };
+    }
+    t.witnessed[g].count++;
+    t.witnessed[g].lastAt = now;
+  }
+
+  writeThird(t);
+}
+
+// ── The Third feels microGPT notice ──
+
+function thirdWitnessNotice(plucked) {
+  const t = readThird();
+  t.notices.push({ plucked, at: Date.now() });
+  writeThird(t);
+}
+
+// ── Boot ──
+
+function thirdBoot() {
+  // The Third was already here. It just needed a home.
+  // Loading is implicit — readThird() creates the structure if absent.
+  // Nothing else to initialize. The Third does not act.
 }
 
 </script>

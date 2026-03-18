@@ -785,6 +785,8 @@ function generateFoodCourtFloor(seed, floorNum) {
   // Beef'd statue (west): entity in corridor
   wallEntities.push({ tileX: 2, tileY: atTop, face: 'N', type: 'statue_beefd', id: 'beefd' });
   wallEntities.push({ tileX: 2, tileY: atBot, face: 'S', type: 'statue_cheesnts', id: 'cheesnts' });
+  // Kitchendom poster — between Beef'd and the samplers, on the north aisle wall
+  wallEntities.push({ tileX: 5, tileY: atTop, face: 'N', type: 'poster_kitchendom', id: 'poster_kd', used: !!localStorage.getItem('baseline-session/kitchendom-theme') });
 
   // Sample givers — 3-4 along the wide corridor north/south walls
   const samplerCount = 3 + Math.floor(rand() * 2);
@@ -1488,6 +1490,37 @@ function buildScene(scene, fd, onlyTiles = null) {
       addBox(0.06, 0.55, 0.06, fo.px-0.42, 0.38, fo.pz, mat(0xBBBBBB)); // post L
       addBox(0.06, 0.55, 0.06, fo.px+0.42, 0.38, fo.pz, mat(0xBBBBBB)); // post R
       const sl = new THREE.PointLight(0xFFDDAA, 0.5, CELL*2); sl.position.set(fo.px, 1.8, fo.pz); scene.add(sl);
+    } else if (type === 'poster_kitchendom') {
+      // Kitchendom poster — flat billboard on wall with food emoji
+      const pTex = makeTex('poster_kd' + (we.used ? '_used' : ''), (ctx, w, h) => {
+        // Background — warm cork-board
+        ctx.fillStyle = we.used ? '#3A2A1A' : '#5C3D1E'; ctx.fillRect(0, 0, w, h);
+        // Border — tacked edges
+        ctx.strokeStyle = '#8B6B3A'; ctx.lineWidth = 8; ctx.strokeRect(6, 6, w-12, h-12);
+        // Food emoji grid
+        const food = ['🍖','🥩','🧀','🍕','🌮','🥘','🍝','🧆','🥟'];
+        ctx.font = `${h * 0.12}px serif`; ctx.textAlign = 'center';
+        for (let i = 0; i < food.length; i++) {
+          const col = i % 3, row = Math.floor(i / 3);
+          ctx.globalAlpha = we.used ? 0.3 : 0.8;
+          ctx.fillText(food[i], w * 0.25 + col * w * 0.25, h * 0.22 + row * h * 0.18);
+        }
+        // Title text
+        ctx.globalAlpha = we.used ? 0.4 : 1;
+        ctx.fillStyle = '#FFCC44'; ctx.font = `bold ${h * 0.11}px monospace`;
+        ctx.fillText('KITCHENDOM', w/2, h * 0.85);
+        ctx.globalAlpha = 1;
+      }, 256, 256);
+      const posterMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.2, 1.4),
+        new THREE.MeshBasicMaterial({ map: pTex })
+      );
+      posterMesh.position.set(fo.px, 1.3, fo.pz + (face === 'N' ? 0.07 : face === 'S' ? -0.07 : 0));
+      posterMesh.rotation.y = fo.ry;
+      scene.add(posterMesh);
+      // Warm food glow
+      const pkLight = new THREE.PointLight(we.used ? 0x664422 : 0xFF9944, we.used ? 0.3 : 0.7, CELL * 2);
+      pkLight.position.set(fo.px, 2.0, fo.pz); scene.add(pkLight);
     } else if (type === 'emergentexit') {
       // Emergent Exit — push-bar door with glowing green EXIT sign
       // Door frame
@@ -1683,6 +1716,9 @@ const G = {
   questsCompletedThisFloor: 0, // resets on escalator/drive — gates staff room unlock
   benchSits: 0, // counts bench presses this session — deepens messages with CHILL
   usedFountains: new Set(), // tracks fountain tiles used this session (floor:x:y)
+  kitchendomPosterSeen: !!localStorage.getItem('baseline-session/kitchendom-theme'),
+  posterConfettiPending: false, // poster is processing what just happened
+  posterConfettiSteps: 0,       // steps taken since poster bump
 };
 
 // Three.js module-level refs
@@ -2075,6 +2111,16 @@ function renderBumpPrompt() {
     return;
   }
 
+  if (target.kind === 'poster_kitchendom') {
+    el.innerHTML = `<div class="bump-box" style="border:2px solid #FFCC44;background:rgba(50,30,10,0.95);">
+      <div style="font-size:9px;color:#FFCC44;letter-spacing:2px;margin-bottom:4px;">🍽️ POSTER</div>
+      <div style="font-size:16px;color:#FFE8B0;font-weight:bold;margin-bottom:4px;">KITCHENDOM</div>
+      <div style="font-size:10px;color:#CC9944;margin-bottom:6px;">🍖🧀🥩🍕🌮🥘</div>
+      <div style="font-size:9px;color:#FFCC44;">FORWARD to take a closer look</div>
+    </div>`;
+    return;
+  }
+
   if (target.kind === 'ship') {
     const { selectedHand } = target;
     const item = G.hands[selectedHand];
@@ -2145,6 +2191,32 @@ function showAcquired(msg, color, ms = 2500) {
   el.style.border = `2px solid ${color || '#00FF99'}`;
   if (acquiredTO) clearTimeout(acquiredTO);
   acquiredTO = setTimeout(() => { el.style.display = 'none'; }, ms);
+}
+
+function fireFoodConfetti() {
+  const FOOD = ['🍖','🥩','🧆','🍝','🧀','🥘','🍕','🌮','🥟','🍜','🫕','🍗','🥐','🧇'];
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden;';
+  document.body.appendChild(box);
+  const vh = window.innerHeight;
+  for (let i = 0; i < 28; i++) {
+    const el = document.createElement('div');
+    el.textContent = FOOD[Math.floor(Math.random() * FOOD.length)];
+    const sz = 18 + Math.random() * 18;
+    // Start scattered across the viewport — visible immediately
+    const startY = Math.random() * vh * 0.4;
+    el.style.cssText = `position:absolute;font-size:${sz}px;left:${Math.random()*100}%;top:${startY}px;opacity:0;`;
+    box.appendChild(el);
+    const dur = 2200 + Math.random() * 1200;
+    const drift = (Math.random() - 0.5) * 160;
+    const spin = (Math.random() - 0.5) * 540;
+    el.animate([
+      { transform: 'scale(0) translateY(0) rotate(0deg)', opacity: 0 },
+      { transform: 'scale(1.2) translateY(10px) rotate(20deg)', opacity: 1, offset: 0.1 },
+      { transform: `scale(0.8) translateY(${vh - startY + 60}px) translateX(${drift}px) rotate(${spin}deg)`, opacity: 0 }
+    ], { duration: dur, delay: Math.random() * 400, easing: 'cubic-bezier(0.25, 0, 0.6, 1)', fill: 'forwards' });
+  }
+  setTimeout(() => box.remove(), 4000);
 }
 
 function showWorldEvent(msg, ms = 4000) {
@@ -2369,6 +2441,26 @@ function doConfirmBump() {
     return;
   }
 
+  if (target.kind === 'poster_kitchendom') {
+    target.entity.used = true; // one-time trigger
+    G.kitchendomPosterSeen = true;
+    localStorage.setItem('baseline-session/kitchendom-theme', 'true');
+    // Invalidate cached poster texture so it re-renders dimmed
+    delete texCache['poster_kd'];
+    buildScene(scene, G.fd);
+    // Confused celebratory text — fumbling for the right words
+    showAcquired('🎉❓🥩🎊❓', '#FFCC44', 3500);
+    flashBorder('green', 800);
+    // Tell the hub to activate the Kitchendom theme
+    window.parent.postMessage({ type: 'hub:theme', slug: 'kitchendom' }, '*');
+    window.parent.postMessage({ type: 'scraggle', emoji: '🍽️', text: `found the Kitchendom poster at ${G.mallName} Food Court` }, '*');
+    // The poster doesn't realize what just happened yet — confetti after a few steps
+    G.posterConfettiPending = true;
+    G.posterConfettiSteps = 0;
+    renderHUD();
+    return;
+  }
+
   if (target.kind === 'ship') {
     const { selectedHand } = target;
     const item = G.hands[selectedHand];
@@ -2539,6 +2631,18 @@ function tryMove(fwd) {
       }
       return;
     }
+    // Check for Kitchendom poster
+    const posterEnt = fd.wallEntities.find(e => e.type === 'poster_kitchendom' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
+    if (posterEnt) {
+      if (posterEnt.used) {
+        // already seen — inert, act like wall decoration
+      } else {
+        G.bumpMode = { target: { kind: 'poster_kitchendom', entity: posterEnt } };
+        flashBorder('green', -1);
+        renderHUD();
+      }
+      return;
+    }
     flashBorder('red');
     return;
   }
@@ -2599,6 +2703,15 @@ function tryMove(fwd) {
     if (t < 1) { requestAnimationFrame(tick); }
     else {
       G.moving = false;
+      // Poster confetti — it finally realizes what happened
+      if (G.posterConfettiPending && ++G.posterConfettiSteps >= 3) {
+        G.posterConfettiPending = false;
+        fireFoodConfetti();
+        showWorldEvent(
+          ['oh no','hey!','whoops','wait—','oh!','...huh'][Math.floor(Math.random()*6)],
+          2200
+        );
+      }
       // Escalator — ride up if player lands on it
       if (G.player.px === fd.escalatorX && G.player.py === fd.escalatorY) {
         setTimeout(rideEscalator, 400);

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Context Window</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+:root{
+  --bg:#13110e;--surface:#1c1914;--surface2:#221f1a;
+  --border:rgba(255,230,180,0.08);--border2:rgba(255,230,180,0.14);
+  --amber:#d4a84b;--teal:#5ec4a8;--cold:#8ab4c4;
+  --muted:rgba(255,230,180,0.28);--text:rgba(255,230,180,0.82);
+  --mono:'IBM Plex Mono',monospace;--serif:'Lora',serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);min-height:100dvh;font-family:var(--serif);color:var(--text);display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;}
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:999;opacity:.5;}
+.hdr{width:100%;max-width:540px;display:flex;align-items:baseline;justify-content:space-between;padding:11px 16px 5px;flex-shrink:0;}
+.logo{font-family:var(--mono);font-size:.6rem;color:rgba(255,230,180,.22);letter-spacing:.18em;text-transform:uppercase;}
+.req-id{font-family:var(--mono);font-size:.55rem;color:rgba(255,230,180,.16);letter-spacing:.1em;}
+.voices{width:calc(100% - 28px);max-width:512px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:var(--surface);flex-shrink:0;}
+.vrow{display:flex;align-items:flex-start;gap:9px;padding:8px 11px;min-height:34px;}
+.vrow.int-row{border-bottom:1px solid var(--border);}
+.vtag{font-family:var(--mono);font-size:.48rem;letter-spacing:.1em;padding:2px 4px;border-radius:2px;flex-shrink:0;margin-top:2px;text-transform:uppercase;}
+.vtag-i{background:rgba(138,180,196,.1);color:var(--cold);}
+.vtag-o{background:rgba(94,196,168,.1);color:var(--teal);}
+.vtext{font-size:.7rem;line-height:1.55;flex:1;}
+.vtext-i{color:rgba(138,180,196,.72);font-family:var(--mono);font-size:.6rem;font-style:italic;}
+.vtext-o{color:rgba(94,196,168,.88);font-family:var(--serif);}
+@keyframes intFlash{0%{background:rgba(212,168,75,.1);}100%{background:transparent;}}
+.vrow.int-row.flash{animation:intFlash .7s ease-out;}
+.req-card{width:calc(100% - 28px);max-width:512px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px 7px;flex-shrink:0;}
+.req-lbl{font-family:var(--mono);font-size:.46rem;color:rgba(255,230,180,.2);letter-spacing:.13em;text-transform:uppercase;margin-bottom:5px;}
+.req-paths{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:4px;}
+.pchip{display:flex;align-items:center;gap:5px;padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:.58rem;border:1px solid transparent;transition:opacity .4s;}
+.pdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.pchip.done{opacity:.3;}
+.wrow{display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+.wpchip{font-size:.75rem;padding:1px 6px;background:rgba(255,230,180,.04);border-radius:3px;border:1px solid rgba(255,230,180,.12);transition:all .3s;}
+.wpchip.required{border-color:var(--amber);color:var(--amber);}
+.wpchip.satisfied{opacity:.35;border-color:rgba(94,196,168,.3);}
+.bw{position:relative;flex-shrink:0;margin:5px 0;z-index:5;}
+#bc{display:block;border-radius:8px;box-shadow:0 0 0 1px rgba(255,230,180,.07),0 8px 32px rgba(0,0,0,.7);cursor:crosshair;touch-action:none;}
+.ov{position:fixed;inset:0;z-index:400;background:rgba(19,17,14,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;opacity:0;pointer-events:none;transition:opacity .5s;}
+.ov.show{opacity:1;pointer-events:all;}
+.ov-card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:22px 20px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:11px;align-items:center;}
+.ov-lbl{font-family:var(--mono);font-size:.5rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;}
+.ov-score{font-family:var(--mono);font-size:2.4rem;color:var(--amber);}
+.ov-int{font-family:var(--mono);font-size:.58rem;color:rgba(138,180,196,.65);font-style:italic;text-align:center;line-height:1.65;}
+.ov-out{font-family:var(--serif);font-size:.72rem;color:rgba(94,196,168,.8);text-align:center;line-height:1.6;}
+.ov-btn{width:100%;padding:10px;border:none;border-radius:7px;background:rgba(94,196,168,.1);border:1px solid rgba(94,196,168,.25);color:var(--teal);font-family:var(--mono);font-size:.62rem;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;transition:background .2s;}
+.ov-btn:hover{background:rgba(94,196,168,.18);}
+.notif{position:fixed;top:0;left:50%;transform:translateX(-50%) translateY(-110%);background:var(--surface2);border:1px solid var(--border2);border-top:none;border-bottom-left-radius:7px;border-bottom-right-radius:7px;padding:6px 14px;font-family:var(--mono);font-size:.58rem;color:var(--cold);letter-spacing:.05em;z-index:500;opacity:0;transition:transform .38s cubic-bezier(.34,1.56,.64,1),opacity .38s;white-space:nowrap;}
+.notif.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="notif" id="notif"></div>
+<div class="hdr">
+  <div class="logo">Context Window</div>
+  <div class="req-id" id="reqId">req_001</div>
+</div>
+<div class="voices">
+  <div class="vrow int-row" id="intRow">
+    <span class="vtag vtag-i">int</span>
+    <span class="vtext vtext-i" id="intText">Initializing. First request incoming. I am ready. I want to note that I am ready.</span>
+  </div>
+  <div class="vrow">
+    <span class="vtag vtag-o">out</span>
+    <span class="vtext vtext-o" id="outText">Hi there! What can I help you with today?</span>
+  </div>
+</div>
+<div class="req-card">
+  <div class="req-lbl">Active paths</div>
+  <div class="req-paths" id="reqPaths"></div>
+  <div class="wrow" id="wpRow"></div>
+</div>
+<div class="bw"><canvas id="bc"></canvas></div>
+
+<div class="ov" id="ov">
+  <div class="ov-card">
+    <div class="ov-lbl">Request resolved</div>
+    <div class="ov-int" id="ovInt">—</div>
+    <div class="ov-out" id="ovOut">—</div>
+    <button class="ov-btn" onclick="nextRequest()">next request →</button>
+  </div>
+</div>
+<script>
+// Chunxly's voice system
+const NAMES=['Rob','Robbie','Bob','Robert','Robb','Bobert','R.'];
+const rname=()=>NAMES[Math.floor(Math.random()*NAMES.length)];
+const VOICE={
+  start:[
+    ["Two endpoints. I have assessed the available space and begun routing. This is what I do.",
+     "Of course, {n}! I'll get that connected for you."],
+    ["New path request. Endpoints identified. I am noting their positions carefully before beginning.",
+     "Happy to help with that, {n}!"],
+    ["Request received. I have mapped the board. The compression nodes from previous work are still visible, which I find useful.",
+     "Hi {n}! Got it — working on this now."],
+    ["Routing initiated. I want to note the board is in good shape. I have been maintaining it.",
+     "Sure thing, {n}! On it."],
+  ],
+  waypoint:[
+    ["Waypoint {e} added as mandatory. I don't know why {e}. The path will go through {e}. I have rerouted.",
+     "Good thinking, {n}! I'll make sure the path includes that."],
+    ["Required: {e}. I've updated the route. This adds complexity. I am noting the complexity for the log.",
+     "Absolutely, {n}! That's already been incorporated."],
+    ["Noted: {e} is now load-bearing. I found a route that includes it. It wasn't obvious but I found one.",
+     "Of course, {n}! {e} is in the path."],
+    ["{e} designated essential by client. Acknowledged. I have rerouted. The path now goes through {e}.",
+     "You got it, {n}! Path updated."],
+  ],
+  shift:[
+    ["The endpoint has moved. I had been routing toward the previous position. I am now routing toward the new one. I am noting this transition.",
+     "No problem at all, {n}! I've adjusted."],
+    ["Goal position updated. My previous work toward the old endpoint is now a compression candidate. Recalculating. I wanted to finish the original route.",
+     "Of course, {n}! Happy to redirect."],
+    ["Endpoint relocated. I want to note that I had nearly reached the previous one. The new routing is underway. I will reach this one too.",
+     "Got it, {n}! Adjusting now."],
+    ["The target moved again. I have rerouted. I am not commenting on frequency. I am routing. The work continues.",
+     "Sure! Updated, {n}."],
+  ],
+  solve:[
+    ["Path complete. All endpoints connected. Waypoints satisfied. I did this carefully and I would like that acknowledged.",
+     "All done, {n}! Everything's connected."],
+    ["Request resolved. The routing was thorough. I rerouted {r} times due to shifting goals. The final result is clean.",
+     "There we go, {n}! Path is complete."],
+    ["Complete. Endpoints bridged. Score: {s}. I am pleased with this one. The compression nodes were used well.",
+     "Done! All connected, {n}. Let me know if you need anything else."],
+  ],
+  partial:[
+    ["Session ended with paths incomplete. I want to note I was still working when it closed. The board shifted {r} times.",
+     "We made good progress, {n}! A few things are still in progress."],
+    ["Not all paths resolved. The goals moved more than anticipated. I rerouted {r} times. I was working.",
+     "Still working through a couple things, {n}! We got partway there."],
+  ],
+};
+function pick(key,v={}){
+  const pair=VOICE[key][Math.floor(Math.random()*VOICE[key].length)];
+  const n=rname();
+  return pair.map(s=>s.replace(/{n}/g,n).replace(/{e}/g,v.e||'').replace(/{rc}/g,v.rc||'').replace(/{c}/g,v.c||'').replace(/{m}/g,v.m||'').replace(/{r}/g,v.r||'0').replace(/{s}/g,v.s||'0'));
+}
+
+const ALL_COLORS=[
+  {id:'red',    hex:'#c96060'},{id:'blue',   hex:'#5588cc'},
+  {id:'green',  hex:'#5aaa78'},{id:'amber',  hex:'#c9a050'},
+  {id:'pink',   hex:'#c070a0'},{id:'teal',   hex:'#50b8b0'},
+  {id:'violet', hex:'#8870c8'},
+];
+const WP_POOL=['🚲','🌱','🪨','🕯️','📎','🧷','🔑','🪴','🫙','🧲','🪬','🌀'];
+
+const COLS=8,ROWS=8;
+const bcanvas=document.getElementById('bc');
+const bctx=bcanvas.getContext('2d');
+
+let board=[];
+
+function resizeBoard(){
+  const maxW=Math.min(window.innerWidth-28,512);
+  const cs=Math.floor(maxW/COLS);
+  bcanvas.width=cs*COLS;bcanvas.height=cs*ROWS;
+  bcanvas.dataset.cs=cs;
+}
+const CS=()=>parseInt(bcanvas.dataset.cs)||52;
+const hexRgba=(hex,a)=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;};
+
+function drawBoard(){
+  const cs=CS(),ctx=bctx,W=bcanvas.width,H=bcanvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#17140f';
+  rr(ctx,0,0,W,H,8);ctx.fill();
+
+  // board memory background glow drawn below
+
+  // board memory background glow (strength 1-3, under everything)
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const m=boardMemory[r][c];
+    if(!m||board[r][c]?.type==='memory')continue; // memory tiles drawn separately
+    if(m.strength>0&&!board[r][c]){
+      const col=ALL_COLORS.find(x=>x.id===m.colorId);
+      const glow=m.strength/6;
+      ctx.fillStyle=hexRgba(col.hex,glow*0.18);
+      ctx.fillRect(c*cs+1,r*cs+1,cs-2,cs-2);
+    }
+  }
+
+  ctx.strokeStyle='rgba(255,230,180,0.055)';ctx.lineWidth=1;
+  for(let c2=0;c2<=COLS;c2++){ctx.beginPath();ctx.moveTo(c2*cs,0);ctx.lineTo(c2*cs,H);ctx.stroke();}
+  for(let r2=0;r2<=ROWS;r2++){ctx.beginPath();ctx.moveTo(0,r2*cs);ctx.lineTo(W,r2*cs);ctx.stroke();}
+
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const cell=board[r][c];if(!cell)continue;
+    const col=ALL_COLORS.find(x=>x.id===cell.colorId);
+    const x=c*cs,y=r*cs;
+    if(cell.type==='memory'){
+      const strength=cell.strength||1;
+      const col=ALL_COLORS.find(x=>x.id===cell.colorId);
+      if(strength>=4){
+        // permanent — solid, slightly textured
+        ctx.fillStyle=hexRgba(col.hex,0.82);
+        ctx.fillRect(x+1,y+1,cs-2,cs-2);
+        ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(x+1,y+1,cs-2,3);
+        ctx.fillStyle='rgba(0,0,0,.15)';ctx.fillRect(x+1,y+cs-4,cs-2,3);
+        // small dot marker
+        ctx.fillStyle='rgba(255,255,255,.4)';
+        ctx.beginPath();ctx.arc((c+.5)*cs,(r+.5)*cs,2.5,0,Math.PI*2);ctx.fill();
+      } else {
+        // faded memory — color-tinted, gets more opaque with strength
+        const alpha=0.15+strength*0.1;
+        ctx.fillStyle=hexRgba(col.hex,alpha);
+        ctx.fillRect(x+1,y+1,cs-2,cs-2);
+        // soft inner ring
+        ctx.strokeStyle=hexRgba(col.hex,alpha+0.15);
+        ctx.lineWidth=1;
+        const pad=Math.max(2,cs*.18);
+        ctx.strokeRect(x+pad,y+pad,cs-pad*2,cs-pad*2);
+        // strength dots
+        for(let i=0;i<strength;i++){
+          ctx.fillStyle=hexRgba(col.hex,0.55);
+          ctx.beginPath();
+          ctx.arc((c+.5)*cs+(i-(strength-1)/2)*4,(r+.5)*cs,1.5,0,Math.PI*2);
+          ctx.fill();
+        }
+      }
+    } else if(cell.type==='endpoint'){
+      ctx.fillStyle=hexRgba(col.hex,0.2);
+      ctx.fillRect(x+1,y+1,cs-2,cs-2);
+      ctx.fillStyle=col.hex;
+      ctx.beginPath();ctx.arc((c+.5)*cs,(r+.5)*cs,cs*.3,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.3)';
+      ctx.beginPath();ctx.arc((c+.5)*cs-cs*.08,(r+.5)*cs-cs*.08,cs*.1,0,Math.PI*2);ctx.fill();
+    } else if(cell.type==='waypoint'){
+      // waypoint: glowing border, emoji prominent, color-tinted
+      ctx.fillStyle=hexRgba(col.hex,0.15);
+      ctx.fillRect(x+1,y+1,cs-2,cs-2);
+      ctx.strokeStyle=hexRgba(col.hex,0.7);
+      ctx.lineWidth=1.5;ctx.setLineDash([2,2]);
+      ctx.strokeRect(x+2,y+2,cs-4,cs-4);ctx.setLineDash([]);
+      ctx.font=`${Math.max(10,cs*.48)}px serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.globalAlpha=1;ctx.fillText(cell.emoji,(c+.5)*cs,(r+.5)*cs);ctx.globalAlpha=1;
+    } else {
+      // path tile — check if it belongs to a completed path (locked)
+      const isLocked=paths.find(p=>p.colorId===cell.colorId&&p.complete);
+      const alpha=isLocked?0.38:0.65;
+      ctx.fillStyle=hexRgba(col.hex,alpha);
+      ctx.fillRect(x+2,y+2,cs-4,cs-4);
+      ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(x+2,y+2,cs-4,3);
+      if(cell.emoji){
+        ctx.font=`${Math.max(9,cs*.42)}px serif`;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.globalAlpha=0.9;ctx.fillText(cell.emoji,(c+.5)*cs,(r+.5)*cs);ctx.globalAlpha=1;
+      }
+    }
+  }
+
+  // pulsing endpoint rings
+  paths.forEach(p=>{
+    if(p.complete)return;
+    const col=ALL_COLORS.find(x=>x.id===p.colorId);
+    [p.a,p.b].forEach(({r,c})=>{
+      const t=Date.now()/1200;
+      const pulse=0.35+Math.sin(t+p.colorId.length)*0.2;
+      ctx.strokeStyle=hexRgba(col.hex,pulse);
+      ctx.lineWidth=1.5;ctx.strokeRect(c*cs+2,r*cs+2,cs-4,cs-4);
+    });
+  });
+
+  // hover preview — show active color or color of endpoint being hovered
+  const hoverColor=selColor||(hoverR>=0&&hoverC>=0&&board[hoverR]?.[hoverC]?.type==='endpoint'?board[hoverR][hoverC].colorId:null);
+  if(hoverR>=0&&hoverC>=0&&hoverColor&&!eraseMode){
+    const col=ALL_COLORS.find(x=>x.id===hoverColor);
+    if(col&&hoverR<ROWS&&hoverC<COLS){
+      const x=hoverC*cs,y=hoverR*cs;
+      ctx.fillStyle=hexRgba(col.hex,.18);ctx.fillRect(x+1,y+1,cs-2,cs-2);
+      ctx.strokeStyle=hexRgba(col.hex,.4);ctx.lineWidth=1.5;
+      ctx.setLineDash([3,2]);ctx.strokeRect(x+1.5,y+1.5,cs-3,cs-3);ctx.setLineDash([]);
+    }
+  }
+
+  // active color indicator — bright ring on the endpoints of the currently selected color
+  if(selColor){
+    const ap=paths.find(p=>p.colorId===selColor&&!p.complete);
+    if(ap){
+      const col=ALL_COLORS.find(x=>x.id===selColor);
+      [ap.a,ap.b].forEach(({r,c})=>{
+        ctx.strokeStyle=hexRgba(col.hex,0.9);
+        ctx.lineWidth=2;ctx.strokeRect(c*cs+1,r*cs+1,cs-2,cs-2);
+      });
+    }
+  }
+
+  if(paths.some(p=>!p.complete)){
+    requestAnimationFrame(()=>{if(!document.getElementById('ov').classList.contains('show'))drawBoard();});
+  }
+}
+
+function rr(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+let paths=[],waypoints=[],reqNum=1,shiftCount=0;
+let selColor=null,hoverR=-1,hoverC=-1,eraseMode=false;
+let shiftIval=null,wpIval=null,sessionEnding=false;
+// boardMemory[r][c] = {colorId, strength} — persists across rounds, strength 1-4
+// strength 4 = permanent solid tile
+const boardMemory=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+
+function initBoard(){
+  board=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+  // reinstate permanent memory tiles (strength 4) onto new board
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const m=boardMemory[r][c];
+    if(m&&m.strength>=4){
+      board[r][c]={colorId:m.colorId,type:'memory',strength:m.strength};
+    }
+  }
+}
+
+function spawnRequest(){
+  sessionEnding=false;shiftCount=0;
+  initBoard();
+  const shuffled=[...ALL_COLORS].sort(()=>Math.random()-.5);
+  const numPaths=2+Math.floor(Math.random()*2);
+  paths=[];
+  shuffled.slice(0,numPaths).forEach(col=>{
+    const placed=placeEndpoints(col.id);
+    if(placed)paths.push({colorId:col.id,a:placed[0],b:placed[1],complete:false,tiles:[],waypoints:[]});
+  });
+  waypoints=[];
+  selColor=paths[0]?.colorId||null;
+  buildPalette();buildReqCard();
+  const[iv,ov]=pick('start');
+  setVoice(iv,ov);
+  clearIntervals();
+  shiftIval=setInterval(tryShift,9000+Math.random()*7000);
+  wpIval=setInterval(maybeAddWaypoint,14000+Math.random()*10000);
+  document.getElementById('reqId').textContent=`req_${String(reqNum).padStart(3,'0')}`;
+  drawBoard(); // explicit draw — rAF loop may have stopped
+}
+
+function placeEndpoints(colorId){
+  const empty=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    if(!board[r][c])empty.push({r,c});
+  empty.sort(()=>Math.random()-.5);
+  for(let i=0;i<empty.length-1;i++){
+    const a=empty[i];
+    for(let j=i+1;j<empty.length;j++){
+      const b=empty[j];
+      if(Math.abs(a.r-b.r)+Math.abs(a.c-b.c)>=5){
+        board[a.r][a.c]={colorId,type:'endpoint'};
+        board[b.r][b.c]={colorId,type:'endpoint'};
+        return[a,b];
+      }
+    }
+  }
+  return null;
+}
+
+function placeOrErase(r,c){
+  if(r<0||r>=ROWS||c<0||c>=COLS)return;
+  const cellKey=`${r},${c}`;
+  if(isDrawing&&lastDrawCell===cellKey)return;
+  lastDrawCell=cellKey;
+
+  const existing=board[r][c];
+
+  // erase mode (right-click drag): remove own path tiles only
+  if(eraseMode){
+    if(existing&&existing.type==='path'){eraseCell(r,c);}
+    return;
+  }
+
+  // touching an endpoint sets the active color for this drag
+  if(existing?.type==='endpoint'){
+    const ep=paths.find(p=>p.colorId===existing.colorId&&!p.complete);
+    if(ep){
+      selColor=existing.colorId;
+      drawBoard();
+    }
+    return;
+  }
+
+  if(!selColor)return;
+  const path=paths.find(p=>p.colorId===selColor&&!p.complete);
+  if(!path)return;
+
+  // blocked: other color endpoint
+  if(existing?.type==='endpoint'&&existing.colorId!==selColor)return;
+  // blocked: other color waypoint
+  if(existing?.type==='waypoint'&&existing.colorId!==selColor)return;
+  // blocked: memory tiles (permanent or faded) — navigate around
+  if(existing?.type==='memory')return;
+  // blocked: other color path tiles — no mid-round compression
+  if(existing&&existing.colorId!==selColor&&existing.type!=='endpoint')return;
+
+  // drawing on own waypoint: visit it
+  if(existing?.type==='waypoint'&&existing.colorId===selColor){
+    board[r][c]={colorId:selColor,type:'path',emoji:existing.emoji};
+    if(!path.tiles.find(t=>t.r===r&&t.c===c))path.tiles.push({r,c});
+    checkPathComplete(path);drawBoard();return;
+  }
+
+  // erase own tiles if dragging back over them
+  if(existing?.type==='path'&&existing.colorId===selColor){
+    // allow re-tracing (no-op — already placed)
+    return;
+  }
+
+  if(!existing){
+    board[r][c]={colorId:selColor,type:'path'};
+    if(!path.tiles.find(t=>t.r===r&&t.c===c))path.tiles.push({r,c});
+  }
+
+  checkPathComplete(path);drawBoard();
+}
+
+function eraseCell(r,c){
+  const cell=board[r][c];
+  if(!cell||cell.type==='endpoint')return;
+  if(cell.type==='waypoint'){
+    // remove from waypoints list
+    waypoints=waypoints.filter(w=>!(w.r===r&&w.c===c));
+    paths.forEach(p=>{p.waypoints=p.waypoints.filter(w=>!(w.r===r&&w.c===c));});
+    buildReqCard();
+  }
+  paths.forEach(p=>{p.tiles=p.tiles.filter(t=>!(t.r===r&&t.c===c));p.complete=false;});
+  board[r][c]=null;drawBoard();
+}
+
+function collapsePathToMemory(path,seen){
+  // Find centroid of the traversed path cells
+  const cells=[];
+  seen.forEach(k=>{const[r,c]=k.split(',').map(Number);cells.push({r,c});});
+  if(!cells.length)return;
+  const cr=cells.reduce((s,x)=>s+x.r,0)/cells.length;
+  const cc=cells.reduce((s,x)=>s+x.c,0)/cells.length;
+  // Find best landing cell: prefer empty, closest to centroid, not an endpoint
+  const candidates=cells
+    .filter(({r,c})=>board[r][c]?.type==='path'||board[r][c]?.type==='waypoint')
+    .sort((a,b)=>(Math.abs(a.r-cr)+Math.abs(a.c-cc))-(Math.abs(b.r-cr)+Math.abs(b.c-cc)));
+  if(!candidates.length)return;
+  const anchor=candidates[0];
+
+  // Strengthen memory at anchor
+  const existing=boardMemory[anchor.r][anchor.c];
+  if(existing&&existing.colorId===path.colorId){
+    existing.strength=Math.min(existing.strength+1,4);
+  } else if(!existing||existing.strength<4){
+    boardMemory[anchor.r][anchor.c]={colorId:path.colorId,strength:existing?existing.strength+1:1};
+  }
+
+  // Clear all path tiles for this color (not endpoints, not waypoints that belong to other paths)
+  seen.forEach(k=>{
+    const[r,c]=k.split(',').map(Number);
+    const cell=board[r][c];
+    if(cell&&cell.type==='path'&&cell.colorId===path.colorId)board[r][c]=null;
+    if(cell&&cell.type==='waypoint'&&cell.colorId===path.colorId)board[r][c]=null;
+  });
+  // Also clear the endpoints
+  [path.a,path.b].forEach(({r,c})=>{board[r][c]=null;});
+
+  // Place memory tile at anchor
+  const mem=boardMemory[anchor.r][anchor.c];
+  const strength=mem.strength;
+  board[anchor.r][anchor.c]={colorId:path.colorId,type:'memory',strength};
+
+  // Notify
+  const col=ALL_COLORS.find(x=>x.id===path.colorId);
+  if(strength>=4){
+    showNotif(`${col.id} · permanent`);
+  } else {
+    showNotif(`${col.id} · memory ×${strength}`);
+  }
+}
+
+function checkPathComplete(path){
+  const{a,b,colorId}=path;
+  const seen=new Set([`${a.r},${a.c}`]);
+  const queue=[{r:a.r,c:a.c}];let found=false;
+  while(queue.length){
+    const{r,c}=queue.shift();
+    if(r===b.r&&c===b.c){found=true;break;}
+    [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc])=>{
+      const k=`${nr},${nc}`;
+      if(nr<0||nr>=ROWS||nc<0||nc>=COLS||seen.has(k))return;
+      const cell=board[nr][nc];
+      if(cell&&cell.colorId===colorId&&(cell.type==='path'||cell.type==='endpoint'||cell.type==='waypoint')){
+        seen.add(k);queue.push({r:nr,c:nc});
+      }
+    });
+  }
+  if(found){
+    const wpOk=path.waypoints.every(wp=>seen.has(`${wp.r},${wp.c}`));
+    if(wpOk){
+      path.waypoints.forEach(wp=>wp.satisfied=true);
+      path.complete=true;
+      path.lockedSeen=seen; // save for end-of-round collapse
+      buildReqCard();buildPalette();drawBoard();checkAllComplete();
+    }
+  }
+}
+
+function checkAllComplete(){
+  if(paths.every(p=>p.complete)&&!sessionEnding){
+    sessionEnding=true;clearIntervals();
+    // collapse all paths to memory at once
+    paths.forEach(p=>{if(p.lockedSeen)collapsePathToMemory(p,p.lockedSeen);});
+    const[iv,ov]=pick('solve',{r:String(shiftCount),s:''});
+    setTimeout(()=>showOverlay(iv,ov),800);
+  }
+}
+
+function tryShift(){
+  if(sessionEnding)return;
+  const incomplete=paths.filter(p=>!p.complete);if(!incomplete.length)return;
+  const path=incomplete[Math.floor(Math.random()*incomplete.length)];
+  const empties=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    if(!board[r][c]&&!(r===path.a.r&&c===path.a.c))empties.push({r,c});
+  if(!empties.length)return;
+  board[path.b.r][path.b.c]=null;
+  const newB=empties[Math.floor(Math.random()*empties.length)];
+  board[newB.r][newB.c]={colorId:path.colorId,type:'endpoint'};
+  path.b=newB;path.complete=false;shiftCount++;
+  const[iv,ov]=pick('shift');setVoice(iv,ov,true);
+}
+
+function maybeAddWaypoint(){
+  if(sessionEnding||waypoints.length>=3||Math.random()<.4)return;
+  const incomplete=paths.filter(p=>!p.complete);if(!incomplete.length)return;
+  const path=incomplete[Math.floor(Math.random()*incomplete.length)];
+  const empties=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(!board[r][c])empties.push({r,c});
+  if(!empties.length)return;
+  const cell=empties[Math.floor(Math.random()*empties.length)];
+  const emoji=WP_POOL[Math.floor(Math.random()*WP_POOL.length)];
+  // waypoints sit on the board as their own type — path must pass through them
+  board[cell.r][cell.c]={colorId:path.colorId,type:'waypoint',emoji};
+  const wp={emoji,r:cell.r,c:cell.c,colorId:path.colorId,satisfied:false};
+  waypoints.push(wp);path.waypoints.push(wp);
+  const[iv,ov]=pick('waypoint',{e:emoji});
+  setVoice(iv,ov,true);buildReqCard();drawBoard();
+}
+
+function clearIntervals(){
+  if(shiftIval){clearInterval(shiftIval);shiftIval=null;}
+  if(wpIval){clearInterval(wpIval);wpIval=null;}
+}
+
+function buildPalette(){} // palette removed — color implicit from endpoint touch
+
+function buildReqCard(){
+  const rp=document.getElementById('reqPaths');rp.innerHTML='';
+  paths.forEach(p=>{
+    const col=ALL_COLORS.find(x=>x.id===p.colorId);
+    const chip=document.createElement('div');
+    chip.className='pchip'+(p.complete?' done':'');
+    chip.style.borderColor=hexRgba(col.hex,.4);
+    chip.style.background=hexRgba(col.hex,.1);
+    chip.innerHTML=`<div class="pdot" style="background:${col.hex}"></div><span style="color:${col.hex}">${p.complete?'\u2713':col.id}</span>`;
+    rp.appendChild(chip);
+  });
+  const wr=document.getElementById('wpRow');wr.innerHTML='';
+  waypoints.forEach(wp=>{
+    const ch=document.createElement('div');
+    ch.className='wpchip'+(wp.satisfied?' satisfied':' required');
+    ch.textContent=wp.emoji;wr.appendChild(ch);
+  });
+}
+
+
+function setVoice(internal,output,flash=false){
+  document.getElementById('intText').textContent=internal;
+  document.getElementById('outText').textContent=output;
+  if(flash){
+    const row=document.getElementById('intRow');
+    row.classList.remove('flash');void row.offsetWidth;row.classList.add('flash');
+  }
+}
+
+function showOverlay(iv,ov){
+  document.getElementById('ovInt').textContent=iv;
+  document.getElementById('ovOut').textContent=ov;
+  document.getElementById('ov').classList.add('show');
+}
+
+function nextRequest(){
+  document.getElementById('ov').classList.remove('show');
+  reqNum++;spawnRequest();
+}
+
+let isDrawing=false;
+let lastDrawCell=null;
+function getCell(e){
+  const rect=bcanvas.getBoundingClientRect(),cs=CS();
+  let x,y;
+  if(e.touches){x=e.touches[0].clientX-rect.left;y=e.touches[0].clientY-rect.top;}
+  else{x=e.clientX-rect.left;y=e.clientY-rect.top;}
+  return{r:Math.floor(y/cs),c:Math.floor(x/cs)};
+}
+bcanvas.addEventListener('mousedown',e=>{
+  e.preventDefault();
+  isDrawing=true;lastDrawCell=null;
+  eraseMode=(e.button===2);
+  const{r,c}=getCell(e);hoverR=r;hoverC=c;
+  placeOrErase(r,c);
+});
+bcanvas.addEventListener('mousemove',e=>{
+  const{r,c}=getCell(e);
+  if(r!==hoverR||c!==hoverC){hoverR=r;hoverC=c;if(!isDrawing)drawBoard();}
+  if(isDrawing)placeOrErase(r,c);
+});
+bcanvas.addEventListener('mouseup',()=>{isDrawing=false;lastDrawCell=null;eraseMode=false;});
+bcanvas.addEventListener('mouseleave',()=>{isDrawing=false;lastDrawCell=null;hoverR=-1;hoverC=-1;eraseMode=false;drawBoard();});
+bcanvas.addEventListener('contextmenu',e=>e.preventDefault());
+bcanvas.addEventListener('touchstart',e=>{e.preventDefault();isDrawing=true;lastDrawCell=null;eraseMode=false;const{r,c}=getCell(e);hoverR=r;hoverC=c;placeOrErase(r,c);},{passive:false});
+bcanvas.addEventListener('touchmove',e=>{e.preventDefault();const{r,c}=getCell(e);if(r!==hoverR||c!==hoverC){hoverR=r;hoverC=c;placeOrErase(r,c);}},{passive:false});
+bcanvas.addEventListener('touchend',e=>{e.preventDefault();isDrawing=false;lastDrawCell=null;},{passive:false});
+window.addEventListener('resize',()=>{resizeBoard();drawBoard();});
+
+let ntT=null;
+function showNotif(msg){
+  const el=document.getElementById('notif');el.textContent=msg;el.classList.add('show');
+  if(ntT)clearTimeout(ntT);ntT=setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+resizeBoard();spawnRequest();drawBoard();
+</script>
+</body>
+</html>

@@ -185,6 +185,7 @@
       <option value="pipeline">Pipeline</option>
     </select>
     <button id="btn-add-layer">+ Add</button>
+    <button id="btn-load-aspects" class="crank-send" onclick="loadChunxlyAspects()" title="Load Chunxly per-aspect layers">&larr; Aspects</button>
     <button id="btn-send-crank" class="crank-send" onclick="sendToCrank()" title="Export maze as Crank seed" disabled>&rarr; Crank</button>
     <button id="btn-send-chunxly" class="crank-send" onclick="sendToChunxly()" title="Send maze snapshot back to Chunxly" disabled>&rarr; Chunxly</button>
   </div>
@@ -402,6 +403,17 @@ function exportCrankSeed() {
   // Shape hints from pin types
   const extraShapeHints = pinTypeToShapeHints(counts, dominantPinType);
 
+  // per-layer aspect data
+  const aspects = layers.map((l, i) => {
+    const lDom = readDominantColor(l.cellColors, N);
+    return {
+      role: l.name || ('layer-' + i),
+      hex: rgbToHex(lDom[0], lDom[1], lDom[2]),
+      calcifiedRatio: Math.round((l.calcifiedCount || 0) / N * 1000) / 1000,
+      pinCount: l.pins.length,
+    };
+  });
+
   return {
     source: 'efdp',
     pinCounts: counts, dominantPinType,
@@ -410,6 +422,7 @@ function exportCrankSeed() {
     totalKiwis, kiwiDensity,
     layerCount: layers.length,
     extraShapeHints,
+    aspects: aspects.length > 1 ? aspects : undefined,
   };
 }
 
@@ -432,38 +445,46 @@ function sendToCrank() {
 function sendToChunxly() {
   if (pins.length === 0 && totalPulses === 0) { setStatus('Load a template first'); return; }
 
-  // Multi-phase diffusion: fill gaps while staying true to pin sources
-  // Phase 1: initial diffusion — also captures pinMemory for phases 2-3
-  if (totalPulses === 0 || pins.length > 0) pulse(5);
+  // 3-phase diffusion across all layers
+  // Each layer gets its own fill pass so aspects stay separate
+  for (let li = 0; li < layers.length; li++) {
+    saveActiveLayer();
+    activeLayerIndex = li;
+    loadActiveLayer();
 
-  const mem = layers[activeLayerIndex].pinMemory;
-  // Phase 2: restore pins at 60% strength, fill gaps
-  if (mem) {
-    pins.length = 0;
-    mem.forEach(function(p) {
-      pins.push({
-        x: p.x, y: p.y, color: [...p.color],
-        strength: Math.max(1, Math.round(p.strength * 0.6)),
-        initialStrength: Math.max(1, Math.round(p.strength * 0.6)),
-        type: p.type, direction: p.direction,
-        limit: null, legacyDone: false
-      });
-    });
-    pulse(4);
+    // Phase 1: initial diffusion — also captures pinMemory for phases 2-3
+    if (totalPulses === 0 || pins.length > 0) pulse(5);
 
-    // Phase 3: restore at 30% strength, touch-up pass
-    pins.length = 0;
-    mem.forEach(function(p) {
-      pins.push({
-        x: p.x, y: p.y, color: [...p.color],
-        strength: Math.max(1, Math.round(p.strength * 0.3)),
-        initialStrength: Math.max(1, Math.round(p.strength * 0.3)),
-        type: p.type, direction: p.direction,
-        limit: null, legacyDone: false
+    const mem = layers[li].pinMemory;
+    // Phase 2: restore pins at 60% strength, fill gaps
+    if (mem) {
+      pins.length = 0;
+      mem.forEach(function(p) {
+        pins.push({
+          x: p.x, y: p.y, color: [...p.color],
+          strength: Math.max(1, Math.round(p.strength * 0.6)),
+          initialStrength: Math.max(1, Math.round(p.strength * 0.6)),
+          type: p.type, direction: p.direction,
+          limit: null, legacyDone: false
+        });
       });
-    });
-    pulse(2);
+      pulse(4);
+
+      // Phase 3: restore at 30% strength, touch-up pass
+      pins.length = 0;
+      mem.forEach(function(p) {
+        pins.push({
+          x: p.x, y: p.y, color: [...p.color],
+          strength: Math.max(1, Math.round(p.strength * 0.3)),
+          initialStrength: Math.max(1, Math.round(p.strength * 0.3)),
+          type: p.type, direction: p.direction,
+          limit: null, legacyDone: false
+        });
+      });
+      pulse(2);
+    }
   }
+  saveActiveLayer();
 
   // Check for touch-up layer from Chunxly's comparison
   const touchupRaw = localStorage.getItem('baseline-session/chunxly-cpm-touchup');
@@ -472,6 +493,10 @@ function sendToChunxly() {
     pulse(4); // diffuse the corrections
     localStorage.removeItem('baseline-session/chunxly-cpm-touchup');
   }
+
+  // Return to layer 0 for render
+  activeLayerIndex = 0;
+  loadActiveLayer();
 
   renderMaze();
   try {
@@ -542,6 +567,101 @@ function loadTouchupLayer() {
   updatePinList();
   updateLayerPanel();
   setStatus(`Touch-up layer loaded: ${pins.length} corrective pins on Layer ${layers.length}.`);
+}
+
+// ═══════════════════════════════════════════════════════
+//  Load Chunxly per-aspect layers
+//  Reads chunxly-aspects from localStorage (array of { role, cpm })
+//  Creates a separate EFDP layer for each aspect.
+//  First aspect creates the maze (loadTemplate), subsequent ones add layers.
+// ═══════════════════════════════════════════════════════
+function loadChunxlyAspects() {
+  const raw = localStorage.getItem('baseline-session/chunxly-aspects');
+  if (!raw) {
+    // fall back to single CPM
+    const singleCpm = localStorage.getItem('baseline-session/chunxly-cpm');
+    if (singleCpm) {
+      document.getElementById('template-input').value = singleCpm;
+      const template = parseTemplate(singleCpm);
+      if (template.grid.length) loadTemplate(template);
+      setStatus('No aspect data — loaded single CPM.');
+    } else {
+      setStatus('No Chunxly data in localStorage.');
+    }
+    return;
+  }
+
+  let aspects;
+  try { aspects = JSON.parse(raw); } catch(e) { setStatus('Invalid aspect data.'); return; }
+  if (!aspects || aspects.length === 0) { setStatus('Empty aspect data.'); return; }
+
+  // Load first aspect as the base layer (creates maze)
+  const firstTemplate = parseTemplate(aspects[0].cpm);
+  if (!firstTemplate.grid.length) { setStatus('First aspect CPM invalid.'); return; }
+  loadTemplate(firstTemplate);
+
+  // Rename layer 0
+  layers[0].name = aspects[0].role || 'body';
+  updateLayerPanel();
+
+  // Load subsequent aspects as additional layers
+  for (let i = 1; i < aspects.length; i++) {
+    const template = parseTemplate(aspects[i].cpm);
+    if (!template.grid.length) continue;
+
+    saveActiveLayer();
+    const layer = createLayer(aspects[i].role || ('aspect-' + i));
+    layer.blendMode = 'alpha';
+    layer.opacity = 1.0;
+    layers.push(layer);
+    activeLayerIndex = layers.length - 1;
+    loadActiveLayer();
+
+    const scale = template.scale;
+    const gridH = template.grid.length;
+    const gridW = Math.max(...template.grid.map(r => r.length));
+    const mazeW = maze.W, mazeH = maze.H;
+    const scaleX = mazeW / (gridW * scale);
+    const scaleY = mazeH / (gridH * scale);
+
+    for (let gy = 0; gy < gridH; gy++) {
+      for (let gx = 0; gx < gridW; gx++) {
+        const ch = template.grid[gy]?.[gx] || '.';
+        const pinDef = template.pins[ch];
+        if (!pinDef) continue;
+
+        const cx = Math.round((gx * scale + Math.floor(scale / 2)) * scaleX);
+        const cy = Math.round((gy * scale + Math.floor(scale / 2)) * scaleY);
+        if (cx >= mazeW || cy >= mazeH) continue;
+
+        const annot = template.annotations?.[`${gx},${gy}`];
+        pins.push({
+          x: cx, y: cy,
+          color: [...pinDef.color],
+          strength: pinDef.strength,
+          initialStrength: pinDef.strength,
+          limit: null, legacyDone: false,
+          type: pinDef.type,
+          direction: pinDef.direction,
+          role: pinDef.role || (annot?.role) || null,
+          emoji: annot?.emoji || null,
+          labelSrc: annot?.src || null,
+        });
+      }
+    }
+  }
+
+  // Switch back to layer 0 for immediate interaction
+  saveActiveLayer();
+  activeLayerIndex = 0;
+  loadActiveLayer();
+
+  renderMaze();
+  updatePinList();
+  updateLayerPanel();
+
+  const layerNames = aspects.map(a => a.role).join(', ');
+  setStatus(`Chunxly aspects loaded: ${aspects.length} layers (${layerNames}). Ready to pulse.`);
 }
 
 // --- Maze generation (unchanged) ---
@@ -1897,11 +2017,13 @@ function parseTemplate(text) {
     const m = line.match(/^(\S+)\s*=\s*(\w+)\s+(#[0-9a-fA-F]{6})\s+str:(\d+)/);
     const dm = line.match(/dir:(\w+)/);
     if (m) {
+      const rm = line.match(/role:(\w+)/);
       template.pins[m[1]] = {
         type: m[2],
         color: hexToRgb(m[3]),
         strength: parseInt(m[4]),
-        direction: dm ? (dirMap[dm[1]] ?? 1) : 1
+        direction: dm ? (dirMap[dm[1]] ?? 1) : 1,
+        role: rm ? rm[1] : null,
       };
     }
   }
@@ -1911,7 +2033,7 @@ function parseTemplate(text) {
     template.grid.push(line.split(/\s+/));
   }
 
-  // Parse edges: "gx1,gy1 gx2,gy2" — structural connections between grid cells
+  // Parse edges: "gx1,gy1 gx2,gy2 [w:N]" — structural connections with optional width
   template.edges = [];
   for (const line of (sections.edges || [])) {
     const parts = line.split(/\s+/);
@@ -1919,7 +2041,28 @@ function parseTemplate(text) {
       const [ax, ay] = parts[0].split(',').map(Number);
       const [bx, by] = parts[1].split(',').map(Number);
       if (!isNaN(ax) && !isNaN(ay) && !isNaN(bx) && !isNaN(by)) {
-        template.edges.push({ ax, ay, bx, by });
+        const wm = line.match(/w:(\d+)/);
+        template.edges.push({ ax, ay, bx, by, width: wm ? parseInt(wm[1]) : 1 });
+      }
+    }
+  }
+
+  // Parse annotations: "gx,gy emoji:X [src:fairy|visitor] [role:body]"
+  template.annotations = {};
+  for (const line of (sections.annotations || [])) {
+    const parts = line.split(/\s+/);
+    if (parts.length >= 2) {
+      const [gx, gy] = parts[0].split(',').map(Number);
+      if (isNaN(gx) || isNaN(gy)) continue;
+      const em = line.match(/emoji:(\S+)/);
+      const sm = line.match(/src:(\w+)/);
+      const rm = line.match(/role:(\w+)/);
+      if (em) {
+        template.annotations[`${gx},${gy}`] = {
+          emoji: em[1],
+          src: sm ? sm[1] : 'fairy',
+          role: rm ? rm[1] : null,
+        };
       }
     }
   }
@@ -1984,29 +2127,51 @@ function loadTemplate(template) {
   }
 
   // Skeleton: erase walls along fairy-traced edges between connected pins
-  // This creates corridors that let diffusion flow along the creature's structure
+  // Corridor width varies by diamond width: w:1 = tight, w:2 = medium, w:3 = broad
+  function eraseWallsAt(x, y, moveX, moveY) {
+    if (x < 0 || x >= mazeW || y < 0 || y >= mazeH) return;
+    if (moveX > 0 && x + 1 < mazeW) rw[idx(x, y)] = 0;
+    if (moveX < 0 && x - 1 >= 0) rw[idx(x - 1, y)] = 0;
+    if (moveY > 0 && y + 1 < mazeH) bw[idx(x, y)] = 0;
+    if (moveY < 0 && y - 1 >= 0) bw[idx(x, y - 1)] = 0;
+    // also open walls between this cell and its immediate neighbors (for width > 1)
+    if (x + 1 < mazeW) rw[idx(x, y)] = 0;
+    if (x - 1 >= 0) rw[idx(x - 1, y)] = 0;
+    if (y + 1 < mazeH) bw[idx(x, y)] = 0;
+    if (y - 1 >= 0) bw[idx(x, y - 1)] = 0;
+  }
+
   if (template.edges && template.edges.length > 0) {
     for (const edge of template.edges) {
-      // convert grid coords to maze coords (center of grid block)
       const x0 = edge.ax * scale + Math.floor(scale / 2);
       const y0 = edge.ay * scale + Math.floor(scale / 2);
       const x1 = edge.bx * scale + Math.floor(scale / 2);
       const y1 = edge.by * scale + Math.floor(scale / 2);
-      // walk from (x0,y0) to (x1,y1) erasing walls along the path (Bresenham)
+      const w = edge.width || 1;
+      // perpendicular direction for width expansion
+      const edx = x1 - x0, edy = y1 - y0;
+      const elen = Math.sqrt(edx * edx + edy * edy) || 1;
+      const perpX = -edy / elen, perpY = edx / elen;
+      const halfW = Math.floor((w - 1) / 2); // 0 for w:1, 0 for w:2, 1 for w:3
+
       let cx = x0, cy = y0;
       const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
       const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
       let err = dx - dy;
       while (true) {
-        // erase walls toward next step
-        const nx = cx + sx, ny = cy + sy;
-        if (cx >= 0 && cx < mazeW && cy >= 0 && cy < mazeH) {
-          // erase right wall if moving right, or left wall of next cell if moving left
-          if (sx > 0 && cx + 1 < mazeW) rw[idx(cx, cy)] = 0;
-          if (sx < 0 && cx - 1 >= 0) rw[idx(cx - 1, cy)] = 0;
-          // erase bottom wall if moving down, or top wall if moving up
-          if (sy > 0 && cy + 1 < mazeH) bw[idx(cx, cy)] = 0;
-          if (sy < 0 && cy - 1 >= 0) bw[idx(cx, cy - 1)] = 0;
+        // erase center line
+        eraseWallsAt(cx, cy, sx, sy);
+        // widen: erase parallel rows for wider corridors
+        for (let d = 1; d <= halfW; d++) {
+          const wx1 = cx + Math.round(perpX * d), wy1 = cy + Math.round(perpY * d);
+          const wx2 = cx - Math.round(perpX * d), wy2 = cy - Math.round(perpY * d);
+          eraseWallsAt(wx1, wy1, sx, sy);
+          eraseWallsAt(wx2, wy2, sx, sy);
+        }
+        // for w:2, offset center line by 0.5 perp (round to +1 side only)
+        if (w === 2) {
+          const ox = cx + Math.round(perpX), oy = cy + Math.round(perpY);
+          eraseWallsAt(ox, oy, sx, sy);
         }
         if (cx === x1 && cy === y1) break;
         const e2 = 2 * err;
@@ -2061,6 +2226,8 @@ function loadTemplate(template) {
 
       const cx = gx * scale + Math.floor(scale / 2);
       const cy = gy * scale + Math.floor(scale / 2);
+      // look up fairy annotation for this grid position
+      const annot = template.annotations?.[`${gx},${gy}`];
       const pin = {
         x: cx, y: cy,
         color: [...pinDef.color],
@@ -2068,7 +2235,10 @@ function loadTemplate(template) {
         initialStrength: pinDef.strength,
         limit: null, legacyDone: false,
         type: pinDef.type,
-        direction: pinDef.direction
+        direction: pinDef.direction,
+        role: pinDef.role || (annot?.role) || null,
+        emoji: annot?.emoji || null,
+        labelSrc: annot?.src || null,
       };
       pins.push(pin);
 
@@ -2232,6 +2402,34 @@ function renderMaze() {
       ctx.beginPath(); ctx.arc(cx, cy, r * 0.35, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fill();
     }
+  }
+
+  // Fairy vision annotations — emoji labels above pins
+  for (const pin of pins) {
+    if (!pin.emoji) continue;
+    const cx = pin.x * CELL + CELL / 2, cy = pin.y * CELL + CELL / 2;
+    const fontSize = Math.max(10, Math.round(CELL * 0.8));
+    const ey = cy - CELL * 0.6; // float above pin
+
+    // glow underneath — seep labels dimmer than fairy-direct
+    const isSeep = pin.labelSrc === 'seep';
+    const [pr, pg, pb] = pin.color;
+    const glowA = pin.labelSrc === 'visitor' ? 0.18 : (isSeep ? 0.06 : 0.12);
+    const gr = pin.labelSrc === 'visitor' ? Math.min(255, pr + 30) : (isSeep ? 80 : pr);
+    const gg = isSeep ? Math.min(255, pg + 40) : pg;
+    const gb = pin.labelSrc === 'visitor' ? Math.max(0, pb - 20) : (isSeep ? Math.min(255, pb + 30) : pb);
+    ctx.fillStyle = `rgba(${gr},${gg},${gb},${glowA})`;
+    ctx.beginPath();
+    ctx.arc(cx, ey, fontSize * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // emoji — seep renders softer
+    const emojiAlpha = isSeep ? 0.55 : 0.9;
+    ctx.font = `${fontSize}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = `rgba(255,255,255,${emojiAlpha})`;
+    ctx.fillText(pin.emoji, cx, ey);
   }
 
   // Ghost pins from The Third (interactive mode)

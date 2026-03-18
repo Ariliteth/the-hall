@@ -275,6 +275,26 @@ var PALETTES = {
   earth:    ["#080400","#1a0f00","#3d2b1f","#6b4226","#c4956a","#ffe8c0"],
   water:    ["#000508","#001428","#003366","#0088cc","#44ccee","#c0eeff"],
   light:    ["#080800","#1a1400","#3d3300","#ccaa00","#ffdd33","#fffff0"],
+  // ── Kitchendom affinities ──
+  umamian:  ["#0a0600","#1f1000","#4a2800","#8b5e3c","#c49a6c","#f5ddb0"],  // deep brown-gold, savory richness
+  salterran:["#050a0f","#0d1f2d","#1a3a4a","#4a8a9a","#a0d0d8","#e8f5f8"],  // mineral blue-white, preserved
+  sourvren: ["#050a02","#0f2008","#2a5a10","#5a9e20","#b8e060","#f0ffd0"],  // fermented green-yellow, volatile
+  bitterish:["#080408","#1a0a1a","#3a1040","#6a2060","#b060a0","#e8c0e0"],  // dark purple-black, resistant
+  sweetese: ["#0a0802","#221800","#5a3800","#d4884a","#f5c080","#fff5e0"],  // warm amber-cream, abundant
+};
+
+// ── Kitchendom affinity translation (paletteKey → affinity) ──
+var KITCHENDOM_AFFINITY_MAP = {
+  earth:    "umamian",
+  creature: "umamian",
+  ice:      "salterran",
+  item:     "salterran",
+  poison:   "sourvren",
+  nature:   "sourvren",
+  ghost:    "bitterish",
+  fire:     "bitterish",
+  light:    "sweetese",
+  water:    "sweetese",
 };
 
 // ── Recipes ───────────────────────────────────────────────────────────────────
@@ -1911,12 +1931,16 @@ function readCrankContext() {
       var seedRaw = localStorage.getItem("baseline-session/crank-seed");
       if (seedRaw) {
         var seed = JSON.parse(seedRaw);
-        if (seed.source === "efdp") {
+        if (seed.source === "efdp" || seed.source === "chunxly") {
           var recipeMap = {
             circle:["creature","spirit"], square:["item","terrain"],
             triangle:["relic","creature"]
           };
           seed.recipePool = recipeMap[seed.dominantPinType] || ["flora","spirit"];
+          // Kitchendom: resolve affinity from paletteKey
+          if (seed.source === "chunxly") {
+            seed.kitchenAffinity = KITCHENDOM_AFFINITY_MAP[seed.paletteKey] || null;
+          }
           S.crankContext = seed;
         }
       }
@@ -2079,8 +2103,8 @@ function generateRoll(bias) {
     if (voice.cohesion && rng() > 0.4) rCohesion = voice.cohesion;
   });
 
-  // 5. Maze seed overrides (if present)
-  if (S.crankContext && S.crankContext.source === "efdp") {
+  // 5. Maze/Canvas seed overrides (if present)
+  if (S.crankContext && (S.crankContext.source === "efdp" || S.crankContext.source === "chunxly")) {
     var ms = S.crankContext;
     if (rng() > 0.5 && ms.recipePool) { rKey = pick(ms.recipePool, rng); worldNote.push("m:" + rKey); }
     rPal = ms.paletteKey || rPal;
@@ -2088,6 +2112,14 @@ function generateRoll(bias) {
     if (ms.extraShapeHints) ms.extraShapeHints.forEach(function(h) {
       if (rExtras.indexOf(h) < 0) rExtras.push(h);
     });
+    // Kitchendom: if Canvas seed, resolve affinity palette
+    if (ms.source === "chunxly") {
+      var affinity = KITCHENDOM_AFFINITY_MAP[ms.paletteKey];
+      if (affinity && PALETTES[affinity]) {
+        rPal = affinity;
+        worldNote.push("k:" + affinity);
+      }
+    }
   }
 
   return { seed: seed, recipeKey: rKey, extraShapes: rExtras, palKey: rPal, cohesionMode: rCohesion, worldNote: worldNote.join(" "), voiceEmoji: voiceEmoji, worldIcon: worldIcon };
@@ -2599,7 +2631,7 @@ function buildSquatterPacket(roll) {
     squatter: true,
   };
 
-  if (S.crankContext && S.crankContext.source === "efdp") {
+  if (S.crankContext && (S.crankContext.source === "efdp" || S.crankContext.source === "chunxly")) {
     var ms = S.crankContext;
     packet.mazeOrigin = {
       meanStrength: ms.meanStrength, calcifiedRatio: ms.calcifiedRatio,
@@ -2686,7 +2718,7 @@ function sealPacket() {
   };
 
   // Maze origin if present
-  if (S.crankContext && S.crankContext.source === "efdp") {
+  if (S.crankContext && (S.crankContext.source === "efdp" || S.crankContext.source === "chunxly")) {
     var ms = S.crankContext;
     packet.mazeOrigin = {
       meanStrength: ms.meanStrength, calcifiedRatio: ms.calcifiedRatio,
@@ -2949,10 +2981,15 @@ function esc(str) {
 function renderWorldSelect() {
   // Zoomed phosphor screen — no machine visible, just the screen bezel scaled up
   var ctxBanner = "";
-  if (S.crankContext && S.crankContext.source === "efdp") {
+  if (S.crankContext && (S.crankContext.source === "efdp" || S.crankContext.source === "chunxly") && S.crankContext.source === "efdp") {
     var ms = S.crankContext;
     ctxBanner = '<div style="background:rgba(204,170,102,0.06);border:1px solid #554422;border-radius:4px;padding:6px 10px;margin-bottom:10px;text-align:left">'
       + '<div style="font-size:4px;color:#ccaa66;letter-spacing:0.08em">MAZE \u00B7 ' + esc(ms.paletteKey) + '</div>'
+      + '</div>';
+  } else if (S.crankContext && S.crankContext.source === "chunxly") {
+    var ms = S.crankContext;
+    ctxBanner = '<div style="background:rgba(94,196,168,0.06);border:1px solid #1a4a3a;border-radius:4px;padding:6px 10px;margin-bottom:10px;text-align:left">'
+      + '<div style="font-size:4px;color:#5ec4a8;letter-spacing:0.08em">CANVAS \u00B7 ' + esc(ms.paletteKey || ms.dominantHex || "") + '</div>'
       + '</div>';
   } else if (S.crankContext) {
     ctxBanner = '<div style="background:rgba(155,188,15,0.06);border:1px solid #3a5a00;border-radius:4px;padding:6px 10px;margin-bottom:10px;text-align:left">'
@@ -3151,6 +3188,13 @@ function renderMachine() {
     ctxBanner = '<div style="background:rgba(204,170,102,0.05);border:1px solid #554422;border-radius:4px;padding:4px 8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px">'
       + '<div style="font-size:4px;color:#ccaa66;letter-spacing:0.08em">MAZE \u00B7 ' + esc(ms.paletteKey.toUpperCase()) + '</div>'
       + '<button onclick="dismissContext()" style="background:none;border:none;color:#554422;font-size:5px;cursor:pointer;font-family:inherit;padding:0">\u2715</button>'
+      + '</div>';
+  } else if (S.crankContext && S.crankContext.source === "chunxly") {
+    var ms = S.crankContext;
+    var affinityLabel = ms.kitchenAffinity ? ms.kitchenAffinity.toUpperCase() : (ms.paletteKey || ms.dominantHex || "").toUpperCase();
+    ctxBanner = '<div style="background:rgba(94,196,168,0.05);border:1px solid #1a4a3a;border-radius:4px;padding:4px 8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px">'
+      + '<div style="font-size:4px;color:#5ec4a8;letter-spacing:0.08em">CANVAS \u00B7 ' + esc(affinityLabel) + '</div>'
+      + '<button onclick="dismissContext()" style="background:none;border:none;color:#1a4a3a;font-size:5px;cursor:pointer;font-family:inherit;padding:0">\u2715</button>'
       + '</div>';
   } else if (S.crankContext) {
     ctxBanner = '<div style="background:rgba(155,188,15,0.05);border:1px solid #2a4a00;border-radius:4px;padding:4px 8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px">'

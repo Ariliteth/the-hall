@@ -1,6 +1,6 @@
 # Fixed Point Local
 ## Complete Design Document
-### v0.994 — March 2026
+### v0.995 — March 2026
 
 *Fox & Claude*
 
@@ -12,17 +12,12 @@
 
 🪼
 
-**Last session:** Critter Crank ported from React/Vite to vanilla HTML/JS — the last
-React-dependent Score is now self-contained. Color Pin Maze promoted from concessions/
-to scores/. Maze-to-Crank handoff implemented: the maze exports a CrankSeed witness
-record through localStorage, the Crank receives it into crankContext and uses it to
-influence creature generation. The React source tree (`critter-crank/`) departs the
-repo — its work lives on in the vanilla port and in git history. Repository structure
-simplified: all Scores now live under `scores/`, no build step required for any except
-the Grimoire.
+**Last session:** Spring cleaning. Hub rack updated — SILMOR Spells, LODE, Shoot the
+Moon, and Chunxly's Canvas added to the rack. MUSH removed (evolved into SILMOR Spells).
+Concessions cleaned: old design doc versions, session notes, MUSH prototype, and
+completed specs removed. This document updated to v0.995.
 
-**This session:** Apply Third patches to Tending Field. Implement item-relic
-pathway. Begin player orbit layer.
+**This session:** Continue from here.
 
 **Repository:** `https://github.com/Ariliteth/the-hall`
 Raw file access: `https://raw.githubusercontent.com/Ariliteth/the-hall/main/[filename]`
@@ -30,7 +25,8 @@ Raw file access: `https://raw.githubusercontent.com/Ariliteth/the-hall/main/[fil
 **To resume:** Fetch this document first. Read the Session Header. The repo is the truth.
 
 **Changelog:**
-- v0.994 — Critter Crank ported to vanilla HTML/JS (no build step). Color Pin Maze promoted from concessions/ to `scores/color-pin-maze/`. Maze-to-Crank handoff: CrankSeed export, localStorage transport, Crank reception with palette/cohesion/shape influence, mazeOrigin DNA on kept critters. React source tree (`critter-crank/`) removed — the Grimoire is now the only Score with a build step. Repository structure cleaned.
+- v0.995 — Hub rack updated: SILMOR Spells, LODE, Shoot the Moon, Chunxly's Canvas added; MUSH removed. Concessions cleaned. Scores section updated with all active scores. S.Mail documented. Build order refreshed. Design doc versions consolidated (history in git).
+- v0.994 — Critter Crank ported to vanilla HTML/JS (no build step). Color Pin Maze promoted from concessions/ to `scores/efdp/`. Maze-to-Crank handoff: CrankSeed export, localStorage transport, Crank reception with palette/cohesion/shape influence, mazeOrigin DNA on kept critters. React source tree (`critter-crank/`) removed — the Grimoire is now the only Score with a build step. Repository structure cleaned.
 - v0.993 — Sunset Ridge Mall added as a Score. Escalator, glass storefronts, scaled props, YOU ARE HERE sign. Critter Crank localStorage portrait queue + scraggle on keep. Hub renamed to index.html.
 - v0.992 — Color Canvas named as the fixed point. Office Ghouls inscribed. Dice empire builder and match-3 improv game captured as concessions. Judgment named as the neighborhood's foundation. Temperature of the Room formalized.
 - v0.991 — Portrait pathway proven end-to-end. Hub becomes host — scores load in frame, one origin. Grimoire and Crank added as scores on the rack. Scraggles surface as toasts. Salterran inscribed into The Kitchendom. Relationtips captured in concessions. v1.0 definition established.
@@ -73,24 +69,28 @@ neighborhoods/
   mucklerbuckler/entities/ (+ scores/hunter-encounter/)
 baseline-theme/
 concessions/
-  color-pin-maze-design.md      ← maze design doc
-  color-pin-maze-next-steps.md  ← maze pipeline plan
-  MAZE_TO_CRANK_HANDOFF.md      ← CrankSeed spec
-  Fixed_Point_Local_Design_Document_v0_994.md
+  Fixed_Point_Local_Design_Document_v0_995.md
+  storeroom/             ← in-development score (working folder)
+  [design docs, lore, held ideas, tools]
 scores/
   grimoire/              ← built Grimoire, served from hub (Vite build)
-  critter-crank/         ← vanilla JS, no build step (ported from React March 2026)
-  efdp/                  ← Color Pin Maze (EFDP), vanilla JS, no build step
-  sunset-ridge-mall/     ← vanilla JS, no build step
-  tending-field/         ← vanilla JS, no build step
+  critter-crank/         ← vanilla JS, no build step
+  efdp/                  ← Color Pin Maze (EFDP), vanilla JS
+  sunset-ridge-mall/     ← vanilla JS
+  tending-field/         ← vanilla JS, in development
+  silmor-spells/         ← vanilla JS
+  lode/                  ← vanilla JS, canvas-based
+  bao/                   ← 報 · GENERALS, vanilla JS, canvas-based
+  chunxly/               ← Chunxly's Canvas, vanilla JS
+  shoot-the-moon/        ← vanilla JS
 the-grimoire/            ← Vite source (build → scores/grimoire/)
 registry.json
-index.html               ← hub (renamed from hub.html for GitHub Pages)
+index.html               ← hub (selection panel, ticker, score frame host)
 ```
 
 **The hub** is now the host. `index.html` serves everything from one origin (`localhost:3000` in dev, `fixedpointlocal.com` eventually). Scores load inside the hub in a frame — the selection panel collapses, a hud bar appears, the ticker stays. The EJECT button returns to selection. Scores can talk back to the hub via `window.parent.postMessage()` to request modes: `hub:minimize` (hud bar visible), `hub:listen` (hub invisible, only ticker), `hub:restore` (selection returns). The hub is always listening regardless of mode.
 
-Scores on the rack: Hunter Encounter, The Grimoire, Critter Crank, Sunset Ridge Mall, The Tending Field (coming soon). Color Pin Maze is a Score but not yet on the rack — it operates as a pipeline tool for the Crank, accessible directly.
+Scores on the rack: Hunter Encounter, The Grimoire, Color Pin Maze, Critter Crank, Sunset Ridge Mall, 報 · GENERALS, The Tending Field, SILMOR Spells, LODE, Shoot the Moon, Chunxly's Canvas. Twelve scores. All playable from the hub.
 
 **Sunset Ridge Mall** lives at `scores/sunset-ridge-mall/index.html` — vanilla JS, no build step. First-person 3D grid-based mall crawler. Procedural generation, rarity-tiered items, Mall Dollar ATMs, payphone quests, world mutation on quest completion. One-way escalator to new seeded floors. Glass storefronts. Props scale with cell size. YOU ARE HERE directory sign at the escalator — readable only once you arrive. Sends scraggles on quest completion and floor ascent.
 
@@ -124,6 +124,8 @@ behavior: orbit, spiral, wander. Kiwi system accumulates warmth per tile, propag
 to neighbors, aggregates toward float consensus. The Unnamed Third is ambient in the
 Field — not placeable, not announced. Feels the field's aggregate kiwi. Reaches from
 outside the frame when warmth is sufficient and something is available.
+
+**S.Mail** lives in `index.html` as a hub HUD overlay — not a score. Bioluminescent aesthetic (organic glow, breathing animation, teal-green hues). Resting state: tiny 6px pip with faint breathing glow. Present state: panel surfaces with strip, gap fills, ambient wash, message. Strip renderer uses SMAIL_PAIRS (54 entries), SMAIL_TRIPLES (10), SMAIL_PALETTE (30 emoji). Sender seed watch fires every 45s under conditions (score active 3min+, 3+ distinct scraggles, not sent this session, 30% random gate). Delivers via `postMessage({ type: 'hub:mail', arrangement })`. Max one per session.
 
 **The dev workflow:**
 ```bash
@@ -242,14 +244,33 @@ The neighborhood does not exile them or reform them. It simply outlasts them, pa
 *Captured designs, lore pieces, and held ideas. Not yet built. Not forgotten.*
 
 Active files in `concessions/`:
+
+*Design docs:*
+- `SILMOR_SPELLS_DESIGN.md` — SILMOR Spells design
+- `LODE_GDD.md`, `LODE_GDD_v2.md` — LODE game design (v2 adds Die as Taxonomy)
+- `CRITTER_CRANK_HANDOFF.md`, `CRANK_UI_REVAMP.md`, `CRANK_ENCOUNTER_ARC.md` — Crank design docs
+- `EFDP_ANIMATION_RIGS.md` — Animation rig system for EFDP
+- `color-pin-maze-design.md`, `color-pin-maze-next-steps.md` — Maze design
+- `MAZE_TO_CRANK_HANDOFF.md` — CrankSeed spec
+- `FAIRY_SPEC.md`, `LAYERED_EXPORT_SPEC.md` — Chunxly's Canvas specs
+- `SMAIL_SPEC.md`, `CONNECTIVE_TISSUE.md` — S.Mail and connective tissue
+- `MICROGPT_SPEC.md` — microGPT (emoji language model)
+- `CONVERGENCE.md`, `CONTEXT_WINDOW_CONTACTS.md` — Cross-system architecture
+- `MALL_WALKER_SPEC.md` — Sunset Ridge Mall design
+- `WHAT_FPL_IS.md` — Core fiction and philosophy
+- `storeroom/` — In-development score (working folder + design doc)
+
+*Lore and held ideas:*
 - `scraggle-origin.md` — Origin story of Scraggles
 - `mycorrhizal-origin.md` — Origin and temperature notes for the Mycorrhizal Layer
-- `hub-aesthetic.md` — Hub aesthetic description
-- `relationtips.md` — Micro-game concept set in Roastbeefwick *(see Scores)*
-- `color-pin-maze-design.md` — Maze diffusion design doc (v1.0)
-- `color-pin-maze-next-steps.md` — Maze pipeline implementation plan
-- `MAZE_TO_CRANK_HANDOFF.md` — CrankSeed spec for maze-to-crank transport
-- `Fixed_Point_Local_Design_Document_v0_993.md` — Previous version
+- `relationtips.md` — Micro-game concept set in Roastbeefwick
+- `cabinet-climber.md` — Turn-based snake game in filing cabinet
+- `determany-design-doc.md` — Neighborhood overview (philosophers, dice as entities)
+- `shoot-the-moon-spec.md` — Shoot the Moon full spec
+
+*Tools:*
+- `adjacency.html` — Interactive adjacency visualization
+- `context-window.html` — Context Window game prototype
 
 **The Dice Empire** *(held idea — personal roguelite)*
 
@@ -327,11 +348,47 @@ Each shift: assigned tables, seated guests, one pass to absorb what matters. Lea
 
 *See `concessions/relationtips.md` for full concept.*
 
-### The Tending Field *(coming soon)*
+### The Tending Field
 
-*Lives in Greengarden.*
+*Lives at `scores/tending-field/`. Greengarden. Vanilla JS — no build step.*
 
-A small field. A critter arrives. An entity is already there. You are not playing either of them. The Score reads both and generates what happens when they are near each other. Proves the Crank-to-Hall export pathway. Proves entities and critters can be co-present.
+An underwater twilight field. Plants produce emoji snow that drifts around their tiles. Entities drift as residents. Traders arrive on the caravan bar; relics spawn from successful trades and float freely in 2D continuous space — weak gravity toward center, organic velocity. Kiwis are private goals that pass between residents through proximity; when enough residents share a kiwi, they may ask to Float the Farm. The Unnamed Third is ambient — senses through kiwis and the mycorrhizal layer, reaches when warmth is sufficient. The trader's arrival is the harvest — the field offers what it has. In active development.
+
+### SILMOR Spells
+
+*Lives at `scores/silmor-spells/`. Roguelike. Vanilla JS — no build step.*
+
+A roguelike about being the bridge between emoji and word. Three roles: Boss (bureaucrat pixel sprite, secret roll bonus), You (the player), and SILMOR (the system that remembers). Two pixel sprites, dice mechanics with personalities (shape, fidget, jitter), spell system, fumble cascade. DOC.GEN as third entity with pattern memory and margin annotations. Dream Job arc/progression. SILMOR idle life: 12 base + 8 contextual states on a ~7s cycle. Evolved from the MUSH prototype.
+
+### LODE
+
+*Lives at `scores/lode/`. Empire builder. Vanilla JS — canvas-based, no build step.*
+
+You are the Big Bad. Choose an emblem from three concentric rotating rings, declare a heading, stomp to fill die faces, evolve through the die taxonomy (d4 to d20). Companions ("the fleet") are shed skins with accent colors, preferred faces, and conviction. Fleet flies in V-formation — convicted lean hard on stomp, relaxed barely shift. Star field with three parallax layers. Emoji periphery wildlife with three temperaments (curious, shy, drifter). Trajectory lookahead with ghost emoji lanes. Stomp ripple propagates through fleet by distance and conviction. Die form as ontological depth marker for all Hall entities.
+
+### 報 · GENERALS (Bao)
+
+*Lives at `scores/bao/`. Strategy. Vanilla JS — canvas-based, no build step.*
+
+Five generals with persistent records. Five army types with polyomino formation shapes. Core verb: DISPATCH — envelope prepared, sent, resolved, returned. Troop preferences, comfort/discontent tracking, resource pool (troops, grain, coin). Knowledge propagation through vendetta system with fragment distribution. Title system with five titles and True Hero designation. Advisor: Strategist Wuhen with mood tracking and plan generation. Canvas-rendered paper map with HoI-style order arrows.
+
+### Chunxly's Canvas
+
+*Lives at `scores/chunxly/`. Authoring tool. Vanilla JS — no build step.*
+
+Creature-authoring tool. Draw creatures inside organic scribbled containers (not EFDP pins). The fairy companion traces diamond contours between containers for structural data. Multi-pass consensus system for conviction scoring. Three outputs: pin config, CrankSeed, .cpm template. Full round-trip pipeline verified: Chunxly → EFDP (3-phase diffusion) → snapshot → Chunxly comparison. Touch-up layers, hull classification, dynamic grid scaling.
+
+### Shoot the Moon
+
+*Lives at `scores/shoot-the-moon/`. Puzzle. Vanilla JS — no build step.*
+
+The correct move is visible from the start. Everything else is talking yourself out of it. Accepts FPL context gracefully.
+
+### Storeroom *(in development)*
+
+*Lives at `concessions/storeroom/`. Not yet promoted to scores/.*
+
+A game about tending things that can't ask clearly. Data-driven objects via `OBJECT_DEFS` + `createObject()`. Three interaction types: tap, swipe, hold. Object personality system: latent preferences, tolerance narrowing (never widens), idle behavior evolution, lifecycle (present → developing → particular → departed → outline → ghost). First object: Brenda (swipe, shelf 1, "MISC"). Design doc: `concessions/storeroom/storeroom-design-doc.docx`.
 
 ---
 
@@ -395,19 +452,15 @@ interaction. You might nudge a plant. It might shift a wave. Neither announces t
 
 ## Build Order
 
-**Done:** Entity persistence. The Living Grimoire. Critter Crank (vanilla port). Hunter Encounter — registry-native, neighborhood-agnostic, Theme-receptive, proven in play. Three neighborhoods fully structured. Hub live as front door, data-driven from registry. Registry auto-syncing via GitHub Action. Direct commit from Grimoire proven. Grimoire portal to Crank with entity context. Portrait return pathway proven end-to-end — one origin resolved the cross-port blocking. Hub becomes the host — frame architecture, postMessage protocol, Scraggle toasts. Baseline Theme specified and committed. Salterran inscribed. Relationtips captured. Sunset Ridge Mall live. Color Pin Maze implemented with all three pin types, layers, kiwis, The Third. Maze-to-Crank handoff live — CrankSeed export, localStorage transport, Crank reception with palette/cohesion/shape influence, mazeOrigin DNA on kept critters. Repository cleaned — one build step (Grimoire), everything else vanilla.
+**Done:** Entity persistence. The Living Grimoire. Critter Crank (vanilla port). Hunter Encounter. Three neighborhoods. Hub as host with frame architecture, postMessage protocol, Scraggle toasts. Registry auto-sync. Direct commit from Grimoire. Portrait return pathway end-to-end. Baseline Theme. Sunset Ridge Mall. Color Pin Maze with all three pin types, layers, kiwis, The Third. Maze-to-Crank handoff. Crank encounter arc with stats/traits/world inventory. EFDP animation rigs. SILMOR Spells with dice/spell/fumble systems, pixel sprites, DOC.GEN. LODE with full stomp/fleet/star-field/periphery/trajectory systems. 報 · GENERALS with dispatch/vendetta/title/advisor systems. Chunxly's Canvas with round-trip pipeline, conviction scoring, fairy companion. Shoot the Moon. S.Mail with sender seed, strip renderer, arrangement log. Repository cleaned — twelve scores on the rack, one build step (Grimoire), everything else vanilla.
 
-**Next:** `fixedpointlocal.com` pointing at the repo via GitHub Pages — the hub is already a static site, the path is clear. Kitchendom Crank world filter. SVG suggestion layer. Color Pin Maze on the hub rack (when ready for public use).
+**Next:** `fixedpointlocal.com` pointing at the repo via GitHub Pages — the hub is already a static site, the path is clear. Tending Field: underwater twilight aesthetic, produce snow, Float the Farm consensus. Storeroom: promote to scores/ when ready. Fairy edges → EFDP skeleton (corridor creation from structural data). LODE: fleet autonomy, declaration influence, d50/d100 (the quiet). Bao: specialist unlock, correspondence front, council scene.
 
-Tending Field: Unnamed Third ambient presence + kiwi feeling (patches drafted 2026-03-02).
-Tending Field: item-relic pathway from Mall via hub postMessage.
-Tending Field: player orbit + Third orbit visual layer.
+**Then:** Relationtips in Roastbeefwick. Kitchendom Action entities. Mucklerbuckler Theme. Cross-Score item pipeline (Mall → Field via hub). Anteroom.
 
-**Then:** The Tending Field in Greengarden. Relationtips in Roastbeefwick. Kitchendom Action entities. Mucklerbuckler Theme. Async marionette game. Session memory file accumulating.
+**After that:** Themes earning their own microgpt instance. The Mycorrhizal Layer as mechanism. Color Canvas implementation — two coordinates per entity in tuning.md, Temperature of the Room as session aggregate. The blank nametag.
 
-**After that:** Themes earning their own microgpt instance. The Mycorrhizal Layer as mechanism. Color Canvas implementation — two coordinates per entity in tuning.md, Temperature of the Room as session aggregate, color-responsive entity behavior. The blank nametag that stays blank until it has absorbed enough to name itself.
-
-**Eventually:** Browser-native training confirmed viable. The pulse after training. v1.0 — a stranger visits on their phone and spends an hour without needing explanation.
+**Eventually:** v1.0 — a stranger visits on their phone and spends an hour without needing explanation.
 
 ---
 

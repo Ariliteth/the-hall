@@ -1,0 +1,2186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>LODE</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; touch-action: none; }
+  canvas { display: block; }
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 10px 14px;
+    font-family: 'Courier New', monospace; font-size: 13px;
+    color: #555;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    pointer-events: none; opacity: 0; transition: opacity 0.6s;
+  }
+  #hud.visible { opacity: 1; }
+  #hud .spoil { padding: 2px 7px; border-radius: 3px; background: rgba(255,255,255,0.04); }
+  #tier {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 2px;
+    color: #2a2a2a; pointer-events: none; transition: color 0.5s;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<div id="tier"></div>
+<script>
+// ========== LODE ==========
+// Built an empire out of something specific. Here is the proof.
+
+try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
+
+// ===== CONSTANTS =====
+
+const TIERS = [
+  { name: 'd4',  sides: 4  },
+  { name: 'd6',  sides: 6  },
+  { name: 'd8',  sides: 8  },
+  { name: 'd10', sides: 10 },
+  { name: 'd12', sides: 12 },
+  { name: 'd20', sides: 20 },
+];
+
+const EMOJI_POOL = [
+  '\u{1F525}','\u{1F30A}','\u{1F480}','\u{1F370}','\u{26A1}',
+  '\u{1F319}','\u{1F9B7}','\u{1F52E}','\u{1F344}','\u{1F9B4}',
+  '\u{1F3AA}','\u{1FAA8}','\u{1F338}','\u{1F419}','\u{1FA90}',
+  '\u{1F33F}','\u{1F3B2}','\u{1F98A}','\u{1FAE7}','\u{1F48E}',
+  '\u{1F56F}','\u{1F30B}','\u{1F991}','\u{1F9CA}','\u{1FAB6}',
+];
+
+// emoji -> [hue, saturation, lightness]
+const EMOJI_HSL = {};
+const hslData = [
+  [15,85,52],[200,70,45],[45,30,75],[340,60,72],[50,95,55],
+  [230,40,65],[0,0,88],[280,60,50],[0,65,45],[35,25,80],
+  [350,75,55],[30,15,50],[330,70,75],[320,50,45],[35,50,55],
+  [140,50,40],[0,0,65],[25,80,55],[195,50,75],[210,80,60],
+  [40,70,65],[10,75,40],[340,40,40],[195,40,80],[30,20,70],
+];
+EMOJI_POOL.forEach((e, i) => { EMOJI_HSL[e] = hslData[i]; });
+
+const LUNGE_MS = 160;      // eager snap toward emoji
+const HOLD_MS = 90;         // the grip — brief inevitable pause
+const RETURN_MS = 300;      // slow grip, fast yank back
+const EMBLEM_LUNGE_MS = 260;
+const EMBLEM_HOLD_MS = 180; // longer grip for first selection (ceremony)
+const EMBLEM_RETURN_MS = 400;
+const BURST_DURATION = 3200;
+const BURST_BEAT = 700;
+const BURST_SURGE = 1400;
+const BURST_PEAK = 1900;
+const BURST_SPAWN = 2400;
+const EMBLEM_CHANCE = 0.18;
+
+// Star field
+const STAR_LAYERS = [
+  { speedBase: 8,  sizeMin: 0.4, sizeMax: 1.0, alphaMin: 0.08, alphaMax: 0.25 }, // far
+  { speedBase: 22, sizeMin: 0.7, sizeMax: 1.5, alphaMin: 0.15, alphaMax: 0.4  }, // mid
+  { speedBase: 45, sizeMin: 1.0, sizeMax: 2.0, alphaMin: 0.25, alphaMax: 0.55 }, // near
+];
+const STAR_BASE_COUNTS = [30, 18, 8];
+const STAR_TIER_SCALE = [1, 1.4, 1.8, 2.3, 2.8, 3.5];
+const EMOJI_STAR_MAX = [0, 3, 4, 5, 6, 8];
+const EMOJI_STAR_SPAWN = [0, 0.003, 0.005, 0.007, 0.009, 0.012];
+const STREAK_THRESHOLD = 0.5;
+
+// Trajectory lookahead (ghost emoji per lane, per tier)
+const TRAJECTORY_DEPTH = [0, 0, 1, 1, 2, 3]; // d4,d6=none  d8,d10=1  d12=2  d20=3
+
+// Declaration: where the fleet is going
+// triplets of headings — one set offered per run
+const DECLARATION_SETS = [
+  ['TOWARD', 'BEYOND', 'WITHIN'],
+  ['SHORE', 'SUMMIT', 'HOLLOW'],
+  ['DAWN', 'EMBER', 'SILENCE'],
+  ['HOME', 'EDGE', 'DEEP'],
+];
+
+// Ring selection config
+const RING_CFG = [
+  { radiusFrac: 0.14, count: 5,  speed: 0.35  }, // inner — few, moderate
+  { radiusFrac: 0.27, count: 8,  speed: -0.22 }, // middle — opposite dir
+  { radiusFrac: 0.40, count: 12, speed: 0.13  }, // outer — many, slow
+];
+const RING_DECEL_MS = 600;
+const RING_HOLD_MS = 500;
+const RING_TRANSITION_MS = 600;
+
+// ===== STATE =====
+
+const S = {
+  phase: 'rings', // rings | emblem | declaration | play | stomping | evolving | ascending
+  tier: 0,
+  faces: [],
+  emblem: null,
+  hsl: null,
+  declaration: null,  // the heading — where the fleet is going
+  declarationChoices: [], // three words offered after emblem selection
+  companions: [],
+  spoils: {},
+  choices: [],
+  inputLocked: false,
+
+  // ring selection
+  emojiRings: [],      // [{emojis[], angle, speed, radiusFrac}]
+  ringSpeedMult: 1,
+  ringPhase: 'spinning', // spinning | decelerating | holding | transition
+  ringT: 0,
+  ringCaptured: [],    // [{emoji, x, y, targetX, targetY}]
+  ringFade: 1,         // 1 = full, 0 = gone
+  dieAppear: 0,        // 0→1 during transition
+
+  // stomp anim
+  stompDir: 0,
+  stompT: 0,
+  stompPhase: null,
+  stompFromX: 0, stompFromY: 0,
+  stompToX: 0, stompToY: 0,
+  stompEmoji: null,
+
+  // shake
+  shakeX: 0, shakeY: 0, shakeMag: 0,
+
+  // burst
+  burstT: 0,
+  burstRings: [],
+  burstParticles: [],
+  burstFlash: 0,
+  pendingCompanionFaces: null,
+
+  // companion roll anim
+  compRolls: [],
+
+  // stomp direction tracking (per tier, for companion personality)
+  tierStomps: { left: 0, center: 0, right: 0 },
+
+  // emblem auto-claim
+  autoClaimTimer: 0,
+
+  // trajectories (ghost emoji lookahead per lane)
+  trajectories: [[], [], []],
+  pingHighlights: [], // [{lane, depth, accentHsl}] from companion pings
+
+  // star field
+  stars: [],
+  emojiStars: [],
+
+  // die rest position
+  dieX: 0, dieY: 0,
+};
+
+// ===== CANVAS =====
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hudEl = document.getElementById('hud');
+const tierEl = document.getElementById('tier');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  S.dieX = canvas.width / 2;
+  S.dieY = canvas.height * 0.72;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ===== UTILITY =====
+
+function hsl(h, s, l, a) {
+  return a != null ? `hsla(${h},${s}%,${l}%,${a})` : `hsl(${h},${s}%,${l}%)`;
+}
+function cPrimary() { if (!S.hsl) return '#555'; const [h,s,l] = S.hsl; return hsl(h,s,l); }
+function cGlow()    { if (!S.hsl) return '#888'; const [h,s,l] = S.hsl; return hsl(h,s,Math.min(l+28,93)); }
+function cDark()    { if (!S.hsl) return '#1a1a1a'; const [h,s,l] = S.hsl; return hsl(h,Math.max(s-10,8),Math.max(l-30,10)); }
+function cBg()      { if (!S.hsl) return '#0a0a0a'; const [h,s] = S.hsl; return hsl(h,Math.max(s-40,5),6); }
+function cFaint(a)  { if (!S.hsl) return `rgba(100,100,100,${a})`; const [h,s,l] = S.hsl; return hsl(h,s,l,a); }
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function easeInCubic(t) { return t * t * t; }
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeOutBack(t) { const c = 1.6; return 1 + (c+1) * Math.pow(t-1,3) + c * Math.pow(t-1,2); }
+function easeOutQuad(t) { return t * (2 - t); }
+function easeInOutQuad(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2; }
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function lerpHue(a, b, t) {
+  let diff = b - a;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  return ((a + diff * t) % 360 + 360) % 360;
+}
+
+// ===== DIE GEOMETRY =====
+
+function getDieSize() {
+  // the capital ship trusts the fleet — size defers to meaning
+  // main die starts prominent but grows modestly; the fleet IS the size
+  const base = Math.min(canvas.width, canvas.height);
+  const tierScale = [0.070, 0.074, 0.078, 0.082, 0.086, 0.090]; // d4..d20
+  return base * (tierScale[S.tier] || 0.070);
+}
+
+// companion size scales with their tier — d4 fighters are small, higher tiers larger
+// fleet compression: older generations shrink as the migration grows
+function getCompanionSize(tier) {
+  const base = Math.min(canvas.width, canvas.height);
+  const tierScale = [0.032, 0.038, 0.044, 0.050, 0.056, 0.064]; // d4..d20
+  let sz = base * (tierScale[tier] || 0.032);
+
+  const tierGap = S.tier - tier;
+  if (tierGap > 0) {
+    const fleetWeight = Math.min(1, S.companions.length / 20);
+    sz *= Math.max(0.45, 1 - tierGap * 0.08 * fleetWeight);
+  }
+
+  return sz;
+}
+
+function getDieVerts(tier, size) {
+  switch(tier) {
+    case 0: return regPoly(3, size, -Math.PI/2);
+    case 1: return regPoly(4, size * 0.95, -Math.PI/4);
+    case 2: { // diamond
+      const w = size * 0.65, h = size * 1.1;
+      return [{x:0,y:-h},{x:w,y:0},{x:0,y:h},{x:-w,y:0}];
+    }
+    case 3: return regPoly(5, size * 1.05, -Math.PI/2);
+    case 4: return regPoly(5, size * 1.1, -Math.PI/2);
+    case 5: return regPoly(6, size * 1.15, 0);
+  }
+}
+
+function regPoly(n, r, startA) {
+  const v = [];
+  for (let i = 0; i < n; i++) {
+    const a = startA + (2 * Math.PI * i) / n;
+    v.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
+  }
+  return v;
+}
+
+function getFacePositions(tier, size) {
+  const n = TIERS[tier].sides;
+  const positions = [{ x: 0, y: 0 }]; // emblem at center
+  if (n <= 1) return positions;
+
+  // single ring for d4-d8, two rings for d10+
+  if (n <= 9) {
+    const r = size * (0.38 + tier * 0.02);
+    for (let i = 0; i < n - 1; i++) {
+      const a = -Math.PI/2 + (2 * Math.PI * i) / (n - 1);
+      positions.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
+    }
+  } else {
+    // inner ring + outer ring
+    const inner = Math.floor((n - 1) / 2);
+    const outer = n - 1 - inner;
+    const r1 = size * 0.32, r2 = size * 0.58;
+    for (let i = 0; i < inner; i++) {
+      const a = -Math.PI/2 + (2 * Math.PI * i) / inner;
+      positions.push({ x: Math.cos(a) * r1, y: Math.sin(a) * r1 });
+    }
+    for (let i = 0; i < outer; i++) {
+      const a = -Math.PI/2 + (2 * Math.PI * i) / outer;
+      positions.push({ x: Math.cos(a) * r2, y: Math.sin(a) * r2 });
+    }
+  }
+  return positions;
+}
+
+// ===== FIELD POSITIONS =====
+
+function getFieldPositions() {
+  const w = canvas.width;
+  const y = S.dieY - canvas.height * 0.30;
+  return [
+    { x: w * 0.20, y },
+    { x: w * 0.50, y },
+    { x: w * 0.80, y },
+  ];
+}
+
+// ===== STAR FIELD =====
+
+function getStarVelocity() {
+  return 0.12 + S.tier * 0.18 + Math.min(S.companions.length * 0.015, 0.15);
+}
+
+function createStar(layer, randomY) {
+  const cfg = STAR_LAYERS[layer];
+  return {
+    layer,
+    x: Math.random() * canvas.width,
+    y: randomY ? Math.random() * canvas.height : -(Math.random() * 40),
+    speed: cfg.speedBase * (0.7 + Math.random() * 0.6),
+    size: cfg.sizeMin + Math.random() * (cfg.sizeMax - cfg.sizeMin),
+    alpha: cfg.alphaMin + Math.random() * (cfg.alphaMax - cfg.alphaMin),
+    twinkle: Math.random() * Math.PI * 2,
+    twinkleSpd: 0.5 + Math.random() * 2,
+  };
+}
+
+function createEmojiStar() {
+  const used = new Set(S.faces.map(f => f.emoji));
+  const pool = EMOJI_POOL.filter(e => !used.has(e) && e !== S.emblem);
+  if (!pool.length) return null;
+  // temperament: curious (drawn to fleet), shy (veers away), drifter (indifferent)
+  const temps = ['curious', 'curious', 'shy', 'drifter', 'drifter', 'drifter'];
+  const temperament = temps[Math.floor(Math.random() * temps.length)];
+  // spawn from edges — sides weighted toward fleet altitude, top drifts down
+  const edge = Math.random();
+  let x, y, vx, vy;
+  const fleetY = canvas.height * 0.72; // where the fleet lives
+  if (edge < 0.4) {
+    // top — drifts through the whole field
+    x = Math.random() * canvas.width;
+    y = -(10 + Math.random() * 30);
+    vx = (Math.random() - 0.5) * 12;
+    vy = 30 + Math.random() * 40;
+  } else if (edge < 0.7) {
+    // left — at fleet altitude, crosses through formation
+    x = -(10 + Math.random() * 20);
+    y = fleetY + (Math.random() - 0.5) * canvas.height * 0.4;
+    vx = 15 + Math.random() * 25;
+    vy = (Math.random() - 0.5) * 15;
+  } else {
+    // right — at fleet altitude, crosses through formation
+    x = canvas.width + 10 + Math.random() * 20;
+    y = fleetY + (Math.random() - 0.5) * canvas.height * 0.4;
+    vx = -(15 + Math.random() * 25);
+    vy = (Math.random() - 0.5) * 15;
+  }
+  return {
+    emoji: pickRandom(pool),
+    x, y, vx, vy,
+    speed: Math.sqrt(vx * vx + vy * vy), // base speed for reference
+    alpha: 0.06 + Math.random() * 0.08,
+    baseAlpha: 0.06 + Math.random() * 0.08,
+    size: 14 + Math.random() * 8,
+    temperament,
+    noticed: false, // has a companion noticed this one?
+    noticeT: 0,     // time since noticed
+  };
+}
+
+function initStars() {
+  S.stars = [];
+  S.emojiStars = [];
+  populateStars();
+}
+
+function populateStars() {
+  for (let layer = 0; layer < STAR_LAYERS.length; layer++) {
+    const target = Math.floor(STAR_BASE_COUNTS[layer] * STAR_TIER_SCALE[S.tier]);
+    const current = S.stars.filter(s => s.layer === layer).length;
+    for (let i = current; i < target; i++) {
+      S.stars.push(createStar(layer, true));
+    }
+  }
+}
+
+function updateStars(dt) {
+  const vel = getStarVelocity();
+  const dtSec = dt / 1000;
+
+  for (const star of S.stars) {
+    star.y += star.speed * vel * dtSec;
+    star.twinkle += star.twinkleSpd * dtSec;
+    if (star.y > canvas.height + 5) {
+      star.y = -(Math.random() * 20);
+      star.x = Math.random() * canvas.width;
+    }
+  }
+
+  // emoji periphery — autonomous wildlife of the void
+  for (const es of S.emojiStars) {
+    // base drift
+    es.x += es.vx * vel * dtSec;
+    es.y += es.vy * vel * dtSec;
+
+    // fleet awareness: find nearest companion
+    let nearDist = Infinity, nearComp = null;
+    for (const c of S.companions) {
+      const dx = (c.targetX || S.dieX) - es.x;
+      const dy = (c.targetY || S.dieY) - es.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < nearDist) { nearDist = d; nearComp = c; }
+    }
+    // also check capital ship
+    const dxCap = S.dieX - es.x;
+    const dyCap = S.dieY - es.y;
+    const dCap = Math.sqrt(dxCap * dxCap + dyCap * dyCap);
+    if (dCap < nearDist) { nearDist = dCap; nearComp = null; }
+
+    const awarenessRadius = 120 + S.tier * 15;
+    if (nearDist < awarenessRadius) {
+      const influence = 1 - nearDist / awarenessRadius; // 0..1
+      const dx = nearComp ? ((nearComp.targetX || S.dieX) - es.x) : dxCap;
+      const dy = nearComp ? ((nearComp.targetY || S.dieY) - es.y) : dyCap;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nx = dx / len, ny = dy / len;
+
+      if (es.temperament === 'curious') {
+        // drawn gently toward the fleet — slows down, curves in
+        es.vx += nx * influence * 6 * dtSec;
+        es.vy += ny * influence * 6 * dtSec;
+        // brighten when close
+        es.alpha = es.baseAlpha + influence * 0.08;
+      } else if (es.temperament === 'shy') {
+        // veers away — speeds up and deflects
+        es.vx -= nx * influence * 10 * dtSec;
+        es.vy -= ny * influence * 10 * dtSec;
+        // dims when spooked
+        es.alpha = Math.max(0.02, es.baseAlpha - influence * 0.04);
+      } else {
+        // drifter: barely reacts — slight slowdown only
+        const speed = Math.sqrt(es.vx * es.vx + es.vy * es.vy);
+        if (speed > es.speed * 0.6) {
+          es.vx *= 1 - influence * 0.3 * dtSec;
+          es.vy *= 1 - influence * 0.3 * dtSec;
+        }
+      }
+
+      // companion notices this emoji if close enough
+      if (!es.noticed && nearComp && nearDist < 70) {
+        es.noticed = true;
+        es.noticeT = 0;
+      }
+    } else {
+      // outside awareness: drift back toward base alpha
+      es.alpha += (es.baseAlpha - es.alpha) * 0.02;
+    }
+
+    if (es.noticed) es.noticeT += dt;
+
+    // speed cap — don't let curious ones accelerate forever
+    const spd = Math.sqrt(es.vx * es.vx + es.vy * es.vy);
+    if (spd > es.speed * 2) {
+      es.vx *= (es.speed * 2) / spd;
+      es.vy *= (es.speed * 2) / spd;
+    }
+  }
+
+  // cull: off any edge
+  S.emojiStars = S.emojiStars.filter(es =>
+    es.x > -50 && es.x < canvas.width + 50 &&
+    es.y > -50 && es.y < canvas.height + 50
+  );
+
+  if (S.tier >= 1 && S.emojiStars.length < EMOJI_STAR_MAX[S.tier]) {
+    if (Math.random() < EMOJI_STAR_SPAWN[S.tier]) {
+      const es = createEmojiStar();
+      if (es) S.emojiStars.push(es);
+    }
+  }
+}
+
+function renderStars() {
+  const vel = getStarVelocity();
+
+  for (const star of S.stars) {
+    const tw = 0.7 + 0.3 * Math.sin(star.twinkle);
+    const a = star.alpha * tw;
+    if (a < 0.01) continue;
+
+    // streak at high velocity (mid + near layers)
+    if (vel > STREAK_THRESHOLD && star.layer >= 1) {
+      const len = Math.min((vel - STREAK_THRESHOLD) * star.speed * 0.3, 15);
+      if (len > 0.5) {
+        ctx.beginPath();
+        ctx.moveTo(star.x, star.y);
+        ctx.lineTo(star.x, star.y - len);
+        ctx.strokeStyle = `rgba(180,190,210,${a * 0.6})`;
+        ctx.lineWidth = star.size * 0.7;
+        ctx.stroke();
+      }
+    }
+
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(180,190,210,${a})`;
+    ctx.fill();
+  }
+
+  // emoji periphery — things we fly past, appreciated at a distance
+  for (const es of S.emojiStars) {
+    if (es.alpha < 0.01) continue;
+    ctx.globalAlpha = es.alpha;
+    ctx.font = `${es.size}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(es.emoji, es.x, es.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ===== RENDERING =====
+
+function drawDieShape(x, y, tier, size, glowColor, fillColor, isCapital) {
+  const verts = getDieVerts(tier, size);
+  if (!verts || !verts.length) return;
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // glow — capital ship radiates authority through presence, not size
+  if (glowColor) {
+    if (isCapital) {
+      const breath = 0.85 + 0.15 * Math.sin(performance.now() * 0.0015);
+      ctx.shadowBlur = 22 * breath;
+    } else {
+      ctx.shadowBlur = 14;
+    }
+    ctx.shadowColor = glowColor;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(verts[0].x, verts[0].y);
+  for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y);
+  ctx.closePath();
+
+  ctx.fillStyle = fillColor || '#111';
+  ctx.fill();
+  ctx.strokeStyle = glowColor || '#2a2a2a';
+  ctx.lineWidth = isCapital ? 2.5 : 2;
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawFaces(x, y, tier, faces, size, maxFaces) {
+  const positions = getFacePositions(tier, size);
+  const emojiBase = Math.max(14, size * 0.28);
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  for (let i = 0; i < maxFaces; i++) {
+    if (i >= positions.length) break;
+    const pos = positions[i];
+    const face = faces[i];
+    const isEmblem = face && face.emoji === S.emblem;
+    const sz = isEmblem ? emojiBase * 1.25 : emojiBase;
+
+    if (face) {
+      if (isEmblem) {
+        const imp = face.improved || 0;
+        // base emblem halo — brightens with improvement
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, sz * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = cFaint(0.25 + Math.min(imp * 0.04, 0.3));
+        ctx.fill();
+        // improvement rings: one ring per level, radiating outward
+        // each ring is a quiet affirmation — yes, this is who we are
+        if (imp > 0) {
+          const maxRings = Math.min(imp, 6); // visual cap at 6 rings
+          for (let r = 0; r < maxRings; r++) {
+            const ringR = sz * (0.7 + r * 0.15);
+            const alpha = 0.12 - r * 0.015; // outer rings fainter
+            if (alpha <= 0) break;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, ringR, 0, Math.PI * 2);
+            ctx.strokeStyle = cFaint(alpha);
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
+        }
+      }
+      ctx.font = `${sz}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(face.emoji, pos.x, pos.y);
+    } else {
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, sz * 0.42, 0, Math.PI * 2);
+      ctx.strokeStyle = S.hsl ? cFaint(0.25) : 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function renderDie(x, y, tier, faces, size) {
+  const maxFaces = TIERS[tier].sides;
+  const glow = S.hsl ? cPrimary() : null;
+  const fill = S.hsl ? cDark() : '#111';
+  drawDieShape(x, y, tier, size, glow, fill, true);
+  drawFaces(x, y, tier, faces, size, maxFaces);
+}
+
+function renderTrajectories() {
+  const depth = TRAJECTORY_DEPTH[S.tier] || 0;
+  if (depth <= 0 || S.stompPhase) return;
+  if (S.phase !== 'play') return;
+
+  const fieldPos = getFieldPositions();
+  const emojiSize = Math.max(36, Math.min(canvas.width, canvas.height) * 0.08);
+  const ghostStep = emojiSize * 1.6;
+
+  for (let i = 0; i < 3; i++) {
+    const traj = S.trajectories[i];
+    if (!traj || !traj.length) continue;
+    const fx = fieldPos[i].x;
+    const fy = fieldPos[i].y;
+
+    // faint lane line from choice up to deepest ghost
+    const laneEnd = fy - ghostStep * traj.length;
+    ctx.beginPath();
+    ctx.moveTo(fx, fy - emojiSize * 0.7);
+    ctx.lineTo(fx, laneEnd + emojiSize * 0.3);
+    ctx.strokeStyle = S.hsl ? cFaint(0.06) : 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // ghost emoji
+    for (let d = 0; d < traj.length; d++) {
+      const alpha = 0.22 - d * 0.06;
+      if (alpha <= 0) continue;
+      const x = fx;
+      const y = fy - ghostStep * (d + 1);
+      const sz = emojiSize * (0.68 - d * 0.07);
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      ctx.beginPath();
+      ctx.arc(x, y, sz * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      ctx.fill();
+
+      ctx.font = `${sz}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(traj[d], x, y);
+
+      // companion ping highlight: glow ring in their accent color
+      const highlights = S.pingHighlights.filter(h => h.lane === i && h.depth === d);
+      if (highlights.length > 0) {
+        const accent = highlights[0].accentHsl;
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.004);
+        ctx.globalAlpha = (0.18 + 0.12 * pulse) * (alpha / 0.22);
+        ctx.beginPath();
+        ctx.arc(x, y, sz * 0.62, 0, Math.PI * 2);
+        ctx.strokeStyle = hsl(accent[0], accent[1], Math.min(accent[2] + 20, 85));
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+  }
+}
+
+function renderField() {
+  if (!S.choices.length) return;
+  const positions = getFieldPositions();
+  const emojiSize = Math.max(36, Math.min(canvas.width, canvas.height) * 0.08);
+
+  // during stomp, fade non-selected and shrink selected
+  let selectedIdx = -1;
+  let stompFade = 0;
+  if (S.stompPhase) {
+    selectedIdx = S.stompDir + 1; // -1->0, 0->1, 1->2
+    stompFade = S.stompT;
+  }
+
+  S.choices.forEach((emoji, i) => {
+    const pos = positions[i];
+    const isEmb = emoji === S.emblem && S.phase !== 'emblem';
+
+    let alpha = 1;
+    let scale = 1;
+    if (S.stompPhase) {
+      if (i === selectedIdx) {
+        // selected: consumed during the grip
+        if (S.stompPhase === 'hold') {
+          scale = 1 - stompFade * 0.9;
+          alpha = 1 - stompFade;
+        } else if (S.stompPhase === 'back') {
+          alpha = 0;
+        }
+      } else {
+        // others: fade as the die leaps
+        if (S.stompPhase === 'lunge') {
+          alpha = 1 - stompFade * 0.8;
+        } else {
+          alpha = 0;
+        }
+      }
+    }
+
+    if (alpha <= 0) return;
+
+    ctx.save();
+    ctx.globalAlpha = clamp(alpha, 0, 1);
+    ctx.translate(pos.x, pos.y);
+    ctx.scale(scale, scale);
+
+    // backing circle for visibility
+    ctx.beginPath();
+    ctx.arc(0, 0, emojiSize * 0.65, 0, Math.PI * 2);
+    if (isEmb) {
+      ctx.fillStyle = cFaint(0.2 + 0.08 * Math.sin(performance.now() * 0.006));
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    }
+    ctx.fill();
+
+    ctx.font = `${emojiSize}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, 0, 0);
+
+    // direction hint
+    if (!S.stompPhase) {
+      const hints = ['\u2190', '\u2191', '\u2192'];
+      ctx.font = `${Math.max(12, emojiSize * 0.32)}px monospace`;
+      ctx.fillStyle = S.hsl ? cFaint(0.5) : 'rgba(255,255,255,0.25)';
+      ctx.fillText(hints[i], 0, emojiSize * 0.85);
+    }
+
+    ctx.restore();
+  });
+}
+
+function renderCompanions() {
+  getCompanionTargets();
+  const now = performance.now();
+
+  S.companions.forEach((comp, idx) => {
+    const sz = getCompanionSize(comp.tier);
+    const tx = comp.targetX || S.dieX;
+    const ty = comp.targetY || S.dieY;
+
+    let cx, cy;
+    if (comp.springT < 1) {
+      const t = easeOutBack(comp.springT);
+      cx = lerp(comp.fromX, tx, t);
+      cy = lerp(comp.fromY, ty, t);
+    } else {
+      cx = tx;
+      cy = ty;
+    }
+
+    // idle animation: tier gap drives base behavior, conviction modulates eagerness
+    if (comp.springT >= 1 && S.phase !== 'evolving') {
+      const tierGap = Math.max(0, S.tier - comp.tier);
+      const conv = comp.conviction || 0;
+      // convicted companions: faster, tighter orbit (eager escort)
+      // relaxed companions: slower, wider drift (guard duty)
+      const idleSpeed = 0.0008 + tierGap * 0.0004 + conv * 0.0006;
+      const idleAmp = Math.max(0.8, 1.5 + tierGap * 1.2) * (1.0 - conv * 0.4);
+      const phase = comp.idlePhase || 0;
+      cx += Math.sin(now * idleSpeed + phase) * idleAmp;
+      cy += Math.cos(now * idleSpeed * 0.7 + phase) * idleAmp * 0.6;
+      // fighters weave with a secondary rhythm
+      if (tierGap >= 3) {
+        cx += Math.sin(now * 0.002 + phase * 2.1) * (tierGap - 2) * 1.0;
+        cy += Math.cos(now * 0.0015 + phase * 1.7) * (tierGap - 2) * 0.6;
+      }
+      // convicted companions interweave toward capital ship — subtle forward drift
+      if (conv > 0.4) {
+        const eagerness = (conv - 0.4) / 0.6; // 0..1 for conv 0.4..1.0
+        cy -= Math.sin(now * 0.001 + phase * 0.5) * eagerness * 2.5;
+      }
+
+      // periphery awareness: companion glances toward nearby emoji wildlife
+      if (S.emojiStars.length > 0 && !S.stompPhase) {
+        let nearES = null, nearD = 90; // awareness radius
+        for (const es of S.emojiStars) {
+          const dx = es.x - cx;
+          const dy = es.y - cy;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < nearD) { nearD = d; nearES = es; }
+        }
+        if (nearES) {
+          const pull = (1 - nearD / 90) * 2.5;
+          const dx = nearES.x - cx;
+          const dy = nearES.y - cy;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          // lean toward it — a glance, not a lunge
+          cx += (dx / len) * pull;
+          cy += (dy / len) * pull;
+          // track that this companion is watching something
+          comp.watching = nearES.emoji;
+          comp.watchT = now;
+        } else if (comp.watching && now - (comp.watchT || 0) > 800) {
+          comp.watching = null;
+        }
+      }
+    }
+
+    // stomp formation bend: the fleet accompanies the advance
+    // convicted companions lean hard, relaxed ones barely shift
+    if (S.stompPhase && comp.springT >= 1) {
+      const conv = comp.conviction || 0;
+      const dx = S.stompToX - S.dieX;
+      const dy = S.stompToY - S.dieY;
+      // how much this companion follows: conviction sets the ceiling
+      const follow = 0.15 + conv * 0.55; // 0.15..0.70
+
+      if (S.stompPhase === 'lunge') {
+        // V bends into teardrop — eager snap, convicted lead
+        const t = easeOutQuad(S.stompT);
+        cx += dx * follow * t;
+        cy += dy * follow * t;
+      } else if (S.stompPhase === 'hold') {
+        // the grip — everything compresses at the target
+        cx += dx * follow;
+        cy += dy * follow;
+      } else if (S.stompPhase === 'back') {
+        // return: convicted snap back first (fast ease), relaxed drift back (slow ease)
+        const returnEase = conv > 0.5 ? easeOutQuad(S.stompT) : easeInCubic(S.stompT);
+        const remaining = 1 - returnEase;
+        cx += dx * follow * remaining;
+        cy += dy * follow * remaining;
+      }
+    }
+
+    // roll animation: wobble (only when delay is spent)
+    const roll = S.compRolls.find(r => r.idx === idx);
+    const rollActive = roll && (roll.delay || 0) <= 0;
+    let wobble = 0;
+    if (rollActive) {
+      // wobble intensity: preferred > familiar > unknown
+      const isPreferred = roll.result === comp.preferredFace;
+      const isFamiliar = comp.familiar && comp.familiar.has(roll.result);
+      const wobbleAmp = isPreferred ? 8 : isFamiliar ? 5 : 3;
+      wobble = Math.sin(roll.t * (isPreferred ? 25 : 20)) * wobbleAmp * (1 - roll.t);
+    }
+
+    ctx.save();
+    ctx.translate(wobble, 0);
+
+    // accent glow: blend emblem hue with companion's own palette
+    let glowColor, fillColor;
+
+    // stomp ripple: momentary brightness flare on impact (hoisted for face access)
+    let rippleBoost = 0;
+    if (comp.rippleT !== undefined && comp.rippleT >= 0) {
+      comp.rippleT += 16.67; // approximate frame dt (~60fps)
+      if (comp.rippleT >= (comp.rippleDelay || 0)) {
+        const elapsed = comp.rippleT - (comp.rippleDelay || 0);
+        const dur = comp.rippleDuration || 300;
+        if (elapsed < dur) {
+          const attack = Math.min(1, elapsed / 60);
+          const decay = 1 - Math.max(0, (elapsed - 60) / (dur - 60));
+          rippleBoost = (comp.rippleIntensity || 0.3) * attack * decay;
+        } else {
+          comp.rippleT = -1; // done
+        }
+      }
+    }
+
+    if (S.hsl) {
+      const accent = comp.accentHsl || S.hsl;
+      const blendH = lerpHue(S.hsl[0], accent[0], 0.35);
+      const blendS = Math.max(lerp(S.hsl[1], accent[1], 0.25) - 12, 5);
+      const blendL = Math.max(lerp(S.hsl[2], accent[2], 0.25) - 12, 8);
+
+      // recognition: subtle glow boost when field has familiar emoji
+      let recognition = 0;
+      if (S.choices && comp.familiar && S.phase !== 'evolving') {
+        for (const emoji of S.choices) {
+          if (comp.familiar.has(emoji)) { recognition = 0.15; break; }
+        }
+      }
+      glowColor = hsl(blendH, blendS, blendL + 18, 0.45 + recognition + rippleBoost);
+      fillColor = hsl(blendH, blendS, blendL + rippleBoost * 12);
+    } else {
+      glowColor = null;
+      fillColor = '#0e0e0e';
+    }
+
+    drawDieShape(cx, cy, comp.tier, sz, glowColor, fillColor);
+
+    // stomp ripple ring: expanding circle of light from the companion
+    if (comp.rippleT !== undefined && comp.rippleT >= (comp.rippleDelay || 0) && comp.rippleT >= 0) {
+      const elapsed = comp.rippleT - (comp.rippleDelay || 0);
+      const dur = comp.rippleDuration || 300;
+      if (elapsed < dur && elapsed > 0) {
+        const t = elapsed / dur;
+        const ringR = sz * (1.1 + t * 0.7); // expands outward from die edge
+        const ringAlpha = (comp.rippleIntensity || 0.3) * (1 - t * t) * 0.6;
+        if (ringAlpha > 0.01) {
+          const accent = comp.accentHsl || S.hsl || [0, 0, 60];
+          ctx.beginPath();
+          ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+          ctx.strokeStyle = hsl(accent[0], accent[1] + 10, accent[2] + 25, ringAlpha);
+          ctx.lineWidth = 2 * (1 - t * 0.7);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // veteran distinction: companions who've filled all forgotten faces
+    // and traveled far from their origin tier earn a hardened second shell
+    const tierGap = Math.max(0, S.tier - comp.tier);
+    const hasForgotten = comp.faces.some(f => f.forgotten && !f.emoji);
+    const familiarRatio = comp.familiar ? comp.familiar.size / 12 : 0;
+    const isVeteran = tierGap >= 2 && !hasForgotten && !comp.cascadeBorn;
+    const isSeasoned = tierGap >= 2 && !hasForgotten && familiarRatio > 0.3;
+
+    if (isVeteran || isSeasoned) {
+      // second shell: faint outer outline, steady — they know who they are
+      const accent = comp.accentHsl || [0, 0, 50];
+      const shellAlpha = isSeasoned ? 0.25 : 0.15;
+      ctx.beginPath();
+      const shellVerts = getDieVerts(comp.tier, sz * 1.18);
+      if (shellVerts.length > 0) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.beginPath();
+        ctx.moveTo(shellVerts[0].x, shellVerts[0].y);
+        for (let i = 1; i < shellVerts.length; i++) ctx.lineTo(shellVerts[i].x, shellVerts[i].y);
+        ctx.closePath();
+        ctx.strokeStyle = hsl(accent[0], accent[1] * 0.6, accent[2] + 15, shellAlpha);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // recognition ring: soft pulse when they notice something familiar
+    if (S.hsl && S.choices && comp.familiar && S.phase !== 'evolving') {
+      for (const emoji of S.choices) {
+        if (comp.familiar.has(emoji)) {
+          const accent = comp.accentHsl || S.hsl;
+          const pulse = 0.5 + 0.5 * Math.sin(now * 0.004 + (comp.idlePhase || 0));
+          ctx.beginPath();
+          ctx.arc(cx, cy, sz * 1.3, 0, Math.PI * 2);
+          ctx.strokeStyle = hsl(accent[0], accent[1], accent[2], 0.06 + 0.04 * pulse);
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          break;
+        }
+      }
+    }
+
+    // show preferred face on the die — veterans are brighter, they know who they are
+    // ripple brightens the face momentarily — they felt the stomp
+    if (comp.preferredFace && !rollActive) {
+      const faceSize = Math.max(14, sz * 0.55);
+      ctx.font = `${faceSize}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      let faceAlpha = (isVeteran || isSeasoned) ? 0.85 : 0.55;
+      if (rippleBoost > 0.05) faceAlpha = Math.min(1, faceAlpha + rippleBoost * 0.6);
+      ctx.globalAlpha = faceAlpha;
+      ctx.fillText(comp.preferredFace, cx, cy);
+    }
+
+    // watching indicator: companion noticed a periphery emoji
+    if (comp.watching && !rollActive && !S.stompPhase) {
+      const watchSize = Math.max(8, sz * 0.3);
+      const watchAlpha = 0.2 + 0.1 * Math.sin(now * 0.005 + (comp.idlePhase || 0));
+      ctx.globalAlpha = watchAlpha;
+      ctx.font = `${watchSize}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(comp.watching, cx, cy - sz * 1.1);
+    }
+
+    // show roll result emoji (only after delay) — overrides preferred face
+    if (rollActive && roll.result) {
+      const resultSize = Math.max(12, sz * 0.45);
+      ctx.font = `${resultSize}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // brighter when rolling their preferred face
+      const isPreferred = roll.result === comp.preferredFace;
+      ctx.globalAlpha = isPreferred ? 1 : (1 - roll.t * 0.3);
+      ctx.fillText(roll.result, cx, cy);
+    }
+
+    // forgotten face indicator: dashed ring for incomplete companions
+    if (comp.faces.some(f => f.forgotten && !f.emoji)) {
+      const pulse = 0.12 + 0.06 * Math.sin(now * 0.003 + (comp.idlePhase || 0));
+      ctx.beginPath();
+      ctx.arc(cx, cy, sz * 1.15, 0, Math.PI * 2);
+      ctx.setLineDash([3, 5]);
+      ctx.strokeStyle = hsl((comp.accentHsl || [0,0,50])[0], 20, 50, pulse);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // ping indicator: tiny novel emoji floating above companion
+    if (comp.ping && S.phase === 'play' && !S.stompPhase) {
+      const pingSize = Math.max(10, sz * 0.38);
+      const offsetX = comp.ping.lane === 0 ? -sz * 0.6 : comp.ping.lane === 2 ? sz * 0.6 : 0;
+      const pulse = 0.25 + 0.15 * Math.sin(now * 0.005 + (comp.idlePhase || 0));
+      ctx.globalAlpha = pulse;
+      ctx.font = `${pingSize}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(comp.ping.emoji, cx + offsetX, cy - sz * 1.3);
+    }
+
+    ctx.restore();
+  });
+}
+
+function renderBurst() {
+  const t = S.burstT;
+  const cx = S.dieX, cy = S.dieY;
+
+  // flash
+  if (S.burstFlash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${S.burstFlash * 0.4})`;
+    ctx.fillRect(-20, -20, canvas.width + 40, canvas.height + 40);
+  }
+
+  // rings
+  S.burstRings.forEach(ring => {
+    if (ring.alpha <= 0) return;
+    ctx.beginPath();
+    ctx.arc(cx, cy, ring.r, 0, Math.PI * 2);
+    ctx.strokeStyle = S.hsl ? hsl(S.hsl[0], S.hsl[1], S.hsl[2], ring.alpha) : `rgba(200,200,200,${ring.alpha})`;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  });
+
+  // burst particles
+  S.burstParticles.forEach(p => {
+    if (p.alpha <= 0) return;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fillStyle = S.hsl ? hsl(S.hsl[0], S.hsl[1], Math.min(S.hsl[2]+20,90), p.alpha) : `rgba(255,255,255,${p.alpha})`;
+    ctx.fill();
+  });
+}
+
+function renderPrompt(text) {
+  ctx.save();
+  const sz = Math.max(12, Math.min(canvas.width, canvas.height) * 0.025);
+  ctx.font = `${sz}px 'Courier New', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = S.hsl ? cFaint(0.5) : 'rgba(255,255,255,0.2)';
+  ctx.letterSpacing = '3px';
+  const y = S.dieY - canvas.height * 0.42;
+  ctx.fillText(text, canvas.width / 2, y);
+  ctx.restore();
+}
+
+function updateHud() {
+  const entries = Object.entries(S.spoils).sort((a, b) => b[1] - a[1]);
+  hudEl.innerHTML = entries.map(([emoji, count]) =>
+    `<span class="spoil">${emoji}\u00d7${count}</span>`
+  ).join('');
+  hudEl.classList.toggle('visible', entries.length > 0);
+  if (S.hsl) {
+    hudEl.style.color = cPrimary();
+  }
+}
+
+function updateTierLabel() {
+  const tierName = TIERS[S.tier].name.toUpperCase();
+  tierEl.textContent = S.declaration ? `${tierName} · ${S.declaration}` : tierName;
+  tierEl.style.color = S.hsl ? cFaint(0.4) : '#2a2a2a';
+}
+
+// ===== RING SELECTION =====
+
+function initRings() {
+  const pool = shuffle([...EMOJI_POOL]);
+  S.emojiRings = RING_CFG.map(cfg => {
+    const emojis = [];
+    for (let i = 0; i < cfg.count; i++) emojis.push(pool.pop());
+    return { ...cfg, emojis, angle: Math.random() * Math.PI * 2 };
+  });
+  S.ringSpeedMult = 1;
+  S.ringPhase = 'spinning';
+  S.ringT = 0;
+  S.ringCaptured = [];
+  S.ringFade = 1;
+  S.dieAppear = 0;
+}
+
+function angleDistTo12(a) {
+  // distance from angle to -PI/2 (12 o'clock), wrapped to [-PI, PI]
+  let d = a - (-Math.PI / 2);
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return Math.abs(d);
+}
+
+function captureFromRings() {
+  const cx = canvas.width / 2;
+  const cy = canvas.height * 0.48;
+  const baseR = Math.min(canvas.width, canvas.height);
+  const fieldPos = getFieldPositions();
+
+  S.ringCaptured = S.emojiRings.map((ring, ri) => {
+    let bestIdx = 0, bestDist = Infinity;
+    ring.emojis.forEach((emoji, i) => {
+      const a = ring.angle + (2 * Math.PI * i) / ring.emojis.length;
+      const d = angleDistTo12(a);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+    const a = ring.angle + (2 * Math.PI * bestIdx) / ring.emojis.length;
+    const r = baseR * ring.radiusFrac;
+    // mapping: inner → center, middle → left, outer → right
+    const targetIdx = [1, 0, 2][ri];
+    return {
+      emoji: ring.emojis[bestIdx],
+      x: cx + Math.cos(a) * r,
+      y: cy + Math.sin(a) * r,
+      targetX: fieldPos[targetIdx].x,
+      targetY: fieldPos[targetIdx].y,
+      fieldIdx: targetIdx,
+    };
+  });
+}
+
+function updateRings(dt) {
+  switch (S.ringPhase) {
+    case 'spinning':
+      S.emojiRings.forEach(ring => {
+        ring.angle += ring.speed * dt / 1000 * S.ringSpeedMult;
+      });
+      break;
+
+    case 'decelerating':
+      S.ringT += dt;
+      S.ringSpeedMult = Math.max(0, 1 - S.ringT / RING_DECEL_MS);
+      S.emojiRings.forEach(ring => {
+        ring.angle += ring.speed * dt / 1000 * S.ringSpeedMult;
+      });
+      if (S.ringSpeedMult <= 0) {
+        captureFromRings();
+        S.ringPhase = 'holding';
+        S.ringT = 0;
+      }
+      break;
+
+    case 'holding':
+      S.ringT += dt;
+      if (S.ringT >= RING_HOLD_MS) {
+        S.ringPhase = 'transition';
+        S.ringT = 0;
+        // set choices in field order
+        const ordered = [null, null, null];
+        S.ringCaptured.forEach(c => { ordered[c.fieldIdx] = c.emoji; });
+        S.choices = ordered;
+      }
+      break;
+
+    case 'transition':
+      S.ringT += dt;
+      const t = Math.min(1, S.ringT / RING_TRANSITION_MS);
+      S.ringFade = 1 - t;
+      S.dieAppear = t;
+      // fly captured emoji to field positions
+      S.ringCaptured.forEach(c => {
+        const et = easeInOutQuad(t);
+        c.currentX = lerp(c.x, c.targetX, et);
+        c.currentY = lerp(c.y, c.targetY, et);
+      });
+      if (t >= 1) {
+        S.phase = 'emblem';
+        S.ringPhase = null;
+        S.inputLocked = false;
+        S.dieAppear = 1;
+      }
+      break;
+  }
+}
+
+function renderRings() {
+  const cx = canvas.width / 2;
+  const cy = canvas.height * 0.48;
+  const baseR = Math.min(canvas.width, canvas.height);
+  const emojiSz = Math.max(28, baseR * 0.055);
+
+  // faint center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fill();
+
+  // capture zone indicator at 12 o'clock
+  if (S.ringPhase === 'spinning') {
+    const pulse = 0.08 + 0.04 * Math.sin(performance.now() * 0.004);
+    ctx.beginPath();
+    ctx.moveTo(cx - 8, cy - baseR * 0.44);
+    ctx.lineTo(cx, cy - baseR * 0.44 - 8);
+    ctx.lineTo(cx + 8, cy - baseR * 0.44);
+    ctx.fillStyle = `rgba(255,255,255,${pulse})`;
+    ctx.fill();
+  }
+
+  S.emojiRings.forEach((ring, ri) => {
+    const r = baseR * ring.radiusFrac;
+    const fade = S.ringFade;
+    // depth: inner brighter, outer dimmer
+    const depthAlpha = [0.9, 0.7, 0.5][ri] * fade;
+
+    // faint ring circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,255,255,${0.04 * fade})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ring.emojis.forEach((emoji, ei) => {
+      const a = ring.angle + (2 * Math.PI * ei) / ring.emojis.length;
+      const ex = cx + Math.cos(a) * r;
+      const ey = cy + Math.sin(a) * r;
+
+      // brightness by proximity to 12 o'clock
+      const dist12 = angleDistTo12(a);
+      const nearTop = Math.max(0, 1 - dist12 / 0.8);
+
+      // is this one captured?
+      const isCaptured = S.ringCaptured.some(c => c.emoji === emoji && ri === S.emojiRings.indexOf(ring));
+
+      if (S.ringPhase === 'holding' || S.ringPhase === 'transition') {
+        if (isCaptured) return; // drawn separately during transition
+        ctx.globalAlpha = depthAlpha * 0.15 * S.ringFade; // dim non-captured
+      } else {
+        ctx.globalAlpha = (0.25 + nearTop * 0.75) * depthAlpha;
+      }
+
+      // backing circle
+      ctx.beginPath();
+      ctx.arc(ex, ey, emojiSz * 0.55, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${0.04 * (0.5 + nearTop)})`;
+      ctx.fill();
+
+      ctx.font = `${emojiSz}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, ex, ey);
+    });
+
+    ctx.globalAlpha = 1;
+  });
+
+  // draw captured emoji during hold/transition
+  S.ringCaptured.forEach(c => {
+    const px = c.currentX != null ? c.currentX : c.x;
+    const py = c.currentY != null ? c.currentY : c.y;
+
+    // glow
+    ctx.beginPath();
+    ctx.arc(px, py, emojiSz * 0.7, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+    ctx.font = `${emojiSz}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(c.emoji, px, py);
+  });
+}
+
+// ===== GAME LOGIC =====
+
+function pickTrajectoryEmoji(laneIdx) {
+  const avoid = new Set();
+  if (S.emblem) avoid.add(S.emblem);
+  if (S.choices[laneIdx]) avoid.add(S.choices[laneIdx]);
+  if (S.trajectories[laneIdx]) {
+    S.trajectories[laneIdx].forEach(e => avoid.add(e));
+  }
+  const pool = EMOJI_POOL.filter(e => !avoid.has(e));
+  return pool.length ? pickRandom(pool) : pickRandom(EMOJI_POOL);
+}
+
+function generateChoices() {
+  const pool = EMOJI_POOL.filter(e => e !== S.emblem);
+  shuffle(pool);
+  const picks = pool.slice(0, 3);
+
+  // chance for emblem to appear (recognition)
+  if (S.emblem && S.phase !== 'emblem' && Math.random() < EMBLEM_CHANCE) {
+    picks[Math.floor(Math.random() * 3)] = S.emblem;
+  }
+
+  S.choices = picks;
+
+  // build trajectory lanes
+  const depth = TRAJECTORY_DEPTH[S.tier] || 0;
+  S.trajectories = [[], [], []];
+  for (let i = 0; i < 3; i++) {
+    for (let d = 0; d < depth; d++) {
+      S.trajectories[i].push(pickTrajectoryEmoji(i));
+    }
+  }
+
+  // check for auto-claim
+  if (S.emblem && S.choices.includes(S.emblem) && S.phase === 'play') {
+    S.autoClaimTimer = 0;
+    S.inputLocked = true;
+  }
+
+  computePings();
+}
+
+// after stomping: the chosen lane's trajectory slides forward,
+// other lanes regenerate — you followed this path
+function advanceField(stompDir) {
+  const depth = TRAJECTORY_DEPTH[S.tier] || 0;
+  const stompIdx = stompDir + 1; // -1->0, 0->1, 1->2
+
+  if (depth > 0 && S.trajectories[stompIdx] && S.trajectories[stompIdx].length > 0) {
+    // stomped lane: future becomes present
+    S.choices[stompIdx] = S.trajectories[stompIdx].shift();
+    S.trajectories[stompIdx].push(pickTrajectoryEmoji(stompIdx));
+
+    // other lanes: regenerate (new horizon)
+    for (let i = 0; i < 3; i++) {
+      if (i === stompIdx) continue;
+      const pool = EMOJI_POOL.filter(e => e !== S.emblem && e !== S.choices[stompIdx]);
+      S.choices[i] = pool.length ? pickRandom(pool) : pickRandom(EMOJI_POOL);
+      S.trajectories[i] = [];
+      for (let d = 0; d < depth; d++) {
+        S.trajectories[i].push(pickTrajectoryEmoji(i));
+      }
+    }
+
+    // emblem chance on regenerated lanes
+    if (S.emblem && Math.random() < EMBLEM_CHANCE) {
+      const regen = [0, 1, 2].filter(i => i !== stompIdx);
+      const idx = pickRandom(regen);
+      S.choices[idx] = S.emblem;
+    }
+
+    // companion ping influence: pingers learn, bias next horizon toward novelty
+    const pingers = S.companions.filter(c => c.ping && c.ping.lane === stompIdx);
+    if (pingers.length > 0) {
+      pingers.forEach(c => {
+        if (c.ping) {
+          c.familiar.add(c.ping.emoji);
+          // forgotten face fill: cascade companions remember through discovery
+          const empty = c.faces.findIndex(f => f.forgotten && !f.emoji);
+          if (empty >= 0) {
+            c.faces[empty] = { emoji: c.ping.emoji, improved: 0 };
+          }
+        }
+      });
+      // bias the newest trajectory entry toward what's still novel to the pingers
+      const familiarToAll = new Set();
+      pingers.forEach(c => c.familiar.forEach(e => familiarToAll.add(e)));
+      const novelPool = EMOJI_POOL.filter(e => e !== S.emblem && !familiarToAll.has(e));
+      if (novelPool.length > 0) {
+        const traj = S.trajectories[stompIdx];
+        traj[traj.length - 1] = pickRandom(novelPool);
+      }
+    }
+
+    // auto-claim
+    if (S.emblem && S.choices.includes(S.emblem) && S.phase === 'play') {
+      S.autoClaimTimer = 0;
+      S.inputLocked = true;
+    }
+  } else {
+    generateChoices();
+    return;
+  }
+
+  computePings();
+}
+
+// companions scan trajectories for novelty — things they haven't seen
+function computePings() {
+  S.pingHighlights = [];
+  const depth = TRAJECTORY_DEPTH[S.tier] || 0;
+
+  S.companions.forEach(comp => {
+    comp.ping = null;
+    if (!comp.familiar || depth <= 0 || S.phase === 'evolving') return;
+
+    let best = null;
+    for (let lane = 0; lane < 3; lane++) {
+      const traj = S.trajectories[lane];
+      if (!traj) continue;
+      for (let d = 0; d < traj.length; d++) {
+        if (!comp.familiar.has(traj[d])) {
+          // side bias: companions prefer scanning their own flank
+          const sideBias = (comp.side === 'left' && lane === 0) ||
+                           (comp.side === 'right' && lane === 2) ? 3 : 0;
+          const score = (10 - d * 3) + sideBias;
+          if (!best || score > best.score) {
+            best = { lane, depth: d, emoji: traj[d], score };
+          }
+        }
+      }
+    }
+
+    if (best) {
+      comp.ping = { lane: best.lane, depth: best.depth, emoji: best.emoji };
+      S.pingHighlights.push({
+        lane: best.lane, depth: best.depth,
+        accentHsl: comp.accentHsl || S.hsl,
+      });
+    }
+  });
+}
+
+// ===== DECLARATION =====
+
+function enterDeclaration() {
+  const set = DECLARATION_SETS[Math.floor(Math.random() * DECLARATION_SETS.length)];
+  S.declarationChoices = set;
+  S.phase = 'declaration';
+  S.inputLocked = false;
+  S.declarationFade = 0; // fade-in timer
+}
+
+function renderDeclaration() {
+  if (S.phase !== 'declaration' && S.phase !== 'stomping') return;
+  if (!S.declarationChoices.length) return;
+  // don't render words during non-declaration stomps
+  if (S.phase === 'stomping' && !S.declaration) return;
+  // fade out after declaration stomp
+  if (S.phase === 'stomping' && S.declaration) return; // words consumed by stomp
+
+  const positions = getFieldPositions();
+  const baseSz = Math.max(16, Math.min(canvas.width, canvas.height) * 0.035);
+
+  // gentle fade in
+  S.declarationFade = Math.min(1, (S.declarationFade || 0) + 0.02);
+  const alpha = S.declarationFade * 0.7;
+
+  S.declarationChoices.forEach((word, i) => {
+    const pos = positions[i];
+    const drift = Math.sin(performance.now() * 0.0008 + i * 2.1) * 4;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = `${baseSz}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = S.hsl ? cFaint(0.6) : 'rgba(255,255,255,0.4)';
+    ctx.letterSpacing = '3px';
+    ctx.fillText(word, pos.x, pos.y + drift);
+    ctx.restore();
+  });
+}
+
+function handleStomp(dir) {
+  if (S.inputLocked) return;
+  if (S.phase !== 'emblem' && S.phase !== 'declaration' && S.phase !== 'play') return;
+  if (S.stompPhase) return;
+
+  // declaration: choosing the heading
+  if (S.phase === 'declaration') {
+    const idx = dir + 1;
+    if (idx < 0 || idx >= S.declarationChoices.length) return;
+    S.declaration = S.declarationChoices[idx];
+    // visual: stomp toward the word position
+    const fieldPos = getFieldPositions();
+    const target = fieldPos[idx];
+    S.phase = 'stomping';
+    S.stompDir = dir;
+    S.stompEmoji = S.declaration; // not an emoji, but the word
+    S.stompT = 0;
+    S.stompPhase = 'lunge';
+    S.stompFromX = S.dieX;
+    S.stompFromY = S.dieY;
+    S.stompToX = lerp(S.dieX, target.x, 0.50); // gentler lunge for declaration
+    S.stompToY = lerp(S.dieY, target.y, 0.50);
+    S.inputLocked = true;
+    return;
+  }
+
+  const idx = dir + 1; // -1->0, 0->1, 1->2
+  if (idx < 0 || idx >= S.choices.length) return;
+
+  // if emblem is in choices and this isn't emblem selection, always take emblem
+  let emoji = S.choices[idx];
+  if (S.emblem && S.phase === 'play' && S.choices.includes(S.emblem)) {
+    emoji = S.emblem;
+  }
+
+  const fieldPos = getFieldPositions();
+  const target = fieldPos[idx];
+
+  S.phase = 'stomping';
+  S.stompDir = dir;
+  S.stompEmoji = emoji;
+  S.stompT = 0;
+  S.stompPhase = 'lunge';
+  S.stompFromX = S.dieX;
+  S.stompFromY = S.dieY;
+  S.stompToX = lerp(S.dieX, target.x, 0.75);
+  S.stompToY = lerp(S.dieY, target.y, 0.75);
+  S.inputLocked = true;
+
+  // track stomp direction for companion personality
+  S.tierStomps[['left','center','right'][dir + 1]]++;
+
+  // trigger companion rolls
+  if (S.companions.length > 0) {
+    rollCompanions(dir);
+  }
+}
+
+function fillFace(emoji) {
+  const isFull = S.faces.length >= TIERS[S.tier].sides;
+  if (isFull) return;
+
+  // emblem recognition: add a second emblem face if only one exists, improve after that
+  if (emoji === S.emblem) {
+    const emblemCount = S.faces.filter(f => f.emoji === S.emblem).length;
+    if (emblemCount >= 2) {
+      // already have two — improve the first
+      const first = S.faces.find(f => f.emoji === S.emblem);
+      first.improved = (first.improved || 0) + 1;
+      return;
+    }
+    // one or zero — add another emblem face
+  }
+
+  S.faces.push({ emoji, improved: 0 });
+}
+
+function triggerShake(magnitude) {
+  S.shakeMag = magnitude || (3 + S.tier * 2.5);
+}
+
+function weightedRoll(comp) {
+  // emblem face 3x weight — the core of who they were
+  const weights = comp.faces
+    .filter(f => f.emoji) // skip forgotten (null) faces
+    .map(f => ({
+      face: f,
+      weight: f.emoji === S.emblem ? 3 : 1,
+    }));
+  if (weights.length === 0) return { emoji: S.emblem, improved: 0 };
+  const total = weights.reduce((sum, w) => sum + w.weight, 0);
+  let roll = Math.random() * total;
+  for (const w of weights) {
+    roll -= w.weight;
+    if (roll <= 0) return w.face;
+  }
+  return weights[weights.length - 1].face;
+}
+
+function rollCompanions(dir) {
+  S.companions.forEach((comp, idx) => {
+    const activate = dir === 0 ||
+      (dir === -1 && comp.side === 'right') ||
+      (dir === 1 && comp.side === 'left');
+
+    if (activate && comp.faces.length > 0) {
+      const face = weightedRoll(comp);
+      // older companions take a beat longer to respond
+      const delay = (comp.birthOrder || 0) * 80;
+      S.compRolls.push({ idx, t: 0, delay, result: face.emoji, duration: 500 });
+      addSpoil(face.emoji);
+    }
+  });
+}
+
+function addSpoil(emoji) {
+  S.spoils[emoji] = (S.spoils[emoji] || 0) + 1;
+  updateHud();
+}
+
+function startEvolution() {
+  S.phase = 'evolving';
+  S.burstT = 0;
+  S.burstRings = [];
+  S.burstParticles = [];
+  S.burstFlash = 0;
+  S.pendingCompanionFaces = S.faces.map(f => ({ ...f }));
+  S.inputLocked = true;
+}
+
+function spawnCompanions() {
+  const faces = S.pendingCompanionFaces || [];
+  const birthOrder = Math.floor(S.companions.length / 2);
+
+  // derive preferred direction from stomp pattern at this tier
+  const dirs = ['left', 'center', 'right'];
+  const dirVals = [-1, 0, 1];
+  let maxDir = 'center', maxCount = 0;
+  dirs.forEach(d => {
+    if (S.tierStomps[d] > maxCount) { maxCount = S.tierStomps[d]; maxDir = d; }
+  });
+  const preferredDir = dirVals[dirs.indexOf(maxDir)];
+
+  // derive accent HSL from non-emblem faces (the companion's own palette)
+  const nonEmblem = faces.filter(f => f.emoji !== S.emblem);
+  let accentHsl = S.hsl ? [...S.hsl] : [0, 0, 60];
+  if (nonEmblem.length > 0) {
+    let hSum = 0, sSum = 0, lSum = 0, count = 0;
+    nonEmblem.forEach(f => {
+      const c = EMOJI_HSL[f.emoji];
+      if (c) { hSum += c[0]; sSum += c[1]; lSum += c[2]; count++; }
+    });
+    if (count > 0) {
+      accentHsl = [Math.round(hSum / count), Math.round(sSum / count), Math.round(lSum / count)];
+    }
+  }
+
+  // familiarity: the set of emoji this companion recognizes
+  const familiar = new Set(faces.map(f => f.emoji));
+
+  // each companion rolls once at birth to choose its preferred face
+  const preferred = weightedRoll({ faces, emblem: S.emblem });
+
+  const base = {
+    tier: S.tier,
+    faces: faces.map(f => ({ ...f })),
+    springT: 0,
+    fromX: S.dieX,
+    fromY: S.dieY,
+    preferredDir,
+    accentHsl,
+    birthOrder,
+    familiar,
+    preferredFace: preferred.emoji,
+  };
+
+  S.companions.push({
+    ...base, side: 'left',
+    idlePhase: Math.random() * Math.PI * 2,
+  });
+  S.companions.push({
+    ...base,
+    faces: faces.map(f => ({ ...f })),
+    familiar: new Set(familiar),
+    side: 'right',
+    idlePhase: Math.random() * Math.PI * 2 + Math.PI * 0.7,
+  });
+}
+
+// cascade: recent companions spawn offspring; veterans have settled
+function cascadeSpawn() {
+  const existing = [...S.companions]; // snapshot before we push
+  existing.forEach(parent => {
+    // only companions within 2 tiers of current evolve — older ones have settled
+    if (S.tier - parent.tier > 2) return;
+    const birthOrder = Math.floor(S.companions.length / 2);
+    const childFaces = parent.faces.map(f => ({ ...f }));
+
+    // forgotten face: one non-emblem face is lost in transmission
+    const nonEmblemIdx = [];
+    childFaces.forEach((f, i) => { if (f.emoji && f.emoji !== S.emblem) nonEmblemIdx.push(i); });
+    if (nonEmblemIdx.length > 0) {
+      const forgetIdx = nonEmblemIdx[Math.floor(Math.random() * nonEmblemIdx.length)];
+      childFaces[forgetIdx] = { emoji: null, improved: 0, forgotten: true };
+    }
+
+    const validFaces = childFaces.filter(f => f.emoji);
+    const preferred = validFaces.length > 0
+      ? weightedRoll({ faces: validFaces, emblem: S.emblem })
+      : { emoji: S.emblem };
+
+    S.companions.push({
+      tier: parent.tier,
+      faces: childFaces,
+      springT: 0,
+      fromX: parent.targetX || S.dieX,
+      fromY: parent.targetY || S.dieY,
+      preferredDir: parent.preferredDir,
+      accentHsl: [...parent.accentHsl],
+      birthOrder,
+      familiar: new Set(parent.familiar),
+      preferredFace: preferred.emoji,
+      side: parent.side,
+      idlePhase: Math.random() * Math.PI * 2,
+      cascadeBorn: true,
+    });
+  });
+}
+
+// conviction: how drawn a companion is toward the capital ship
+// emblem faces + preferred alignment + familiarity depth → 0..1
+function getConviction(comp) {
+  if (!S.emblem) return 0;
+  const emblemFaces = comp.faces.filter(f => f.emoji === S.emblem).length;
+  const totalFaces = comp.faces.filter(f => f.emoji).length || 1;
+  const emblemRatio = emblemFaces / totalFaces; // 0..1
+  const prefMatch = comp.preferredFace === S.emblem ? 0.3 : 0;
+  const familiarDepth = comp.familiar ? Math.min(comp.familiar.size / 8, 0.2) : 0;
+  return Math.min(1, emblemRatio + prefMatch + familiarDepth);
+}
+
+// V-formation: swept wings trailing behind the main die
+// highest tier = closest rank (honor guard), lowest = wide tail (fighters)
+// within each rank, most convicted companions push forward
+function getCompanionTargets() {
+  const mainSize = getDieSize();
+  const fleetSize = S.companions.length;
+  const compress = Math.max(0.45, 1.0 - fleetSize * 0.008);
+
+  ['left', 'right'].forEach(side => {
+    const dir = side === 'left' ? -1 : 1;
+    const wing = S.companions.filter(c => c.side === side);
+
+    // group by tier descending (highest = closest to flagship)
+    const byTier = {};
+    wing.forEach(c => {
+      if (!byTier[c.tier]) byTier[c.tier] = [];
+      byTier[c.tier].push(c);
+    });
+    const tiers = Object.keys(byTier).map(Number).sort((a, b) => b - a);
+
+    let rankY = S.dieY + mainSize * 0.15;
+    let rankIndent = mainSize * 0.75;
+
+    tiers.forEach(tier => {
+      const group = byTier[tier];
+      // sort by conviction: most committed draw forward
+      group.sort((a, b) => getConviction(b) - getConviction(a));
+
+      const sz = getCompanionSize(tier);
+      const perRow = 4;
+
+      group.forEach((c, i) => {
+        const conv = getConviction(c);
+        c.conviction = conv; // cache for idle animation
+        const row = Math.floor(i / perRow);
+        const col = i % perRow;
+
+        // convicted companions huddle tighter (spacing compresses with conviction)
+        const spaceMul = 1.0 - conv * 0.25; // 1.0 at zero conviction, 0.75 at full
+        c.targetX = S.dieX + dir * (rankIndent + col * (sz * 1.9 + 3) * compress * spaceMul);
+        // high conviction pulls forward (negative Y = toward capital ship)
+        const forwardPull = conv * sz * 0.6;
+        c.targetY = rankY + row * (sz * 1.5 + 3) * compress - forwardPull + col * sz * 0.15;
+      });
+
+      const numRows = Math.ceil(group.length / perRow);
+      rankY += numRows * (sz * 1.5 + 3) * compress + sz * 0.6;
+      rankIndent += sz * 0.35;
+    });
+  });
+}
+
+function advanceTier() {
+  if (S.tier >= TIERS.length - 1) {
+    S.phase = 'ascending';
+    return;
+  }
+  S.tier++;
+  S.faces = [{ emoji: S.emblem, improved: 0 }];
+  S.tierStomps = { left: 0, center: 0, right: 0 };
+  updateTierLabel();
+  populateStars();
+}
+
+// ===== UPDATE =====
+
+function update(dt) {
+  // shake decay
+  if (S.shakeMag > 0.2) {
+    S.shakeX = (Math.random() - 0.5) * S.shakeMag * 2;
+    S.shakeY = (Math.random() - 0.5) * S.shakeMag * 2;
+    S.shakeMag *= 0.88;
+  } else {
+    S.shakeX = 0; S.shakeY = 0; S.shakeMag = 0;
+  }
+
+  // star field
+  updateStars(dt);
+
+  // companion spring animations
+  S.companions.forEach(c => {
+    if (c.springT < 1) c.springT = Math.min(1, c.springT + dt / 600);
+  });
+
+  // companion roll animations (delay then animate)
+  S.compRolls.forEach(r => {
+    if (r.delay > 0) { r.delay -= dt; return; }
+    r.t = Math.min(1, r.t + dt / r.duration);
+  });
+  S.compRolls = S.compRolls.filter(r => r.t < 1);
+
+  // burst flash decay
+  if (S.burstFlash > 0) S.burstFlash *= 0.92;
+
+  // ring expansion
+  S.burstRings.forEach(ring => {
+    ring.r += ring.speed * dt / 1000;
+    ring.alpha = Math.max(0, ring.alpha - dt / 1200);
+  });
+  S.burstRings = S.burstRings.filter(r => r.alpha > 0);
+
+  // burst particles
+  S.burstParticles.forEach(p => {
+    p.x += p.vx * dt / 1000;
+    p.y += p.vy * dt / 1000;
+    p.alpha -= dt / 1200;
+    p.size *= 0.995;
+  });
+  S.burstParticles = S.burstParticles.filter(p => p.alpha > 0);
+
+  // phase-specific
+  switch (S.phase) {
+    case 'rings':
+      updateRings(dt);
+      break;
+
+    case 'emblem':
+      // choices already set by ring capture
+      break;
+
+    case 'play':
+      // auto-claim emblem
+      if (S.emblem && S.choices.includes(S.emblem)) {
+        S.autoClaimTimer += dt;
+        if (S.autoClaimTimer > 400) {
+          // auto-stomp toward the emblem
+          const idx = S.choices.indexOf(S.emblem);
+          const dir = idx - 1;
+          S.inputLocked = false;
+          handleStomp(dir);
+        }
+      }
+      break;
+
+    case 'stomping':
+      updateStomp(dt);
+      break;
+
+    case 'evolving':
+      updateEvolution(dt);
+      break;
+
+    case 'ascending':
+      // final state — could add celebration later
+      break;
+  }
+}
+
+function updateStomp(dt) {
+  const isEmblemSelect = !S.emblem;
+  const isDecl = S.declarationChoices.includes(S.stompEmoji);
+  const isCeremony = isEmblemSelect || isDecl;
+  const lungeMs = isCeremony ? EMBLEM_LUNGE_MS : LUNGE_MS;
+  const holdMs = isCeremony ? EMBLEM_HOLD_MS : HOLD_MS;
+  const returnMs = isCeremony ? EMBLEM_RETURN_MS : RETURN_MS;
+
+  if (S.stompPhase === 'lunge') {
+    // eager snap toward emoji
+    S.stompT += dt / lungeMs;
+    if (S.stompT >= 1) {
+      S.stompT = 0;
+      S.stompPhase = 'hold';
+      triggerShake();
+
+      // fill face at moment of contact (skip for declaration stomps)
+      const isDeclarationStomp = S.declarationChoices.includes(S.stompEmoji);
+      if (!isDeclarationStomp) {
+        if (!S.emblem) {
+          S.emblem = S.stompEmoji;
+          S.hsl = EMOJI_HSL[S.emblem] || [0, 0, 60];
+          S.faces.push({ emoji: S.emblem, improved: 0 });
+        } else {
+          fillFace(S.stompEmoji);
+        }
+      } else {
+        triggerShake(2); // gentle shake for declaration — acknowledgment, not impact
+      }
+
+      // stomp ripple: the fleet feels the impact
+      if (S.companions.length > 0 && !isDeclarationStomp) {
+        const isEmblemStomp = S.stompEmoji === S.emblem;
+        const originX = S.stompToX;
+        const originY = S.stompToY;
+        S.companions.forEach(c => {
+          const dx = (c.targetX || S.dieX) - originX;
+          const dy = (c.targetY || S.dieY) - originY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const conv = c.conviction || 0;
+          // delay: ripple travels outward — arrives during the grip
+          c.rippleDelay = dist * 0.5; // fast wavefront
+          c.rippleT = 0;
+          // intensity: even low-conviction companions feel it slightly
+          c.rippleIntensity = isEmblemStomp ? 0.6 + conv * 0.35 : 0.2 + conv * 0.55;
+          // duration: convicted hold the light longer
+          c.rippleDuration = 200 + conv * 250; // 200..450ms
+        });
+      }
+    }
+  } else if (S.stompPhase === 'hold') {
+    // the grip — brief inevitable pause
+    S.stompT += dt / holdMs;
+    if (S.stompT >= 1) {
+      S.stompT = 0;
+      S.stompPhase = 'back';
+    }
+  } else if (S.stompPhase === 'back') {
+    // slow grip, fast yank
+    S.stompT += dt / returnMs;
+    if (S.stompT >= 1) {
+      S.stompPhase = null;
+      S.stompT = 0;
+      S.inputLocked = false;
+
+      if (S.faces.length >= TIERS[S.tier].sides) {
+        startEvolution();
+      } else if (S.emblem && !S.declaration) {
+        // just picked the emblem — now ask where we're going
+        enterDeclaration();
+      } else {
+        S.phase = 'play';
+        advanceField(S.stompDir);
+      }
+    }
+  }
+}
+
+function updateEvolution(dt) {
+  S.burstT += dt;
+
+  if (S.burstT < BURST_BEAT) {
+    // beat: die pulses (handled in render via sin)
+  } else if (S.burstT < BURST_SURGE) {
+    // surge: particles gathering
+    if (Math.random() < 0.25) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 150 + Math.random() * 100;
+      S.burstParticles.push({
+        x: S.dieX + Math.cos(angle) * dist,
+        y: S.dieY + Math.sin(angle) * dist,
+        vx: -Math.cos(angle) * (80 + Math.random() * 60),
+        vy: -Math.sin(angle) * (80 + Math.random() * 60),
+        size: 2 + Math.random() * 3,
+        alpha: 0.7,
+      });
+    }
+  } else if (S.burstT < BURST_PEAK) {
+    // peak: rings + flash
+    if (S.burstT - dt < BURST_SURGE) {
+      // just entered peak
+      for (let i = 0; i < 4; i++) {
+        S.burstRings.push({ r: 10, speed: 250 + i * 80, alpha: 0.6 - i * 0.1 });
+      }
+      S.burstFlash = 1;
+      triggerShake(12 + S.tier * 4);
+    }
+  } else if (S.burstT < BURST_SPAWN) {
+    // spawn phase
+    if (S.burstT - dt < BURST_PEAK) {
+      cascadeSpawn();   // existing companions reproduce first
+      spawnCompanions(); // then the player sheds two new companions
+    }
+  } else if (S.burstT >= BURST_DURATION) {
+    // done
+    advanceTier();
+    S.phase = 'play';
+    S.burstT = 0;
+    S.inputLocked = false;
+    generateChoices();
+  }
+}
+
+// ===== RENDER =====
+
+function render() {
+  ctx.save();
+  ctx.translate(S.shakeX, S.shakeY);
+
+  // background
+  ctx.fillStyle = cBg();
+  ctx.fillRect(-20, -20, canvas.width + 40, canvas.height + 40);
+
+  // subtle bg pulse when emblem is set
+  if (S.hsl) {
+    const pulse = 0.02 + 0.01 * Math.sin(performance.now() * 0.002);
+    ctx.fillStyle = cFaint(pulse);
+    ctx.fillRect(-20, -20, canvas.width + 40, canvas.height + 40);
+  }
+
+  // star field (always present — the void is always there)
+  renderStars();
+
+  // ring selection screen
+  if (S.phase === 'rings') {
+    renderRings();
+    ctx.restore();
+    return;
+  }
+
+  // prompt text
+  if (S.phase === 'emblem') {
+    renderPrompt('CHOOSE');
+  }
+
+  // declaration phase: three words in the void
+  if (S.phase === 'declaration') {
+    renderDeclaration();
+  }
+
+  // trajectories (ghost lane lookahead — rendered behind choices)
+  const isPlayStomp = S.phase === 'stomping' && S.declaration && !S.declarationChoices.includes(S.stompEmoji);
+  if (S.phase === 'play' || isPlayStomp) {
+    renderTrajectories();
+  }
+
+  // field
+  if (S.phase === 'emblem' || S.phase === 'play' || isPlayStomp) {
+    renderField();
+  }
+
+  // companions
+  renderCompanions();
+
+  // main die (fade in during ring transition)
+  const diePos = getDiePos();
+  const dieSize = getDieSize();
+  if (S.dieAppear < 1 && S.dieAppear > 0) {
+    ctx.globalAlpha = S.dieAppear;
+  }
+
+  // during evolution beat, pulse glow
+  if (S.phase === 'evolving' && S.burstT < BURST_BEAT) {
+    const pulse = 0.5 + 0.5 * Math.sin(S.burstT * 0.015);
+    ctx.save();
+    ctx.shadowBlur = 30 * pulse;
+    ctx.shadowColor = cGlow();
+    renderDie(diePos.x, diePos.y, S.tier, S.faces, dieSize);
+    ctx.restore();
+  } else {
+    renderDie(diePos.x, diePos.y, S.tier, S.faces, dieSize);
+  }
+  ctx.globalAlpha = 1;
+
+  // burst effects (on top of die)
+  if (S.phase === 'evolving') {
+    renderBurst();
+  }
+
+  ctx.restore();
+
+  // tier label
+  updateTierLabel();
+}
+
+function getDiePos() {
+  if (!S.stompPhase) return { x: S.dieX, y: S.dieY };
+
+  if (S.stompPhase === 'lunge') {
+    // eager leap — fast start, decisive arrival
+    const t = easeOutQuad(S.stompT);
+    return {
+      x: lerp(S.stompFromX, S.stompToX, t),
+      y: lerp(S.stompFromY, S.stompToY, t),
+    };
+  } else if (S.stompPhase === 'hold') {
+    // the grip — stay at target, barely breathing
+    return { x: S.stompToX, y: S.stompToY };
+  } else {
+    // slow grip, fast yank — starts slow, accelerates home
+    const t = easeInCubic(S.stompT);
+    return {
+      x: lerp(S.stompToX, S.dieX, t),
+      y: lerp(S.stompToY, S.dieY, t),
+    };
+  }
+}
+
+// ===== INPUT =====
+
+function onKey(e) {
+  if (S.inputLocked) return;
+
+  // ring selection: any arrow or space to thrust
+  if (S.phase === 'rings' && S.ringPhase === 'spinning') {
+    if (['ArrowLeft','ArrowUp','ArrowRight',' '].includes(e.key)) {
+      S.ringPhase = 'decelerating';
+      S.ringT = 0;
+      S.inputLocked = true;
+      return;
+    }
+  }
+
+  switch (e.key) {
+    case 'ArrowLeft':  handleStomp(-1); break;
+    case 'ArrowUp':    handleStomp(0);  break;
+    case 'ArrowRight': handleStomp(1);  break;
+  }
+}
+
+window.addEventListener('keydown', onKey);
+
+// touch: tap position determines direction
+let touchX = 0;
+canvas.addEventListener('touchstart', e => {
+  touchX = e.touches[0].clientX;
+  e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  if (S.inputLocked) return;
+  // ring selection: tap anywhere to thrust
+  if (S.phase === 'rings' && S.ringPhase === 'spinning') {
+    S.ringPhase = 'decelerating';
+    S.ringT = 0;
+    S.inputLocked = true;
+    e.preventDefault();
+    return;
+  }
+  const x = (e.changedTouches[0] || { clientX: touchX }).clientX / canvas.width;
+  if (x < 0.33) handleStomp(-1);
+  else if (x > 0.66) handleStomp(1);
+  else handleStomp(0);
+  e.preventDefault();
+}, { passive: false });
+
+// ===== MAIN LOOP =====
+
+let lastTime = 0;
+function frame(time) {
+  const dt = Math.min(time - lastTime, 50);
+  lastTime = time;
+  if (dt > 0) {
+    update(dt);
+    render();
+  }
+  requestAnimationFrame(frame);
+}
+
+// ===== INIT =====
+
+function init() {
+  S.phase = 'rings';
+  S.tier = 0;
+  S.faces = [];
+  S.emblem = null;
+  S.hsl = null;
+  S.companions = [];
+  S.spoils = {};
+  S.choices = [];
+  S.trajectories = [[], [], []];
+  S.inputLocked = false;
+  S.tierStomps = { left: 0, center: 0, right: 0 };
+  initStars();
+  initRings();
+  updateTierLabel();
+  requestAnimationFrame(frame);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,2728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Silmor Spells</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --paper:   #f4f0e8;
+  --cream:   #fffdf7;
+  --tan:     #c4b89a;
+  --gold:    #8b7a4a;
+  --ink:     #2a2520;
+  --dim:     #8a7a5a;
+  --faint:   #b0a080;
+  --warm:    #e8dcc4;
+  --pass-bg: #e8f0e4;
+  --pass-bd: #8ab878;
+  --pass-tx: #3a5a2a;
+  --fail-bg: #f0e4e4;
+  --fail-bd: #b87878;
+  --fail-tx: #5a2a2a;
+  --commit:  #5a7a4a;
+  --amber:   #c89440;
+  --amber-bg:#faf0e0;
+  --spell:   #7a6a2a;
+  --spell-bg:#f8f0d0;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Courier New', monospace;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+#game {
+  max-width: 520px;
+  width: 100%;
+}
+
+/* ── Header ── */
+header {
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+  margin-bottom: 2rem;
+  color: var(--gold);
+}
+
+/* ── Document ── */
+#document {
+  background: var(--cream);
+  border: 2px solid var(--tan);
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+#document .label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+/* ── Completed Rows ── */
+.doc-rows {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px dashed var(--tan);
+}
+
+.doc-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.25rem 0;
+}
+
+.doc-row .row-label {
+  font-size: 0.6rem;
+  color: var(--faint);
+  min-width: 16px;
+  text-align: right;
+}
+
+.doc-row .row-slot {
+  width: 76px;
+  text-align: center;
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 0.2rem 0;
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+.doc-row.row-passed .row-slot { opacity: 0.8; }
+.doc-row.row-failed .row-slot { opacity: 0.45; }
+.doc-row.row-spell .row-slot { opacity: 0.9; background: rgba(122, 106, 42, 0.06); }
+
+.row-indicator {
+  font-size: 0.55rem;
+  min-width: 14px;
+  text-align: left;
+}
+
+.row-indicator.pass { color: var(--pass-bd); }
+.row-indicator.fail { color: var(--fail-bd); }
+.row-indicator.spell-ind { color: var(--spell); }
+
+/* ── DOC.GEN Annotations ── */
+.doc-note {
+  font-size: 0.6rem;
+  font-style: italic;
+  color: #b05050;
+  opacity: 0;
+  animation: doc-note-in 0.4s ease-out forwards;
+}
+
+.doc-note-margin {
+  margin-left: 0.4rem;
+  display: inline;
+}
+
+.doc-note-top {
+  text-align: right;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.55rem;
+}
+
+@keyframes doc-note-in {
+  0%   { opacity: 0; transform: translateX(6px); }
+  100% { opacity: 0.85; transform: translateX(0); }
+}
+
+/* ── Active Slots ── */
+#slots {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.slot {
+  width: 76px;
+  height: 92px;
+  border: 2px dashed var(--tan);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.slot.filled {
+  border-style: solid;
+  border-color: var(--gold);
+  background: #faf6ee;
+}
+
+.slot.pop { animation: pop 0.25s ease-out; }
+
+@keyframes pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.slot.pending {
+  animation: shimmer 0.5s ease-in-out infinite;
+  border-color: var(--dim);
+}
+
+@keyframes shimmer {
+  0%, 100% { background: #faf6ee; }
+  50%      { background: #ede4cc; }
+}
+
+.slot.held {
+  border-color: var(--pass-bd);
+  background: var(--pass-bg);
+  animation: held-flash 0.35s ease-out forwards;
+}
+
+@keyframes held-flash {
+  0%   { transform: scale(1.08); background: #c8e8b8; }
+  100% { transform: scale(1); background: var(--pass-bg); }
+}
+
+.slot.shifted {
+  border-color: var(--amber);
+  background: var(--amber-bg);
+  animation: shifted-flash 0.35s ease-out forwards;
+}
+
+@keyframes shifted-flash {
+  0%   { transform: scale(1.08); background: #f0d0a0; }
+  100% { transform: scale(1); background: var(--amber-bg); }
+}
+
+.slot.spell-held {
+  border-color: var(--spell);
+  background: var(--spell-bg);
+  animation: spell-flash 0.4s ease-out forwards;
+}
+
+@keyframes spell-flash {
+  0%   { transform: scale(1.1); background: #f0e8a0; }
+  100% { transform: scale(1); background: var(--spell-bg); }
+}
+
+.slot.frozen {
+  border-color: #7090b0;
+  border-style: solid;
+  background: #e8f0f8;
+  animation: freeze-flash 0.35s ease-out forwards;
+}
+
+@keyframes freeze-flash {
+  0%   { transform: scale(1.06); background: #b8d8f0; }
+  100% { transform: scale(1); background: #e8f0f8; }
+}
+
+.slot .freeze-mark { position: absolute; top: 2px; left: 5px; font-size: 0.65rem; color: #7090b0; }
+
+.slot .emoji { font-size: 2rem; line-height: 1; }
+.slot .value { font-size: 0.75rem; color: var(--dim); margin-top: 0.3rem; }
+.slot .tag { position: absolute; top: 3px; right: 5px; font-size: 0.6rem; color: var(--faint); }
+.slot .was { position: absolute; top: 2px; left: 5px; font-size: 0.7rem; opacity: 0.5; }
+
+#threshold { text-align: center; font-size: 0.9rem; color: var(--dim); }
+#threshold .num { font-weight: bold; color: var(--ink); }
+#running-total { text-align: center; font-size: 0.85rem; color: var(--faint); margin-top: 0.4rem; min-height: 1.2em; }
+
+/* ── Document Complete ── */
+.doc-complete-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.doc-complete-rows {
+  margin-bottom: 1rem;
+}
+
+.doc-complete-rows .doc-row {
+  opacity: 1;
+}
+
+.doc-complete-rows .doc-row .row-slot {
+  opacity: 1;
+}
+
+.learned-section {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(139, 122, 74, 0.08);
+  border-radius: 4px;
+  text-align: left;
+}
+
+.learned-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  margin-bottom: 0.4rem;
+}
+
+.learned-item {
+  font-size: 0.85rem;
+  color: var(--ink);
+  padding: 0.15rem 0;
+}
+
+.learned-item .bonus {
+  color: var(--commit);
+  font-weight: bold;
+}
+
+.learned-item .combo-label {
+  color: var(--spell);
+  font-weight: bold;
+}
+
+.nothing-learned {
+  font-size: 0.8rem;
+  color: var(--faint);
+  font-style: italic;
+  text-align: center;
+  margin-top: 0.75rem;
+}
+
+#next-doc-btn {
+  display: block;
+  margin: 1rem auto 0;
+  background: var(--gold);
+  color: var(--paper);
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1.4rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+#next-doc-btn:hover { background: #7a6a3a; }
+
+/* ── SILMOR (visual) ── */
+#silmor {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  min-height: 5rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: background 0.3s;
+}
+
+#silmor.level-0 { background: transparent; }
+#silmor.level-1 { background: rgba(196, 184, 154, 0.1); }
+#silmor.level-2 { background: rgba(139, 122, 74, 0.12); }
+#silmor.level-3 { background: rgba(139, 122, 74, 0.18); }
+
+#silmor-canvas {
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 80px;
+  height: 80px;
+}
+
+#silmor-bubble {
+  flex: 1;
+  min-height: 2.5rem;
+  position: relative;
+}
+
+.silmor-status {
+  font-size: 0.8rem;
+  color: var(--dim);
+  font-style: italic;
+}
+
+.silmor-speech {
+  font-size: 1rem;
+  color: var(--gold);
+  margin-top: 0.15rem;
+  min-height: 1.2em;
+  font-weight: bold;
+}
+
+#silmor.level-2 .silmor-speech { color: var(--spell); }
+#silmor.level-3 .silmor-speech { color: var(--commit); font-size: 1.1rem; }
+
+/* ── Boss (visual) ── */
+#boss {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  min-height: 5rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: background 0.3s;
+}
+
+#boss-canvas {
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 80px;
+  height: 80px;
+}
+
+#boss-bubble {
+  flex: 1;
+  min-height: 2.5rem;
+  text-align: right;
+}
+
+.boss-status {
+  font-size: 0.8rem;
+  color: var(--dim);
+  font-style: italic;
+}
+
+.boss-speech {
+  font-size: 0.95rem;
+  color: var(--gold);
+  margin-top: 0.15rem;
+  min-height: 1.2em;
+  font-weight: bold;
+}
+
+.boss-threshold {
+  font-size: 0.85rem;
+  color: var(--dim);
+  margin-top: 0.2rem;
+}
+
+.boss-threshold .num {
+  font-weight: bold;
+  color: var(--ink);
+}
+
+#boss.jealous { background: rgba(138, 48, 48, 0.06); }
+#boss.suspicious { background: rgba(90, 90, 106, 0.06); }
+
+/* ── Cast Overlay ── */
+#cast-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* ── Dice Bag ── */
+#dice-bag { margin-bottom: 1.5rem; }
+
+#dice-bag .label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+#dice-row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.die {
+  border: 2px solid var(--tan);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  background: var(--cream);
+  cursor: pointer;
+  text-align: center;
+  min-width: 80px;
+  transition: border-color 0.12s, transform 0.1s, background 0.12s, filter 0.15s;
+}
+
+.die:hover { border-color: var(--gold); background: #faf6ee; }
+.die.tapped { transform: scale(0.94); background: var(--warm); }
+.die.die-noticed { animation-play-state: paused !important; filter: brightness(1.08); }
+
+.die.fumble-low {
+  animation: die-jitter-low 2.5s ease-in-out infinite;
+}
+
+.die.fumble-high {
+  animation: die-jitter-high 1.4s ease-in-out infinite;
+  border-color: var(--fail-bd);
+}
+
+@keyframes die-jitter-low {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-0.5px); }
+  40% { transform: translateX(0.5px); }
+  60% { transform: translateX(-0.3px); }
+  80% { transform: translateX(0); }
+}
+
+@keyframes die-jitter-high {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-1px) rotate(-0.3deg); }
+  35% { transform: translateX(1px) rotate(0.3deg); }
+  55% { transform: translateX(-0.8px); }
+  75% { transform: translateX(0.6px) rotate(-0.2deg); }
+}
+
+/* ── Die Shapes ── */
+.die-pointed { border-radius: 2px 2px 10px 10px; padding-top: 0.7rem; padding-bottom: 0.3rem; }
+.die-square  { border-radius: 6px; }
+.die-diamond { border-radius: 2px; transform: rotate(1deg); min-width: 70px; }
+.die-round   { border-radius: 16px; padding: 0.6rem 0.8rem; }
+
+/* ── Die Fidgets ── */
+.die-rock   { animation: die-rock 2.5s ease-in-out infinite; }
+.die-spin   { animation: die-spin 4s ease-in-out infinite; }
+.die-bounce { animation: die-bounce 3s ease-in-out infinite; }
+
+@keyframes die-rock {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-1.2deg); }
+  75% { transform: rotate(1.2deg); }
+}
+
+@keyframes die-spin {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-2deg); }
+  75% { transform: rotate(2deg); }
+}
+
+@keyframes die-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* Diamond shape + fidget: compose rotation */
+.die-diamond.die-rock { animation: die-diamond-rock 2.5s ease-in-out infinite; }
+.die-diamond.die-spin { animation: die-diamond-spin 4s ease-in-out infinite; }
+.die-diamond.die-bounce { animation: die-diamond-bounce 3s ease-in-out infinite; }
+
+@keyframes die-diamond-rock {
+  0%, 100% { transform: rotate(1deg); }
+  25% { transform: rotate(-0.2deg); }
+  75% { transform: rotate(2.2deg); }
+}
+
+@keyframes die-diamond-spin {
+  0%, 100% { transform: rotate(1deg); }
+  25% { transform: rotate(-1deg); }
+  75% { transform: rotate(3deg); }
+}
+
+@keyframes die-diamond-bounce {
+  0%, 100% { transform: rotate(1deg) translateY(0); }
+  50% { transform: rotate(1deg) translateY(-2px); }
+}
+
+.die-key {
+  display: inline-block;
+  background: var(--warm);
+  border-radius: 3px;
+  padding: 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: var(--gold);
+}
+
+.die-type { font-size: 0.85rem; font-weight: bold; color: var(--gold); margin-left: 0.25rem; }
+.die-faces { font-size: 0.85rem; margin-top: 0.3rem; letter-spacing: 0.08em; }
+
+/* ── Controls ── */
+#controls { text-align: center; }
+
+#commit-btn {
+  background: var(--commit);
+  color: var(--paper);
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1.6rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+#commit-btn:hover { background: #4a6a3a; }
+#commit-btn:disabled { background: var(--faint); cursor: default; box-shadow: none; }
+#commit-btn.spell-ready { background: var(--spell); box-shadow: 0 0 14px rgba(122, 106, 42, 0.35); }
+#commit-btn.spell-ready:hover { background: #8a7a3a; }
+
+.hint { margin-top: 0.6rem; font-size: 0.7rem; color: var(--faint); }
+
+/* ── Result ── */
+#result {
+  text-align: center;
+  margin-top: 1.2rem;
+  padding: 1rem;
+  border-radius: 6px;
+  display: none;
+  position: relative;
+}
+
+#result.pass { display: block; background: var(--pass-bg); border: 1px solid var(--pass-bd); color: var(--pass-tx); }
+#result.fail { display: block; background: var(--fail-bg); border: 1px solid var(--fail-bd); color: var(--fail-tx); }
+#result.spell { display: block; background: var(--spell-bg); border: 1px solid var(--spell); color: var(--spell); }
+
+.result-text { font-weight: bold; margin-bottom: 0.4rem; }
+
+.silmor-note {
+  font-style: italic;
+  color: #b05050;
+  text-decoration: underline wavy #c06060;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  display: inline-block;
+}
+
+#next-btn {
+  margin-top: 0.6rem;
+  background: var(--dim);
+  color: var(--paper);
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 1.2rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+#next-btn:hover { background: var(--gold); }
+
+/* ── Email Interludes ── */
+.email-prompt {
+  text-align: center;
+  padding: 1.5rem 0 1rem;
+}
+
+.email-emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.email-question {
+  font-size: 1.4rem;
+  color: var(--dim);
+  margin-top: 0.4rem;
+}
+
+.email-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--faint);
+  margin-top: 0.75rem;
+}
+
+.email-result {
+  text-align: center;
+  padding: 0.75rem;
+  margin-top: 0.75rem;
+  border-radius: 4px;
+}
+
+.email-matched {
+  background: var(--pass-bg);
+  border: 1px solid var(--pass-bd);
+  color: var(--pass-tx);
+}
+
+.email-swapped {
+  background: var(--amber-bg);
+  border: 1px solid var(--amber);
+  color: var(--ink);
+}
+
+.email-result-text {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 0.3rem;
+}
+
+.email-result-sub {
+  font-size: 0.8rem;
+  color: var(--dim);
+}
+
+.email-next {
+  display: block;
+  margin: 1rem auto 0;
+  background: var(--dim);
+  color: var(--paper);
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1.4rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.email-next:hover { background: var(--gold); }
+
+/* ── Attachments ── */
+.slot-bonus {
+  color: var(--commit);
+  font-size: 0.6rem;
+  font-weight: bold;
+  margin-left: 0.15rem;
+}
+
+.die-attachments {
+  display: flex;
+  gap: 0.15rem;
+  justify-content: center;
+  margin-top: 0.25rem;
+  font-size: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.die-attach {
+  background: var(--pass-bg);
+  border: 1px solid var(--pass-bd);
+  border-radius: 3px;
+  padding: 0 0.2rem;
+  color: var(--pass-tx);
+  font-weight: bold;
+  line-height: 1.4;
+}
+
+/* ── SILMOR's Wand ── */
+.silmor-wand {
+  display: flex;
+  gap: 0.15rem;
+  margin-top: 0.4rem;
+  font-size: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.wand-label {
+  font-size: 0.55rem;
+  color: #5a4870;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 0.2rem;
+}
+
+.explode-text {
+  color: var(--spell);
+  font-weight: bold;
+}
+
+.secret-roll-bonus {
+  margin-top: 0.4rem;
+  font-style: italic;
+  color: var(--spell);
+}
+
+.wand-charge {
+  background: rgba(90, 72, 112, 0.1);
+  border: 1px solid rgba(90, 72, 112, 0.3);
+  border-radius: 3px;
+  padding: 0 0.2rem;
+  color: #5a4870;
+  font-weight: bold;
+  line-height: 1.4;
+}
+</style>
+</head>
+<body>
+<div id="game">
+  <header>SILMOR SPELLS</header>
+  <div id="boss">
+    <div id="boss-bubble"></div>
+    <canvas id="boss-canvas" width="80" height="80"></canvas>
+  </div>
+  <div id="document"></div>
+  <div id="silmor" class="level-0">
+    <canvas id="silmor-canvas" width="80" height="80"></canvas>
+    <div id="silmor-bubble"></div>
+  </div>
+  <div id="dice-bag">
+    <div class="label">Your Dice</div>
+    <div id="dice-row"></div>
+  </div>
+  <div id="controls">
+    <button id="commit-btn" disabled>Commit</button>
+    <div class="hint">tap [1–4] to roll · hold to freeze · [space] to commit</div>
+  </div>
+  <div id="result"></div>
+</div>
+<div id="cast-overlay"></div>
+
+<script>
+/* ═══════════════════════════════════════
+   SILMOR SPELLS — Documents & Rows
+   Dice · FIFO · Gamble · Spells · Sprite
+   ═══════════════════════════════════════ */
+
+/* ── SILMOR Sprite ── */
+
+const PX = 5; // pixel scale
+const SILMOR_C = {
+  hat:   '#5a4870',
+  robe:  '#8070a0',
+  skin:  '#e8d0c0',
+  eye:   '#2a2030',
+  mouth: '#c07060',
+  wand:  '#b0a060',
+  spark: '#ffe060',
+  blush: '#d8a8a0',
+};
+
+const silmorCtx = document.getElementById('silmor-canvas').getContext('2d');
+
+function drawSilmor(expr, frame) {
+  const ctx = silmorCtx;
+  ctx.clearRect(0, 0, 80, 80);
+  ctx.imageSmoothingEnabled = false;
+
+  // Vibrate: jitter the whole character
+  const jx = expr === 'vibrate' ? (frame % 2 ? 1 : -1) : 0;
+
+  function px(x, y, w, h, c) {
+    ctx.fillStyle = c;
+    ctx.fillRect((x + jx) * PX, y * PX, w * PX, h * PX);
+  }
+
+  const C = SILMOR_C;
+
+  // Hat
+  px(5, 0, 3, 1, C.hat);
+  px(4, 1, 5, 1, C.hat);
+  px(3, 2, 7, 1, C.hat);
+
+  // Face
+  px(4, 3, 5, 1, C.skin);
+  px(3, 4, 7, 4, C.skin);
+  px(4, 8, 5, 1, C.skin);
+
+  // Eyes
+  const wide = ['excited', 'vibrate', 'beam', 'held'].includes(expr);
+  const shut = expr === 'blink' || expr === 'wince';
+
+  if (shut) {
+    px(4, 5, 2, 1, C.eye);  // left closed
+    px(7, 5, 2, 1, C.eye);  // right closed
+  } else if (wide) {
+    px(5, 4, 1, 2, C.eye);  // left tall
+    px(7, 4, 1, 2, C.eye);  // right tall
+  } else {
+    px(5, 5, 1, 1, C.eye);  // left dot
+    px(7, 5, 1, 1, C.eye);  // right dot
+  }
+
+  // Blush when excited/vibrating
+  if (expr === 'excited' || expr === 'vibrate' || expr === 'beam') {
+    px(3, 6, 2, 1, C.blush);
+    px(8, 6, 2, 1, C.blush);
+  }
+
+  // Mouth
+  if (['beam', 'excited', 'vibrate', 'exhale'].includes(expr)) {
+    px(5, 7, 3, 1, C.mouth); // wide smile
+  } else if (expr === 'murmur') {
+    px(6, 7, 1, 1, C.mouth); // small open dot
+  } else if (expr === 'wince') {
+    px(6, 7, 1, 1, C.mouth); // tiny grimace
+  } else if (expr === 'held') {
+    // no visible mouth — tight
+  } else {
+    px(5, 7, 3, 1, C.mouth); // neutral line
+  }
+
+  // Body / robe
+  px(4, 9, 5, 1, C.robe);
+  px(3, 10, 7, 3, C.robe);
+  px(4, 13, 5, 1, C.robe);
+
+  // Arm reaching to wand
+  px(9, 10, 2, 1, C.robe);
+
+  // Wand shaft
+  px(11, 5, 1, 6, C.wand);
+
+  // Wand tip
+  px(10, 4, 3, 1, C.spark);
+  px(11, 3, 1, 1, C.spark);
+
+  // Return burst: all sparkle positions lit
+  if (silmorAnim.returnBurst > 0) {
+    px(9, 3, 1, 1, C.spark);
+    px(13, 4, 1, 1, C.spark);
+    px(11, 2, 1, 1, C.spark);
+    px(10, 5, 1, 1, C.spark);
+  }
+  // Sparkles when vibrating or beam
+  else if (expr === 'vibrate' || expr === 'beam') {
+    const t = frame % 8;
+    if (t < 2) px(9, 3, 1, 1, C.spark);
+    else if (t < 4) px(13, 4, 1, 1, C.spark);
+    else if (t < 6) px(11, 2, 1, 1, C.spark);
+    else px(10, 5, 1, 1, C.spark);
+  }
+  // Gentle idle sparkle (slow, intermittent)
+  else if (silmorAnim.idleSparkle) {
+    const t = frame % 20;
+    if (t < 3) px(11, 2, 1, 1, C.spark);
+    else if (t >= 10 && t < 13) px(13, 4, 1, 1, C.spark);
+  }
+
+  // Feet
+  px(4, 14, 2, 1, C.hat);  // left foot (same color as hat)
+  px(7, 14, 2, 1, C.hat);  // right foot
+}
+
+function drawSilmorWandered(frame) {
+  const ctx = silmorCtx;
+  ctx.clearRect(0, 0, 80, 80);
+  ctx.imageSmoothingEnabled = false;
+
+  // A faint sparkle dot — her wand, far away
+  const t = frame % 40;
+  if (t < 6) {
+    ctx.fillStyle = SILMOR_C.spark;
+    ctx.globalAlpha = 0.4;
+    ctx.fillRect(12 * PX, 8 * PX, 1 * PX, 1 * PX);
+    ctx.globalAlpha = 1.0;
+  } else if (t >= 20 && t < 26) {
+    ctx.fillStyle = SILMOR_C.spark;
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(13 * PX, 7 * PX, 1 * PX, 1 * PX);
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+/* ── SILMOR Animation Loop ── */
+
+const silmorAnim = {
+  frame: 0,
+  baseExpr: 'neutral',
+  blinkTimer: 0,
+
+  // Idle life
+  idleTicks: 0,
+  idleCycle: 0,
+  wandered: false,
+  lastIdleIndex: -1,
+  idleSparkle: false,
+  returnBurst: 0,
+
+  tick() {
+    this.frame++;
+
+    // --- Idle life timer ---
+    const isIdle = S.phase === 'selecting' && S.selection.length === 0;
+
+    if (isIdle && !this.wandered) {
+      this.idleTicks++;
+      if (this.idleTicks >= 70) { // ~7 seconds at 10fps
+        this.idleTicks = 0;
+        this.idleCycle++;
+        advanceSilmorIdle();
+      }
+    } else if (!isIdle) {
+      this.idleTicks = 0;
+      this.idleCycle = 0;
+    }
+
+    // Return burst countdown — when it ends, snap to correct state
+    if (this.returnBurst > 0) {
+      this.returnBurst--;
+      if (this.returnBurst === 0) {
+        updateSilmor();
+        renderSilmor();
+      }
+    }
+
+    // --- Draw ---
+    if (this.wandered) {
+      drawSilmorWandered(this.frame);
+      return;
+    }
+
+    let expr = this.baseExpr;
+
+    // Blink override
+    if (this.blinkTimer > 0) {
+      this.blinkTimer--;
+      expr = 'blink';
+    } else if (this.baseExpr !== 'vibrate' && this.baseExpr !== 'held' && Math.random() < 0.02) {
+      // Random blink (~every 50 frames / ~5 seconds at 10fps)
+      this.blinkTimer = 2;
+      expr = 'blink';
+    }
+
+    drawSilmor(expr, this.frame);
+  },
+
+  setExpression(expr) {
+    this.baseExpr = expr;
+  },
+
+  resetIdle() {
+    this.idleTicks = 0;
+    this.idleCycle = 0;
+  }
+};
+
+/* ── Boss Sprite ── */
+
+const BOSS_C = {
+  hair:    '#4a4040',
+  skin:    '#e8d4c0',
+  glasses: '#2a2a3a',
+  lens:    '#a0b8d0',
+  tie:     '#8a3030',
+  shirt:   '#d8d0c0',
+  jacket:  '#5a5a6a',
+  mouth:   '#a06050',
+  blush:   '#d0a0a0',
+  clip:    '#6a6a5a',
+  clipTop: '#c0b890',
+};
+
+const bossCtx = document.getElementById('boss-canvas').getContext('2d');
+
+function drawBoss(expr, frame, yOff) {
+  const ctx = bossCtx;
+  ctx.clearRect(0, 0, 80, 80);
+  ctx.imageSmoothingEnabled = false;
+
+  const jx = expr === 'shake' ? (frame % 2 ? 1 : -1) : 0;
+  const yo = yOff || 0;
+
+  function px(x, y, w, h, c) {
+    ctx.fillStyle = c;
+    ctx.fillRect((x + jx) * PX, (y + yo) * PX, w * PX, h * PX);
+  }
+
+  const C = BOSS_C;
+
+  // Hair (flat, parted)
+  px(4, 1, 6, 1, C.hair);
+  px(3, 2, 7, 1, C.hair);
+  px(3, 3, 1, 1, C.hair);
+  px(9, 3, 1, 1, C.hair);
+
+  // Face
+  px(4, 3, 5, 1, C.skin);
+  px(3, 4, 7, 4, C.skin);
+  px(4, 8, 5, 1, C.skin);
+
+  // Glasses frames (outer)
+  px(3, 4, 3, 3, C.glasses);
+  px(7, 4, 3, 3, C.glasses);
+  px(6, 5, 1, 1, C.glasses);
+  // Lens fill
+  px(4, 5, 1, 1, C.lens);
+  px(8, 5, 1, 1, C.lens);
+
+  // Eyes (inside glasses)
+  const narrowed = expr === 'jealous' || expr === 'suspicious';
+  const shut = expr === 'blink';
+  const wide = expr === 'impressed';
+
+  if (shut) {
+    px(4, 5, 2, 1, '#2a2a3a');
+    px(8, 5, 1, 1, '#2a2a3a');
+  } else if (narrowed) {
+    px(5, 6, 1, 1, '#2a2a3a');
+    px(8, 6, 1, 1, '#2a2a3a');
+  } else if (wide) {
+    px(4, 4, 2, 2, '#2a2a3a');
+    px(8, 4, 1, 2, '#2a2a3a');
+  } else {
+    px(5, 5, 1, 1, '#2a2a3a');
+    px(8, 5, 1, 1, '#2a2a3a');
+  }
+
+  // Blush (jealous)
+  if (expr === 'jealous') {
+    px(3, 6, 1, 1, C.blush);
+    px(9, 6, 1, 1, C.blush);
+  }
+
+  // Mouth
+  if (expr === 'nod' || expr === 'impressed') {
+    px(5, 7, 3, 1, C.mouth);
+  } else if (expr === 'frown') {
+    px(6, 7, 1, 1, C.mouth);
+  } else if (expr === 'jealous' || expr === 'suspicious') {
+    px(6, 7, 2, 1, C.mouth);
+  } else {
+    px(5, 7, 3, 1, C.mouth);
+  }
+
+  // Collar + Tie
+  px(5, 9, 3, 1, C.shirt);
+  px(6, 9, 1, 1, C.tie);
+  px(6, 10, 1, 3, C.tie);
+
+  // Jacket / body
+  px(3, 10, 3, 3, C.jacket);
+  px(7, 10, 3, 3, C.jacket);
+  px(5, 10, 1, 3, C.shirt);
+  px(7, 10, 1, 3, C.shirt);
+  px(3, 13, 7, 1, C.jacket);
+
+  // Clipboard in left hand
+  px(1, 10, 2, 4, C.clip);
+  px(1, 10, 2, 1, C.clipTop);
+}
+
+/* ── Boss Animation Loop ── */
+
+const bossAnim = {
+  frame: 0,
+  baseExpr: 'neutral',
+  blinkTimer: 0,
+  nodTimer: 0,
+
+  tick() {
+    this.frame++;
+    let expr = this.baseExpr;
+    let yOff = 0;
+
+    // Nod animation (head dip)
+    if (this.nodTimer > 0) {
+      this.nodTimer--;
+      yOff = this.nodTimer > 1 ? 1 : 0;
+      expr = 'nod';
+    }
+
+    // Blink override
+    if (this.blinkTimer > 0) {
+      this.blinkTimer--;
+      expr = 'blink';
+    } else if (!['jealous', 'frown', 'suspicious'].includes(this.baseExpr) && Math.random() < 0.015) {
+      this.blinkTimer = 2;
+      expr = 'blink';
+    }
+
+    drawBoss(expr, this.frame, yOff);
+  },
+
+  setExpression(expr) {
+    this.baseExpr = expr;
+    if (expr === 'nod') {
+      this.nodTimer = 4;
+    }
+  }
+};
+
+// 10fps — shared tick for both sprites
+setInterval(() => {
+  silmorAnim.tick();
+  bossAnim.tick();
+}, 100);
+
+/* ── Boss Watching the Board ── */
+
+const BOSS_WATCH = {
+  idle:           { status: '',                                expr: 'neutral' },
+  low:            { status: '',                                expr: 'neutral' },
+  climbing:       { status: 'The boss adjusts his glasses.',   expr: 'neutral' },
+  above:          { status: 'The boss checks his clipboard.',  expr: 'neutral' },
+  allGood:        { status: 'The boss makes a note.',          expr: 'neutral' },
+  allClose:       { status: 'The boss holds his breath.',      expr: 'neutral' },
+  allBad:         { status: 'The boss taps his pen.',          expr: 'frown' },
+  silmorNoticed:  { status: 'The boss glances at SILMOR.',     expr: 'neutral' },
+  spellTension:   { status: 'The boss raises an eyebrow.',     expr: 'neutral' },
+  spellStreak:    { status: 'The boss watches SILMOR.',        expr: 'suspicious' },
+};
+
+function updateBossWatching() {
+  if (S.phase !== 'selecting') return;
+
+  let mood = 'idle';
+
+  if (S.selection.length > 0) {
+    const total = S.selection.reduce((sum, r) => sum + r.face.value + (r.bonus || 0), 0);
+    const allFilled = S.selection.length >= S.slotCount;
+
+    // SILMOR-awareness takes priority
+    if (S.spellActive && S.boss.spellStreak >= 1) {
+      mood = 'spellStreak';
+    } else if (S.spellActive) {
+      mood = 'spellTension';
+    } else if (S.silmor.level >= 2) {
+      mood = 'silmorNoticed';
+    }
+    // Numbers evaluation
+    else if (allFilled) {
+      if (total > S.bossThreshold) {
+        mood = 'allGood';
+      } else if (total >= S.bossThreshold - 1) {
+        mood = 'allClose';
+      } else {
+        mood = 'allBad';
+      }
+    } else if (total > S.bossThreshold) {
+      mood = 'above';
+    } else if (total > S.bossThreshold * 0.7) {
+      mood = 'climbing';
+    } else {
+      mood = 'low';
+    }
+  }
+
+  const w = BOSS_WATCH[mood];
+  S.boss.status = w.status;
+  S.boss.speech = '';
+
+  // Only change expression on mood transitions
+  if (S.boss.watchMood !== mood) {
+    S.boss.watchMood = mood;
+    bossAnim.setExpression(w.expr);
+  }
+}
+
+/* ── DOC.GEN ── */
+
+function updateDocGen() {
+  const prev = S.docGen.notes.length;
+  S.docGen.notes = [];
+  const rows = S.docRows;
+  if (rows.length < 1) return;
+
+  // Positional repeats: same emoji in same slot across consecutive rows
+  for (let slot = 0; slot < S.slotCount; slot++) {
+    for (let r = 1; r < rows.length; r++) {
+      if (rows[r].emoji[slot] === rows[r - 1].emoji[slot]) {
+        S.docGen.notes.push({ type: 'repeat', row: r, slot, text: 'again?' });
+      }
+    }
+  }
+
+  // Frequent emoji: 3+ appearances across all slots in the doc
+  const counts = {};
+  rows.forEach(row => row.emoji.forEach(e => { counts[e] = (counts[e] || 0) + 1; }));
+  for (const [emoji, count] of Object.entries(counts)) {
+    if (count >= 3) {
+      for (let r = rows.length - 1; r >= 0; r--) {
+        if (rows[r].emoji.includes(emoji)) {
+          S.docGen.notes.push({ type: 'frequent', row: r, text: '\u27F5 common' });
+          break;
+        }
+      }
+    }
+  }
+
+  // Spell tracking: DOC.GEN notices magic
+  rows.forEach((row, i) => {
+    if (row.spell) {
+      S.docGen.notes.push({ type: 'spell', row: i, text: '\u2726 noted' });
+    }
+  });
+
+  // All failed so far
+  if (rows.length >= 2 && rows.every(r => !r.passed && !r.spell)) {
+    S.docGen.notes.push({ type: 'standards', row: -1, text: 'see standards' });
+  }
+
+  // Slot fatigue: same slot always has highest value
+  if (rows.length >= 2) {
+    for (let slot = 0; slot < S.slotCount; slot++) {
+      const alwaysMax = rows.every(row => {
+        const v = row.values[slot];
+        return v >= Math.max(...row.values);
+      });
+      if (alwaysMax) {
+        S.docGen.notes.push({ type: 'predictable', row: rows.length - 1, slot, text: '\u2192 predictable' });
+      }
+    }
+  }
+
+  // Reset animation counter so new notes get staggered
+  S.docGen.animatedCount = prev;
+}
+
+/* ── SILMOR's vocabulary ── */
+
+const SILMOR_WORDS = {
+  '🍄': ['earthy', 'mush', 'soil-song', 'ground-gift'],
+  '🐸': ['croaky', 'hop', 'pond-friend', 'ribbit'],
+  '🌊': ['tidal', 'swoosh', 'deep-pull', 'salt-rush'],
+  '🌙': ['bright-night', 'glow', 'sky-eye', 'luna'],
+  '🦎': ['scaled', 'skitter', 'sun-warm', 'tail-flash'],
+  '🔮': ['gleaming', 'sight', 'deep-know', 'orb-hum'],
+  '🎪': ['big-top', 'curtain', 'wonder-tent', 'fanfare'],
+  '💎': ['faceted', 'pressure-gift', 'crystal-clear', 'core-light'],
+  '🎆': ['sky-burst', 'spark-rain', 'boom-bloom', 'bright-bang'],
+  '🌋': ['deep-fire', 'earth-roar', 'magma-song', 'summit-crack'],
+};
+
+const SILMOR_STATUS = [
+  'SILMOR studies the mold.',
+  'SILMOR murmurs to herself.',
+  'SILMOR leans toward you.',
+  'SILMOR is vibrating.',
+];
+
+const SILMOR_IDLE = [
+  { status: 'SILMOR studies the mold.',               expr: 'neutral' },
+  { status: 'SILMOR taps her wand on the desk.',      expr: 'neutral',  sparkle: true },
+  { status: 'SILMOR traces a shape in the air.',      expr: 'murmur',   sparkle: true },
+  { status: 'SILMOR mouths a word to herself.',       expr: 'murmur',   speech: '"...hmm."' },
+  { status: 'SILMOR stares at the ceiling.',           expr: 'neutral' },
+  { status: 'SILMOR fidgets with her wand.',           expr: 'neutral',  sparkle: true },
+  { status: 'SILMOR rests her chin on her hand.',      expr: 'neutral' },
+  { status: 'SILMOR counts something on her fingers.', expr: 'murmur' },
+  { status: 'SILMOR adjusts her hat.',                 expr: 'neutral' },
+  { status: 'SILMOR squints at the mold.',             expr: 'murmur',   speech: '"still there."' },
+  { status: 'SILMOR hums faintly.',                    expr: 'neutral',  speech: '"~"' },
+  { status: 'SILMOR glances at the dice.',             expr: 'neutral' },
+];
+
+function lastHistoryWasSpell() {
+  return S.history.length > 0 && S.history[S.history.length - 1].spell;
+}
+function lastHistoryWasFailedGamble() {
+  if (S.history.length === 0) return false;
+  const last = S.history[S.history.length - 1];
+  return !last.spell && !last.passed;
+}
+
+const SILMOR_IDLE_CONTEXTUAL = [
+  { cond: () => S.fumbleChance > 0,            status: 'SILMOR rubs her wand arm.',                expr: 'wince' },
+  { cond: () => S.fumbleChance >= 0.16,         status: 'SILMOR flexes her fingers carefully.',     expr: 'wince',   speech: '"...ow."' },
+  { cond: () => S.docGen.notes.length > 0,      status: 'SILMOR frowns at the margin notes.',      expr: 'murmur',  speech: '"it noticed."' },
+  { cond: () => S.boss.spellStreak >= 2,        status: "SILMOR avoids the boss's gaze.",           expr: 'neutral' },
+  { cond: () => S.boss.fumblesSeen >= 2,        status: 'SILMOR pretends not to notice the boss.', expr: 'neutral' },
+  { cond: lastHistoryWasSpell,                  status: 'SILMOR admires her wand.',                 expr: 'exhale',  sparkle: true },
+  { cond: lastHistoryWasFailedGamble,           status: 'SILMOR sighs quietly.',                    expr: 'exhale',  speech: '"next time."' },
+  { cond: () => S.fumbleChance >= 0.24,         status: 'SILMOR grips her wand tighter.',           expr: 'held' },
+];
+
+/* ── State ── */
+
+const S = {
+  phase: 'selecting', // selecting | resolving | resolved | doc-complete
+
+  allEmoji: [
+    { emoji: '🍄', value: 1, name: 'mushroom' },
+    { emoji: '🐸', value: 2, name: 'frog' },
+    { emoji: '🌊', value: 3, name: 'wave' },
+    { emoji: '🌙', value: 4, name: 'moon' },
+    { emoji: '🦎', value: 5, name: 'lizard' },
+    { emoji: '🔮', value: 6, name: 'orb' },
+    { emoji: '🎪', value: 7, name: 'tent' },
+    { emoji: '💎', value: 8, name: 'gem' },
+    { emoji: '🎆', value: 9, name: 'fireworks' },
+    { emoji: '🌋', value: 10, name: 'volcano' },
+  ],
+
+  dice: [],
+  selection: [],
+  slotCount: 3,
+  freezeCount: 0,
+  fumbleChance: 0,
+  bossThreshold: 8,
+  sectionNumber: 1,
+  history: [],
+
+  currentSpell: [],
+  silmorVocab: {},
+  silmor: { level: 0, status: '', speech: '' },
+  spellActive: false,
+  oldSpells: [],
+  silmorWand: [],
+
+  // Boss
+  boss: { status: '', speech: '', spellStreak: 0, watchMood: 'idle', fumblesSeen: 0 },
+
+  // Email interludes
+  emails: [],
+  emailIndex: 0,
+  emailResult: null,
+
+  // Document structure
+  docNumber: 1,
+  docRows: [],      // completed rows: [{emoji:[], values:[], passed, spell, threshold, actual}]
+  rowsPerDoc: 3,
+  rowInDoc: 1,      // current row within the document (1-indexed)
+  learnedCombos: [], // [{pair:['🍄','🌊'], docNumber:1}]
+
+  // DOC.GEN
+  docGen: { notes: [], animatedCount: 0 },
+
+  keys: ['1','2','3','4','5','6','7','8','9','0'],
+};
+
+/* ── Dice ── */
+
+const DIE_SHAPES = ['pointed', 'square', 'diamond', 'round'];
+const DIE_FIDGETS = ['rock', 'still', 'spin', 'bounce'];
+
+function rollPersonality() {
+  return {
+    shape: DIE_SHAPES[Math.floor(Math.random() * DIE_SHAPES.length)],
+    fidget: DIE_FIDGETS[Math.floor(Math.random() * DIE_FIDGETS.length)],
+  };
+}
+
+function makeDie(sides) {
+  return { sides, faces: S.allEmoji.slice(0, sides).map(e => ({ ...e })), attachments: [], personality: rollPersonality() };
+}
+
+function getDieBonus(die) {
+  return (die.attachments || []).reduce((sum, a) => sum + a.bonus, 0);
+}
+
+function rollDie(die) {
+  return die.faces[Math.floor(Math.random() * die.sides)];
+}
+
+function rollDifferent(die, currentFace) {
+  const others = die.faces.filter(f => f.value !== currentFace.value);
+  if (others.length === 0) return currentFace;
+  return others[Math.floor(Math.random() * others.length)];
+}
+
+/* ── Spell System ── */
+
+function generateSpell() {
+  const pool = S.dice[0].faces;
+  const spell = [];
+  for (let i = 0; i < S.slotCount; i++) {
+    spell.push({ ...pool[Math.floor(Math.random() * pool.length)] });
+  }
+  return spell;
+}
+
+function pickSilmorVocab() {
+  const vocab = {};
+  S.allEmoji.forEach(e => {
+    const pool = SILMOR_WORDS[e.emoji];
+    vocab[e.emoji] = pool[Math.floor(Math.random() * pool.length)];
+  });
+  return vocab;
+}
+
+function getSpellMatches(selection, spell) {
+  const spellPool = spell.map(e => e.emoji);
+  const matched = [];
+  for (const r of selection) {
+    const idx = spellPool.indexOf(r.face.emoji);
+    if (idx >= 0) {
+      matched.push(r.face.emoji);
+      spellPool.splice(idx, 1);
+    }
+  }
+  return { count: matched.length, matchedEmoji: matched };
+}
+
+function buildSilmorWords(matchedEmoji) {
+  const counts = {};
+  matchedEmoji.forEach(e => { counts[e] = (counts[e] || 0) + 1; });
+  const parts = [];
+  for (const [emoji, count] of Object.entries(counts)) {
+    const word = S.silmorVocab[emoji];
+    if (count > 1) {
+      parts.push(Array(count).fill(word).join(' '));
+    } else {
+      parts.push(word);
+    }
+  }
+  return parts.join('! ');
+}
+
+function updateSilmor() {
+  // Let return animation play out before overwriting
+  if (silmorAnim.returnBurst > 0) return;
+
+  if (S.phase !== 'selecting' || S.selection.length === 0) {
+    silmorAnim.idleSparkle = false;
+    S.silmor = { level: 0, status: SILMOR_STATUS[0], speech: '' };
+    S.spellActive = false;
+    silmorAnim.setExpression('neutral');
+    return;
+  }
+
+  // Active selection — clear idle tracking
+  silmorAnim.resetIdle();
+  silmorAnim.idleSparkle = false;
+
+  const { count, matchedEmoji } = getSpellMatches(S.selection, S.currentSpell);
+
+  let level;
+  if (count === 0) level = 0;
+  else if (count === S.slotCount) level = 3;
+  else if (count > S.slotCount / 2) level = 2;
+  else level = 1;
+
+  let speech = '';
+  if (level === 1) {
+    speech = '"' + buildSilmorWords(matchedEmoji) + '..."';
+  } else if (level === 2) {
+    speech = '"' + buildSilmorWords(matchedEmoji) + '!!"';
+  } else if (level === 3) {
+    speech = '"YES!! CAST IT!!"';
+  }
+
+  S.silmor = { level, status: SILMOR_STATUS[level], speech };
+  S.spellActive = level === 3;
+
+  // Set sprite expression
+  const exprMap = ['neutral', 'murmur', 'excited', 'vibrate'];
+  silmorAnim.setExpression(exprMap[level]);
+}
+
+/* ── SILMOR Idle Life ── */
+
+function advanceSilmorIdle() {
+  const anim = silmorAnim;
+
+  // After 6 cycles (~42 seconds), wander off
+  if (anim.idleCycle >= 6) {
+    silmorWander();
+    return;
+  }
+
+  // Build pool: base + qualifying contextual
+  const pool = [...SILMOR_IDLE];
+  for (const ctx of SILMOR_IDLE_CONTEXTUAL) {
+    if (ctx.cond()) pool.push(ctx);
+  }
+
+  // Pick random, avoid immediate repeat
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * pool.length);
+  } while (idx === anim.lastIdleIndex && pool.length > 1);
+  anim.lastIdleIndex = idx;
+
+  const state = pool[idx];
+  S.silmor = { level: 0, status: state.status, speech: state.speech || '' };
+  anim.setExpression(state.expr);
+  anim.idleSparkle = !!state.sparkle;
+
+  renderSilmor();
+}
+
+function silmorWander() {
+  silmorAnim.wandered = true;
+  silmorAnim.idleSparkle = false;
+  S.silmor = { level: 0, status: '...', speech: '' };
+  renderSilmor();
+}
+
+function silmorReturn() {
+  if (!silmorAnim.wandered) return;
+  silmorAnim.wandered = false;
+  silmorAnim.resetIdle();
+  silmorAnim.idleSparkle = false;
+  silmorAnim.returnBurst = 5;
+  silmorAnim.setExpression('exhale');
+  S.silmor = { level: 0, status: 'SILMOR hurries back.', speech: '' };
+  renderSilmor();
+}
+
+/* ── Document Pattern Scanning ── */
+
+function scanPatterns(rows) {
+  const results = { positional: [], adjacency: [] };
+  if (rows.length < 2) return results;
+
+  // Positional: same emoji in same slot across ALL rows
+  for (let slot = 0; slot < S.slotCount; slot++) {
+    const emoji = rows[0].emoji[slot];
+    if (rows.every(r => r.emoji[slot] === emoji)) {
+      results.positional.push({ emoji, slot });
+    }
+  }
+
+  // Adjacency: same pair of adjacent emoji in 2+ rows
+  const pairCounts = {};
+  for (const row of rows) {
+    for (let i = 0; i < row.emoji.length - 1; i++) {
+      // Normalize pair order so A|B and B|A count together
+      const pair = [row.emoji[i], row.emoji[i + 1]].sort().join('|');
+      pairCounts[pair] = (pairCounts[pair] || 0) + 1;
+    }
+  }
+  for (const [pair, count] of Object.entries(pairCounts)) {
+    if (count >= 2) {
+      const [a, b] = pair.split('|');
+      results.adjacency.push({ pair: [a, b], count });
+    }
+  }
+
+  return results;
+}
+
+function applyPositionalBonus(emoji) {
+  // Bump the value of this emoji on all dice faces
+  for (const die of S.dice) {
+    for (const face of die.faces) {
+      if (face.emoji === emoji) face.value++;
+    }
+  }
+  // Also update the master list for future dice
+  const master = S.allEmoji.find(e => e.emoji === emoji);
+  if (master) master.value++;
+}
+
+function showDocComplete() {
+  S.phase = 'doc-complete';
+
+  const patterns = scanPatterns(S.docRows);
+
+  // Apply positional bonuses
+  const bonuses = [];
+  for (const p of patterns.positional) {
+    const master = S.allEmoji.find(e => e.emoji === p.emoji);
+    const oldVal = master ? master.value : '?';
+    applyPositionalBonus(p.emoji);
+    const newVal = master ? master.value : '?';
+    bonuses.push({ emoji: p.emoji, slot: p.slot, oldVal, newVal });
+  }
+
+  // Store adjacency combos
+  const combos = [];
+  for (const a of patterns.adjacency) {
+    // Don't duplicate combos already learned
+    const exists = S.learnedCombos.some(
+      c => c.pair.sort().join('|') === a.pair.sort().join('|')
+    );
+    if (!exists) {
+      S.learnedCombos.push({ pair: [...a.pair], docNumber: S.docNumber });
+      combos.push(a);
+    }
+  }
+
+  // SILMOR reads the document
+  if (bonuses.length > 0 || combos.length > 0) {
+    S.silmor = { level: 0, status: 'SILMOR reads what you wrote.', speech: '' };
+    silmorAnim.setExpression('murmur');
+    setTimeout(() => {
+      S.silmor = { level: 0, status: 'SILMOR beams at the page.', speech: '' };
+      silmorAnim.setExpression('beam');
+      renderSilmor();
+    }, 1200);
+  } else {
+    S.silmor = { level: 0, status: 'SILMOR scans the page...', speech: '"hmm."' };
+    silmorAnim.setExpression('murmur');
+  }
+
+  // Boss reviews the document
+  S.boss.status = 'The boss reviews the document.';
+  S.boss.speech = '';
+  S.boss.watchMood = 'idle';
+  bossAnim.setExpression('neutral');
+
+  // Render doc complete
+  const el = document.getElementById('document');
+  let h = `<div class="doc-complete-title">Document ${S.docNumber} — complete</div>`;
+
+  // Show all rows
+  h += '<div class="doc-complete-rows">';
+  S.docRows.forEach((row, i) => {
+    const cls = row.spell ? 'row-spell' : (row.passed ? 'row-passed' : 'row-failed');
+    h += `<div class="doc-row ${cls}">`;
+    h += `<span class="row-label">${i + 1}</span>`;
+    row.emoji.forEach(e => {
+      h += `<span class="row-slot">${e}</span>`;
+    });
+    const ind = row.spell ? '✦' : (row.passed ? '✓' : '✗');
+    const indCls = row.spell ? 'spell-ind' : (row.passed ? 'pass' : 'fail');
+    h += `<span class="row-indicator ${indCls}">${ind}</span>`;
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Show what SILMOR learned
+  if (bonuses.length > 0 || combos.length > 0) {
+    h += '<div class="learned-section">';
+    h += '<div class="learned-title">SILMOR learned</div>';
+
+    for (const b of bonuses) {
+      const name = S.allEmoji.find(e => e.emoji === b.emoji)?.name || '?';
+      h += `<div class="learned-item">${b.emoji} always in slot ${b.slot + 1} — `;
+      h += `<span class="bonus">${name}: ${b.oldVal} → ${b.newVal}</span></div>`;
+    }
+
+    for (const c of combos) {
+      h += `<div class="learned-item">${c.pair[0]}+${c.pair[1]} appeared together — `;
+      h += `<span class="combo-label">combo remembered</span></div>`;
+    }
+
+    h += '</div>';
+  } else {
+    h += '<div class="nothing-learned">No patterns this time. The page was varied.</div>';
+  }
+
+  h += `<button id="next-doc-btn">Next Document</button>`;
+  el.innerHTML = h;
+
+  document.getElementById('next-doc-btn').addEventListener('click', startEmails);
+
+  // Hide result, update controls
+  hideResult();
+  renderSilmor();
+  renderControls();
+  renderDice(); // refresh dice to show updated values
+}
+
+function nextDocument() {
+  if (S.currentSpell.length > 0) {
+    S.oldSpells.push([...S.currentSpell]);
+  }
+
+  S.docNumber++;
+  S.docRows = [];
+  S.rowInDoc = 1;
+  S.selection = [];
+  S.freezeCount = 0;
+  S.fumbleChance = 0;
+  S.docGen = { notes: [], animatedCount: 0 };
+  S.phase = 'selecting';
+  S.sectionNumber++;
+  S.bossThreshold = 5 + Math.floor(Math.random() * 6);
+  S.currentSpell = generateSpell();
+  S.silmorVocab = pickSilmorVocab();
+  S.spellActive = false;
+  S.silmor = { level: 0, status: SILMOR_STATUS[0], speech: '' };
+  silmorAnim.setExpression('neutral');
+  silmorAnim.resetIdle();
+  silmorAnim.wandered = false;
+  silmorAnim.idleSparkle = false;
+  silmorAnim.returnBurst = 0;
+  S.boss = { status: '', speech: '', spellStreak: 0, watchMood: 'idle', fumblesSeen: 0 };
+  bossAnim.setExpression('neutral');
+  hideResult();
+  render();
+}
+
+/* ── Email Interludes ── */
+
+function generateEmails() {
+  const count = 2 + Math.floor(Math.random() * 2); // 2 or 3
+  const emails = [];
+  for (let i = 0; i < count; i++) {
+    const e = S.allEmoji[Math.floor(Math.random() * S.allEmoji.length)];
+    emails.push({ ...e });
+  }
+  return emails;
+}
+
+function startEmails() {
+  S.emails = generateEmails();
+  S.emailIndex = 0;
+  S.emailResult = null;
+  S.phase = 'email';
+  S.silmor = { level: 0, status: 'SILMOR checks the inbox.', speech: '' };
+  silmorAnim.setExpression('neutral');
+  S.boss.status = 'The boss is at lunch.';
+  S.boss.speech = '';
+  S.boss.watchMood = 'idle';
+  S.boss.fumblesSeen = 0;
+  S.fumbleChance = 0;
+  S.docGen = { notes: [], animatedCount: 0 };
+  bossAnim.setExpression('neutral');
+  hideResult();
+  render();
+}
+
+function rollForEmail(dieIndex) {
+  if (S.phase !== 'email' || S.emailResult) return;
+  if (dieIndex < 0 || dieIndex >= S.dice.length) return;
+
+  const die = S.dice[dieIndex];
+  const face = rollDie(die);
+  const email = S.emails[S.emailIndex];
+
+  if (face.emoji === email.emoji) {
+    const hadAttachment = die.attachments.some(a => a.emoji === email.emoji);
+    die.attachments.push({ emoji: email.emoji, bonus: 1 });
+
+    // Explosion check: if stacking, secret roll — NOT matching = explode
+    let exploded = false;
+    let oldSides = die.sides;
+    if (hadAttachment) {
+      const secretFace = rollDie(die);
+      if (secretFace.emoji !== email.emoji) {
+        const master = S.allEmoji.find(e => e.emoji === email.emoji);
+        die.faces.push({ ...master }, { ...master });
+        die.sides += 2;
+        exploded = true;
+        // Die evolves — re-roll one personality trait
+        if (Math.random() < 0.5) {
+          die.personality.shape = DIE_SHAPES[Math.floor(Math.random() * DIE_SHAPES.length)];
+        } else {
+          die.personality.fidget = DIE_FIDGETS[Math.floor(Math.random() * DIE_FIDGETS.length)];
+        }
+      }
+    }
+
+    S.emailResult = {
+      type: 'matched', rolledEmoji: face.emoji, dieIndex, bonus: 1,
+      exploded, oldSides, newSides: die.sides, explodeEmoji: email.emoji,
+    };
+    if (exploded) {
+      S.silmor = { level: 0, status: 'SILMOR\'s eyes go wide.', speech: '"...it grew."' };
+      silmorAnim.setExpression('excited');
+    } else {
+      S.silmor = { level: 0, status: 'SILMOR nods approvingly.', speech: '' };
+      silmorAnim.setExpression('exhale');
+    }
+  } else {
+    const oldEmoji = face.emoji;
+    const oldName = face.name;
+    // Swap: die face absorbs the email's emoji
+    const faceOnDie = die.faces.find(f => f.emoji === oldEmoji);
+    if (faceOnDie) {
+      faceOnDie.emoji = email.emoji;
+      faceOnDie.value = email.value;
+      faceOnDie.name = email.name;
+    }
+
+    // Check for orphaned attachments (face no longer on this die)
+    const orphanActions = [];
+    const stillOnDie = die.faces.some(f => f.emoji === oldEmoji);
+    if (!stillOnDie) {
+      const orphans = die.attachments.filter(a => a.emoji === oldEmoji);
+      if (orphans.length > 0) {
+        die.attachments = die.attachments.filter(a => a.emoji !== oldEmoji);
+        for (const orphan of orphans) {
+          const rescueIdx = S.dice.findIndex((d, idx) =>
+            idx !== dieIndex && d.faces.some(f => f.emoji === orphan.emoji));
+          if (rescueIdx >= 0) {
+            S.dice[rescueIdx].attachments.push(orphan);
+            orphanActions.push({ type: 'migrated', emoji: orphan.emoji, bonus: orphan.bonus, toDieIndex: rescueIdx });
+          } else {
+            S.silmorWand.push(orphan);
+            orphanActions.push({ type: 'absorbed', emoji: orphan.emoji, bonus: orphan.bonus });
+          }
+        }
+      }
+    }
+
+    S.emailResult = {
+      type: 'swapped',
+      oldEmoji, oldName,
+      newEmoji: email.emoji, newName: email.name,
+      dieIndex,
+      orphanActions,
+    };
+    const word = S.silmorVocab[email.emoji] || SILMOR_WORDS[email.emoji]?.[0] || '???';
+    if (orphanActions.length > 0) {
+      S.silmor = { level: 0, status: 'SILMOR squints — then catches something.', speech: `"${word}...? ...wait."` };
+    } else {
+      S.silmor = { level: 0, status: 'SILMOR squints at the newcomer.', speech: `"${word}...?"` };
+    }
+    silmorAnim.setExpression('murmur');
+  }
+
+  renderEmail();
+  renderDice();
+  renderSilmor();
+}
+
+function nextEmail() {
+  S.emailIndex++;
+  S.emailResult = null;
+
+  if (S.emailIndex >= S.emails.length) {
+    nextDocument();
+    return;
+  }
+
+  S.silmor = { level: 0, status: 'SILMOR waits.', speech: '' };
+  silmorAnim.setExpression('neutral');
+  renderEmail();
+  renderSilmor();
+}
+
+function renderEmail() {
+  const el = document.getElementById('document');
+  const email = S.emails[S.emailIndex];
+  const num = S.emailIndex + 1;
+  const total = S.emails.length;
+
+  let h = `<div class="label">Inbox · ${num} of ${total}</div>`;
+
+  h += '<div class="email-prompt">';
+  h += `<div class="email-emoji">${email.emoji}</div>`;
+  h += `<div class="email-question">?</div>`;
+  h += '</div>';
+
+  if (S.emailResult) {
+    if (S.emailResult.type === 'matched') {
+      h += '<div class="email-result email-matched">';
+      h += `<div class="email-result-text">${S.emailResult.rolledEmoji} — matched.</div>`;
+      h += `<div class="email-result-sub">Attachment downloaded. Die ${S.emailResult.dieIndex + 1}: +${S.emailResult.bonus}</div>`;
+      if (S.emailResult.exploded) {
+        h += `<div class="email-result-sub explode-text">Die ${S.emailResult.dieIndex + 1} explodes! d${S.emailResult.oldSides} → d${S.emailResult.newSides} (2 new ${S.emailResult.explodeEmoji} faces)</div>`;
+      }
+      h += '</div>';
+    } else {
+      h += '<div class="email-result email-swapped">';
+      h += `<div class="email-result-text">${S.emailResult.oldEmoji} → ${S.emailResult.newEmoji}</div>`;
+      h += `<div class="email-result-sub">Die ${S.emailResult.dieIndex + 1}: ${S.emailResult.oldName} absorbed into ${S.emailResult.newName}.</div>`;
+      if (S.emailResult.orphanActions) {
+        for (const action of S.emailResult.orphanActions) {
+          if (action.type === 'migrated') {
+            h += `<div class="email-result-sub">${action.emoji}+${action.bonus} passed to die ${action.toDieIndex + 1}.</div>`;
+          } else {
+            h += `<div class="email-result-sub">${action.emoji}+${action.bonus} — SILMOR catches it.</div>`;
+          }
+        }
+      }
+      h += '</div>';
+    }
+
+    const isLast = S.emailIndex >= S.emails.length - 1;
+    const label = isLast ? 'Next Document' : 'Next Email';
+    h += `<button id="email-next-btn" class="email-next">${label}</button>`;
+  } else {
+    h += '<div class="email-hint">tap a die to respond</div>';
+  }
+
+  el.innerHTML = h;
+
+  if (S.emailResult) {
+    document.getElementById('email-next-btn').addEventListener('click', nextEmail);
+  }
+}
+
+/* ── Dice Cast Animation ── */
+
+function animateDiceCast(mode) {
+  const overlay = document.getElementById('cast-overlay');
+  const slots = document.querySelectorAll('#slots .slot');
+  if (!slots.length) return Promise.resolve();
+
+  const promises = [];
+
+  S.selection.forEach((roll, i) => {
+    const dieEl = document.querySelector(`.die[data-i="${roll.dieIndex}"]`);
+    const slotEl = slots[i];
+    if (!dieEl || !slotEl) return;
+
+    const dieRect = dieEl.getBoundingClientRect();
+    const slotRect = slotEl.getBoundingClientRect();
+
+    const flyer = document.createElement('div');
+    flyer.textContent = roll.face.emoji;
+    flyer.style.cssText = `
+      position:fixed; font-size:2rem; line-height:1; z-index:101; pointer-events:none;
+      left:${dieRect.left + dieRect.width / 2 - 16}px;
+      top:${dieRect.top + dieRect.height / 2 - 16}px;
+    `;
+
+    if (mode === 'spell') {
+      flyer.style.filter = 'drop-shadow(0 0 6px #ffe060) drop-shadow(0 0 12px #c8a020)';
+    }
+
+    overlay.appendChild(flyer);
+
+    const dx = (slotRect.left + slotRect.width / 2 - 16) - (dieRect.left + dieRect.width / 2 - 16);
+    const dy = (slotRect.top + slotRect.height / 2 - 16) - (dieRect.top + dieRect.height / 2 - 16);
+
+    const delay = mode === 'spell' ? 0 : i * 150;
+    const duration = mode === 'spell' ? 400 : 350;
+
+    // Trail particles for spells
+    if (mode === 'spell') {
+      for (let p = 0; p < 3; p++) {
+        const particle = document.createElement('div');
+        particle.textContent = '✦';
+        particle.style.cssText = `
+          position:fixed; font-size:0.6rem; color:#ffe060; pointer-events:none;
+          left:${dieRect.left + dieRect.width / 2}px;
+          top:${dieRect.top + dieRect.height / 2}px;
+        `;
+        overlay.appendChild(particle);
+        const rx = dx + (Math.random() - 0.5) * 30;
+        const ry = dy + (Math.random() - 0.5) * 30;
+        particle.animate([
+          { transform: 'translate(0,0) scale(1)', opacity: 0.8 },
+          { transform: `translate(${rx}px,${ry}px) scale(0)`, opacity: 0 },
+        ], { duration: duration + 100, delay: delay + p * 60, easing: 'ease-out', fill: 'forwards' })
+        .onfinish = () => particle.remove();
+      }
+    }
+
+    const anim = flyer.animate([
+      { transform: 'translate(0,0) scale(1.3)', opacity: 1 },
+      { transform: `translate(${dx}px,${dy}px) scale(1)`, opacity: 1 },
+    ], {
+      duration, delay,
+      easing: mode === 'spell' ? 'ease-out' : 'cubic-bezier(0.2,0,0.4,1)',
+      fill: 'forwards',
+    });
+
+    promises.push(new Promise(resolve => { anim.onfinish = () => { flyer.remove(); resolve(); }; }));
+  });
+
+  return Promise.all(promises);
+}
+
+/* ── Actions ── */
+
+function tapDie(index) {
+  if (S.phase !== 'selecting') return;
+  if (index < 0 || index >= S.dice.length) return;
+
+  const die = S.dice[index];
+  const face = rollDie(die);
+
+  S.selection.push({
+    dieIndex: index,
+    face: face,
+    dieType: 'd' + die.sides,
+    bonus: getDieBonus(die),
+    fresh: true,
+    promisedFace: null,
+    resolved: null,
+    frozen: false,
+  });
+
+  while (S.selection.length > S.slotCount) {
+    // Find oldest unfrozen slot to evict
+    const evictIdx = S.selection.findIndex(r => !r.frozen);
+    if (evictIdx >= 0) {
+      S.selection.splice(evictIdx, 1);
+    } else {
+      // Safety: all frozen (shouldn't happen with max cap), break oldest freeze
+      S.selection[0].frozen = false;
+      S.freezeCount--;
+      S.selection.shift();
+    }
+  }
+
+  updateSilmor();
+  updateBossWatching();
+  render();
+
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      S.selection.forEach(r => r.fresh = false);
+    }, 280);
+  });
+}
+
+function canFreeze() {
+  return S.phase === 'selecting' && S.selection.length > 0 && S.freezeCount < S.slotCount - 1;
+}
+
+function attemptFreeze(dieIndex) {
+  if (!canFreeze()) return;
+
+  const successRate = S.freezeCount === 0 ? 0.85 : 0.50;
+  const success = Math.random() < successRate;
+
+  if (success) {
+    // Freeze oldest unfrozen slot
+    const target = S.selection.find(r => !r.frozen);
+    if (!target) return; // no unfrozen slot (shouldn't happen)
+    target.frozen = true;
+    S.freezeCount++;
+
+    // SILMOR reacts
+    S.silmor = { level: S.silmor.level, status: 'SILMOR steadies her wand.', speech: '"Hold."' };
+    silmorAnim.setExpression('held');
+
+    // Boss notices magic
+    S.boss.status = 'The boss squints.';
+    S.boss.speech = '';
+    S.boss.watchMood = 'freeze';
+    bossAnim.setExpression('suspicious');
+  } else {
+    // Miscast — die accidentally fires into a slot, then show fumble
+    tapDie(dieIndex);
+    S.fumbleChance += 0.08;
+    S.boss.fumblesSeen++;
+    S.silmor = { level: S.silmor.level, status: 'SILMOR fumbles.', speech: '"...sorry."' };
+    silmorAnim.setExpression('wince');
+
+    // Boss scoffs at failed magic (escalating)
+    if (S.boss.fumblesSeen >= 3) {
+      S.boss.status = 'The boss stifles a laugh.';
+      bossAnim.setExpression('frown');
+    } else if (S.boss.fumblesSeen === 2) {
+      S.boss.status = 'The boss snorts.';
+    } else {
+      S.boss.status = 'The boss smirks.';
+    }
+    S.boss.speech = '';
+
+    render();
+    return;
+  }
+
+  render();
+}
+
+function cascadeFumble(dieIndex) {
+  // Die misfires into a slot
+  tapDie(dieIndex);
+
+  // SILMOR panics
+  S.silmor = { level: S.silmor.level, status: "SILMOR's wand sparks.", speech: '"No no no\u2014"' };
+  silmorAnim.setExpression('wince');
+
+  // Boss savors the disaster
+  S.boss.status = 'The boss covers his mouth.';
+  S.boss.speech = '"...magic."';
+  S.boss.watchMood = 'cascade';
+  bossAnim.setExpression('impressed');
+
+  render();
+
+  // After a beat, the commit fires on whatever is in the slots
+  setTimeout(() => {
+    if (S.phase === 'selecting' && S.selection.length > 0) {
+      commit();
+    }
+  }, 600);
+}
+
+function commit() {
+  silmorReturn();
+  if (S.phase !== 'selecting' || S.selection.length === 0) return;
+  if (S.spellActive) commitSpell();
+  else commitGamble();
+}
+
+function commitSpell() {
+  S.phase = 'resolving';
+  renderControls();
+
+  // Fly dice into slots, then resolve
+  animateDiceCast('spell').then(() => {
+    S.phase = 'resolved';
+
+    S.selection.forEach(r => {
+      r.promisedFace = { ...r.face };
+      r.resolved = 'spell-held';
+    });
+
+    const total = S.selection.reduce((sum, r) => sum + r.face.value + (r.bonus || 0), 0);
+
+    // Secret roll: what would the dice have given naturally?
+    const secretRolls = S.selection.map(r => {
+      const die = S.dice[r.dieIndex];
+      return rollDie(die);
+    });
+    const secretTotal = secretRolls.reduce((sum, f, i) => sum + f.value + (S.selection[i].bonus || 0), 0);
+    const secretBeat = secretTotal > S.bossThreshold;
+
+    // Push to document rows
+    S.docRows.push({
+      emoji: S.selection.map(r => r.face.emoji),
+      values: S.selection.map(r => r.face.value),
+      passed: true,
+      spell: true,
+      threshold: S.bossThreshold,
+      actual: total,
+    });
+    updateDocGen();
+
+    S.history.push({
+      section: S.sectionNumber,
+      selection: S.selection.map(r => ({
+        promised: { ...r.face }, actual: { ...r.face }, held: true, dieType: r.dieType,
+      })),
+      promisedTotal: total, actualTotal: total,
+      passed: true, threshold: S.bossThreshold, spell: true,
+      secretTotal, secretBeat,
+    });
+
+    if (secretBeat) {
+      S.silmor = { level: 3, status: 'SILMOR beams.', speech: '"Perfect. ...and the numbers were there too."' };
+    } else {
+      S.silmor = { level: 3, status: 'SILMOR beams.', speech: '"Perfect."' };
+    }
+    silmorAnim.setExpression('beam');
+
+    // Boss jealousy tracking
+    S.boss.spellStreak++;
+
+    if (secretBeat) {
+      S.boss.status = '';
+      S.boss.speech = '"...huh."';
+      bossAnim.setExpression('impressed');
+    } else if (S.boss.spellStreak >= 3) {
+      S.boss.status = 'The boss crosses his arms.';
+      S.boss.speech = '"She\'s doing all the work."';
+      bossAnim.setExpression('jealous');
+    } else if (S.boss.spellStreak === 2) {
+      S.boss.status = 'The boss adjusts his glasses.';
+      S.boss.speech = '"Another spell."';
+      bossAnim.setExpression('suspicious');
+    } else {
+      S.boss.status = '';
+      S.boss.speech = '';
+      bossAnim.setExpression('nod');
+    }
+
+    render();
+
+    const isLastRow = S.rowInDoc >= S.rowsPerDoc;
+    showResult(total, total, true, true, isLastRow, secretBeat ? secretTotal : null);
+  });
+}
+
+function commitGamble() {
+  S.phase = 'resolving';
+  S.spellActive = false;
+
+  S.selection.forEach(r => {
+    r.promisedFace = { ...r.face };
+    r.resolved = 'pending';
+    r.fresh = false;
+  });
+
+  S.silmor = { level: 0, status: 'SILMOR holds her breath.', speech: '' };
+  silmorAnim.setExpression('held');
+  render();
+
+  // Fly dice into slots, then start staggered resolution
+  animateDiceCast('gamble').then(() => {
+    const perSlot = 500;
+    const pause = 200;
+
+    S.selection.forEach((roll, i) => {
+      setTimeout(() => {
+        resolveSlot(i);
+        renderDocument();
+      }, pause + i * perSlot);
+    });
+
+    setTimeout(() => {
+      S.phase = 'resolved';
+
+    const promisedTotal = S.selection.reduce((sum, r) => sum + r.promisedFace.value + (r.bonus || 0), 0);
+    const actualTotal = S.selection.reduce((sum, r) => sum + r.face.value + (r.bonus || 0), 0);
+    const passed = actualTotal > S.bossThreshold;
+
+    if (passed) {
+      S.silmor = { level: 0, status: 'SILMOR exhales.', speech: '' };
+      silmorAnim.setExpression('exhale');
+    } else {
+      S.silmor = { level: 0, status: 'SILMOR winces.', speech: '' };
+      silmorAnim.setExpression('wince');
+    }
+
+    // Boss reacts — streak resets on gamble
+    S.boss.spellStreak = 0;
+    if (passed) {
+      if (S.boss.fumblesSeen >= 3) {
+        S.boss.status = 'The boss writes something down.';
+        S.boss.speech = '"Noted."';
+        bossAnim.setExpression('suspicious');
+      } else if (S.boss.fumblesSeen >= 1) {
+        S.boss.status = 'The boss raises an eyebrow.';
+        S.boss.speech = '';
+        bossAnim.setExpression('nod');
+      } else {
+        S.boss.status = '';
+        S.boss.speech = '';
+        bossAnim.setExpression('nod');
+      }
+    } else {
+      // Gamble fail builds fumble pressure
+      S.fumbleChance += 0.08;
+      S.boss.fumblesSeen++;
+      if (S.boss.fumblesSeen >= 3) {
+        S.boss.status = 'The boss looks almost amused.';
+      } else {
+        S.boss.status = 'The boss shakes his head.';
+      }
+      S.boss.speech = '';
+      bossAnim.setExpression('frown');
+    }
+
+    // Push to document rows
+    S.docRows.push({
+      emoji: S.selection.map(r => r.face.emoji),
+      values: S.selection.map(r => r.face.value),
+      passed,
+      spell: false,
+      threshold: S.bossThreshold,
+      actual: actualTotal,
+    });
+    updateDocGen();
+
+    S.history.push({
+      section: S.sectionNumber,
+      selection: S.selection.map(r => ({
+        promised: { ...r.promisedFace }, actual: { ...r.face },
+        held: r.resolved === 'held', dieType: r.dieType,
+      })),
+      promisedTotal, actualTotal, passed,
+      threshold: S.bossThreshold, spell: false,
+    });
+
+    renderSilmor();
+    renderBoss();
+    renderControls();
+
+    const isLastRow = S.rowInDoc >= S.rowsPerDoc;
+    showResult(promisedTotal, actualTotal, passed, false, isLastRow);
+  }, pause + S.selection.length * perSlot + 300);
+  }); // end animateDiceCast.then
+}
+
+function resolveSlot(index) {
+  const roll = S.selection[index];
+  const die = S.dice[roll.dieIndex];
+  if (Math.random() < 0.5) {
+    roll.resolved = 'held';
+  } else {
+    roll.face = rollDifferent(die, roll.face);
+    roll.resolved = 'shifted';
+  }
+}
+
+function nextRow() {
+  // Check if document is complete
+  if (S.rowInDoc >= S.rowsPerDoc) {
+    showDocComplete();
+    return;
+  }
+
+  if (S.currentSpell.length > 0) {
+    S.oldSpells.push([...S.currentSpell]);
+  }
+  S.selection = [];
+  S.freezeCount = 0;
+  S.phase = 'selecting';
+  S.sectionNumber++;
+  S.rowInDoc++;
+  S.bossThreshold = 5 + Math.floor(Math.random() * 6);
+  S.currentSpell = generateSpell();
+  S.silmorVocab = pickSilmorVocab();
+  S.spellActive = false;
+  S.silmor = { level: 0, status: SILMOR_STATUS[0], speech: '' };
+  silmorAnim.setExpression('neutral');
+  silmorAnim.resetIdle();
+  silmorAnim.wandered = false;
+  silmorAnim.idleSparkle = false;
+  silmorAnim.returnBurst = 0;
+  S.boss.status = '';
+  S.boss.speech = '';
+  S.boss.watchMood = 'idle';
+  bossAnim.setExpression('neutral');
+  hideResult();
+  render();
+}
+
+/* ── Render ── */
+
+function render() {
+  if (S.phase === 'email') {
+    renderEmail();
+  } else {
+    renderDocument();
+  }
+  renderBoss();
+  renderSilmor();
+  renderDice();
+  renderControls();
+}
+
+function renderBoss() {
+  const el = document.getElementById('boss');
+  el.className = S.boss.spellStreak >= 3 ? 'jealous' : (S.boss.spellStreak === 2 ? 'suspicious' : '');
+  const bubble = document.getElementById('boss-bubble');
+  let h = '';
+  if (S.boss.speech) {
+    h += '<div class="boss-speech">' + S.boss.speech + '</div>';
+  }
+  if (S.boss.status) {
+    h += '<div class="boss-status">' + S.boss.status + '</div>';
+  }
+  if (['selecting', 'resolving', 'resolved'].includes(S.phase)) {
+    h += `<div class="boss-threshold">needs &gt; <span class="num">${S.bossThreshold}</span></div>`;
+  }
+  bubble.innerHTML = h;
+}
+
+function renderDocument() {
+  if (S.phase === 'doc-complete') return; // doc-complete renders its own content
+
+  const el = document.getElementById('document');
+  let h = '';
+
+  // Document + row label
+  h += `<div class="label">Doc ${S.docNumber} · Row ${S.rowInDoc} of ${S.rowsPerDoc}</div>`;
+
+  // Completed rows for this document
+  if (S.docRows.length > 0) {
+    // DOC.GEN document-level annotations (row: -1)
+    const topNotes = S.docGen.notes.filter(n => n.row === -1);
+    topNotes.forEach((n, ni) => {
+      const idx = S.docGen.notes.indexOf(n);
+      const sty = idx >= S.docGen.animatedCount ? `animation-delay: ${0.4 + ni * 0.3}s` : 'opacity: 0.85; animation: none';
+      h += `<div class="doc-note doc-note-top" style="${sty}">${n.text}</div>`;
+    });
+
+    h += '<div class="doc-rows">';
+    S.docRows.forEach((row, i) => {
+      const cls = row.spell ? 'row-spell' : (row.passed ? 'row-passed' : 'row-failed');
+      h += `<div class="doc-row ${cls}">`;
+      h += `<span class="row-label">${i + 1}</span>`;
+      row.emoji.forEach(e => {
+        h += `<span class="row-slot">${e}</span>`;
+      });
+      const ind = row.spell ? '✦' : (row.passed ? '✓' : '✗');
+      const indCls = row.spell ? 'spell-ind' : (row.passed ? 'pass' : 'fail');
+      h += `<span class="row-indicator ${indCls}">${ind}</span>`;
+
+      // DOC.GEN row annotations
+      const rowNotes = S.docGen.notes.filter(n => n.row === i);
+      rowNotes.forEach(n => {
+        const idx = S.docGen.notes.indexOf(n);
+        const sty = idx >= S.docGen.animatedCount ? `animation-delay: ${0.8 + (idx - S.docGen.animatedCount) * 0.3}s` : 'opacity: 0.85; animation: none';
+        h += `<span class="doc-note doc-note-margin" style="${sty}">${n.text}</span>`;
+      });
+
+      h += '</div>';
+    });
+    h += '</div>';
+
+    // Mark all notes as animated after first render
+    S.docGen.animatedCount = S.docGen.notes.length;
+  }
+
+  // Active slots
+  h += '<div id="slots">';
+  for (let i = 0; i < S.slotCount; i++) {
+    const r = S.selection[i];
+    if (r) {
+      const state = r.resolved || (r.fresh ? 'pop' : '');
+      const cls = ['slot', 'filled'];
+      if (state) cls.push(state);
+      if (r.frozen) cls.push('frozen');
+      h += `<div class="${cls.join(' ')}" title="${r.face.name}">`;
+      h += `<span class="tag">${r.dieType}</span>`;
+      if (r.frozen) {
+        h += '<span class="freeze-mark">✦</span>';
+      } else if (r.resolved === 'shifted' && r.promisedFace) {
+        h += `<span class="was">${r.promisedFace.emoji}</span>`;
+      }
+      h += `<span class="emoji">${r.face.emoji}</span>`;
+      const bonusTag = r.bonus ? `<span class="slot-bonus">+${r.bonus}</span>` : '';
+      h += `<span class="value">${r.face.value}${bonusTag}</span></div>`;
+    } else {
+      h += '<div class="slot"></div>';
+    }
+  }
+  h += '</div>';
+
+  if (S.selection.length > 0) {
+    const total = S.selection.reduce((sum, r) => sum + r.face.value + (r.bonus || 0), 0);
+    const label = S.phase === 'selecting' ? 'promised' : 'actual';
+    h += `<div id="running-total">${label}: ${total}</div>`;
+  } else {
+    h += '<div id="running-total"></div>';
+  }
+  el.innerHTML = h;
+}
+
+function renderSilmor() {
+  const el = document.getElementById('silmor');
+  el.className = 'level-' + S.silmor.level;
+  const bubble = document.getElementById('silmor-bubble');
+  let h = '<div class="silmor-status">' + S.silmor.status + '</div>';
+  if (S.silmor.speech) {
+    h += '<div class="silmor-speech">' + S.silmor.speech + '</div>';
+  }
+  if (S.silmorWand && S.silmorWand.length > 0) {
+    h += '<div class="silmor-wand"><span class="wand-label">wand</span>';
+    S.silmorWand.forEach(a => {
+      h += `<span class="wand-charge">${a.emoji}+${a.bonus}</span>`;
+    });
+    h += '</div>';
+  }
+  bubble.innerHTML = h;
+}
+
+function renderDice() {
+  const row = document.getElementById('dice-row');
+  let h = '';
+  const fumbleCls = S.fumbleChance >= 0.24 ? ' fumble-high' : (S.fumbleChance >= 0.08 ? ' fumble-low' : '');
+  S.dice.forEach((die, i) => {
+    const faces = die.faces.map(f => f.emoji).join('');
+    const shapeCls = ' die-' + die.personality.shape;
+    const fidgetCls = fumbleCls ? '' : (' die-' + die.personality.fidget);
+    h += `<div class="die${shapeCls}${fidgetCls}${fumbleCls}" data-i="${i}">`;
+    h += `<span class="die-key">${S.keys[i]}</span>`;
+    h += ` <span class="die-type">d${die.sides}</span>`;
+    h += `<div class="die-faces">${faces}</div>`;
+    if (die.attachments && die.attachments.length > 0) {
+      h += '<div class="die-attachments">';
+      die.attachments.forEach(a => {
+        h += `<span class="die-attach">${a.emoji}+${a.bonus}</span>`;
+      });
+      h += '</div>';
+    }
+    h += '</div>';
+  });
+  row.innerHTML = h;
+  row.querySelectorAll('.die').forEach(el => {
+    let ptrHold = null;
+    el.addEventListener('pointerdown', (e) => {
+      const i = parseInt(el.dataset.i);
+      if (!canFreeze()) {
+        fireTap(i);
+        return;
+      }
+      ptrHold = { i, timer: setTimeout(() => {
+        ptrHold.fired = true;
+        attemptFreeze(i);
+        flashDie(i);
+      }, HOLD_MS), fired: false };
+    });
+    el.addEventListener('pointerup', () => {
+      if (ptrHold && !ptrHold.fired) {
+        clearTimeout(ptrHold.timer);
+        fireTap(ptrHold.i);
+      }
+      if (ptrHold) clearTimeout(ptrHold.timer);
+      ptrHold = null;
+    });
+    el.addEventListener('pointerleave', () => {
+      if (ptrHold && !ptrHold.fired) {
+        clearTimeout(ptrHold.timer);
+        fireTap(ptrHold.i);
+      }
+      if (ptrHold) clearTimeout(ptrHold.timer);
+      ptrHold = null;
+    });
+  });
+}
+
+function renderControls() {
+  const btn = document.getElementById('commit-btn');
+  btn.classList.remove('spell-ready');
+  if (S.phase === 'selecting') {
+    btn.disabled = S.selection.length === 0;
+    if (S.spellActive) {
+      btn.textContent = 'Cast Spell';
+      btn.classList.add('spell-ready');
+    } else {
+      btn.textContent = 'Commit';
+    }
+  } else if (S.phase === 'resolving') {
+    btn.disabled = true;
+    btn.textContent = 'Resolving...';
+  } else if (S.phase === 'doc-complete') {
+    btn.disabled = true;
+    btn.textContent = 'Document Complete';
+  } else if (S.phase === 'email') {
+    btn.disabled = true;
+    btn.textContent = 'Checking Emails';
+  } else {
+    btn.disabled = true;
+    btn.textContent = S.history.length > 0 && S.history[S.history.length - 1].spell
+      ? 'Spell Cast' : 'Committed';
+  }
+}
+
+function showResult(promisedTotal, actualTotal, passed, isSpell, isLastRow, secretTotal) {
+  const el = document.getElementById('result');
+  el.style.display = 'block';
+
+  const nextLabel = isLastRow ? 'Complete Document' : 'Next Row';
+
+  if (isSpell) {
+    el.className = 'spell';
+    let spellHtml = '<div class="result-text">Spell cast!</div>';
+    if (secretTotal != null) {
+      spellHtml += `<div class="secret-roll-bonus">The dice would have rolled ${secretTotal}.</div>`;
+    }
+    spellHtml += `<button id="next-btn">${nextLabel}</button>`;
+    el.innerHTML = spellHtml;
+  } else if (passed) {
+    const delta = actualTotal - promisedTotal;
+    const ds = delta !== 0 ? ` (${delta > 0 ? '+' : ''}${delta} from promise)` : '';
+    el.className = 'pass';
+    el.innerHTML =
+      `<div class="result-text">Cleared! ${actualTotal} &gt; ${S.bossThreshold}${ds}</div>` +
+      `<button id="next-btn">${nextLabel}</button>`;
+  } else {
+    const delta = actualTotal - promisedTotal;
+    const ds = delta !== 0 ? ` (${delta > 0 ? '+' : ''}${delta} from promise)` : '';
+    el.className = 'fail';
+    el.innerHTML =
+      `<div class="result-text">Short. ${actualTotal} ≤ ${S.bossThreshold}${ds}</div>` +
+      '<div class="silmor-note">...oh</div>' +
+      `<button id="next-btn">${nextLabel}</button>`;
+  }
+
+  document.getElementById('next-btn').addEventListener('click', nextRow);
+}
+
+function hideResult() {
+  const el = document.getElementById('result');
+  el.className = '';
+  el.style.display = 'none';
+}
+
+/* ── Input (tap vs hold) ── */
+
+const HOLD_MS = 400;
+let holdState = { key: null, timer: null, dieIndex: -1, fired: false };
+
+function clearHold() {
+  if (holdState.timer) clearTimeout(holdState.timer);
+  holdState = { key: null, timer: null, dieIndex: -1, fired: false };
+}
+
+function flashDie(index) {
+  const dice = document.querySelectorAll('.die');
+  dice.forEach(d => {
+    const i = parseInt(d.dataset.i);
+    if (i === index) {
+      d.classList.add('tapped');
+      setTimeout(() => d.classList.remove('tapped'), 150);
+    } else {
+      d.classList.add('die-noticed');
+      setTimeout(() => d.classList.remove('die-noticed'), 200);
+    }
+  });
+}
+
+function fireTap(index) {
+  silmorReturn();
+  if (S.phase === 'email') {
+    rollForEmail(index);
+  } else if (S.phase === 'selecting' && S.selection.length > 0 && S.fumbleChance > 0 && Math.random() < S.fumbleChance) {
+    cascadeFumble(index);
+  } else {
+    tapDie(index);
+  }
+  flashDie(index);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (S.phase === 'resolved') nextRow();
+    else if (S.phase === 'doc-complete') startEmails();
+    else if (S.phase === 'email' && S.emailResult) nextEmail();
+    else if (S.phase === 'selecting') commit();
+    return;
+  }
+  const ki = S.keys.indexOf(e.key);
+  if (ki >= 0 && ki < S.dice.length) {
+    // If freeze isn't available, tap instantly (no hold delay)
+    if (!canFreeze()) {
+      fireTap(ki);
+      return;
+    }
+    // Start hold detection
+    clearHold();
+    holdState.key = e.key;
+    holdState.dieIndex = ki;
+    holdState.timer = setTimeout(() => {
+      holdState.fired = true;
+      attemptFreeze(ki);
+      flashDie(ki);
+    }, HOLD_MS);
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (holdState.key === e.key) {
+    if (!holdState.fired) {
+      // Released before hold threshold — normal tap
+      const idx = holdState.dieIndex;
+      clearHold();
+      fireTap(idx);
+    } else {
+      clearHold();
+    }
+  }
+});
+
+document.getElementById('commit-btn').addEventListener('click', () => {
+  if (S.phase === 'resolved') nextRow();
+  else if (S.phase === 'doc-complete') startEmails();
+  else if (S.phase !== 'email') commit();
+});
+
+/* ── Hub ── */
+
+if (window.parent !== window) {
+  window.parent.postMessage({ type: 'hub:minimize' }, '*');
+}
+
+/* ── Init ── */
+
+function init() {
+  S.dice = [makeDie(4), makeDie(4), makeDie(4), makeDie(4)];
+  S.selection = [];
+  S.freezeCount = 0;
+  S.fumbleChance = 0;
+  S.docGen = { notes: [], animatedCount: 0 };
+  S.phase = 'selecting';
+  S.sectionNumber = 1;
+  S.bossThreshold = 8;
+  S.history = [];
+  S.oldSpells = [];
+  S.silmorWand = [];
+  S.docNumber = 1;
+  S.docRows = [];
+  S.rowsPerDoc = 3;
+  S.rowInDoc = 1;
+  S.learnedCombos = [];
+  S.currentSpell = generateSpell();
+  S.silmorVocab = pickSilmorVocab();
+  S.spellActive = false;
+  S.silmor = { level: 0, status: SILMOR_STATUS[0], speech: '' };
+  silmorAnim.setExpression('neutral');
+  silmorAnim.resetIdle();
+  silmorAnim.wandered = false;
+  silmorAnim.idleSparkle = false;
+  silmorAnim.returnBurst = 0;
+  S.boss = { status: '', speech: '', spellStreak: 0, watchMood: 'idle', fumblesSeen: 0 };
+  bossAnim.setExpression('neutral');
+  render();
+}
+
+init();
+</script>
+</body>
+</html>

@@ -49,22 +49,31 @@ A digital neighborhood system where autonomous entities with memory and identity
 ---
 
 ## Technical Conventions
-- **Tools:** Godot, RPG Maker, Stable Diffusion, HTML/JS, Python
-- **Persistence:** GitHub for entity storage in Fixed Point Local
+- **Stack:** Vanilla HTML/JS for all scores (no build step). The Grimoire is the only exception (Vite/React). Canvas for rendering-heavy scores (LODE, Bao).
+- **Persistence:** GitHub for entity storage. localStorage (`baseline-session/*`) for cross-score state.
 - **File naming:** `snake_case` for scripts, `SCREAMING_SNAKE` for skill/convention docs, `Title Case` for design documents
 - **Output size:** If a response exceeds ~200 lines of code, split it into separate implementation steps
-- **Build order (Color Pin):** decay → pressure gauge → shape masking → pin types → three-layer system → Kiwis → the Third
+- **Dev server:** `node .claude/serve.mjs` serves everything at localhost:3002
 
 ---
 
-## Active Projects
-| Project | Document | Status |
+## Active Scores
+| Score | Location | Status |
 |---|---|---|
-| Color Pin Maze (EFDP) | `color-pin-maze-design.md` | Active — lives at `scores/efdp/` |
-| Sunset Ridge Mall | internal docs | Active development |
-| The Grimoire | internal docs | Active |
-| Critter Crank | internal docs | Active — Color Pin is its image pipeline |
-| Fixed Point Local core | internal docs | GitHub integration complete |
+| Hunter Encounter | `neighborhoods/mucklerbuckler/scores/hunter-encounter/` | Active |
+| The Grimoire | `scores/grimoire/` (source: `the-grimoire/`) | Active — Vite build |
+| Color Pin Maze (EFDP) | `scores/efdp/` | Active |
+| Critter Crank | `scores/critter-crank/` | Active |
+| Sunset Ridge Mall | `scores/sunset-ridge-mall/` | Active |
+| 報 · GENERALS (Bao) | `scores/bao/` | Active |
+| The Tending Field | `scores/tending-field/` | In development |
+| SILMOR Spells | `scores/silmor-spells/` | Active |
+| LODE | `scores/lode/` | Active |
+| Shoot the Moon | `scores/shoot-the-moon/` | Active |
+| Chunxly's Canvas | `scores/chunxly/` | Active |
+| Storeroom | `concessions/storeroom/` | In development |
+
+**Hub systems:** S.Mail (HUD overlay, bioluminescent arrangement messages), Scraggle toasts, ticker.
 
 ---
 
@@ -88,15 +97,9 @@ A digital neighborhood system where autonomous entities with memory and identity
 
 **Rule:** If it requires a decision → full context. If it requires execution of a decided spec → smaller model.
 
-## Session Files
-Session briefs live in `the-hall/concessions/sessions/`.
-
-At the **start** of each session: create a session file named `YYYY-MM-DD_scope.md` where scope is a short snake_case description of the working target (e.g. `2026-03-02_color_pin_decay.md`). Populate it with the session scope as Fox described it.
-
-At the **close** of each session: update that file with what was built, decisions made, files created or modified, and the recommended next step.
-
-Keep it short. This is a handoff document, not a report.
+## Design Document
+The living design document is `concessions/Fixed_Point_Local_Design_Document_v0_995.md`. Read it for full context on any score, system, or architectural decision.
 
 ---
 
-*Maintained by Fox. Part of Fixed Point Local. Last updated: March 2, 2026.*
+*Maintained by Fox. Part of Fixed Point Local. Last updated: March 18, 2026.*

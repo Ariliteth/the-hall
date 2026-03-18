@@ -1,0 +1,2351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>報 · GENERALS</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:#f0e4c8; --ink:#1a120a; --ink2:#2e1f0f; --rust:#8b3a1a;
+  --gold:#9a6c1a; --goldl:#c49a2a; --red:#7a1a1a; --wash:#d4c4a0;
+  --dim:rgba(26,18,10,0.12); --seal:#6b1a1a;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:'Crimson Text',serif;
+  height:100vh; display:flex; flex-direction:column; overflow:hidden; user-select:none;
+}
+
+/* Paper texture overlay */
+body::before{
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:1;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(180,150,90,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 20%, rgba(160,130,80,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(200,170,110,0.04) 0%, transparent 70%);
+}
+
+#ui{position:relative;z-index:2;display:flex;flex-direction:column;height:100vh;padding:10px 16px;gap:7px;}
+
+/* HEADER */
+#header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+  border-bottom:1px solid rgba(26,18,10,0.12);padding-bottom:7px;}
+#title{font-family:'Cinzel',serif;font-size:0.95rem;letter-spacing:0.3em;color:var(--ink);opacity:0.7;}
+#status{display:flex;gap:8px;align-items:center;}
+.chip{font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.1em;color:rgba(26,18,10,0.45);
+  border:1px solid rgba(26,18,10,0.18);padding:2px 7px;}
+.chip span{color:var(--gold);}
+#phase{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.28em;text-align:center;
+  color:rgba(26,18,10,0.4);flex-shrink:0;}
+
+/* BOARD */
+#board-wrap{position:relative;flex:1;min-height:0;}
+#board{width:100%;height:100%;display:block;}
+
+/* ASSIGN OVERLAY */
+#assign-ui{position:absolute;top:0;left:0;right:0;bottom:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;pointer-events:none;}
+#assign-ui.active{pointer-events:auto;}
+.a-inst{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;color:rgba(26,18,10,0.45);text-align:center;}
+#gen-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.gen-card{
+  background:rgba(240,228,200,0.92);
+  border:1px solid rgba(26,18,10,0.22);
+  padding:10px 12px;text-align:center;cursor:pointer;transition:all 0.18s;
+  min-width:84px;pointer-events:auto;position:relative;
+  box-shadow:1px 2px 6px rgba(26,18,10,0.12), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.gen-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:1px 4px 10px rgba(26,18,10,0.18);}
+.gen-card.sel{border-color:var(--goldl);background:rgba(255,245,215,0.97);box-shadow:0 0 0 2px rgba(154,108,26,0.2),1px 4px 10px rgba(26,18,10,0.18);}
+.gen-card.done{border-color:rgba(26,18,10,0.35);}
+.gen-icon{font-size:1.7rem;display:block;margin-bottom:2px;}
+.gen-name{font-family:'Cinzel',serif;font-size:0.52rem;letter-spacing:0.1em;color:var(--ink2);display:block;}
+.gen-title-badge{font-size:0.46rem;font-family:'Cinzel',serif;letter-spacing:0.06em;color:var(--gold);display:block;margin-top:1px;min-height:10px;}
+.gen-medals{font-size:0.58rem;letter-spacing:0.05em;display:block;min-height:10px;color:var(--goldl);}
+.gen-army{font-size:0.95rem;display:block;min-height:18px;margin-top:2px;}
+.vend-dot{position:absolute;top:-5px;right:-5px;width:13px;height:13px;border-radius:50%;
+  background:var(--seal);border:1px solid rgba(107,26,26,0.5);font-size:0.42rem;
+  display:flex;align-items:center;justify-content:center;color:#ffcccc;}
+#army-row{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;}
+.army-btn{font-size:1.4rem;padding:6px 8px;
+  border:1px solid rgba(26,18,10,0.2);
+  background:rgba(240,228,200,0.88);
+  cursor:pointer;transition:all 0.18s;pointer-events:auto;
+  box-shadow:1px 2px 4px rgba(26,18,10,0.1);}
+.army-btn:hover:not(.used){border-color:var(--gold);transform:scale(1.08);}
+.army-btn.used{opacity:0.22;cursor:not-allowed;}
+
+/* ADVISOR PANEL */
+#advisor-panel{
+  position:absolute;top:8px;right:8px;z-index:15;
+  background:rgba(240,232,208,0.97);
+  border:1px solid rgba(26,18,10,0.22);
+  box-shadow:2px 3px 12px rgba(26,18,10,0.15);
+  padding:13px 15px;width:224px;
+  display:none;
+}
+#advisor-panel.visible{display:block;}
+.adv-header{font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.2em;color:rgba(26,18,10,0.4);
+  margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid rgba(26,18,10,0.1);padding-bottom:6px;}
+.adv-portrait{font-size:1.6rem;display:block;text-align:center;margin-bottom:5px;}
+.adv-name{font-family:'Cinzel',serif;font-size:0.64rem;letter-spacing:0.1em;color:var(--ink2);display:block;text-align:center;margin-bottom:6px;}
+.adv-plan{font-size:0.78rem;line-height:1.6;color:rgba(26,18,10,0.68);margin-bottom:8px;font-style:italic;}
+.adv-arrows{font-family:'Cinzel',serif;font-size:0.58rem;color:rgba(26,18,10,0.4);margin-bottom:8px;line-height:1.7;}
+.adv-mood{font-size:0.72rem;margin-top:6px;padding-top:6px;border-top:1px solid rgba(26,18,10,0.1);}
+.adv-btns{display:flex;gap:6px;margin-top:9px;}
+.adv-btn{flex:1;font-family:'Cinzel',serif;font-size:0.52rem;letter-spacing:0.1em;padding:5px 4px;
+  border:1px solid;cursor:pointer;background:transparent;transition:all 0.18s;text-align:center;}
+.adv-btn-follow{border-color:var(--gold);color:var(--gold);}
+.adv-btn-follow:hover{background:rgba(154,108,26,0.08);}
+.adv-btn-dismiss{border-color:rgba(26,18,10,0.2);color:rgba(26,18,10,0.38);}
+.adv-btn-dismiss:hover{border-color:rgba(26,18,10,0.4);color:var(--ink);}
+
+/* REPORT PANEL — scroll */
+#report{position:absolute;z-index:20;
+  background:rgba(244,236,212,0.98);
+  border:1px solid rgba(26,18,10,0.25);
+  box-shadow:2px 4px 14px rgba(26,18,10,0.18);
+  padding:13px 17px;min-width:175px;max-width:234px;display:none;}
+#report.visible{display:block;}
+#report-emoji{font-size:1.9rem;display:block;text-align:center;margin-bottom:4px;}
+#report-name{font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.12em;color:var(--ink2);display:block;text-align:center;margin-bottom:3px;}
+#report-title-line{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.08em;color:var(--gold);text-align:center;display:block;min-height:13px;margin-bottom:6px;border-bottom:1px solid rgba(26,18,10,0.08);padding-bottom:5px;}
+#report-lines{font-size:0.77rem;line-height:1.7;color:rgba(26,18,10,0.65);}
+#report-lines .rl{color:var(--red);}
+#report-lines .rg{color:rgba(26,100,26,0.7);}
+#report-close{display:block;margin-top:9px;font-family:'Cinzel',serif;font-size:0.53rem;
+  letter-spacing:0.2em;color:rgba(26,18,10,0.3);text-align:center;cursor:pointer;
+  border-top:1px solid rgba(26,18,10,0.08);padding-top:6px;}
+#report-close:hover{color:var(--ink);}
+
+/* QUIP — warm paper strip */
+#quip-overlay{
+  position:fixed;inset:0;z-index:100;
+  display:flex;align-items:flex-end;
+  pointer-events:none;opacity:0;transition:opacity 0.2s;
+}
+#quip-overlay.visible{opacity:1;}
+#quip-box{
+  background:rgba(240,230,200,0.98);
+  border-top:2px solid rgba(26,18,10,0.18);
+  box-shadow:0 -4px 20px rgba(26,18,10,0.14);
+  padding:14px 24px 14px 0;
+  display:flex;align-items:center;
+  width:100%;
+}
+#quip-portrait{
+  width:88px;height:88px;flex-shrink:0;
+  background:rgba(220,208,178,0.8);
+  border-right:1px solid rgba(26,18,10,0.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:2.7rem;
+}
+#quip-text-block{padding:0 18px;flex:1;}
+#quip-gen-name{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.2em;color:rgba(26,18,10,0.45);display:block;margin-bottom:3px;}
+#quip-title-name{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.12em;color:var(--gold);display:block;margin-bottom:6px;}
+#quip-line{font-family:'Crimson Text',serif;font-size:1.08rem;line-height:1.5;color:var(--ink);font-style:italic;}
+#quip-arrow{font-family:'Cinzel',serif;font-size:0.7rem;color:var(--gold);padding-right:10px;flex-shrink:0;}
+
+/* CONTROLS */
+#controls{display:flex;gap:8px;align-items:center;justify-content:center;flex-shrink:0;padding-bottom:2px;}
+.btn{font-family:'Cinzel',serif;font-size:0.63rem;letter-spacing:0.18em;text-transform:uppercase;
+  padding:7px 18px;border:1px solid;cursor:pointer;transition:all 0.18s;background:transparent;}
+.btn-battle{border-color:var(--gold);color:var(--gold);}
+.btn-battle:hover:not(:disabled){background:rgba(154,108,26,0.08);box-shadow:0 0 10px rgba(154,108,26,0.12);}
+.btn-battle:disabled{opacity:0.22;cursor:not-allowed;}
+.btn-dim{border-color:rgba(26,18,10,0.2);color:rgba(26,18,10,0.38);font-size:0.55rem;padding:5px 10px;}
+.btn-dim:hover{color:var(--ink);border-color:rgba(26,18,10,0.45);}
+.btn-adv{border-color:rgba(154,108,26,0.35);color:rgba(154,108,26,0.7);font-size:0.55rem;padding:5px 10px;}
+.btn-adv:hover{border-color:var(--gold);color:var(--gold);}
+
+/* LOG */
+#log{flex-shrink:0;font-size:0.78rem;line-height:1.6;color:rgba(26,18,10,0.4);
+  min-height:38px;max-height:56px;overflow:hidden;text-align:center;font-style:italic;padding:0 6px;
+  border-top:1px solid rgba(26,18,10,0.08);padding-top:5px;}
+#log .lw{color:var(--gold);font-style:normal;}
+#log .ll{color:var(--red);font-style:normal;}
+#log .lm{color:var(--ink2);font-family:'Cinzel',serif;font-size:0.66rem;font-style:normal;letter-spacing:0.06em;}
+#log .lint{color:var(--rust);font-style:normal;}
+
+/* GAB */
+#log .gab{color:rgba(26,18,10,0.55);font-style:italic;}
+#log .gab-name{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.08em;
+  color:rgba(26,18,10,0.35);font-style:normal;margin-right:4px;}
+.emblem{display:inline-block;font-style:normal;}
+.emblem.bounce{animation:emblem-bounce 0.4s ease-out;}
+.emblem.plant{animation:emblem-plant 0.35s cubic-bezier(0.2,0,0.4,1.8);}
+.emblem.jitter{animation:emblem-jitter 0.5s ease-in-out;}
+.emblem.sink{animation:emblem-sink 0.6s ease-out forwards;}
+.emblem.steady{animation:emblem-steady 1.6s ease-in-out infinite;}
+@keyframes emblem-bounce{
+  0%{transform:translateY(0) scale(1);}
+  30%{transform:translateY(-4px) scale(1.08);}
+  60%{transform:translateY(1px) scale(0.97);}
+  100%{transform:translateY(0) scale(1);}
+}
+@keyframes emblem-plant{
+  0%{transform:translateY(-6px) scale(0.9);opacity:0.6;}
+  55%{transform:translateY(2px) scale(1.18);}
+  100%{transform:translateY(0) scale(1);opacity:1;}
+}
+@keyframes emblem-jitter{
+  0%,100%{transform:translateX(0);}
+  15%{transform:translateX(-2px);}
+  30%{transform:translateX(2px);}
+  45%{transform:translateX(-1.5px);}
+  60%{transform:translateX(1.5px);}
+  75%{transform:translateX(-1px);}
+  90%{transform:translateX(0.5px);}
+}
+@keyframes emblem-sink{
+  0%{transform:translateY(0);opacity:1;}
+  100%{transform:translateY(3px);opacity:0.5;}
+}
+@keyframes emblem-steady{
+  0%,100%{transform:scale(1);}
+  50%{transform:scale(1.06);}
+}
+
+/* PREFERENCE & COMFORT */
+.gen-pref{font-size:0.58rem;display:block;min-height:12px;opacity:0.25;letter-spacing:0.04em;}
+.gen-pref .pref-comfort{font-size:0.46rem;color:var(--gold);opacity:0.7;margin-left:2px;}
+.gen-card.comfort{border-color:rgba(154,108,26,0.4);background:rgba(255,248,225,0.97);
+  box-shadow:1px 2px 6px rgba(154,108,26,0.12), inset 0 1px 0 rgba(255,255,255,0.4);}
+.gen-card.comfort .gen-pref{opacity:0.6;color:var(--gold);}
+.gen-card.denied .gen-pref{opacity:0.14;}
+
+/* RESOURCE CHIP */
+#res-chip{border-color:rgba(154,108,26,0.3);color:rgba(154,108,26,0.55);letter-spacing:0.05em;}
+#res-chip span{color:var(--gold);}
+
+/* SCROLL OVERLAY */
+#scroll-overlay {
+  position:fixed; inset:0; z-index:120;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:rgba(200,185,155,0.6); backdrop-filter:blur(3px);
+  opacity:0; pointer-events:none; transition:opacity 0.3s;
+}
+#scroll-overlay.visible { opacity:1; pointer-events:auto; }
+
+#bao-call {
+  font-family:'Noto Serif SC','Cinzel',serif; font-size:4rem; font-weight:700;
+  color:var(--seal); opacity:0; transition:opacity 0.15s;
+  position:absolute; z-index:2;
+  text-shadow: 2px 2px 8px rgba(107,26,26,0.3);
+}
+#bao-call.flash { opacity:1; }
+
+#scroll {
+  background:rgba(244,236,212,0.99);
+  border:1px solid rgba(26,18,10,0.2);
+  box-shadow:3px 6px 24px rgba(26,18,10,0.2);
+  width:min(340px, 88vw);
+  max-height:0; overflow:hidden;
+  transition:max-height 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+#scroll.unrolled { max-height:520px; }
+
+.scroll-roller {
+  height:10px;
+  background:linear-gradient(to bottom, rgba(139,90,43,0.25), rgba(139,90,43,0.12), rgba(139,90,43,0.25));
+  border:1px solid rgba(26,18,10,0.12);
+}
+
+#scroll-body { padding:16px 20px; }
+#scroll-title { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.18em; color:var(--ink2); text-align:center; margin-bottom:8px; }
+#scroll-situation { font-size:0.82rem; line-height:1.7; color:rgba(26,18,10,0.6); font-style:italic; margin-bottom:14px; text-align:center; }
+.scroll-label { font-family:'Cinzel',serif; font-size:0.5rem; letter-spacing:0.2em; color:rgba(26,18,10,0.35); margin-bottom:6px; }
+
+#scroll-gen-row { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-bottom:12px; }
+.scroll-gen {
+  padding:6px 8px; border:1px solid rgba(26,18,10,0.15); background:rgba(240,228,200,0.9);
+  text-align:center; cursor:pointer; transition:all 0.15s; min-width:56px;
+}
+.scroll-gen:hover { border-color:var(--gold); }
+.scroll-gen.sel { border-color:var(--goldl); background:rgba(255,245,215,0.97); }
+.scroll-gen.dispatched { opacity:0.2; cursor:not-allowed; }
+.scroll-gen-emoji { font-size:1.2rem; display:block; }
+.scroll-gen-name { font-family:'Cinzel',serif; font-size:0.44rem; letter-spacing:0.08em; color:var(--ink2); }
+.scroll-gen-state { font-size:0.4rem; color:rgba(26,18,10,0.35); }
+
+#scroll-res-row { display:flex; gap:14px; justify-content:center; margin-bottom:14px; }
+.scroll-res-item { text-align:center; }
+.scroll-res-icon { font-size:1rem; display:block; }
+.scroll-res-count { font-family:'Cinzel',serif; font-size:0.7rem; color:var(--gold); display:block; margin:2px 0; }
+.scroll-res-pool { font-size:0.44rem; color:rgba(26,18,10,0.3); }
+.scroll-res-btn {
+  font-size:0.6rem; width:20px; height:20px; border:1px solid rgba(26,18,10,0.15);
+  background:transparent; cursor:pointer; display:inline-block; text-align:center; line-height:18px;
+}
+.scroll-res-btn:hover { border-color:var(--gold); }
+
+#scroll-seal-row { text-align:center; margin-top:6px; }
+#scroll-cost-preview { font-size:0.5rem; color:rgba(26,18,10,0.3); margin-top:6px; }
+
+#report-scroll-title { font-family:'Cinzel',serif; font-size:0.68rem; letter-spacing:0.15em; color:var(--ink2); text-align:center; margin-bottom:4px; }
+#report-scroll-from { font-family:'Cinzel',serif; font-size:0.5rem; letter-spacing:0.1em; color:var(--gold); text-align:center; margin-bottom:10px; }
+#report-scroll-body { font-size:0.8rem; line-height:1.8; color:rgba(26,18,10,0.6); font-style:italic; margin-bottom:14px; }
+
+.gen-card.away { opacity:0.25; cursor:not-allowed; pointer-events:none; }
+.gen-card.away::after {
+  content:'ON DISPATCH'; position:absolute; bottom:6px; left:0; right:0;
+  font-family:'Cinzel',serif; font-size:0.42rem; letter-spacing:0.15em;
+  color:var(--gold); text-align:center;
+}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(200,185,155,0.72);z-index:200;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-overlay.hidden{display:none;}
+.modal{background:rgba(244,236,212,0.99);border:1px solid rgba(26,18,10,0.25);
+  box-shadow:3px 6px 24px rgba(26,18,10,0.22);
+  padding:28px 36px;max-width:400px;width:90%;text-align:center;}
+.modal h2{font-family:'Cinzel',serif;font-size:1.35rem;color:var(--ink2);margin-bottom:8px;letter-spacing:0.1em;}
+.modal p{color:rgba(26,18,10,0.65);line-height:1.85;margin-bottom:14px;font-size:0.88rem;white-space:pre-line;}
+.modal-em{font-size:2.4rem;display:block;margin:5px 0;}
+.modal-title-award{font-family:'Cinzel',serif;font-size:0.73rem;letter-spacing:0.15em;color:var(--gold);margin-bottom:10px;display:block;}
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="header">
+    <div id="title">将 · GENERALS</div>
+    <div id="status">
+      <div class="chip">Land <span id="s-cont">I</span></div>
+      <div class="chip">Kingdom <span id="s-king">1</span></div>
+      <div class="chip">Victories <span id="s-vic">0</span></div>
+      <div class="chip" style="border-color:rgba(107,26,26,0.3);color:rgba(107,26,26,0.7)">Vendettas <span id="s-vend" style="color:var(--red)">0</span></div>
+      <div class="chip" id="res-chip" style="display:none">⚔<span id="s-troops">0</span> 🌾<span id="s-grain">0</span> 🪙<span id="s-coin">0</span></div>
+    </div>
+  </div>
+  <div id="phase">ASSIGN YOUR GENERALS</div>
+
+  <div id="board-wrap">
+    <canvas id="board"></canvas>
+
+    <div id="assign-ui" class="active">
+      <div class="a-inst">SELECT A GENERAL — THEN SELECT THEIR ARMY</div>
+      <div id="gen-row"></div>
+      <div class="a-inst" id="army-label" style="opacity:0">CHOOSE ARMY</div>
+      <div id="army-row"></div>
+      <button class="btn btn-dim" onclick="resetAssignments()" style="pointer-events:auto">↺ Reset</button>
+    </div>
+
+    <div id="advisor-panel">
+      <div class="adv-header">
+        <span>ADVISOR</span>
+        <span id="adv-mood-chip" style="font-size:0.55rem"></span>
+      </div>
+      <span class="adv-portrait" id="adv-portrait">🪄</span>
+      <span class="adv-name" id="adv-name">Strategist Wuhen</span>
+      <div class="adv-plan" id="adv-plan"></div>
+      <div class="adv-arrows" id="adv-arrows"></div>
+      <div class="adv-mood" id="adv-mood-text"></div>
+      <div class="adv-btns">
+        <div class="adv-btn adv-btn-follow" onclick="followAdvisorPlan()">FOLLOW PLAN</div>
+        <div class="adv-btn adv-btn-dismiss" onclick="dismissAdvisor()">DISMISS</div>
+      </div>
+    </div>
+
+    <div id="report">
+      <span id="report-emoji"></span>
+      <span id="report-name"></span>
+      <span id="report-title-line"></span>
+      <div id="report-lines"></div>
+      <span id="report-close" onclick="closeReport()">✕ DISMISS</span>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button class="btn btn-battle" id="battle-btn" onclick="doBattle()" disabled>⚔ BATTLE</button>
+    <button class="btn btn-adv" id="adv-btn" onclick="toggleAdvisor()" style="display:none">📜 ADVISOR</button>
+    <button class="btn btn-dim" onclick="resetOrders()">↺ Orders</button>
+  </div>
+
+  <div id="log"><span style="color:rgba(168,216,234,0.38);font-style:italic">The ice throne assembles its generals...</span></div>
+</div>
+
+<!-- QUIP OVERLAY -->
+<div id="quip-overlay">
+  <div id="quip-box">
+    <div id="quip-portrait"></div>
+    <div id="quip-text-block">
+      <span id="quip-gen-name"></span>
+      <span id="quip-title-name"></span>
+      <span id="quip-line"></span>
+    </div>
+    <span id="quip-arrow">▶</span>
+  </div>
+</div>
+
+<!-- SCROLL OVERLAY -->
+<div id="scroll-overlay">
+  <div id="bao-call">報</div>
+  <div id="scroll">
+    <div class="scroll-roller scroll-top"></div>
+    <div id="scroll-body">
+      <div id="scroll-dispatch">
+        <div id="scroll-title"></div>
+        <div id="scroll-situation"></div>
+        <div id="scroll-assign">
+          <div class="scroll-label">ASSIGN GENERAL</div>
+          <div id="scroll-gen-row"></div>
+        </div>
+        <div id="scroll-resources">
+          <div class="scroll-label">COMMIT RESERVES</div>
+          <div id="scroll-res-row"></div>
+        </div>
+        <div id="scroll-seal-row">
+          <div class="btn btn-battle" onclick="sealDispatch()">SEAL &amp; DISPATCH</div>
+          <div id="scroll-cost-preview"></div>
+        </div>
+      </div>
+      <div id="scroll-report" style="display:none">
+        <div id="report-scroll-title"></div>
+        <div id="report-scroll-from"></div>
+        <div id="report-scroll-body"></div>
+        <div class="btn btn-dim" onclick="dismissReport()">ROLL UP</div>
+      </div>
+    </div>
+    <div class="scroll-roller scroll-bottom"></div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal">
+    <span class="modal-em" id="m-em">❄️</span>
+    <h2 id="m-title"></h2>
+    <span class="modal-title-award hidden" id="m-award"></span>
+    <p id="m-text"></p>
+    <button class="btn btn-battle" onclick="advancePhase()">Continue</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════
+
+const GENERALS = [
+  { id:'g0', emoji:'🧊', name:'Glacius',    preferredArmy:'🐻‍❄️' },
+  { id:'g1', emoji:'❄️', name:'Frostveil',  preferredArmy:'🐺' },
+  { id:'g2', emoji:'🌨️', name:'Whitefall',  preferredArmy:'🦅' },
+  { id:'g3', emoji:'🏔️', name:'Permafrost', preferredArmy:'🦌' },
+  { id:'g4', emoji:'💎', name:'Crystalis',  preferredArmy:'🐟' },
+];
+const CENTER = 2;
+const ARMIES = ['🐺','🦅','🐻‍❄️','🦌','🐟'];
+
+const ARMY_META = {
+  '🐺':{ base:'#2a3560', glow:'rgba(60,70,140,0.45)',  name:'Wolves',   speed:2 },
+  '🦅':{ base:'#6b2c0a', glow:'rgba(160,80,30,0.45)',  name:'Eagles',   speed:1 },
+  '🐻‍❄️':{ base:'#3a4a50', glow:'rgba(80,110,120,0.45)', name:'Bears',  speed:0 },
+  '🦌':{ base:'#2a4020', glow:'rgba(60,110,40,0.45)',  name:'Deer',     speed:1 },
+  '🐟':{ base:'#1a3a5a', glow:'rgba(40,100,160,0.45)', name:'Fish',     speed:0 },
+};
+const FALLBACK = { base:'#3a2840', glow:'rgba(100,70,120,0.4)', name:'Unknown', speed:0 };
+
+// TITLE DEFINITIONS
+const TITLES = {
+  THE_UNMOVED: {
+    name:'The Unmoved',
+    condition: e => e.type==='held_informed', // held lane against informed enemy
+    trait: 'Vendetta interrupters hesitate before engaging this general.',
+    medalQuips: ['Still standing.','They expected me to break.','I have faced worse.'],
+    quips: [
+      'You thought rumors would stop me? Amusing.',
+      'I have held this line before. I will hold it again.',
+      'Come, then. I am not moving.',
+    ],
+  },
+  THE_WITNESS: {
+    name:'The Witness',
+    condition: e => e.type==='witnessed_vendetta', // present when ally vendetta-sworn
+    trait: 'May chain in once per battle to prevent a loss in an adjacent lane.',
+    medalQuips: ['I remember what happened.','No one else was watching.','I was there.'],
+    quips: [
+      'I saw what they did to my general. This time it ends differently.',
+      'You think I forgot? I never forget.',
+      'I watched. Now you will.',
+    ],
+  },
+  FIRST_ACROSS: {
+    name:'First Across',
+    condition: e => e.type==='furthest_ordered', // ordered furthest from home
+    trait: 'Always resolves before standard battle order.',
+    medalQuips: ['We move fast.','No hesitation.','Distance means nothing.'],
+    quips: [
+      'By the time you see us, we are already past you!',
+      'Distance is just opportunity!',
+      'We do not wait for permission to arrive!',
+    ],
+  },
+  THE_REMEMBERED: {
+    name:'The Remembered',
+    condition: e => e.type==='double_vendetta', // vendetta-sworn twice
+    trait: 'Informed enemies facing this general may reveal their knowledge early.',
+    medalQuips: ['They fear this name.','The stories spread far.','Good. Let them know.'],
+    quips: [
+      'Yes! They know my name! They SHOULD know my name!',
+      'I did not ask to be remembered. But here we are.',
+      'Fear is its own kind of respect.',
+    ],
+  },
+  UNBLOODED: {
+    name:'Unblooded',
+    condition: e => e.type==='first_win_clean', // first win, no vendetta
+    trait: 'Informed enemies facing this general have a chance to hesitate.',
+    medalQuips: ['Not yet marked.','Still clean.','Fortune favors the unknown.'],
+    quips: [
+      'You do not know me yet. That is exactly the point.',
+      'No one has sworn against me. Perhaps that is its own power.',
+      'An unknown blade cuts just as deep.',
+    ],
+  },
+};
+
+const KINGDOMS = [
+  [
+    { name:'The Ember Throne',   army:['🔥','🌋','🦁','🦊','🌞'], genStyle:'front',
+      allies:[], // vendetta allies added dynamically
+    },
+    { name:'The Green Veil',     army:['🌿','🐸','🦋','🌺','🍄'], genStyle:'back',  allies:[] },
+    { name:'The Storm Court',    army:['⚡','🌊','🐉','💫','🌩️'], genStyle:'hidden',allies:[] },
+  ],
+  [
+    { name:'The Dune Pact',      army:['🏜️','🦂','🐪','🌵','🌀'], genStyle:'back',  allies:[] },
+    { name:'The Night Compact',  army:['🌙','🦇','🕷️','🌑','⭐'], genStyle:'hidden',allies:[] },
+    { name:'The Carnival Court', army:['🎭','🃏','🎪','🎯','🎲'], genStyle:'front', allies:[] },
+  ],
+];
+
+const ADVISOR = {
+  emoji:'🪖', name:'Strategist Wuhen',
+  mood:0,   // -3 to +3
+  // Generates a plan based on current state
+  generatePlan(iceLineup, assignments, enemyLineup, enemyKnowledge, vendettas) {
+    // Find safest matchup for each position
+    const plan = {}; // posIdx -> targetPosIdx
+    const suggestions = [];
+
+    // Simple advisor logic: route generals with vendettas away from informed enemies
+    iceLineup.forEach((genId, pos) => {
+      if (pos===CENTER) return;
+      const gen = GENERALS.find(g=>g.id===genId);
+      const army = assignments[genId];
+      if (!army) return;
+
+      // Find which enemy positions are safe for this army/general
+      const safePos = [];
+      enemyLineup.forEach((enemy, epos) => {
+        const knows = enemyKnowledge.get(enemy)||new Set();
+        const known = knows.has('general:'+gen.emoji)||knows.has('army:'+army);
+        if (!known) safePos.push(epos);
+      });
+
+      // If current lane is unsafe and there's a safe alternative
+      const currentEnemy = enemyLineup[pos];
+      const currentKnows = enemyKnowledge.get(currentEnemy)||new Set();
+      const currentUnsafe = currentKnows.has('general:'+gen.emoji)||currentKnows.has('army:'+army);
+
+      if (currentUnsafe && safePos.length>0) {
+        const best = safePos.find(p=>p!==pos)||safePos[0];
+        plan[pos]=best;
+        suggestions.push(`Move ${gen.name} from ${['L.Outer','L.Inner','R.Inner','R.Outer'][[0,1,3,4].indexOf(pos)]} to face position ${best+1}`);
+      }
+    });
+
+    if (suggestions.length===0) {
+      return {
+        plan:{},
+        text: vendettas.length>0
+          ? 'The lines look dangerous. I see no clean path — hold position and trust your generals\' resolve.'
+          : 'Your generals stand well against these defenders. I see no urgent movement needed. Hold the line.',
+        suggestions:[],
+      };
+    }
+
+    return {
+      plan,
+      text: `I have studied their formation. ${suggestions.length} of your generals face informed enemies. Let me suggest better matchups.`,
+      suggestions,
+    };
+  },
+  moodText() {
+    if (this.mood>=2) return { text:'Wuhen is pleased. His plans are valued here.', color:'rgba(168,216,234,0.6)' };
+    if (this.mood===1) return { text:'Wuhen nods approvingly.', color:'rgba(168,216,234,0.5)' };
+    if (this.mood===0) return { text:'Wuhen awaits your decision.', color:'rgba(168,216,234,0.38)' };
+    if (this.mood===-1) return { text:'Wuhen sighs quietly.', color:'rgba(255,180,100,0.6)' };
+    if (this.mood<=-2) return { text:'Wuhen questions whether you need him at all.', color:'rgba(255,120,80,0.6)' };
+  }
+};
+
+// ENEMY PALETTE — foreign inks, warmer/darker
+const ENEMY_PALETTE=[
+  {base:'#6b1a10',glow:'rgba(140,40,20,0.4)'},
+  {base:'#6b3a10',glow:'rgba(140,90,20,0.4)'},
+  {base:'#4a5a10',glow:'rgba(100,120,20,0.4)'},
+  {base:'#1a4a50',glow:'rgba(30,100,110,0.4)'},
+  {base:'#4a1a5a',glow:'rgba(100,30,120,0.4)'},
+];
+
+// DISPATCH POOL
+const DISPATCH_POOL = [
+  { id:'border_raid', title:'Border Raid',
+    situation:'Raiders test the western reaches. The garrison sends word — reinforcements, or retreat.',
+    difficulty:0.35 },
+  { id:'supply_convoy', title:'Supply Convoy',
+    situation:'A grain shipment must reach the northern garrison. The road passes through contested ground.',
+    difficulty:0.3 },
+  { id:'diplomatic_escort', title:'Diplomatic Escort',
+    situation:'An emissary from a fallen court requests safe passage. They carry information — and enemies.',
+    difficulty:0.45 },
+  { id:'scouting_mission', title:'Scouting Mission',
+    situation:'Movement beyond the next border. Send someone who can see clearly and report honestly.',
+    difficulty:0.25 },
+];
+
+// ═══════════════════════════════════════════════════════
+// GAB — general voice lines + emblem system
+// ═══════════════════════════════════════════════════════
+
+const GAB = {
+  g0: {
+    emoji:'🧊',
+    defaultMood:'eager',
+    moodAnim:{ eager:'bounce', comfort:'steady', discontented:'jitter', vendetta:'plant' },
+    select: {
+      eager: [
+        "Pick me. {e} I was hoping you'd start here.",
+        "{e} Ready. Before I think about it.",
+        "Let's go. {e}",
+        "{e} I've been waiting.",
+      ],
+      comfort: [
+        "The Bears are ready when I am. {e}",
+        "{e} ...you know who I work best with.",
+        "{e} Put me where it matters.",
+      ],
+      discontented: [
+        "...{e}",
+        "{e} Again.",
+        "Fine. {e} I'm here.",
+      ],
+      vendetta: [
+        "They carry my name already. {e} Let's give them more.",
+        "{e} I know who's out there.",
+        "Good. {e} I have business with this kingdom.",
+      ],
+    },
+    selectKingdom: [
+      { match:'Ember', lines:[
+        "Fire kingdoms. {e} They should worry about melting.",
+        "{e} against the Ember Throne. I like our chances.",
+      ]},
+      { match:'Storm', lines:[
+        "The Storm Court. {e} Lightning and ice. We'll see which breaks.",
+        "{e} Storms pass. Ice stays.",
+      ]},
+      { match:'Green', lines:[
+        "The Green Veil. {e} Soft things break easy.",
+        "{e} Roots crack under frost.",
+      ]},
+      { match:'Dune', lines:[
+        "Sand. {e} It shifts. I don't.",
+        "{e} The Dune Pact won't know what cold feels like.",
+      ]},
+      { match:'Night', lines:[
+        "The Night Compact. {e} Darkness doesn't bother me.",
+        "{e} Let them hide. I'll still be here.",
+      ]},
+      { match:'Carnival', lines:[
+        "{e} Performers. Let's see how they do when it's real.",
+        "The Carnival Court. {e} I'm not laughing.",
+      ]},
+    ],
+    assignPreferred: [
+      "The Bears. {e} We understand each other.",
+      "We've done this before. {e}",
+      "{e} Good. This is enough.",
+    ],
+    assignOther: [
+      "Not what I'd choose. {e} But enough.",
+      "{e} I'll make it work.",
+      "They'll follow. {e} I'll make sure of it.",
+    ],
+    denied: [
+      "The Bears march elsewhere. {e} ...fine.",
+      "{e} ...enough.",
+      "Someone else leads them. {e} I said it's fine.",
+    ],
+    ordered: {
+      near: [
+        "Right here. {e} I won't need long.",
+        "{e} Close. Good.",
+        "This lane. {e} Enough.",
+      ],
+      far: [
+        "Far. {e} Good. More ground to prove.",
+        "{e} Distance doesn't scare me.",
+        "Send me. {e} I don't need to know why.",
+      ],
+      againstInformed: [
+        "They think they know me. {e}",
+        "{e} Let them come knowing. It won't be enough.",
+        "Good. {e} I want them to see me coming.",
+      ],
+    },
+    selectedForOrder: [
+      "{e} Where am I going?",
+      "Point me. {e}",
+      "{e} Say the word.",
+    ],
+  },
+};
+
+// Mood → emblem animation class
+function getGabMood(genId){
+  const g = GAB[genId];
+  if(!g) return null;
+  const rec = S.generalRecords[genId];
+  if(rec.discontent >= 2) return 'discontented';
+  if(rec.vendettaCount >= 2) return 'vendetta';
+  if(rec.comfort >= 2) return 'comfort';
+  return g.defaultMood;
+}
+
+function getGabAnim(genId, mood){
+  const g = GAB[genId];
+  return g?.moodAnim[mood] || 'bounce';
+}
+
+function renderGabLine(genId, template, animOverride){
+  const g = GAB[genId];
+  if(!g) return '';
+  const gen = GENERALS.find(x=>x.id===genId);
+  const mood = getGabMood(genId);
+  const anim = animOverride || getGabAnim(genId, mood);
+  const emblemHtml = `<span class="emblem ${anim}">${g.emoji}</span>`;
+  const text = template.replace(/\{e\}/g, emblemHtml);
+  return `<span class="gab-name">${gen.name}</span><span class="gab">${text}</span>`;
+}
+
+function pickLine(pool){
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function showGab(genId, trigger, ctx){
+  const g = GAB[genId];
+  if(!g) return; // no gab data for this general yet
+  const mood = getGabMood(genId);
+  let line = null;
+  let animOverride = null;
+
+  if(trigger === 'select'){
+    // Kingdom-specific line takes priority (~40% chance if available)
+    const kng = KINGDOMS[S.continent]?.[S.kingdomIdx];
+    if(kng && Math.random() < 0.4){
+      const km = g.selectKingdom?.find(k => kng.name.includes(k.match));
+      if(km) line = pickLine(km.lines);
+    }
+    if(!line){
+      const pool = g.select[mood] || g.select[g.defaultMood];
+      if(pool) line = pickLine(pool);
+    }
+  }
+  else if(trigger === 'assign'){
+    if(ctx?.isDenied){
+      line = pickLine(g.denied);
+      animOverride = 'jitter';
+    } else if(ctx?.isPreferred){
+      line = pickLine(g.assignPreferred);
+      animOverride = 'steady';
+    } else {
+      line = pickLine(g.assignOther);
+    }
+  }
+  else if(trigger === 'selectedForOrder'){
+    line = pickLine(g.selectedForOrder);
+  }
+  else if(trigger === 'ordered'){
+    const dist = ctx?.distance || 0;
+    if(ctx?.isInformed && g.ordered.againstInformed){
+      line = pickLine(g.ordered.againstInformed);
+      animOverride = 'plant';
+    } else if(dist >= 2 && g.ordered.far){
+      line = pickLine(g.ordered.far);
+    } else {
+      line = pickLine(g.ordered.near);
+    }
+  }
+
+  if(line){
+    setLog(renderGabLine(genId, line, animOverride));
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+
+const S = {
+  continent:0, kingdomIdx:0, victories:0,
+  vendettas:[],         // {generalId, knownGeneral, knownArmy}
+  assignments:{},       // generalId -> army emoji
+  selectedGeneral:null,
+  orders:{},            // posIdx -> targetPosIdx
+  selectedPos:null,
+  phase:'assign',
+  results:null,
+  enemyKnowledge: new Map(),
+  enemyDispositions:{},
+  iceLineup:['g0','g1','g2','g3','g4'],
+  enemyLineup:[],
+  vendettaAllies:[],    // {emoji, targetGeneralId, targetArmy, memory:true/false}
+  advisorPlan:null,
+  advisorFollowed:false,
+  t:0,
+  // Dispatch state
+  activeDispatch: null,      // current scroll being prepared (pre-seal)
+  pendingDispatch: null,     // sealed dispatch awaiting resolution
+  dispatchedGeneral: null,   // genId currently on dispatch (absent from battle)
+  dispatchHistory: [],       // past dispatches with reports
+  generosity: 0,             // running total of resources spent on dispatches
+  // General records persist across battles
+  resources:{ troops:0, grain:0, coin:0 },
+  generalRecords:{
+    g0:{ title:null, medals:0, wins:0, losses:0, vendettaCount:0, events:[], comfort:0, discontent:0 },
+    g1:{ title:null, medals:0, wins:0, losses:0, vendettaCount:0, events:[], comfort:0, discontent:0 },
+    g2:{ title:null, medals:0, wins:0, losses:0, vendettaCount:0, events:[], comfort:0, discontent:0 },
+    g3:{ title:null, medals:0, wins:0, losses:0, vendettaCount:0, events:[], comfort:0, discontent:0 },
+    g4:{ title:null, medals:0, wins:0, losses:0, vendettaCount:0, events:[], comfort:0, discontent:0 },
+  },
+  pendingTitleAwards:[], // queued title/medal moments
+};
+
+// ═══════════════════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════════════════
+
+const canvas=document.getElementById('board');
+const ctx=canvas.getContext('2d');
+let W=0,H=0;
+
+function resize(){
+  const wrap=document.getElementById('board-wrap');
+  W=wrap.clientWidth; H=wrap.clientHeight;
+  canvas.width=W; canvas.height=H;
+}
+
+// ═══════════════════════════════════════════════════════
+// LAYOUT
+// ═══════════════════════════════════════════════════════
+
+function getLayout(){
+  const mg=W*0.05;
+  const tw=W-mg*2;
+  const sw=tw/5;
+  const cx=i=>mg+sw*i+sw*0.5;
+  // Pull both rows toward the center — less dead space
+  const eY=H*0.28, iY=H*0.65;
+  const pW=sw*0.72, pH=H*0.1;
+  return Array.from({length:5},(_,i)=>({cx:cx(i),eY,iY,pW,pH,sw}));
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAW LOOP
+// ═══════════════════════════════════════════════════════
+
+function draw(ts){
+  S.t=ts;
+  ctx.clearRect(0,0,W,H);
+  if(S.phase==='assign'){ drawSilhouette(); }
+  else { drawBoard(); if(S.phase==='arrange') drawOrders(); if(S.results) drawResults(); }
+  requestAnimationFrame(draw);
+}
+
+// ═══════════════════════════════════════════════════════
+// POLYOMINO FORMATION SHAPES
+// Each shape is an array of [col, row] offsets from center
+// Cell size is computed from layout slot width
+// ═══════════════════════════════════════════════════════
+
+const FORMATIONS = {
+  // 🐺 Wolves — loose scattered L, irregular spacing, independent feel
+  '🐺': { cells:[[0,0],[1,0],[0,1],[-1,2]], ghost:[0.5,0.7] },
+  // 🦅 Eagles — wide thin V, aerial spread
+  '🦅': { cells:[[-2,0],[-1,1],[0,0],[1,1],[2,0]], ghost:[0,0.5] },
+  // 🐻‍❄️ Bears — dense 2×2 block + 1 offset, heavy mass
+  '🐻‍❄️': { cells:[[-0.5,-0.5],[0.5,-0.5],[-0.5,0.5],[0.5,0.5],[0,-1.5]], ghost:[0,0] },
+  // 🦌 Deer — tall column of 3, one offset, strung-out herd
+  '🦌': { cells:[[0,-1.5],[0,-0.5],[0,0.5],[1,1.5]], ghost:[0.3,0] },
+  // 🐟 Fish — tight 3×2 grid, maximum cohesion
+  '🐟': { cells:[[-1,-0.5],[0,-0.5],[1,-0.5],[-1,0.5],[0,0.5],[1,0.5]], ghost:[0,0] },
+};
+
+// Enemy formations — cruder, asymmetric
+const ENEMY_FORMATIONS = {
+  default: { cells:[[0,0],[1,0.5],[-1,0.5],[0,-1],[0.5,1.2]], ghost:[0,0] },
+  center:  { cells:[[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1],[0,0]], ghost:[0,0] },
+};
+
+function getCellSize(sw){
+  // Cell unit — scales with slot width, bigger for more physical presence
+  return Math.max(13, Math.min(24, sw * 0.19));
+}
+
+function drawFormation(cx, cy, formCells, cellSz, base, glow, isStill, isSel, alpha=1, ghostEmoji=null, ghostPos=[0,0]){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Ghost emoji watermark — large, very transparent, behind cells
+  if(ghostEmoji){
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.18;
+    ctx.font = `${cellSz * 4.5}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ghostEmoji, cx + ghostPos[0]*cellSz, cy + ghostPos[1]*cellSz);
+    ctx.restore();
+  }
+
+  // Glow / shadow pass
+  if(isStill){ ctx.shadowColor='rgba(255,55,35,0.55)'; ctx.shadowBlur=18; }
+  else if(isSel){ ctx.shadowColor='rgba(212,168,67,0.7)'; ctx.shadowBlur=14; }
+  else{ ctx.shadowColor=glow; ctx.shadowBlur=9; }
+
+  formCells.forEach(([fc, fr])=>{
+    const px = cx + fc * cellSz * 1.25;
+    const py = cy + fr * cellSz * 1.25;
+    const sz = cellSz;
+
+    // Cell body gradient
+    const g = ctx.createLinearGradient(px-sz/2, py-sz/2, px+sz/2, py+sz/2);
+    g.addColorStop(0, lighten(base, 0.32));
+    g.addColorStop(0.6, base);
+    g.addColorStop(1, darken(base, 0.35));
+    ctx.fillStyle = g;
+    roundRect(ctx, px-sz/2, py-sz/2, sz, sz, 2);
+    ctx.fill();
+
+    // Cell border
+    ctx.strokeStyle = isSel ? 'rgba(212,168,67,0.8)' : isStill ? 'rgba(255,70,50,0.6)' : glow;
+    ctx.lineWidth = isSel ? 1.5 : 0.8;
+    ctx.stroke();
+
+    // Top-left inner sheen
+    const sh = ctx.createLinearGradient(px-sz/2, py-sz/2, px+sz/2, py);
+    sh.addColorStop(0, 'rgba(255,255,255,0.18)');
+    sh.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sh;
+    roundRect(ctx, px-sz/2, py-sz/2, sz, sz*0.45, 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
+function getFormationBounds(formCells, cellSz){
+  // Returns {minY, maxY, minX, maxX} in pixel offsets from center
+  const xs = formCells.map(([fc])=>fc*cellSz*1.25);
+  const ys = formCells.map(([,fr])=>fr*cellSz*1.25);
+  return {
+    minX:Math.min(...xs)-cellSz/2, maxX:Math.max(...xs)+cellSz/2,
+    minY:Math.min(...ys)-cellSz/2, maxY:Math.max(...ys)+cellSz/2,
+  };
+}
+
+function drawSilhouette(){
+  const L=getLayout();
+  // Only hint at the outer two positions on each side — leave center clear
+  // Use a very small cell size and near-zero alpha
+  const tinyCell = getCellSize(L[0].sw) * 0.42;
+  const fishForm = FORMATIONS['🐟'];
+  const outerIdxs = [0, 1, 3, 4]; // skip center
+
+  outerIdxs.forEach(i=>{
+    const l=L[i];
+    const alpha = i===0||i===4 ? 0.07 : 0.04; // outer edges slightly more visible
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    // Enemy side ghost
+    fishForm.cells.forEach(([fc,fr])=>{
+      const px=l.cx+fc*tinyCell*1.25;
+      const py=l.eY+fr*tinyCell*1.25;
+      roundRect(ctx,px-tinyCell/2,py-tinyCell/2,tinyCell,tinyCell,1);
+      ctx.fillStyle='#2a4060';ctx.fill();
+      ctx.strokeStyle='rgba(168,216,234,0.3)';ctx.lineWidth=0.5;ctx.stroke();
+    });
+    // Ice side ghost
+    fishForm.cells.forEach(([fc,fr])=>{
+      const px=l.cx+fc*tinyCell*1.25;
+      const py=l.iY+fr*tinyCell*1.25;
+      roundRect(ctx,px-tinyCell/2,py-tinyCell/2,tinyCell,tinyCell,1);
+      ctx.fillStyle='#2a4060';ctx.fill();
+      ctx.strokeStyle='rgba(168,216,234,0.3)';ctx.lineWidth=0.5;ctx.stroke();
+    });
+    ctx.restore();
+  });
+}
+
+function drawBoard(){
+  const L=getLayout();
+  const cellSz=getCellSize(L[0].sw);
+
+  // Territory washes — watercolor bleed
+  const ew=ctx.createLinearGradient(0,0,0,H*0.46);
+  ew.addColorStop(0,'rgba(140,60,30,0.055)');ew.addColorStop(1,'rgba(140,60,30,0)');
+  ctx.fillStyle=ew;ctx.fillRect(0,0,W,H*0.46);
+  const iw=ctx.createLinearGradient(0,H,0,H*0.54);
+  iw.addColorStop(0,'rgba(30,60,130,0.045)');iw.addColorStop(1,'rgba(30,60,130,0)');
+  ctx.fillStyle=iw;ctx.fillRect(0,H*0.54,W,H*0.46);
+
+  // Dividing line — single ink stroke
+  ctx.save();
+  ctx.strokeStyle='rgba(26,18,10,0.09)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(W*0.04,H*0.5);ctx.lineTo(W*0.96,H*0.5);ctx.stroke();
+  ctx.restore();
+
+  // Lane guides — faint fold lines
+  L.forEach(l=>{
+    ctx.save();
+    ctx.strokeStyle='rgba(26,18,10,0.035)';ctx.lineWidth=1;ctx.setLineDash([2,12]);
+    ctx.beginPath();ctx.moveTo(l.cx,H*0.11);ctx.lineTo(l.cx,H*0.88);ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+  });
+
+  drawSideLabel('ENEMY BATTLE LINE', H*0.12, 'rgba(107,26,26,0.22)');
+  drawSideLabel('YOUR BATTLE LINE',  H*0.88, 'rgba(26,50,110,0.2)');
+
+  // ENEMY pieces
+  S.enemyLineup.forEach((emoji,i)=>{
+    const l=L[i];
+    const disp=S.enemyDispositions[i]||'idle';
+    const isCenter=i===CENTER;
+    const col=ENEMY_PALETTE[i%ENEMY_PALETTE.length];
+    let jx=0,jy=0;
+    if(disp==='jitter'){ jx=(Math.random()-0.5)*2; jy=(Math.random()-0.5)*1.3; }
+    const form=isCenter?ENEMY_FORMATIONS.center:ENEMY_FORMATIONS.default;
+    const hasAlly=S.vendettaAllies.some(a=>S.enemyLineup.indexOf(a.emoji)===i);
+    drawFormation(l.cx+jx,l.eY+jy,form.cells,cellSz,col.base,col.glow,disp==='still',false,1,emoji,form.ghost);
+    if(isCenter){
+      const kng=KINGDOMS[S.continent][S.kingdomIdx];
+      if(kng.genStyle!=='hidden'){
+        const offY=kng.genStyle==='front'?cellSz*2.2:cellSz*0.8;
+        ctx.save();ctx.globalAlpha=0.7;
+        ctx.font=`${cellSz*1.5}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(emoji,l.cx+jx,l.eY+jy+offY);ctx.restore();
+      }
+    }
+    if(hasAlly){
+      ctx.save();ctx.font=`${cellSz*0.85}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+      const b=getFormationBounds(form.cells,cellSz);
+      ctx.fillText('⚔️',l.cx,l.eY+b.minY-9);ctx.restore();
+    }
+  });
+
+  // ICE pieces
+  S.iceLineup.forEach((genId,i)=>{
+    const l=L[i];
+
+    // Dispatched general — empty lane indicator
+    if(S.dispatchedGeneral===genId){
+      ctx.save();
+      ctx.setLineDash([4,6]);
+      ctx.strokeStyle='rgba(154,108,26,0.2)';ctx.lineWidth=1;
+      roundRect(ctx,l.cx-cellSz*1.5,l.iY-cellSz*1.5,cellSz*3,cellSz*3,3);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font=`8px 'Cinzel',serif`;ctx.fillStyle='rgba(154,108,26,0.3)';
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.letterSpacing='0.15em';
+      ctx.fillText('ON DISPATCH',l.cx,l.iY);
+      ctx.restore();
+      return;
+    }
+
+    const army=S.assignments[genId];
+    if(!army) return;
+    const col=ARMY_META[army]||FALLBACK;
+    const isCenter=i===CENTER;
+    const ordered=S.orders[i]!==undefined&&S.orders[i]!==i;
+    const isSel=S.selectedPos===i;
+    const form=FORMATIONS[army]||FORMATIONS['🐟'];
+    const gen=GENERALS.find(g=>g.id===genId);
+    const rec=S.generalRecords[genId];
+    if(ordered){
+      drawFormation(l.cx,l.iY,form.cells,cellSz,col.base,col.glow,false,false,0.14,army,form.ghost);
+    } else {
+      drawFormation(l.cx,l.iY,form.cells,cellSz,col.base,col.glow,false,isSel,1,army,form.ghost);
+    }
+    if(isCenter){
+      const bounds=getFormationBounds(form.cells,cellSz);
+      ctx.save();ctx.globalAlpha=0.82;
+      ctx.font=`${cellSz*1.9}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(gen.emoji,l.cx,l.iY+bounds.minY-cellSz*1.1);ctx.restore();
+      if(rec.title){
+        ctx.save();ctx.font=`bold ${cellSz*0.7}px 'Cinzel',serif`;
+        ctx.fillStyle='rgba(154,108,26,0.5)';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText('✦',l.cx,l.iY+bounds.maxY+9);ctx.restore();
+      }
+    } else if(rec.medals>0){
+      const bounds=getFormationBounds(form.cells,cellSz);
+      const count=Math.min(rec.medals,5);const spacing=5;
+      const startX=l.cx-(count-1)*spacing*0.5;
+      ctx.save();
+      for(let m=0;m<count;m++){
+        ctx.beginPath();ctx.arc(startX+m*spacing,l.iY+bounds.maxY+8,1.9,0,Math.PI*2);
+        ctx.fillStyle='rgba(154,108,26,0.55)';ctx.fill();
+      }
+      ctx.restore();
+    }
+  });
+}
+function drawOrders(){
+  const L=getLayout();
+  Object.entries(S.orders).forEach(([fromStr,toIdx])=>{
+    const from=parseInt(fromStr);
+    if(from===CENTER) return;
+    const fl=L[from],tl=L[toIdx];
+    const army=S.assignments[S.iceLineup[from]];
+    if(!army) return; // dispatched general has no army
+    const col=ARMY_META[army]||FALLBACK;
+    const cellSzO=getCellSize(fl.sw);
+    const iceForm=FORMATIONS[S.assignments[S.iceLineup[from]]]||FORMATIONS['🐟'];
+    const iceBounds=getFormationBounds(iceForm.cells,cellSzO);
+    const sX=fl.cx, sY=fl.iY+iceBounds.minY-6; // start from top edge of ice formation
+    const eX=tl.cx, eY=tl.eY;                   // end at enemy formation center
+    // Arc control point: horizontal midpoint, dip into the center void
+    const midY=(sY+eY)*0.5;
+    const spread=Math.abs(eX-sX);
+    const cpX=(sX+eX)*0.5;
+    const cpY=midY - spread*0.18; // gentle upward arc proportional to distance
+    ctx.save();
+    // Thin ink stroke glow
+    ctx.strokeStyle=col.glow;ctx.lineWidth=4;ctx.globalAlpha=0.12;ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(sX,sY);ctx.quadraticCurveTo(cpX,cpY,eX,eY);ctx.stroke();
+    // Main dashed ink line — thinner, more brushstroke
+    ctx.globalAlpha=0.55;ctx.strokeStyle=col.base;ctx.lineWidth=1.6;
+    const offset=(S.t*0.05)%(18);
+    ctx.setLineDash([9,7]);ctx.lineDashOffset=-offset;
+    ctx.beginPath();ctx.moveTo(sX,sY);ctx.quadraticCurveTo(cpX,cpY,eX,eY);ctx.stroke();
+    ctx.setLineDash([]);ctx.lineDashOffset=0;
+    // Arrowhead — small, ink-filled
+    ctx.globalAlpha=0.72;
+    const ang=Math.atan2(eY-cpY,eX-cpX);
+    ctx.fillStyle=col.base;
+    ctx.save();ctx.translate(eX,eY);ctx.rotate(ang);
+    ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-4,3);ctx.lineTo(-4,-3);ctx.closePath();ctx.fill();ctx.restore();
+    // Traveling ink drop
+    const mt=((S.t*0.00035)%1);
+    const mx=quadBez(sX,cpX,eX,mt),my=quadBez(sY,cpY,eY,mt);
+    ctx.globalAlpha=0.7;ctx.fillStyle=lighten(col.base,0.3);
+    ctx.beginPath();ctx.arc(mx,my,3,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;ctx.restore();
+  });
+}
+
+function drawResults(){
+  if(!S.results) return;
+  const L=getLayout();
+  S.results.forEach((res,i)=>{
+    if(!res) return;
+    const tgt=S.orders[i]!==undefined?S.orders[i]:i;
+    const il=L[i];
+    const tl=L[tgt];
+    const midY=(il.eY+il.iY)*0.5;
+    ctx.save();
+    ctx.font='15px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.globalAlpha=0.82;
+    if(res==='absent'){
+      ctx.fillStyle='rgba(26,18,10,0.15)';
+      ctx.fillText('—',tl.cx,midY);
+      ctx.restore();return;
+    }
+    ctx.fillText(res==='win'?'◆':res==='lose'?'✕':'—',tl.cx,midY);
+    if(res==='win'){ctx.fillStyle='rgba(154,108,26,0.7)';}
+    else{ctx.fillStyle='rgba(107,26,26,0.65)';}
+    ctx.font=`bold 11px 'Cinzel',serif`;
+    ctx.fillText(res==='win'?'WIN':'LOST',tl.cx,midY+16);
+    ctx.restore();
+  });
+}
+
+function drawSideLabel(text,y,color){
+  ctx.save();
+  ctx.font="9px 'Cinzel',serif";
+  ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.letterSpacing='0.2em';
+  ctx.fillText(text,W*0.5,y);ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+// BOARD INTERACTION
+// ═══════════════════════════════════════════════════════
+
+canvas.addEventListener('click',e=>{
+  if(S.phase!=='arrange') return;
+  const r=canvas.getBoundingClientRect();
+  handleArrangeClick(e.clientX-r.left,e.clientY-r.top);
+});
+
+function hitTest(mx,my){
+  const L=getLayout();
+  const cellSz=getCellSize(L[0].sw);
+  const hitR=cellSz*3.5;
+  for(let i=0;i<5;i++){
+    const l=L[i];
+    if(Math.abs(mx-l.cx)<l.sw*0.52){
+      if(Math.abs(my-l.iY)<hitR) return {pos:i,side:'ice'};
+      if(Math.abs(my-l.eY)<hitR) return {pos:i,side:'enemy'};
+    }
+  }
+  return null;
+}
+
+function handleArrangeClick(mx,my){
+  const hit=hitTest(mx,my);
+  if(!hit){S.selectedPos=null;closeReport();return;}
+  const {pos,side}=hit;
+
+  if(side==='enemy'){
+    showReport(pos,'enemy');
+    S.selectedPos=null;return;
+  }
+  // Ice side
+  if(S.selectedPos===null){
+    if(pos===CENTER){showReport(pos,'ice');return;}
+    // Gab: general selected for ordering
+    const selGenId=S.iceLineup[pos];
+    if(selGenId!==S.dispatchedGeneral) showGab(selGenId, 'selectedForOrder');
+    S.selectedPos=pos;return;
+  }
+  if(S.selectedPos===pos){showReport(pos,'ice');S.selectedPos=null;return;}
+  // Draw order
+  if(S.selectedPos!==CENTER){
+    S.orders[S.selectedPos]=pos;
+    // Gab: order drawn — contextual
+    const ordGenId=S.iceLineup[S.selectedPos];
+    const distance=Math.abs(pos-S.selectedPos);
+    const targetEnemy=S.enemyLineup[pos];
+    const knows=S.enemyKnowledge.get(targetEnemy)||new Set();
+    const gen=GENERALS.find(g=>g.id===ordGenId);
+    const army=S.assignments[ordGenId];
+    const isInformed=knows.has('general:'+gen?.emoji)||knows.has('army:'+army);
+    showGab(ordGenId, 'ordered', { distance, targetEnemy, isInformed });
+  }
+  S.selectedPos=null;
+  updateBattleBtn();
+}
+
+// ═══════════════════════════════════════════════════════
+// REPORT PANEL
+// ═══════════════════════════════════════════════════════
+
+function showReport(pos,side){
+  const L=getLayout();const l=L[pos];
+  let emoji='',name='',titleLine='',lines='';
+  if(side==='ice'){
+    const genId=S.iceLineup[pos];
+    const gen=GENERALS.find(g=>g.id===genId);
+    const army=S.assignments[genId];
+    const col=ARMY_META[army]||FALLBACK;
+    const rec=S.generalRecords[genId];
+    const vend=S.vendettas.find(v=>v.generalId===genId);
+    emoji=army||gen.emoji;
+    name=`${gen.name}  ${gen.emoji}`;
+    if(rec.title){
+      const t=TITLES[rec.title];
+      titleLine=`${t.name}${'●'.repeat(Math.min(rec.medals,5))}`;
+    }
+    lines=`<div>Position: ${['L.Outer','L.Inner','Center','R.Inner','R.Outer'][pos]}</div>`;
+    lines+=`<div>Army: ${army?army+' '+col.name:'<em>unassigned</em>'}</div>`;
+    lines+=`<div>Record: <span class="lw">${rec.wins}W</span> / <span class="rl">${rec.losses}L</span></div>`;
+    if(rec.title){lines+=`<div style="color:rgba(168,216,234,0.5)">Trait: ${TITLES[rec.title].trait}</div>`;}
+    if(vend) lines+=`<div class="rl">⚠ Enemies know this general</div>`;
+    if(army&&S.vendettas.some(v=>v.knownArmy===army)) lines+=`<div class="rl">⚠ Enemies know this army</div>`;
+    if(!vend&&army&&!S.vendettas.some(v=>v.knownArmy===army)&&!rec.title) lines+=`<div class="rg">No known intelligence against this force</div>`;
+  } else {
+    const enemy=S.enemyLineup[pos];
+    const disp=S.enemyDispositions[pos]||'idle';
+    const knows=S.enemyKnowledge.get(enemy)||new Set();
+    const ally=S.vendettaAllies.find(a=>a.emoji===enemy);
+    emoji=enemy;name=`Unknown Force — Lane ${pos+1}`;
+    lines=`<div>Disposition: ${
+      disp==='still'?'<span style="color:#ff9999">Unnervingly still</span>':
+      disp==='jitter'?'<span style="color:#ffcc88">Agitated — knows something</span>':
+      '<span class="rg">Unaware</span>'
+    }</div>`;
+    if(ally) lines+=`<div class="rl">⚠ Vendetta ally — here for personal reasons</div>`;
+    if(knows.size>0) lines+=`<div class="rl">Has intelligence: ${[...knows].map(k=>k.split(':')[1]).join(', ')}</div>`;
+    else lines+=`<div class="rg">No intelligence on your forces</div>`;
+  }
+  document.getElementById('report-emoji').textContent=emoji;
+  document.getElementById('report-name').textContent=name;
+  document.getElementById('report-title-line').textContent=titleLine;
+  document.getElementById('report-lines').innerHTML=lines;
+  const panel=document.getElementById('report');
+  panel.style.display='block';
+  const bw=document.getElementById('board-wrap').getBoundingClientRect();
+  const pw=panel.offsetWidth,ph=panel.offsetHeight;
+  let left=l.cx-pw/2,top=(side==='ice'?l.iY:l.eY)+38;
+  left=Math.max(6,Math.min(bw.width-pw-6,left));
+  top=Math.max(6,Math.min(bw.height-ph-6,top));
+  panel.style.left=left+'px';panel.style.top=top+'px';
+  panel.classList.add('visible');
+}
+
+function closeReport(){
+  const p=document.getElementById('report');
+  p.classList.remove('visible');p.style.display='none';
+}
+
+// ═══════════════════════════════════════════════════════
+// ASSIGN PHASE
+// ═══════════════════════════════════════════════════════
+
+function renderAssignUI(){
+  const row=document.getElementById('gen-row');row.innerHTML='';
+  const assigned=new Set(Object.values(S.assignments));
+  const prefTaken={}; // army -> genId who has it
+  Object.entries(S.assignments).forEach(([gId,a])=>{prefTaken[a]=gId;});
+
+  GENERALS.forEach(gen=>{
+    const army=S.assignments[gen.id];
+    const isSel=S.selectedGeneral===gen.id;
+    const vend=S.vendettas.find(v=>v.generalId===gen.id);
+    const rec=S.generalRecords[gen.id];
+    const pos=S.iceLineup.indexOf(gen.id);
+    const posName=['L.Outer','L.Inner','Center','R.Inner','R.Outer'][pos];
+    const isComfort=army&&army===gen.preferredArmy;
+    const isDenied=!isComfort&&prefTaken[gen.preferredArmy]&&prefTaken[gen.preferredArmy]!==gen.id;
+    const isAway=S.dispatchedGeneral===gen.id;
+    const card=document.createElement('div');
+    card.className='gen-card'+(isSel?' sel':'')+(army?' done':'')+(isComfort?' comfort':'')+(isDenied?' denied':'')+(isAway?' away':'');
+    card.style.position='relative';
+    const titleStr=rec.title?TITLES[rec.title].name:'';
+    const medalStr=rec.medals>0?'●'.repeat(Math.min(rec.medals,5)):'';
+    const comfortStr=rec.comfort>0?`<span class="pref-comfort">${'◆'.repeat(Math.min(rec.comfort,5))}</span>`:'';
+    card.innerHTML=`
+      <span class="gen-icon">${gen.emoji}</span>
+      <span class="gen-name">${gen.name}</span>
+      <span class="gen-title-badge">${titleStr}</span>
+      <span class="gen-medals" style="color:rgba(212,168,67,0.55)">${medalStr}</span>
+      <span class="gen-pref">${gen.preferredArmy}${comfortStr}</span>
+      <span style="font-family:'Cinzel',serif;font-size:0.46rem;letter-spacing:0.1em;color:rgba(168,216,234,0.3)">${posName}</span>
+      <span class="gen-army">${army||''}</span>
+      ${(vend&&S.victories>0)?`<div class="vend-dot">!</div>`:''}
+    `;
+    card.onclick=()=>selectGeneral(gen.id);
+    row.appendChild(card);
+  });
+  const arow=document.getElementById('army-row');arow.innerHTML='';
+  ARMIES.forEach(a=>{
+    const btn=document.createElement('div');
+    btn.className='army-btn'+(assigned.has(a)?' used':'');
+    btn.textContent=a;
+    if(!assigned.has(a)) btn.onclick=()=>assignArmy(a);
+    arow.appendChild(btn);
+  });
+  document.getElementById('army-label').style.opacity=S.selectedGeneral?'1':'0';
+}
+
+function selectGeneral(genId){
+  if(S.phase!=='assign') return;
+  if(S.dispatchedGeneral===genId) return;
+  const wasSelected = S.selectedGeneral;
+  S.selectedGeneral=S.selectedGeneral===genId?null:genId;
+  renderAssignUI();
+  // Gab on select (not on deselect)
+  if(S.selectedGeneral && S.selectedGeneral !== wasSelected){
+    showGab(S.selectedGeneral, 'select');
+  }
+}
+
+function assignArmy(army){
+  if(!S.selectedGeneral) return;
+  const assignedGen = S.selectedGeneral;
+  const gen = GENERALS.find(g=>g.id===assignedGen);
+  Object.keys(S.assignments).forEach(g=>{if(S.assignments[g]===army)delete S.assignments[g];});
+  S.assignments[assignedGen]=army;
+  S.selectedGeneral=null;
+  // Gab on assignment
+  const isPreferred = army === gen.preferredArmy;
+  const prefHolder = Object.entries(S.assignments).find(([gId,a])=>a===gen.preferredArmy&&gId!==gen.id);
+  const isDenied = !isPreferred && !!prefHolder;
+  showGab(assignedGen, 'assign', { army, isPreferred, isDenied });
+  // If a general is on dispatch, we only need 4 armies assigned to the remaining 4
+  const activeGenerals=GENERALS.filter(g=>g.id!==S.dispatchedGeneral);
+  const allDone=activeGenerals.every(g=>S.assignments[g.id]);
+  if(allDone){
+    // Track discontent — generals who see their preferred army under another banner
+    const discontentMsgs=[];
+    activeGenerals.forEach(gen=>{
+      const myArmy=S.assignments[gen.id];
+      if(myArmy!==gen.preferredArmy){
+        const holder=Object.entries(S.assignments).find(([gId,a])=>a===gen.preferredArmy&&gId!==gen.id);
+        if(holder){
+          S.generalRecords[gen.id].discontent++;
+          const prefName=(ARMY_META[gen.preferredArmy]||FALLBACK).name;
+          discontentMsgs.push(`${gen.name} notices the ${prefName} march under another banner.`);
+        }
+      }
+    });
+    S.phase='arrange';
+    setPhase('ARRANGE — TAP PIECE → TAP LANE TO DRAW ORDERS');
+    document.getElementById('assign-ui').classList.remove('active');
+    document.getElementById('assign-ui').style.display='none';
+    document.getElementById('adv-btn').style.display='';
+    generateAdvisorPlan();
+    updateBattleBtn();
+    const discontentLine=discontentMsgs.length>0
+      ?`<br><span style="color:rgba(139,58,26,0.5);font-style:italic">${discontentMsgs.join(' ')}</span>`:'';
+    setLog(`<span class="lm">Orders ready. Tap your pieces, then their destination. Advisor standing by.</span>${discontentLine}`);
+  }
+  renderAssignUI();
+}
+
+function resetAssignments(){
+  S.assignments={};S.selectedGeneral=null;S.phase='assign';S.results=null;S.orders={};
+  S.advisorPlan=null;S.advisorFollowed=false;
+  setPhase('ASSIGN YOUR GENERALS');
+  document.getElementById('assign-ui').classList.add('active');
+  document.getElementById('assign-ui').style.display='';
+  document.getElementById('adv-btn').style.display='none';
+  document.getElementById('advisor-panel').classList.remove('visible');
+  closeReport();renderAssignUI();
+}
+
+function resetOrders(){
+  S.orders={};S.selectedPos=null;S.advisorFollowed=false;closeReport();updateBattleBtn();
+}
+
+// ═══════════════════════════════════════════════════════
+// ADVISOR
+// ═══════════════════════════════════════════════════════
+
+function generateAdvisorPlan(){
+  const plan=ADVISOR.generatePlan(S.iceLineup,S.assignments,S.enemyLineup,S.enemyKnowledge,S.vendettas);
+  S.advisorPlan=plan;
+  const mood=ADVISOR.moodText();
+  document.getElementById('adv-plan').textContent=plan.text;
+  document.getElementById('adv-name').textContent=ADVISOR.name;
+  document.getElementById('adv-portrait').textContent=ADVISOR.emoji;
+  const arrowText=plan.suggestions.length>0?plan.suggestions.map((s,i)=>`${i+1}. ${s}`).join('\n'):'No movement recommended.';
+  document.getElementById('adv-arrows').textContent=arrowText;
+  document.getElementById('adv-mood-text').innerHTML=`<span style="color:${mood.color}">${mood.text}</span>`;
+  document.getElementById('adv-mood-chip').textContent=ADVISOR.mood>=1?'😌':ADVISOR.mood<=-1?'😒':'😐';
+}
+
+function toggleAdvisor(){
+  const p=document.getElementById('advisor-panel');
+  p.classList.toggle('visible');
+  if(p.classList.contains('visible')) generateAdvisorPlan();
+}
+
+function followAdvisorPlan(){
+  if(!S.advisorPlan||!S.advisorPlan.plan) return;
+  Object.assign(S.orders,S.advisorPlan.plan);
+  S.advisorFollowed=true;
+  ADVISOR.mood=Math.min(3,ADVISOR.mood+1);
+  document.getElementById('advisor-panel').classList.remove('visible');
+  setLog('<span class="lm">Wuhen\'s plan adopted. Orders drawn.</span>');
+  updateBattleBtn();
+}
+
+function dismissAdvisor(){
+  document.getElementById('advisor-panel').classList.remove('visible');
+  // If they had good suggestions and were dismissed, Wuhen is mildly annoyed
+  if(S.advisorPlan&&S.advisorPlan.suggestions.length>0){
+    ADVISOR.mood=Math.max(-3,ADVISOR.mood-0.5);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// QUIP / SPRING-UP SYSTEM
+// ═══════════════════════════════════════════════════════
+
+let quipQueue=[];
+let quipActive=false;
+
+function queueQuip(genId,titleKey,line,isMedal=false){
+  quipQueue.push({genId,titleKey,line,isMedal});
+  if(!quipActive) processQuipQueue();
+}
+
+async function processQuipQueue(){
+  if(quipQueue.length===0){quipActive=false;return;}
+  quipActive=true;
+  const {genId,titleKey,line,isMedal}=quipQueue.shift();
+  await showQuip(genId,titleKey,line,isMedal);
+  setTimeout(processQuipQueue,200);
+}
+
+async function showQuip(genId,titleKey,line,isMedal){
+  const gen=GENERALS.find(g=>g.id===genId);
+  const title=TITLES[titleKey];
+  const overlay=document.getElementById('quip-overlay');
+  document.getElementById('quip-portrait').textContent=gen.emoji;
+  document.getElementById('quip-gen-name').textContent=gen.name.toUpperCase();
+  document.getElementById('quip-title-name').textContent=isMedal?`${title.name} — Medal ${S.generalRecords[genId].medals}`:`✦ ${title.name}`;
+  document.getElementById('quip-line').textContent=`"${line}"`;
+  overlay.classList.add('visible');
+  await sleep(3200);
+  overlay.classList.remove('visible');
+  await sleep(220);
+}
+
+// ═══════════════════════════════════════════════════════
+// TITLE & MEDAL SYSTEM
+// ═══════════════════════════════════════════════════════
+
+function evaluateTitles(battleEvents){
+  // ONE TRUE HERO per battle.
+  // Score each event for "worthiness" — pick the highest, award that one only.
+  // Medal events (existing title re-triggered) compete separately from new title events.
+
+  // Score worthiness
+  function scoreEvent(ev){
+    let s=0;
+    if(ev.result==='win') s+=2;
+    if(ev.enemyWasInformed&&ev.result==='win') s+=4; // held against informed = rare
+    if(ev.adjacentLossBlocked) s+=5;                 // witness chain = most dramatic
+    if(ev.wasFurthestOrdered&&ev.result==='win') s+=3;
+    if(ev.result==='win'&&S.generalRecords[ev.genId].vendettaCount>=2) s+=3;
+    return s;
+  }
+
+  // Separate into: candidates for new title, candidates for medal
+  const newTitleCandidates=[];
+  const medalCandidates=[];
+
+  battleEvents.forEach(ev=>{
+    const rec=S.generalRecords[ev.genId];
+    if(rec.title){
+      // Check if this event would qualify for a medal on their existing title
+      let medalEarned=false;
+      if(rec.title==='THE_UNMOVED'&&ev.enemyWasInformed&&ev.result==='win') medalEarned=true;
+      if(rec.title==='THE_WITNESS'&&ev.adjacentLossBlocked) medalEarned=true;
+      if(rec.title==='FIRST_ACROSS'&&ev.wasFurthestOrdered&&ev.result==='win') medalEarned=true;
+      if(rec.title==='THE_REMEMBERED'&&ev.result==='win'&&rec.vendettaCount>=2) medalEarned=true;
+      if(rec.title==='UNBLOODED'&&ev.result==='win'&&!ev.enemyWasInformed) medalEarned=true;
+      if(medalEarned) medalCandidates.push({ev, score:scoreEvent(ev)});
+    } else {
+      // What title would they earn?
+      let awarded=null;
+      if(!awarded&&ev.adjacentLossBlocked) awarded='THE_WITNESS';
+      if(!awarded&&ev.enemyWasInformed&&ev.result==='win') awarded='THE_UNMOVED';
+      if(!awarded&&ev.wasFurthestOrdered&&ev.result==='win') awarded='FIRST_ACROSS';
+      if(!awarded&&rec.vendettaCount>=2&&ev.result==='win') awarded='THE_REMEMBERED';
+      if(!awarded&&ev.result==='win'&&rec.wins===1&&rec.vendettaCount===0) awarded='UNBLOODED';
+      if(awarded) newTitleCandidates.push({ev, awarded, score:scoreEvent(ev)});
+    }
+  });
+
+  // Award ONE new title — highest score wins
+  if(newTitleCandidates.length>0){
+    newTitleCandidates.sort((a,b)=>b.score-a.score);
+    const winner=newTitleCandidates[0];
+    const rec=S.generalRecords[winner.ev.genId];
+    rec.title=winner.awarded;
+    rec.medals=0;
+    const title=TITLES[winner.awarded];
+    const quipLine=title.quips[Math.floor(Math.random()*title.quips.length)];
+    queueQuip(winner.ev.genId,winner.awarded,quipLine,false);
+    S.pendingTitleAwards.push({genId:winner.ev.genId,titleKey:winner.awarded});
+    return; // title awarded, no medal this battle — let it breathe
+  }
+
+  // If no new title, award ONE medal — highest score wins
+  if(medalCandidates.length>0){
+    medalCandidates.sort((a,b)=>b.score-a.score);
+    const winner=medalCandidates[0];
+    const rec=S.generalRecords[winner.ev.genId];
+    rec.medals++;
+    const title=TITLES[rec.title];
+    const quipLine=title.medalQuips[Math.min(rec.medals-1,title.medalQuips.length-1)];
+    queueQuip(winner.ev.genId,rec.title,quipLine,true);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// BATTLE
+// ═══════════════════════════════════════════════════════
+
+async function doBattle(){
+  if(S.phase!=='arrange') return;
+  S.phase='battle';
+  document.getElementById('battle-btn').disabled=true;
+  document.getElementById('controls').querySelectorAll('.btn-dim,.btn-adv').forEach(b=>b.disabled=true);
+  setPhase('BATTLE IN PROGRESS');
+  closeReport();
+  document.getElementById('advisor-panel').classList.remove('visible');
+
+  const kng=KINGDOMS[S.continent][S.kingdomIdx];
+
+  // Determine resolution order
+  // Base: left to right (0-4)
+  // Orders modify: furthest-ordered go first (by distance), wolves go before others
+  let order=S.iceLineup.map((_,i)=>i);
+  order.sort((a,b)=>{
+    const distA=Math.abs((S.orders[a]!==undefined?S.orders[a]:a)-a);
+    const distB=Math.abs((S.orders[b]!==undefined?S.orders[b]:b)-b);
+    const armyA=S.assignments[S.iceLineup[a]];
+    const armyB=S.assignments[S.iceLineup[b]];
+    const speedA=(ARMY_META[armyA]||FALLBACK).speed;
+    const speedB=(ARMY_META[armyB]||FALLBACK).speed;
+    // Higher distance + higher speed = earlier
+    return (distB+speedB)-(distA+speedA);
+  });
+
+  const results=new Array(5).fill(null);
+  const battleEvents=[];
+  let logHTML=`<span class="lm">⚔ ${kng.name.toUpperCase()}</span>`;
+  setLog(logHTML);
+
+  // Vendetta ally interrupt check
+  const vendettaInterruptChance=S.vendettaAllies.length>0?0.6:0;
+  let vendettaInterruptFired=false;
+  let vendettaInterruptTarget=null;
+
+  // Check if any vendetta ally targets one of our generals in this battle
+  S.vendettaAllies.forEach(ally=>{
+    const targetPos=S.iceLineup.indexOf(ally.targetGeneralId);
+    if(targetPos>=0){
+      vendettaInterruptTarget={ally,targetPos};
+    }
+  });
+
+  for(let step=0;step<order.length;step++){
+    const pos=order[step];
+    const genId=S.iceLineup[pos];
+    const gen=GENERALS.find(g=>g.id===genId);
+
+    // Dispatched general — empty lane, auto-loss
+    if(S.dispatchedGeneral===genId){
+      await sleep(480);
+      results[pos]='absent';
+      logHTML+=`<br><span style="color:rgba(26,18,10,0.3);font-style:italic">Lane ${pos+1}: No one holds this position.</span>`;
+      setLog(logHTML);
+      continue;
+    }
+
+    const army=S.assignments[genId];
+    const targetEnemyPos=S.orders[pos]!==undefined?S.orders[pos]:pos;
+    const enemy=S.enemyLineup[targetEnemyPos];
+    const knows=S.enemyKnowledge.get(enemy)||new Set();
+    const knowsGen=knows.has('general:'+gen.emoji);
+    const knowsArmy=knows.has('army:'+army);
+    const enemyInformed=knowsGen||knowsArmy;
+    const rec=S.generalRecords[genId];
+    const dist=Math.abs(targetEnemyPos-pos);
+    const allDists=order.map(p=>Math.abs((S.orders[p]!==undefined?S.orders[p]:p)-p));
+    const maxDist=Math.max(...allDists);
+    const countAtMax=allDists.filter(d=>d===maxDist).length;
+    // wasFurthest only if uniquely the furthest — no ties
+    const wasFurthest=dist===maxDist&&countAtMax===1&&dist>0;
+
+    await sleep(480);
+
+    // Vendetta ally INTERRUPT — fires before this lane resolves if targeting this general
+    if(!vendettaInterruptFired&&vendettaInterruptTarget&&vendettaInterruptTarget.targetPos===pos&&Math.random()<vendettaInterruptChance){
+      vendettaInterruptFired=true;
+      const ally=vendettaInterruptTarget.ally;
+      logHTML+=`<br><span class="lint">⚡ INTERRUPT — ${ally.emoji} charges in! A vendetta cannot wait!</span>`;
+      setLog(logHTML);
+      await sleep(700);
+
+      // The ally fights this general directly — outcome depends on their knowledge
+      const allyKnowsGen=ally.targetGeneralId===genId;
+      const allyKnowsArmy=ally.targetArmy===army;
+      if(allyKnowsGen||allyKnowsArmy){
+        // Check for WITNESS chain-in
+        const witnessId=findWitnessGeneral(pos);
+        if(witnessId){
+          const wGen=GENERALS.find(g=>g.id===witnessId);
+          logHTML+=`<br><span class="lw">↪ ${wGen.name} chains in! The Witness holds the line!</span>`;
+          setLog(logHTML);
+          const wRec=S.generalRecords[witnessId];
+          battleEvents.push({genId:witnessId,result:'win',lanePos:pos,targetPos:targetEnemyPos,
+            enemyWasInformed:true,adjacentLossBlocked:true,wasFurthestOrdered:false});
+          results[pos]='win';
+          await sleep(500);
+        } else {
+          results[pos]='lose';
+          rec.losses++;
+          logHTML+=`<br><span class="ll">${army}(${gen.emoji}) — vendetta fulfilled. Lane ${pos+1} lost.</span>`;
+          setLog(logHTML);
+          battleEvents.push({genId,result:'lose',lanePos:pos,targetPos:targetEnemyPos,
+            enemyWasInformed:true,adjacentLossBlocked:false,wasFurthestOrdered:false});
+          continue;
+        }
+      } else {
+        // Ally didn't have good intel — they failed
+        logHTML+=`<br><span class="lw">${ally.emoji} charges without knowing enough. Repelled!</span>`;
+        setLog(logHTML);
+        // Lane continues normally below
+      }
+    }
+
+    if(results[pos]!==null) continue; // already resolved by interrupt
+
+    // Comfort bond: leading preferred army against informed enemy
+    // Unmoved trait: if already titled, informed enemies hesitate
+    let result;
+    if(enemyInformed){
+      const isPreferred=army===gen.preferredArmy;
+      const comfortChance=isPreferred&&rec.comfort>0?Math.min(0.25,rec.comfort*0.05):0;
+      const hasUnmoved=rec.title==='THE_UNMOVED';
+      const hesitateChance=hasUnmoved?(0.15+rec.medals*0.08):0;
+      if(comfortChance>0&&Math.random()<comfortChance){
+        result='win';
+        const prefName=(ARMY_META[army]||FALLBACK).name;
+        logHTML+=`<br><span class="lw">Lane ${pos+1}: ${army}(${gen.emoji}) — the bond with the ${prefName} holds. VICTORY.</span>`;
+      } else if(Math.random()<hesitateChance){
+        result='win';
+        logHTML+=`<br><span class="lw">Lane ${pos+1}: ${army}(${gen.emoji}) — the enemy hesitates before ${gen.name}. VICTORY.</span>`;
+      } else {
+        result='lose';
+        logHTML+=`<br><span class="ll">Lane ${pos+1}: ${army}(${gen.emoji}) vs ${enemy} — DEFEAT. ${knowsGen?'General known.':'Army known.'}</span>`;
+      }
+    } else {
+      // Unblooded trait: informed enemies hesitate
+      const hasUnblooded=rec.title==='UNBLOODED';
+      result='win';
+      logHTML+=`<br><span class="lw">Lane ${pos+1}: ${army}(${gen.emoji}) vs ${enemy} — VICTORY.</span>`;
+    }
+
+    results[pos]=result;
+    if(result==='win') rec.wins++; else rec.losses++;
+
+    battleEvents.push({
+      genId,result,lanePos:pos,targetPos:targetEnemyPos,
+      enemyWasInformed:enemyInformed,adjacentLossBlocked:false,
+      wasFurthestOrdered:wasFurthest,
+    });
+
+    setLog(logHTML);
+  }
+
+  S.results=results;
+
+  // Evaluate advisor opinion
+  if(S.advisorFollowed&&S.advisorPlan?.suggestions.length>0){
+    const advWins=order.filter(p=>S.advisorPlan.plan[p]!==undefined&&results[p]==='win').length;
+    if(advWins>0){ADVISOR.mood=Math.min(3,ADVISOR.mood+1);}
+  } else if(!S.advisorFollowed&&S.advisorPlan?.suggestions.length>0){
+    ADVISOR.mood=Math.max(-3,ADVISOR.mood-1);
+  }
+
+  // Comfort accumulation — generals who won with their preferred army grow closer
+  let comfortGained=false;
+  battleEvents.forEach(ev=>{
+    if(ev.result!=='win') return;
+    const gen=GENERALS.find(g=>g.id===ev.genId);
+    const army=S.assignments[ev.genId];
+    if(army===gen.preferredArmy){
+      S.generalRecords[ev.genId].comfort++;
+      if(!comfortGained){
+        const prefName=(ARMY_META[army]||FALLBACK).name;
+        logHTML+=`<br><span style="color:rgba(154,108,26,0.5);font-style:italic">${gen.name} grows more at ease with the ${prefName}.</span>`;
+        comfortGained=true;
+      }
+    }
+  });
+
+  // Evaluate titles
+  evaluateTitles(battleEvents);
+
+  const wins=results.filter(r=>r==='win').length;
+  const losses=results.filter(r=>r==='lose').length;
+  logHTML+=`<br><span class="lm">${wins}W / ${losses}L</span>`;
+  setLog(logHTML);
+
+  // Wait for quips to clear
+  await waitForQuips();
+
+  // Resolve pending dispatch if one exists
+  if(S.pendingDispatch){
+    const dispResult = resolveDispatch();
+    if(dispResult){
+      await sleep(400);
+      await showReportScroll(dispResult);
+    }
+  }
+
+  // Resource earning — every lane won earns something
+  const resKeys=['troops','grain','coin'];
+  const earned={troops:0,grain:0,coin:0};
+  for(let i=0;i<5;i++){
+    if(results[i]==='win'){
+      const rk=resKeys[Math.floor(Math.random()*3)];
+      earned[rk]++;S.resources[rk]++;
+    }
+  }
+
+  if(wins>=3){
+    // Kingdom falls bonus: +1 to the resource you have least of
+    const minVal=Math.min(S.resources.troops,S.resources.grain,S.resources.coin);
+    const minKey=resKeys.find(k=>S.resources[k]===minVal);
+    earned[minKey]++;S.resources[minKey]++;
+
+    S.victories++;
+    const defeatedPos=results.map((r,i)=>r==='win'?i:-1).filter(i=>i>=0);
+    const undefeatedPos=results.map((r,i)=>r==='lose'?i:-1).filter(i=>i>=0);
+    // Skip dispatched general for vendetta generation (no army assigned)
+    let fleePos=[...undefeatedPos,...defeatedPos].filter(p=>S.iceLineup[p]!==S.dispatchedGeneral).slice(0,2);
+    const newVendettas=fleePos.map(pos=>({
+      generalId:S.iceLineup[pos],
+      knownGeneral:GENERALS.find(g=>g.id===S.iceLineup[pos]).emoji,
+      knownArmy:S.assignments[S.iceLineup[pos]],
+    }));
+    newVendettas.forEach(v=>{
+      if(!v.knownArmy) return; // guard against dispatched general edge case
+      S.vendettas.push(v);
+      S.generalRecords[v.generalId].vendettaCount++;
+      if(S.generalRecords[v.generalId].vendettaCount>=2&&!S.generalRecords[v.generalId].title){
+      }
+    });
+    updateStatus();
+    await sleep(350);
+
+    const newTitle=S.pendingTitleAwards.shift();
+    const awardLine=newTitle?`✦ ${GENERALS.find(g=>g.id===newTitle.genId).name} earns: ${TITLES[newTitle.titleKey].name}`:'';
+    const el=document.getElementById('m-award');
+    if(newTitle){el.textContent=awardLine;el.classList.remove('hidden');}
+    else{el.classList.add('hidden');}
+
+    const earnedLine=formatEarned(earned);
+    showModal('🏆','Kingdom Falls',`${wins} of 5 lanes broken.\n\n${newVendettas.filter(v=>v.knownArmy).map(v=>GENERALS.find(g=>g.id===v.generalId).name).join(' & ')} were witnessed. Their names carry now.\n\n${earnedLine}`);
+  } else {
+    updateStatus();
+    await sleep(350);
+    document.getElementById('m-award').classList.add('hidden');
+    const earnedLine=wins>0?'\n\n'+formatEarned(earned):'';
+    showModal('💀','Driven Back',`${wins} victories — not enough.\n\nRegroup. Their memory of you persists.${earnedLine}`);
+  }
+  updateStatus();
+}
+
+function findWitnessGeneral(targetPos){
+  // Find an adjacent general with THE_WITNESS title who hasn't acted yet
+  const adj=[targetPos-1,targetPos+1].filter(p=>p>=0&&p<5&&p!==targetPos&&p!==CENTER);
+  for(const ap of adj){
+    const gId=S.iceLineup[ap];
+    if(S.generalRecords[gId]?.title==='THE_WITNESS') return gId;
+  }
+  return null;
+}
+
+async function waitForQuips(){
+  while(quipActive||quipQueue.length>0){
+    await sleep(100);
+  }
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ═══════════════════════════════════════════════════════
+// KNOWLEDGE SPREAD & VENDETTA ALLIES
+// ═══════════════════════════════════════════════════════
+
+function getKnowledge(emoji){return S.enemyKnowledge.get(emoji)||new Set();}
+
+function spreadKnowledge(){
+  if(S.vendettas.length===0) return;
+  const k=KINGDOMS[S.continent]?.[S.kingdomIdx];
+  if(!k) return;
+  const pieces=[];
+  S.vendettas.forEach(v=>{pieces.push('general:'+v.knownGeneral);pieces.push('army:'+v.knownArmy);});
+  for(let i=pieces.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pieces[i],pieces[j]]=[pieces[j],pieces[i]];}
+  const nk=new Map();k.army.forEach(e=>nk.set(e,new Set()));
+  pieces.forEach(p=>{const d=k.army[Math.floor(Math.random()*k.army.length)];nk.get(d).add(p);});
+  S.enemyKnowledge=nk;
+  S.enemyDispositions={};
+  nk.forEach((knows,enemy)=>{
+    const i=S.enemyLineup.indexOf(enemy);
+    if(i>=0&&knows.size>0) S.enemyDispositions[i]=Math.random()<0.5?'still':'jitter';
+  });
+
+  // Vendetta allies: enemies who heard the grudges and can't stay away
+  // Each vendetta has a 40% chance to generate an ally in the next kingdom
+  S.vendettaAllies=[];
+  S.vendettas.forEach(v=>{
+    if(Math.random()<0.40){
+      // Pick a random enemy from next kingdom to be the ally
+      const allyEmoji=k.army[Math.floor(Math.random()*k.army.length)];
+      S.vendettaAllies.push({
+        emoji:allyEmoji,
+        targetGeneralId:v.generalId,
+        targetArmy:v.knownArmy,
+        memory:Math.random()<0.7, // 70% have reliable memory of what they know
+      });
+    }
+  });
+  S.vendettaAllies=S.vendettaAllies.slice(0,2); // max 2 allies
+
+  let msg='<span class="lm">Intelligence spreads. Old grudges travel with it.</span>';
+  nk.forEach((knows,enemy)=>{if(knows.size>0) msg+=`<br><span style="color:#ff9999;font-style:normal">${enemy} carries: ${[...knows].map(k=>k.split(':')[1]).join(', ')}</span>`;});
+  if(S.vendettaAllies.length>0) msg+=`<br><span style="color:#ffcc88;font-style:normal">⚔ ${S.vendettaAllies.length} vendetta ${S.vendettaAllies.length>1?'allies have':'ally has'} joined the defense.</span>`;
+  setLog(msg);
+}
+
+// ═══════════════════════════════════════════════════════
+// DISPATCH — 報
+// ═══════════════════════════════════════════════════════
+
+async function showDispatchScroll(){
+  // Pick a random dispatch
+  const dispatch = DISPATCH_POOL[Math.floor(Math.random()*DISPATCH_POOL.length)];
+  S.activeDispatch = {
+    ...dispatch,
+    selectedGeneral: null,
+    committed: { troops:0, grain:0, coin:0 },
+  };
+
+  // Show overlay
+  const overlay = document.getElementById('scroll-overlay');
+  const baoCall = document.getElementById('bao-call');
+  const scroll = document.getElementById('scroll');
+
+  // Ensure dispatch mode visible, report hidden
+  document.getElementById('scroll-dispatch').style.display = '';
+  document.getElementById('scroll-report').style.display = 'none';
+
+  overlay.classList.add('visible');
+
+  // Flash 報!
+  baoCall.classList.add('flash');
+  await sleep(1200);
+  baoCall.classList.remove('flash');
+  await sleep(200);
+
+  // Populate scroll content
+  document.getElementById('scroll-title').textContent = dispatch.title.toUpperCase();
+  document.getElementById('scroll-situation').textContent = dispatch.situation;
+
+  renderScrollGenerals();
+  renderScrollResources();
+  updateScrollSealBtn();
+
+  // Unroll
+  scroll.classList.add('unrolled');
+}
+
+function renderScrollGenerals(){
+  const row = document.getElementById('scroll-gen-row');
+  row.innerHTML = '';
+  GENERALS.forEach(gen => {
+    const rec = S.generalRecords[gen.id];
+    const isSel = S.activeDispatch?.selectedGeneral === gen.id;
+    const isDispatched = S.dispatchedGeneral === gen.id;
+    const card = document.createElement('div');
+    card.className = 'scroll-gen' + (isSel ? ' sel' : '') + (isDispatched ? ' dispatched' : '');
+    const comfortStr = rec.comfort > 0 ? '◆'.repeat(Math.min(rec.comfort, 3)) : '';
+    const discontentStr = rec.discontent > 0 ? '•'.repeat(Math.min(rec.discontent, 3)) : '';
+    card.innerHTML = `
+      <span class="scroll-gen-emoji">${gen.emoji}</span>
+      <span class="scroll-gen-name">${gen.name}</span>
+      <span class="scroll-gen-state">${comfortStr}${discontentStr ? ' <span style="color:var(--rust)">'+discontentStr+'</span>' : ''}</span>
+    `;
+    if (!isDispatched) {
+      card.onclick = () => selectScrollGeneral(gen.id);
+    }
+    row.appendChild(card);
+  });
+}
+
+function selectScrollGeneral(genId){
+  if (!S.activeDispatch) return;
+  S.activeDispatch.selectedGeneral = S.activeDispatch.selectedGeneral === genId ? null : genId;
+  renderScrollGenerals();
+  updateScrollSealBtn();
+}
+
+function renderScrollResources(){
+  const row = document.getElementById('scroll-res-row');
+  row.innerHTML = '';
+  const res = S.activeDispatch?.committed || {troops:0,grain:0,coin:0};
+  const icons = {troops:'⚔', grain:'🌾', coin:'🪙'};
+  ['troops','grain','coin'].forEach(key => {
+    const item = document.createElement('div');
+    item.className = 'scroll-res-item';
+    item.innerHTML = `
+      <span class="scroll-res-icon">${icons[key]}</span>
+      <span class="scroll-res-btn" onclick="adjustScrollResource('${key}',-1)">−</span>
+      <span class="scroll-res-count">${res[key]}</span>
+      <span class="scroll-res-btn" onclick="adjustScrollResource('${key}',1)">+</span>
+      <span class="scroll-res-pool">of ${S.resources[key]}</span>
+    `;
+    row.appendChild(item);
+  });
+}
+
+function adjustScrollResource(key, delta){
+  if (!S.activeDispatch) return;
+  const newVal = S.activeDispatch.committed[key] + delta;
+  if (newVal < 0 || newVal > S.resources[key]) return;
+  S.activeDispatch.committed[key] = newVal;
+  renderScrollResources();
+  updateScrollSealBtn();
+}
+
+function updateScrollSealBtn(){
+  const d = S.activeDispatch;
+  if (!d) return;
+  const total = d.committed.troops + d.committed.grain + d.committed.coin;
+  const hasGen = d.selectedGeneral !== null;
+  const hasRes = total > 0;
+  const preview = document.getElementById('scroll-cost-preview');
+  const sealBtn = document.querySelector('#scroll-seal-row .btn');
+
+  if (hasGen && hasRes) {
+    const gen = GENERALS.find(g => g.id === d.selectedGeneral);
+    preview.textContent = `${gen.name} departs with ${total} reserve${total>1?'s':''}`;
+    sealBtn.style.opacity = '1';
+    sealBtn.style.pointerEvents = 'auto';
+  } else {
+    preview.textContent = !hasGen ? 'Select a general' : 'Commit at least 1 reserve';
+    sealBtn.style.opacity = '0.3';
+    sealBtn.style.pointerEvents = 'none';
+  }
+}
+
+async function sealDispatch(){
+  const d = S.activeDispatch;
+  if (!d || !d.selectedGeneral) return;
+  const total = d.committed.troops + d.committed.grain + d.committed.coin;
+  if (total <= 0) return;
+
+  // Deduct resources
+  S.resources.troops -= d.committed.troops;
+  S.resources.grain -= d.committed.grain;
+  S.resources.coin -= d.committed.coin;
+
+  // Track generosity
+  S.generosity += total;
+
+  // Set pending dispatch
+  S.pendingDispatch = { ...d };
+  S.dispatchedGeneral = d.selectedGeneral;
+  S.activeDispatch = null;
+
+  // Roll up scroll
+  const scroll = document.getElementById('scroll');
+  scroll.classList.remove('unrolled');
+  await sleep(700);
+
+  // Hide overlay
+  document.getElementById('scroll-overlay').classList.remove('visible');
+  await sleep(300);
+
+  updateStatus();
+
+  // Now proceed to next kingdom
+  loadKingdom();
+}
+
+function resolveDispatch(){
+  const d = S.pendingDispatch;
+  if (!d) return null;
+
+  const gen = GENERALS.find(g => g.id === d.selectedGeneral);
+  const rec = S.generalRecords[gen.id];
+  const res = d.committed;
+
+  let chance = 0.5 - d.difficulty;
+  chance += rec.wins * 0.03;
+  chance -= rec.losses * 0.02;
+  chance += rec.comfort * 0.03;
+  chance -= rec.discontent * 0.05;
+  chance += res.troops * 0.08;
+  chance += res.grain * 0.04;
+  chance = Math.max(0.05, Math.min(0.92, chance));
+
+  const success = Math.random() < chance;
+
+  // Coin bonus on success
+  let bonus = null;
+  if (success && res.coin > 0) {
+    const roll = Math.random();
+    if (roll < 0.33) bonus = { troops:1 };
+    else if (roll < 0.66) bonus = { grain:1 };
+    else bonus = { coin: res.coin + 1 };
+
+    Object.entries(bonus).forEach(([k,v]) => { S.resources[k] += v; });
+  }
+
+  // Generate report text
+  const report = generateReport(gen, rec, d, success, bonus);
+
+  // Update general record
+  if (success) rec.wins++; else rec.losses++;
+
+  // Store in history
+  S.dispatchHistory.push({
+    dispatch: d, success, report, bonus,
+    generalId: gen.id,
+  });
+
+  // Clear pending
+  S.pendingDispatch = null;
+  S.dispatchedGeneral = null;
+
+  return { success, report, bonus, gen };
+}
+
+function generateReport(gen, rec, dispatch, success, bonus){
+  // Determine mood
+  let mood = 'standard';
+  if (rec.comfort >= 2 && rec.discontent === 0) mood = 'detailed';
+  else if (rec.discontent >= 2) mood = 'terse';
+  else if (rec.vendettaCount >= 2 && Math.random() < 0.4) mood = 'vendetta';
+
+  const templates = {
+    detailed: {
+      success: [
+        `We arrived at the ${dispatch.title} as ordered. I committed the troops to the forward position and held reserves for the second engagement. The objective is complete. The garrison holds. I remain.`,
+        `The ${dispatch.title} unfolded as expected. I took the measure of the situation early, deployed with care, and we prevailed. The road is secure. I will return when ready.`,
+      ],
+      failure: [
+        `The ${dispatch.title} did not go as planned. I committed everything we had, positioned carefully, but they were prepared. We were forced to withdraw. I take responsibility.`,
+        `I led us into the ${dispatch.title} with confidence. It was not enough. The terrain, the numbers — I misjudged. We return diminished. I am sorry.`,
+      ],
+    },
+    terse: {
+      success: ['Handled.', 'Done. Returning.', 'It is finished.'],
+      failure: ['It did not go well. Returning.', 'Failed.', 'We were not enough.'],
+    },
+    vendetta: {
+      success: [
+        `The mission was straightforward. Unrelated — I encountered forces bearing marks I have seen before. I adjusted our approach. The objective is complete.`,
+        `The ${dispatch.title} is done. On the road back, I saw banners I recognized. Old business. It did not interfere. This time.`,
+      ],
+      failure: [
+        `I was distracted. Faces in the enemy ranks — I knew them. The ${dispatch.title} suffered for it. I will not pretend otherwise.`,
+        `The mission failed. I saw someone I have been looking for. It cost us focus. I accept the consequence.`,
+      ],
+    },
+    standard: {
+      success: [
+        `The ${dispatch.title} is resolved. Your reserves were sufficient and the objective met. I am returning to the front.`,
+        `Mission complete. The ${dispatch.title} went cleanly. Reserves spent wisely. Returning.`,
+      ],
+      failure: [
+        `The ${dispatch.title} proved too much. We did what we could with what we had. Returning to report.`,
+        `I was unable to complete the ${dispatch.title}. The difficulty exceeded our preparation. I return to accept your judgment.`,
+      ],
+    },
+  };
+
+  const pool = success ? templates[mood].success : templates[mood].failure;
+  let text = pool[Math.floor(Math.random() * pool.length)];
+
+  if (bonus) {
+    const parts = [];
+    if (bonus.troops) parts.push(`⚔${bonus.troops} troops`);
+    if (bonus.grain) parts.push(`🌾${bonus.grain} grain`);
+    if (bonus.coin) parts.push(`🪙${bonus.coin} coin`);
+    text += `\n\nBonus acquired: ${parts.join(', ')}.`;
+  }
+
+  return { text, mood, from: gen.name };
+}
+
+async function showReportScroll(result){
+  const overlay = document.getElementById('scroll-overlay');
+  const baoCall = document.getElementById('bao-call');
+  const scroll = document.getElementById('scroll');
+
+  // Switch to report mode
+  document.getElementById('scroll-dispatch').style.display = 'none';
+  document.getElementById('scroll-report').style.display = '';
+
+  // Populate report
+  document.getElementById('report-scroll-title').textContent = result.gen
+    ? `REPORT: ${S.dispatchHistory[S.dispatchHistory.length-1]?.dispatch.title.toUpperCase() || 'DISPATCH'}`
+    : 'DISPATCH REPORT';
+  document.getElementById('report-scroll-from').textContent = result.gen
+    ? `FROM ${result.gen.name.toUpperCase()}`
+    : '';
+  document.getElementById('report-scroll-body').textContent = result.report.text;
+
+  // Show overlay
+  overlay.classList.add('visible');
+  await sleep(300);
+
+  // Unroll
+  scroll.classList.add('unrolled');
+
+  // Wait for player to dismiss
+  return new Promise(resolve => {
+    window._dismissReportResolve = resolve;
+  });
+}
+
+async function dismissReport(){
+  const scroll = document.getElementById('scroll');
+  scroll.classList.remove('unrolled');
+  await sleep(700);
+  document.getElementById('scroll-overlay').classList.remove('visible');
+  await sleep(300);
+
+  if (window._dismissReportResolve) {
+    window._dismissReportResolve();
+    window._dismissReportResolve = null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// ADVANCE
+// ═══════════════════════════════════════════════════════
+
+function advancePhase(){
+  hideModal();
+  const wins=S.results?S.results.filter(r=>r==='win').length:0;
+  S.pendingTitleAwards=[];
+  if(wins>=3){
+    S.kingdomIdx++;
+    if(S.kingdomIdx>=KINGDOMS[S.continent].length){
+      S.continent++;S.kingdomIdx=0;S.vendettas=[];S.enemyKnowledge=new Map();
+      S.enemyDispositions={};S.vendettaAllies=[];
+      if(S.continent>=KINGDOMS.length){
+        showModal('👑','The World Falls','No kingdom remains to oppose the eternal winter.');return;
+      }
+      setLog('<span class="lm">Continent falls. The march continues into new lands.</span>');
+    } else {
+      spreadKnowledge();
+    }
+    // 報! — dispatch scroll between kingdoms
+    const totalRes = S.resources.troops + S.resources.grain + S.resources.coin;
+    if(S.victories >= 1 && !S.pendingDispatch && totalRes > 0){
+      showDispatchScroll(); // loadKingdom() called after seal
+    } else {
+      loadKingdom();
+    }
+  } else {
+    S.assignments={};S.results=null;S.orders={};S.selectedPos=null;S.phase='assign';
+    S.advisorPlan=null;S.advisorFollowed=false;
+    setPhase('ASSIGN YOUR GENERALS');
+    document.getElementById('assign-ui').classList.add('active');
+    document.getElementById('assign-ui').style.display='';
+    document.getElementById('adv-btn').style.display='none';
+    document.getElementById('controls').querySelectorAll('.btn-dim,.btn-adv').forEach(b=>b.disabled=false);
+    renderAssignUI();updateBattleBtn();
+  }
+  updateStatus();
+}
+
+function loadKingdom(){
+  const k=KINGDOMS[S.continent][S.kingdomIdx];
+  S.enemyLineup=[...k.army];
+  S.results=null;S.orders={};S.selectedPos=null;S.assignments={};
+  S.iceLineup=['g0','g1','g2','g3','g4'];
+  S.phase='assign';S.advisorPlan=null;S.advisorFollowed=false;
+  setPhase('ASSIGN YOUR GENERALS');
+  document.getElementById('assign-ui').classList.add('active');
+  document.getElementById('assign-ui').style.display='';
+  document.getElementById('adv-btn').style.display='none';
+  document.getElementById('advisor-panel').classList.remove('visible');
+  document.getElementById('controls').querySelectorAll('.btn-dim,.btn-adv').forEach(b=>b.disabled=false);
+  closeReport();renderAssignUI();updateBattleBtn();
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+
+function formatEarned(earned){
+  const parts=[];
+  if(earned.troops) parts.push(`⚔${earned.troops}`);
+  if(earned.grain) parts.push(`🌾${earned.grain}`);
+  if(earned.coin) parts.push(`🪙${earned.coin}`);
+  return parts.length>0?`Reserves gained: ${parts.join(' ')}`:'';
+}
+function setPhase(t){document.getElementById('phase').textContent=t;}
+function setLog(h){document.getElementById('log').innerHTML=h;}
+function updateBattleBtn(){
+  const activeGenerals=GENERALS.filter(g=>g.id!==S.dispatchedGeneral);
+  const ready=S.phase==='arrange'&&activeGenerals.every(g=>S.assignments[g.id]);
+  document.getElementById('battle-btn').disabled=!ready;
+}
+function updateStatus(){
+  document.getElementById('s-cont').textContent=['I','II','III'][S.continent]||S.continent+1;
+  document.getElementById('s-king').textContent=S.kingdomIdx+1;
+  document.getElementById('s-vic').textContent=S.victories;
+  document.getElementById('s-vend').textContent=S.vendettas.length;
+  const total=S.resources.troops+S.resources.grain+S.resources.coin;
+  const resChip=document.getElementById('res-chip');
+  if(total>0){
+    resChip.style.display='';
+    document.getElementById('s-troops').textContent=S.resources.troops;
+    document.getElementById('s-grain').textContent=S.resources.grain;
+    document.getElementById('s-coin').textContent=S.resources.coin;
+  }
+}
+function showModal(em,title,text){
+  document.getElementById('m-em').textContent=em;
+  document.getElementById('m-title').textContent=title;
+  document.getElementById('m-text').textContent=text;
+  document.getElementById('modal').classList.remove('hidden');
+}
+function hideModal(){document.getElementById('modal').classList.add('hidden');}
+function quadBez(p0,p1,p2,t){return(1-t)*(1-t)*p0+2*(1-t)*t*p1+t*t*p2;}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+}
+function lighten(hex,a){
+  const n=parseInt(hex.slice(1),16);
+  return `rgb(${Math.min(255,((n>>16)&255)+Math.round(a*255))},${Math.min(255,((n>>8)&255)+Math.round(a*255))},${Math.min(255,(n&255)+Math.round(a*255))})`;
+}
+function darken(hex,a){
+  const n=parseInt(hex.slice(1),16);
+  return `rgb(${Math.max(0,((n>>16)&255)-Math.round(a*255))},${Math.max(0,((n>>8)&255)-Math.round(a*255))},${Math.max(0,(n&255)-Math.round(a*255))})`;
+}
+
+// ═══════════════════════════════════════════════════════
+// SNOW
+// ═══════════════════════════════════════════════════════
+
+function spawnSnow(){
+  const c=document.getElementById('snow');
+  const g=['❄','❅','❆','·','*'];
+  for(let i=0;i<22;i++){
+    const s=document.createElement('div');s.className='sf';
+    s.textContent=g[Math.floor(Math.random()*g.length)];
+    s.style.left=Math.random()*100+'vw';
+    s.style.animationDuration=(9+Math.random()*14)+'s';
+    s.style.animationDelay=-(Math.random()*14)+'s';
+    s.style.fontSize=(6+Math.random()*7)+'px';
+    c.appendChild(s);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════
+
+function init(){
+  resize();
+  window.addEventListener('resize',resize);
+  const k=KINGDOMS[S.continent][S.kingdomIdx];
+  S.enemyLineup=[...k.army];
+  renderAssignUI();updateStatus();
+  requestAnimationFrame(draw);
+  setLog('<span class="lm">❄ The Ice Kingdom assembles.</span><br><span style="color:rgba(168,216,234,0.4);font-style:italic">Assign armies. Draw orders. Conquer.</span>');
+  // Hub integration
+  if(window.parent!==window){
+    try{window.parent.postMessage({type:'hub:minimize'},'*');}catch(e){}
+  }
+}
+
+init();
+</script>
+</body>
+</html>

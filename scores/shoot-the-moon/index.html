@@ -1,0 +1,2375 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Shoot the Moon</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#08081a;touch-action:none;user-select:none;font-family:'Courier New',monospace}
+canvas{display:block;position:absolute;top:0;left:0}
+#label-panel{position:absolute;bottom:0;left:0;right:0;display:none;padding:8px;background:rgba(8,8,26,0.92);border-top:1px solid rgba(255,255,255,0.08);overflow-x:auto;white-space:nowrap;z-index:10}
+.label-chip{display:inline-block;padding:6px 12px;margin:3px 4px;border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:rgba(255,255,255,0.7);font-size:12px;cursor:pointer;transition:border-color 0.2s,color 0.2s}
+.label-chip:hover{border-color:rgba(255,255,255,0.4);color:#fff}
+.label-chip .axis-dots{display:block;font-size:9px;color:rgba(255,255,255,0.35);margin-top:2px}
+#target-name{position:absolute;bottom:68px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.3);font-size:11px;display:none;z-index:11;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="label-panel"></div>
+<div id="target-name"></div>
+<script>
+// ===== HUB INTEGRATION =====
+try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
+
+// ===== CONSTANTS =====
+const TAU = Math.PI * 2;
+const GRAVITY = 28;
+const MOON_RADIUS = 36;
+const ROCKET_W = 16;
+const ROCKET_H = 34;
+
+// ===== LABEL DEFINITIONS =====
+const ALL_LABELS = [
+  { name: '+20% juice',                thrust:1.8, wobble:0,    confidence:0,    magnetism:0,   drag:0 },
+  { name: '+10% secondary wobble',     thrust:0,   wobble:1.2,  confidence:0,    magnetism:0,   drag:0 },
+  { name: 'enhanced thrust vibes',     thrust:0.8, wobble:0.3,  confidence:0.4,  magnetism:0,   drag:0 },
+  { name: '+15% existential confidence',thrust:0,  wobble:-0.5, confidence:1.5,  magnetism:0,   drag:0 },
+  { name: 'aerodynamic probably',       thrust:0,  wobble:-0.4, confidence:0,    magnetism:0,   drag:-0.8 },
+  { name: 'bonus shimmer',             thrust:0.3, wobble:0.2,  confidence:0.2,  magnetism:0.3, drag:-0.1 },
+  { name: '+8% meaningful velocity',   thrust:0.7, wobble:0,    confidence:0.3,  magnetism:0,   drag:0 },
+  { name: 'structural integrity (vibes)',thrust:0, wobble:-0.6, confidence:0.8,  magnetism:0,   drag:0 },
+  { name: '+12% moon magnetism',       thrust:0,   wobble:0,    confidence:0,    magnetism:1.4, drag:0 },
+  { name: 'certified galaxy brain',    thrust:0.6, wobble:0,    confidence:1.0,  magnetism:0.5, drag:0 },
+  { name: 'optimistic trajectory',     thrust:0.5, wobble:0,    confidence:0.6,  magnetism:0.4, drag:0 },
+  { name: 'turbo (probably)',           thrust:2.0, wobble:0.8,  confidence:-0.5, magnetism:0,   drag:0 },
+  { name: 'gentle nudge',              thrust:0.2, wobble:0,    confidence:0.2,  magnetism:0.6, drag:0 },
+  { name: 'chrome finish',             thrust:0,   wobble:0,    confidence:0,    magnetism:0,   drag:-1.0 },
+  { name: 'concerning rumble',          thrust:1.2, wobble:1.0,  confidence:-0.3, magnetism:0,   drag:0.3 },
+  { name: 'magnetic personality',       thrust:0,  wobble:0,    confidence:0,    magnetism:1.8, drag:0 },
+  { name: 'extra everything',          thrust:0.5, wobble:0.5,  confidence:0.5,  magnetism:0.5, drag:0.5 },
+  { name: 'quiet certainty',           thrust:0,   wobble:-0.3, confidence:1.8,  magnetism:0,   drag:0 },
+  { name: 'reckless abandon',          thrust:1.5, wobble:1.2,  confidence:-0.8, magnetism:0,   drag:-0.3 },
+  { name: 'the good one',              thrust:0.4, wobble:-0.2, confidence:0.4,  magnetism:0.8, drag:-0.2 },
+  // --- Phased labels ---
+  // Launch phase (0 → 0.4s) — first burst
+  { name: 'ignition protocol',    thrust:2.5, wobble:0,    confidence:0,    magnetism:0,   drag:0,    phase:'launch' },
+  { name: 'launch stabilizer',    thrust:0,   wobble:-1.0, confidence:1.5,  magnetism:0,   drag:0,    phase:'launch' },
+  // Early phase (0 → 1.2s) — sustained burn
+  { name: 'afterburner',          thrust:1.8, wobble:0.5,  confidence:0,    magnetism:0,   drag:-0.4, phase:'early' },
+  { name: 'early jitters',        thrust:0.3, wobble:1.8,  confidence:-0.5, magnetism:0,   drag:0,    phase:'early' },
+  // Mid phase (1.0 → 2.5s) — coasting
+  { name: 'course correction',    thrust:0,   wobble:-0.5, confidence:2.0,  magnetism:0.5, drag:0,    phase:'mid' },
+  { name: 'mid-flight crisis',    thrust:0,   wobble:1.2,  confidence:-1.0, magnetism:0,   drag:0.5,  phase:'mid' },
+  { name: 'gravity well',         thrust:0,   wobble:0,    confidence:0,    magnetism:2.5, drag:0,    phase:'mid' },
+  // Late phase (2.0s → end) — final approach
+  { name: 'late burn',            thrust:2.2, wobble:0.3,  confidence:0,    magnetism:0,   drag:0,    phase:'late' },
+  { name: 'last-second doubt',    thrust:0,   wobble:0.8,  confidence:-1.5, magnetism:0,   drag:0.3,  phase:'late' },
+  { name: 'homing instinct',      thrust:0,   wobble:-0.3, confidence:1.0,  magnetism:2.0, drag:0,    phase:'late' },
+];
+
+// ===== VENDOR GADGETS =====
+const GADGET_TEMPLATES = [
+  { name: 'lunar tether',       thrust:0,    wobble:-0.5, confidence:0,   magnetism:2.0, drag:0 },
+  { name: 'gyroscope (used)',    thrust:0,    wobble:-1.5, confidence:0.5, magnetism:0,   drag:0 },
+  { name: 'mystery fuel',        thrust:1.0,  wobble:0,    confidence:0,   magnetism:0,   drag:-0.5 },
+  { name: 'sympathy engine',     thrust:0.3,  wobble:0,    confidence:1.0, magnetism:1.0, drag:0 },
+  { name: 'lead balloon',        thrust:-0.5, wobble:0,    confidence:0,   magnetism:0,   drag:1.5 },
+  { name: 'something borrowed',  thrust:0.5,  wobble:0.5,  confidence:0.5, magnetism:0.5, drag:0.5 },
+  { name: 'wind chime',          thrust:0,    wobble:0.8,  confidence:-0.3,magnetism:0.8, drag:-0.2 },
+  { name: 'fresh coat of paint', thrust:0,    wobble:0,    confidence:1.2, magnetism:0,   drag:-0.3 },
+];
+
+// ===== SNEER VOCABULARY =====
+const SNEERS_EARLY = ["heh, I'll win.", "mine is better. obviously.", "bold choice. bold.", "cute rocket."];
+const SNEERS_MID = ["sure. sure sure sure.", "interesting.", "oh you think so.", "okay then."];
+const SNEERS_LATE = ["...", "heh, yeah.", "we're really doing this.", "it's fine."];
+const SNEERS_EMPTY = ["...", "well.", "thought so."];
+
+// ===== RIVAL CUT-INS =====
+const RIVAL_INTROS = {
+  pell: {
+    name: 'PELL', color: 'rgba(240,170,80,1)',
+    bg: 'rgba(40,28,12,0.92)', border: 'rgba(240,170,80,0.6)',
+    lines: ["heh.", "room for one more?", "I saw the rocket.", "don't mind me."],
+  },
+  corvus: {
+    name: 'CORVUS', color: 'rgba(120,160,230,1)',
+    bg: 'rgba(12,18,40,0.92)', border: 'rgba(120,160,230,0.6)',
+    lines: ["interesting.", "three's a crowd.", "I brought my own.", "this should be fun."],
+  },
+};
+const VENDOR_RIVAL_LINES = {
+  pell: ["oh. company.", "this just got interesting.", "another one. sure."],
+  corvus: ["oh no. not this one.", "okay, three rockets.", "well. here we go."],
+};
+
+// ===== VENDOR =====
+const VENDOR_PAL = {
+  hair: '#1a1a2e', skin: '#d4a574', glasses: '#4a6fa5', lens: '#c8dbe8',
+  coat: '#e8e0d0', coatShade: '#cfc8b8', accent: '#d35f5f', mouth: '#b07050',
+};
+const VENDOR_LINES = [
+  "got something for you.", "fresh in.", "trust me on this one.",
+  "you'll like this.", "just arrived.", "don't ask where I got it.",
+  "this one's interesting.", "been saving this.",
+];
+const VENDOR_APPLY_LINES = {
+  thrust: ["ooh, more thrust!", "raw power. I like it.", "that'll move."],
+  wobble: ["wobble? bold.", "chaotic. I respect it.", "this'll be interesting."],
+  confidence: ["confidence boost. smart.", "steady hands.", "focus. nice."],
+  magnetism: ["the moon will feel that.", "pull it closer.", "magnetic."],
+  drag: ["drag? brave choice.", "slow and steady?", "that's a lot of resistance."],
+};
+const VENDOR_ESCALATE = [
+  "this is getting interesting.", "okay NOW we're cooking.",
+  "oh this rocket is something.", "I have a very good feeling.",
+  "this might actually work!", "we've built something special.",
+];
+
+// ===== FOOD =====
+const DISHES = [
+  { name: 'rice ball',    emoji: '🍙', thrust: 0.3,  wobble: -0.2, confidence: 0,   magnetism: 0,   drag: 0,    tip: 'steady. filling.' },
+  { name: 'hot ramen',    emoji: '🍜', thrust: 0.8,  wobble: 0.4,  confidence: 0,   magnetism: 0,   drag: 0,    tip: 'fuel. messy fuel.' },
+  { name: 'moon cake',    emoji: '🥮', thrust: 0,    wobble: 0,    confidence: 0,   magnetism: 0.6, drag: 0,    tip: 'it knows the way.' },
+  { name: 'mystery wrap',  emoji: '🌯', thrust: 0.5,  wobble: 0.5,  confidence: 0.3, magnetism: 0,   drag: 0,    tip: "don't ask. just eat." },
+  { name: 'star candy',   emoji: '🍬', thrust: 0,    wobble: 0,    confidence: 0.8, magnetism: 0,   drag: -0.3, tip: 'tastes like belief.' },
+];
+const DRINKS = [
+  { name: 'green tea',      emoji: '🍵', thrust: 0,   wobble: -0.3, confidence: 0.5, magnetism: 0,   drag: 0,    tip: 'calm. focused.' },
+  { name: 'rocket fuel',    emoji: '☕', thrust: 0.6, wobble: 0.3,  confidence: 0,   magnetism: 0,   drag: 0,    tip: 'not actually coffee.' },
+  { name: 'moon milk',      emoji: '🥛', thrust: 0,   wobble: 0,    confidence: 0.2, magnetism: 0.4, drag: 0,    tip: 'the moon can taste this.' },
+  { name: 'fizzy something', emoji: '🧃', thrust: 0,   wobble: 0.5,  confidence: 0,   magnetism: 0,   drag: -0.3, tip: 'unpredictable. exciting.' },
+  { name: 'warm broth',     emoji: '🫕', thrust: 0.2, wobble: -0.2, confidence: 0.3, magnetism: 0,   drag: 0,    tip: 'comfort in a cup.' },
+];
+
+// ===== STATE =====
+const S = {
+  phase: 'pristine',
+  w: 0, h: 0,
+  time: 0,
+  groundY: 0,
+  moonX: 0, moonY: 0,
+
+  moon: {
+    breatheT: 0, scale: 1, glow: 0, lean: 0,
+    nervousT: 0, nervous: false, bandage: false, hitBy: null, hitAngle: 0,
+  },
+
+  // player rocket
+  rocket: {
+    x: 0, y: 0, labels: [], gadgets: [],
+    physics: { thrust:1.0, wobble:0, confidence:0.3, magnetism:0, drag:0.2 },
+    color: 'rgba(220,225,235,1)',
+    owner: 'player',
+  },
+
+  rivals: [],
+  pellArrived: false,
+  corvusArrived: false,
+  totalLabelsApplied: 0,
+
+  labelPool: [],
+
+  vendor: {
+    visible: false, current: null, lineIdx: 0, fadeT: 0, gadgetIdx: 0,
+    expr: 'idle', exprT: 0, blinkT: 0, bounceT: 0,
+    comment: '', commentAlpha: 0,
+    x: 30, targetX: 30, // position (walks between left home and right lunch side)
+    cooldown: 0, // gadget apply cooldown
+  },
+  lunch: {
+    visible: false, alpha: 0,
+    phase: 'none', // 'none' | 'dish' | 'drink' | 'done'
+    options: [], chosen: null, pauseT: 0, meal: null,
+    tipText: '', tipAlpha: 0,
+  },
+  applyAnim: { active: false, t: 0, duration: 0, label: null, targetRocket: null },
+  hoverX: 0, hoverY: 0,
+
+  // flight sim
+  flights: [],
+  launchT: 0,
+  launching: false,
+
+  // countdown (pre-launch buildup)
+  countdown: { active: false, t: 0, duration: 2200 },
+
+  // stall
+  stall: { active: false, t: 0, startY: 0, peakY: 0, rocketOwner: 'player' },
+
+  // pristine shot
+  pristineShot: { active: false, flight: null },
+
+  // text
+  text: { content: '', alpha: 0, targetAlpha: 1 },
+  note: { content: '', alpha: 0, timer: 0 },
+
+  // label panel
+  labelPanelOpen: false,
+  labelTarget: null, // 'player' | rival name
+
+  // card draw system
+  cardDraw: { cards: [], visible: false, target: null },
+
+  // effects
+  shakeX: 0, shakeY: 0, shakeMag: 0, groundTremor: 0,
+  particles: [],
+  stars: [],
+
+  // zoom + camera
+  zoom: 1, zoomTarget: 1,
+  cameraY: 0, cameraYTarget: 0,
+
+  // cut-in overlay
+  cutIn: { queue: [], active: false, current: null, t: 0, phase: 'none' },
+
+  // tinkering timers
+  tinkerT: 0,
+  groundAlpha: 0,
+
+  // outcome
+  outcomeT: 0,
+  choiceReady: false,
+
+  inputLocked: false,
+};
+
+// ===== CANVAS =====
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  S.w = window.innerWidth;
+  S.h = window.innerHeight;
+  canvas.width = S.w * dpr;
+  canvas.height = S.h * dpr;
+  canvas.style.width = S.w + 'px';
+  canvas.style.height = S.h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  S.groundY = S.h * 0.82;
+  S.moonX = S.w * 0.5;
+  S.moonY = S.h * 0.13;
+
+  layoutRockets();
+}
+
+function layoutRockets() {
+  const cx = S.w * 0.5;
+  S.rocket.x = cx;
+  S.rocket.y = S.groundY - ROCKET_H / 2;
+
+  const spacing = Math.min(120, S.w * 0.22);
+  S.rivals.forEach((r, i) => {
+    r.rocket.x = cx + (i === 0 ? -spacing : spacing);
+    r.rocket.y = S.groundY - ROCKET_H / 2;
+  });
+}
+
+window.addEventListener('resize', resize);
+
+// ===== UTILITIES =====
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+function easeOutQuad(t) { return t * (2 - t); }
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeInOutQuad(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+function easeOutBack(t) { const c = 1.7; return 1 + (--t) * t * ((c + 1) * t + c); }
+
+function hsl(h, s, l, a) {
+  if (a !== undefined) return `hsla(${h},${s}%,${l}%,${a})`;
+  return `hsl(${h},${s}%,${l}%)`;
+}
+
+function dist(x1, y1, x2, y2) {
+  const dx = x1 - x2, dy = y1 - y2;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function hitCircle(px, py, cx, cy, r) { return dist(px, py, cx, cy) < r; }
+function hitRect(px, py, rx, ry, rw, rh) { return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh; }
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function primaryAxis(label) {
+  let best = 'thrust', bestVal = 0;
+  for (const k of ['thrust','wobble','confidence','magnetism','drag']) {
+    if (Math.abs(label[k]) > bestVal) { bestVal = Math.abs(label[k]); best = k; }
+  }
+  return best;
+}
+
+function axisBar(label) {
+  const axes = ['T','W','C','M','D'];
+  const vals = [label.thrust, label.wobble, label.confidence, label.magnetism, label.drag];
+  return vals.map((v,i) => v > 0 ? '+'+axes[i] : v < 0 ? '-'+axes[i] : '').filter(Boolean).join(' ');
+}
+
+// ===== PHYSICS =====
+function recomputePhysics(rocket) {
+  const p = { thrust: 1.0, wobble: 0, confidence: 0.3, magnetism: 0, drag: 0.2 };
+  for (const l of rocket.labels) {
+    p.thrust += l.thrust; p.wobble += l.wobble; p.confidence += l.confidence;
+    p.magnetism += l.magnetism; p.drag += l.drag;
+  }
+  for (const g of rocket.gadgets) {
+    p.thrust += g.thrust; p.wobble += g.wobble; p.confidence += g.confidence;
+    p.magnetism += g.magnetism; p.drag += g.drag;
+  }
+  rocket.physics = p;
+}
+
+// Phase colors: launch=warm white, early=orange, mid=cyan, late=violet
+const PHASE_HUES = { launch: 40, early: 30, mid: 190, late: 275 };
+
+function isPhaseActive(phase, t) {
+  if (!phase || phase === 'always') return true;
+  if (phase === 'launch') return t < 0.4;
+  if (phase === 'early') return t < 1.2;
+  if (phase === 'mid') return t >= 1.0 && t < 2.5;
+  if (phase === 'late') return t >= 2.0;
+  return true;
+}
+
+function computeActivePhysics(f) {
+  const p = { thrust: 1.0, wobble: 0, confidence: 0.3, magnetism: 0, drag: 0.2 };
+  for (const l of f.labels) {
+    if (!isPhaseActive(l.phase, f.t)) continue;
+    p.thrust += l.thrust; p.wobble += l.wobble; p.confidence += l.confidence;
+    p.magnetism += l.magnetism; p.drag += l.drag;
+  }
+  for (const g of f.gadgets) {
+    p.thrust += g.thrust; p.wobble += g.wobble; p.confidence += g.confidence;
+    p.magnetism += g.magnetism; p.drag += g.drag;
+  }
+  return p;
+}
+
+function totalMagnetism() {
+  let m = S.rocket.physics.magnetism;
+  for (const r of S.rivals) m += r.rocket.physics.magnetism;
+  return Math.max(0, m);
+}
+
+function createFlightBody(rocket, delay) {
+  const p = rocket.physics;
+  const wobbleInit = (Math.random() - 0.5) * Math.max(0, p.wobble) * 15;
+  const magLean = p.magnetism > 0 ? (S.moonX - rocket.x) * 0.003 * p.magnetism : 0;
+  return {
+    owner: rocket.owner,
+    color: rocket.color,
+    x: rocket.x,
+    y: rocket.y,
+    vx: wobbleInit + magLean,
+    vy: -(p.thrust * 186 + (Math.random() - 0.5) * 50),
+    wobblePhase: Math.random() * TAU,
+    startX: rocket.x, startY: rocket.y,
+    trail: [{ x: rocket.x, y: rocket.y, t: S.time, phaseShift: false }],
+    alive: true,
+    t: 0,
+    physics: { ...p },
+    labels: rocket.labels.map(l => ({ ...l })),
+    gadgets: rocket.gadgets.map(g => ({ ...g })),
+    activePhases: new Set(['always']),
+    launchDelay: delay,
+    exhaustTimer: 0,
+    stallTimer: 0,
+  };
+}
+
+function integrateFlight(f, dt) {
+  const dtSec = dt / 1000;
+  f.t += dtSec;
+
+  const p = computeActivePhysics(f);
+
+  // track phase activations for visual feedback
+  const phases = ['launch','early','mid','late'];
+  for (const ph of phases) {
+    const active = isPhaseActive(ph, f.t);
+    const wasActive = f.activePhases.has(ph);
+    if (active && !wasActive) {
+      f.activePhases.add(ph);
+      // emit phase activation particles
+      const phHue = PHASE_HUES[ph] || 0;
+      for (let i = 0; i < 6; i++) {
+        const a = Math.random() * TAU;
+        const spd = 15 + Math.random() * 30;
+        S.particles.push({
+          x: f.x + (Math.random()-0.5) * 8,
+          y: f.y + (Math.random()-0.5) * 8,
+          vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+          life: 1, decay: 0.02 + Math.random()*0.01,
+          size: 2 + Math.random() * 3,
+          color: `hsla(${phHue},80%,65%,1)`,
+        });
+      }
+      // mark trail point with phase shift
+      f.trail.push({ x: f.x, y: f.y, t: S.time, phaseShift: true, phaseHue: phHue });
+    } else if (!active && wasActive) {
+      f.activePhases.delete(ph);
+    }
+  }
+
+  // moon pull (magnetism)
+  const dx = S.moonX - f.x;
+  const dy = S.moonY - f.y;
+  const distM = Math.max(50, Math.sqrt(dx * dx + dy * dy));
+  const moonPull = (Math.max(0, p.magnetism) * 70) / Math.max(distM, 80);
+  const moonFx = (dx / distM) * moonPull;
+  const moonFy = (dy / distM) * moonPull;
+
+  // wobble
+  const wAmt = Math.max(0, p.wobble);
+  const wobbleF = Math.sin(S.time * 0.004 * (1 + wAmt * 0.4) + f.wobblePhase) * wAmt * 55;
+  const wobbleNoise = (Math.sin(S.time * 0.017 + f.wobblePhase * 3) - 0.5) * wAmt * 25;
+
+  // confidence: correction toward moon
+  const intAngle = Math.atan2(S.moonY - f.startY, S.moonX - f.startX);
+  const curAngle = Math.atan2(f.vy, f.vx);
+  let angleDiff = intAngle - curAngle;
+  while (angleDiff > Math.PI) angleDiff -= TAU;
+  while (angleDiff < -Math.PI) angleDiff += TAU;
+  const conf = Math.max(0, p.confidence);
+  const speed = Math.sqrt(f.vx * f.vx + f.vy * f.vy);
+  const corrX = speed > 1 ? angleDiff * conf * 1.8 * (-f.vy / speed) : 0;
+  const corrY = speed > 1 ? angleDiff * conf * 1.8 * (f.vx / speed) : 0;
+
+  // drag
+  const dragAmt = p.drag;
+  const dragFx = speed > 1 ? -(f.vx / speed) * speed * dragAmt * 0.4 : 0;
+  const dragFy = speed > 1 ? -(f.vy / speed) * speed * dragAmt * 0.4 : 0;
+
+  // sustained thrust (first 1s)
+  const sustainedThrust = f.t < 1.0 ? p.thrust * 100 * (1 - f.t) : 0;
+
+  // compose
+  const ax = moonFx + wobbleF + wobbleNoise + dragFx + corrX;
+  const ay = moonFy - sustainedThrust + GRAVITY + dragFy + corrY;
+
+  f.vx += ax * dtSec;
+  f.vy += ay * dtSec;
+  f.x += f.vx * dtSec;
+  f.y += f.vy * dtSec;
+
+  // trail (every ~30ms)
+  const lastTrail = f.trail[f.trail.length - 1];
+  if (S.time - lastTrail.t > 30) {
+    f.trail.push({ x: f.x, y: f.y, t: S.time, phaseShift: false });
+    if (f.trail.length > 120) f.trail.shift();
+  }
+
+  // exhaust particles
+  f.exhaustTimer += dt;
+  if (f.exhaustTimer > 25 && f.t < 1.5) {
+    f.exhaustTimer = 0;
+    const spd = Math.sqrt(f.vx*f.vx + f.vy*f.vy);
+    if (spd > 5) {
+      S.particles.push({
+        x: f.x + (Math.random()-0.5) * 6,
+        y: f.y + (f.vy < 0 ? 12 : -12),
+        vx: -f.vx * 0.05 + (Math.random()-0.5) * 15,
+        vy: -f.vy * 0.05 + (Math.random()-0.5) * 15 + 10,
+        life: 1, decay: 0.015 + Math.random()*0.01,
+        size: 2 + Math.random() * 3,
+        color: f.color,
+      });
+    }
+  }
+
+  // stall detection — after thrust window, if barely moving for 0.8s, end flight
+  if (f.t > 1.2) {
+    const spd = Math.sqrt(f.vx * f.vx + f.vy * f.vy);
+    const goingUp = f.vy < -5;
+    if (!goingUp && spd < 25) {
+      f.stallTimer += dtSec;
+      if (f.stallTimer > 0.8) f.alive = false;
+    } else {
+      f.stallTimer = 0;
+    }
+  }
+
+  // alive check
+  if (f.y > S.groundY + 40) f.alive = false; // fell back
+  if (f.y < -S.h) f.alive = false; // overshot way past
+  if (f.x < -300 || f.x > S.w + 300) f.alive = false; // drifted off
+}
+
+function checkMoonHit(f) {
+  const d = dist(f.x, f.y, S.moonX, S.moonY);
+  if (d < MOON_RADIUS * S.moon.scale + 10) {
+    f.alive = false;
+    S.moon.bandage = true;
+    S.moon.hitBy = f.owner;
+    S.moon.hitAngle = Math.atan2(f.y - S.moonY, f.x - S.moonX);
+    S.shakeMag = 10;
+    // flash particles
+    for (let i = 0; i < 20; i++) {
+      const a = Math.random() * TAU;
+      const spd = 30 + Math.random() * 60;
+      S.particles.push({
+        x: S.moonX, y: S.moonY,
+        vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+        life: 1, decay: 0.02, size: 2 + Math.random()*3,
+        color: 'rgba(255,255,200,1)',
+      });
+    }
+    return true;
+  }
+  return false;
+}
+
+function checkCollisions() {
+  for (let i = 0; i < S.flights.length; i++) {
+    for (let j = i + 1; j < S.flights.length; j++) {
+      const a = S.flights[i], b = S.flights[j];
+      if (!a.alive || !b.alive) continue;
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const minD = 18;
+      if (d < minD && d > 0.1) {
+        const nx = dx / d, ny = dy / d;
+        const dvx = a.vx - b.vx, dvy = a.vy - b.vy;
+        const dvn = dvx * nx + dvy * ny;
+        if (dvn > 0) continue;
+        a.vx -= dvn * nx * 0.8;
+        a.vy -= dvn * ny * 0.8;
+        b.vx += dvn * nx * 0.8;
+        b.vy += dvn * ny * 0.8;
+        const overlap = minD - d;
+        a.x += nx * overlap * 0.5;
+        a.y += ny * overlap * 0.5;
+        b.x -= nx * overlap * 0.5;
+        b.y -= ny * overlap * 0.5;
+        S.shakeMag = Math.max(S.shakeMag, 5);
+        for (let k = 0; k < 10; k++) {
+          const ang = Math.random() * TAU;
+          const spd = 20 + Math.random() * 40;
+          S.particles.push({
+            x: (a.x+b.x)/2, y: (a.y+b.y)/2,
+            vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+            life: 1, decay: 0.03, size: 1.5+Math.random()*2,
+            color: 'rgba(255,220,150,1)',
+          });
+        }
+      }
+    }
+  }
+}
+
+// ===== STARS =====
+function initStars() {
+  S.stars = [];
+  for (let i = 0; i < 35; i++) {
+    S.stars.push({
+      x: Math.random() * S.w,
+      y: Math.random() * S.h * 0.75,
+      size: 0.5 + Math.random() * 1.5,
+      alpha: 0.1 + Math.random() * 0.3,
+      twinkleSpeed: 0.001 + Math.random() * 0.003,
+      twinklePhase: Math.random() * TAU,
+    });
+  }
+}
+
+// ===== RIVAL CREATION =====
+function createRival(name, color) {
+  return {
+    name,
+    rocket: {
+      x: 0, y: 0, labels: [], gadgets: [],
+      physics: { thrust:1.0, wobble:0, confidence:0.3, magnetism:0, drag:0.2 },
+      color,
+      owner: name,
+    },
+    sneerText: '',
+    sneerAlpha: 0,
+    enterT: 0,
+    enterFrom: name === 'pell' ? -80 : S.w + 80,
+    arrived: false,
+  };
+}
+
+function rivalPickLabel(rival, preferredAxis) {
+  if (S.labelPool.length === 0) return null;
+  // prefer labels matching the axis
+  if (preferredAxis) {
+    const match = S.labelPool.findIndex(l => primaryAxis(l) === preferredAxis);
+    if (match >= 0) return S.labelPool.splice(match, 1)[0];
+  }
+  // random
+  const idx = Math.floor(Math.random() * S.labelPool.length);
+  return S.labelPool.splice(idx, 1)[0];
+}
+
+function rivalAddLabel(rival, preferredAxis) {
+  const label = rivalPickLabel(rival, preferredAxis);
+  if (!label) {
+    rivalSneer(rival, true);
+    return;
+  }
+  rival.rocket.labels.push(label);
+  recomputePhysics(rival.rocket);
+  S.totalLabelsApplied++;
+  rivalSneer(rival, false);
+}
+
+function rivalSneer(rival, empty) {
+  let pool;
+  if (empty) pool = SNEERS_EMPTY;
+  else if (S.totalLabelsApplied < 4) pool = SNEERS_EARLY;
+  else if (S.totalLabelsApplied < 8) pool = SNEERS_MID;
+  else pool = SNEERS_LATE;
+  rival.sneerText = pool[Math.floor(Math.random() * pool.length)];
+  rival.sneerAlpha = 1;
+}
+
+function spawnPell() {
+  if (S.pellArrived) return;
+  S.pellArrived = true;
+  const pell = createRival('pell', 'rgba(240,170,80,1)');
+  S.rivals.push(pell);
+  layoutRockets();
+  // copy player labels + 1 extra
+  for (const l of S.rocket.labels) {
+    const copy = rivalPickLabel(pell, primaryAxis(l));
+    if (copy) {
+      pell.rocket.labels.push(copy);
+      recomputePhysics(pell.rocket);
+      S.totalLabelsApplied++;
+    }
+  }
+  rivalAddLabel(pell, null);
+  queueCutIn('pell');
+  setTimeout(() => {
+    if (S.vendor.visible) {
+      const lines = VENDOR_RIVAL_LINES.pell;
+      vendorComment(lines[Math.floor(Math.random() * lines.length)], 'thinking');
+    }
+  }, 2000);
+}
+
+function spawnCorvus() {
+  if (S.corvusArrived) return;
+  S.corvusArrived = true;
+  const corvus = createRival('corvus', 'rgba(120,160,230,1)');
+  S.rivals.push(corvus);
+  layoutRockets();
+  // synthesize from player + pell axes
+  const axes = [];
+  for (const l of S.rocket.labels) axes.push(primaryAxis(l));
+  if (S.rivals[0]) for (const l of S.rivals[0].rocket.labels) axes.push(primaryAxis(l));
+  const count = Math.max(1, Math.floor(axes.length / 2));
+  for (let i = 0; i < count && S.labelPool.length > 0; i++) {
+    const ax = axes[i % axes.length];
+    rivalAddLabel(corvus, ax);
+  }
+  queueCutIn('corvus');
+  setTimeout(() => {
+    if (S.vendor.visible) {
+      const lines = VENDOR_RIVAL_LINES.corvus;
+      vendorComment(lines[Math.floor(Math.random() * lines.length)], 'thinking');
+    }
+  }, 2000);
+}
+
+// ===== VENDOR =====
+function initVendor() {
+  S.vendor.visible = true;
+  S.vendor.fadeT = 0;
+  nextGadget();
+  setTimeout(initVendorGreeting, 500);
+}
+
+function nextGadget() {
+  const idx = Math.floor(Math.random() * GADGET_TEMPLATES.length);
+  S.vendor.current = { ...GADGET_TEMPLATES[idx] };
+  S.vendor.lineIdx = Math.floor(Math.random() * VENDOR_LINES.length);
+}
+
+// ===== CUT-IN SYSTEM =====
+function queueCutIn(rivalKey) {
+  const info = RIVAL_INTROS[rivalKey];
+  const line = info.lines[Math.floor(Math.random() * info.lines.length)];
+  S.cutIn.queue.push({ name: info.name, color: info.color, bg: info.bg, border: info.border, line });
+  if (!S.cutIn.active) processCutInQueue();
+}
+
+function processCutInQueue() {
+  if (S.cutIn.queue.length === 0) {
+    S.cutIn.active = false;
+    S.cutIn.current = null;
+    S.cutIn.phase = 'none';
+    S.inputLocked = false;
+    return;
+  }
+  S.cutIn.active = true;
+  S.cutIn.current = S.cutIn.queue.shift();
+  S.cutIn.t = 0;
+  S.cutIn.phase = 'enter';
+  S.inputLocked = true;
+}
+
+function renderCutIn() {
+  if (!S.cutIn.active || !S.cutIn.current) return;
+  const ci = S.cutIn.current;
+  const barH = 72;
+  const baseY = S.h - barH;
+  let slideY;
+
+  if (S.cutIn.phase === 'enter') {
+    const t = easeOutCubic(clamp(S.cutIn.t / 300, 0, 1));
+    slideY = lerp(S.h, baseY, t);
+  } else if (S.cutIn.phase === 'hold') {
+    slideY = baseY;
+  } else if (S.cutIn.phase === 'exit') {
+    const t = clamp(S.cutIn.t / 300, 0, 1);
+    slideY = lerp(baseY, S.h, t * t);
+  } else return;
+
+  // bar background
+  ctx.fillStyle = ci.bg;
+  ctx.fillRect(0, slideY, S.w, barH);
+
+  // top border
+  ctx.strokeStyle = ci.border;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, slideY);
+  ctx.lineTo(S.w, slideY);
+  ctx.stroke();
+
+  // color accent bar on left edge
+  ctx.fillStyle = ci.color;
+  ctx.fillRect(0, slideY, 4, barH);
+
+  // rival name
+  ctx.font = '16px "Courier New", monospace';
+  ctx.fillStyle = ci.color;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(ci.name, 24, slideY + 26);
+
+  // sneer line
+  ctx.font = '12px "Courier New", monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText('"' + ci.line + '"', 24, slideY + 50);
+  ctx.textBaseline = 'alphabetic';
+}
+
+function applyGadget() {
+  if (!S.vendor.current) return;
+  if (S.vendor.cooldown > 0) return;
+  S.vendor.cooldown = 800; // 800ms cooldown between gadget clicks
+  const g = S.vendor.current;
+  S.rocket.gadgets.push(g);
+  recomputePhysics(S.rocket);
+  showNote(g.name + '.');
+  vendorComment(VENDOR_LINES[S.vendor.lineIdx], 'excited');
+  // optionally apply to a rival
+  if (S.rivals.length > 0 && Math.random() < 0.5) {
+    const r = S.rivals.reduce((a, b) => a.rocket.gadgets.length <= b.rocket.gadgets.length ? a : b);
+    r.rocket.gadgets.push({ ...g });
+    recomputePhysics(r.rocket);
+  }
+  nextGadget();
+}
+
+function vendorComment(text, expr) {
+  S.vendor.comment = text;
+  S.vendor.commentAlpha = 1;
+  if (expr) {
+    S.vendor.expr = expr;
+    S.vendor.exprT = 0;
+  }
+}
+
+function vendorCommentOnLabel(label) {
+  const axis = primaryAxis(label);
+  const lines = VENDOR_APPLY_LINES[axis] || VENDOR_APPLY_LINES.thrust;
+  const count = S.rocket.labels.length;
+  if (count >= 3 && Math.random() < 0.5) {
+    const idx = Math.min(count - 3, VENDOR_ESCALATE.length - 1);
+    vendorComment(VENDOR_ESCALATE[idx], 'excited');
+  } else {
+    vendorComment(lines[Math.floor(Math.random() * lines.length)], 'excited');
+  }
+}
+
+// ===== TEXT =====
+function showText(content) {
+  S.text.content = content;
+  S.text.alpha = 0;
+  S.text.targetAlpha = 1;
+}
+
+function showNote(content) {
+  S.note.content = content;
+  S.note.alpha = 1;
+  S.note.timer = 3000;
+}
+
+// ===== LABEL PANEL (legacy, hidden) =====
+const labelPanel = document.getElementById('label-panel');
+const targetNameEl = document.getElementById('target-name');
+
+function closeLabelPanel() {
+  S.labelPanelOpen = false;
+  S.labelTarget = null;
+  labelPanel.style.display = 'none';
+  targetNameEl.style.display = 'none';
+}
+
+// ===== CARD DRAW SYSTEM =====
+function jitterLabel(label) {
+  // Create a copy with small random jitter on non-zero axes
+  const jittered = { ...label };
+  for (const k of ['thrust','wobble','confidence','magnetism','drag']) {
+    if (Math.abs(jittered[k]) > 0.01) {
+      jittered[k] = Math.round((jittered[k] + (Math.random()-0.5) * 0.4) * 10) / 10;
+    } else if (Math.random() < 0.12) {
+      // small chance to add a tiny trace value
+      jittered[k] = Math.round((Math.random()-0.5) * 0.3 * 10) / 10;
+    }
+  }
+  // preserve phase
+  if (label.phase) jittered.phase = label.phase;
+  return jittered;
+}
+
+function drawCards(target) {
+  S.cardDraw.target = target;
+  S.cardDraw.visible = true;
+  S.cardDraw.cards = [];
+  const count = Math.min(3, S.labelPool.length);
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor(Math.random() * S.labelPool.length);
+    const base = S.labelPool.splice(idx, 1)[0];
+    S.cardDraw.cards.push(jitterLabel(base));
+  }
+}
+
+function closeCardDraw() {
+  // return unplayed cards to pool
+  for (const c of S.cardDraw.cards) {
+    S.labelPool.push(c);
+  }
+  S.cardDraw.cards = [];
+  S.cardDraw.visible = false;
+  S.cardDraw.target = null;
+}
+
+function shuffleCards() {
+  if (S.labelPool.length === 0 && S.cardDraw.cards.length === 0) return;
+  // return current cards
+  for (const c of S.cardDraw.cards) S.labelPool.push(c);
+  S.cardDraw.cards = [];
+  // draw new
+  const count = Math.min(3, S.labelPool.length);
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor(Math.random() * S.labelPool.length);
+    const base = S.labelPool.splice(idx, 1)[0];
+    S.cardDraw.cards.push(jitterLabel(base));
+  }
+  if (S.cardDraw.cards.length === 0) {
+    closeCardDraw();
+    showNote("that's all of them.");
+  }
+}
+
+function openLabelPanel(target) {
+  S.labelTarget = target;
+  S.labelPanelOpen = true;
+  drawCards(target);
+}
+
+function getCardLayout() {
+  const cardW = Math.min(140, (S.w - 80) / 3.5);
+  const cardH = cardW * 1.35;
+  const gap = 12;
+  const totalW = S.cardDraw.cards.length * cardW + (S.cardDraw.cards.length - 1) * gap;
+  const startX = (S.w - totalW) / 2;
+  const cardY = S.h - cardH - 60;
+  return { cardW, cardH, gap, startX, cardY };
+}
+
+function renderCardDraw() {
+  if (!S.cardDraw.visible || S.cardDraw.cards.length === 0) return;
+
+  const { cardW, cardH, gap, startX, cardY } = getCardLayout();
+
+  // fold effect during apply animation
+  let foldScale = 1;
+  if (S.applyAnim.active) {
+    const p = S.applyAnim.t / S.applyAnim.duration;
+    if (p < 0.15) foldScale = 1 - easeOutQuad(p / 0.15);
+    else if (p < 0.7) foldScale = 0;
+    else foldScale = easeOutBack((p - 0.7) / 0.3);
+  }
+
+  // subtle gradient backdrop behind cards (not a solid wall)
+  const bgGrad = ctx.createLinearGradient(0, cardY - 40, 0, S.h);
+  bgGrad.addColorStop(0, 'rgba(8,8,26,0)');
+  bgGrad.addColorStop(0.15, 'rgba(8,8,26,0.3)');
+  bgGrad.addColorStop(1, 'rgba(8,8,26,0.45)');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, cardY - 40, S.w, S.h - cardY + 40);
+
+  // target label
+  const targetText = S.cardDraw.target === 'player' ? 'your rocket' : S.cardDraw.target + "'s rocket";
+  ctx.font = '10px "Courier New", monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.textAlign = 'center';
+  ctx.fillText(targetText, S.w/2, cardY - 12);
+
+  ctx.save();
+  if (foldScale < 0.99) {
+    const midY = cardY + cardH / 2;
+    ctx.translate(0, midY);
+    ctx.scale(1, Math.max(0.01, foldScale));
+    ctx.translate(0, -midY);
+  }
+  for (let i = 0; i < S.cardDraw.cards.length; i++) {
+    const c = S.cardDraw.cards[i];
+    const cx = startX + i * (cardW + gap);
+    renderCard(c, cx, cardY, cardW, cardH);
+  }
+  ctx.restore();
+
+  // shuffle button (below cards, if pool has more)
+  if (S.labelPool.length > 0) {
+    const sbW = 60, sbH = 20;
+    const sbX = S.w/2 - sbW/2;
+    const sbY = cardY + cardH + 8;
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sbX, sbY, sbW, sbH);
+    ctx.font = '9px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('shuffle', sbX + sbW/2, sbY + sbH/2);
+    ctx.textBaseline = 'alphabetic';
+  }
+}
+
+function renderCard(label, x, y, w, h) {
+  // card background
+  const hue = labelHue(label);
+  ctx.fillStyle = `rgba(20,20,40,0.9)`;
+  ctx.strokeStyle = `hsla(${hue},50%,50%,0.4)`;
+  ctx.lineWidth = 1;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+
+  // colored accent line at top
+  ctx.fillStyle = `hsla(${hue},60%,55%,0.6)`;
+  ctx.fillRect(x, y, w, 2);
+
+  // name
+  ctx.font = '10px "Courier New", monospace';
+  ctx.fillStyle = `hsla(${hue},40%,75%,0.9)`;
+  ctx.textAlign = 'center';
+  const nameLines = wrapText(label.name, w - 12);
+  let ty = y + 16;
+  for (const line of nameLines) {
+    ctx.fillText(line, x + w/2, ty);
+    ty += 13;
+  }
+
+  // phase indicator
+  if (label.phase && label.phase !== 'always') {
+    const phHue = PHASE_HUES[label.phase] || 0;
+    ctx.font = '8px "Courier New", monospace';
+    ctx.fillStyle = `hsla(${phHue},60%,60%,0.7)`;
+    ctx.textAlign = 'center';
+    // small diamond
+    const dSize = 3;
+    const dx = x + w/2 - ctx.measureText(label.phase).width/2 - 8;
+    const dy = ty + 1;
+    ctx.beginPath();
+    ctx.moveTo(dx, dy - dSize); ctx.lineTo(dx + dSize, dy);
+    ctx.lineTo(dx, dy + dSize); ctx.lineTo(dx - dSize, dy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillText(label.phase, x + w/2 + 2, ty + 4);
+    ty += 12;
+  }
+
+  // spark chart (5 axes)
+  const chartY = ty + 6;
+  const chartH = h * 0.35;
+  const axes = ['thrust','wobble','confidence','magnetism','drag'];
+  const axLabels = ['T','W','C','M','D'];
+  const axHues = [15, 280, 200, 55, 130];
+  const barW = (w - 20) / 5;
+  const chartMid = chartY + chartH / 2;
+
+  for (let a = 0; a < 5; a++) {
+    const val = label[axes[a]];
+    const bx = x + 10 + a * barW;
+
+    // axis label
+    ctx.font = '8px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.textAlign = 'center';
+    ctx.fillText(axLabels[a], bx + barW/2, chartY + chartH + 12);
+
+    // bar (centered on zero line)
+    if (Math.abs(val) > 0.05) {
+      const barH = clamp(Math.abs(val) / 2.5, 0.05, 1) * (chartH / 2 - 2);
+      const barColor = `hsla(${axHues[a]},60%,55%,${0.4 + Math.min(Math.abs(val)/2, 0.5)})`;
+      ctx.fillStyle = barColor;
+      if (val > 0) {
+        ctx.fillRect(bx + 2, chartMid - barH, barW - 4, barH);
+      } else {
+        ctx.fillRect(bx + 2, chartMid, barW - 4, barH);
+      }
+    }
+  }
+
+  // zero line
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(x + 8, chartMid);
+  ctx.lineTo(x + w - 8, chartMid);
+  ctx.stroke();
+
+  // value summary at bottom
+  ctx.font = '9px "Courier New", monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.textAlign = 'center';
+  ctx.fillText(axisBar(label), x + w/2, y + h - 8);
+}
+
+function wrapText(text, maxW) {
+  // simple word-wrap estimate (monospace ~6px per char at 10px font)
+  const charW = 6;
+  const maxChars = Math.floor(maxW / charW);
+  if (text.length <= maxChars) return [text];
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const word of words) {
+    if ((cur + ' ' + word).trim().length > maxChars && cur) {
+      lines.push(cur);
+      cur = word;
+    } else {
+      cur = cur ? cur + ' ' + word : word;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function applyCard(cardIdx) {
+  if (cardIdx < 0 || cardIdx >= S.cardDraw.cards.length) return;
+  if (S.applyAnim.active) return;
+  const label = S.cardDraw.cards.splice(cardIdx, 1)[0];
+  S.totalLabelsApplied++;
+
+  // find target rocket
+  const target = S.cardDraw.target || 'player';
+  let targetRocket = S.rocket;
+  let isRivalTarget = false;
+  if (target !== 'player') {
+    const rival = S.rivals.find(r => r.name === target);
+    if (rival) { targetRocket = rival.rocket; isRivalTarget = true; }
+  }
+
+  // start apply animation instead of immediate push
+  const dur = Math.min(2000, 600 + S.rocket.labels.length * 150);
+  S.applyAnim = { active: true, t: 0, duration: dur, label: label, targetRocket: targetRocket };
+  S.inputLocked = true;
+  showNote(label.name + '.');
+  vendorCommentOnLabel(label);
+
+  // rival responses
+  if (isRivalTarget) {
+    const rival = S.rivals.find(r => r.name === target);
+    if (rival) {
+      setTimeout(() => rivalAddLabel(rival, null), 500);
+      setTimeout(() => {
+        const gift = rivalPickLabel(rival, null);
+        if (gift) {
+          S.rocket.labels.push(gift);
+          recomputePhysics(S.rocket);
+          S.totalLabelsApplied++;
+          showNote(rival.name + ' stuck something on yours.');
+        }
+      }, 800);
+    }
+  } else {
+    for (const rival of S.rivals) {
+      const axis = primaryAxis(label);
+      setTimeout(() => rivalAddLabel(rival, axis), 300 + Math.random() * 500);
+    }
+  }
+
+  // refill card slot from pool
+  if (S.labelPool.length > 0) {
+    const idx = Math.floor(Math.random() * S.labelPool.length);
+    const base = S.labelPool.splice(idx, 1)[0];
+    S.cardDraw.cards.splice(cardIdx, 0, jitterLabel(base));
+  }
+
+  if (S.cardDraw.cards.length === 0 && S.labelPool.length === 0) {
+    closeCardDraw();
+    showNote("that's all of them.");
+  }
+}
+
+// ===== PHASE ACTIONS =====
+function firePristineShot() {
+  if (S.pristineShot.active || S.inputLocked) return;
+  S.inputLocked = true;
+  const f = createFlightBody(S.rocket, 0);
+  S.pristineShot.active = true;
+  S.pristineShot.flight = f;
+}
+
+function triggerStall() {
+  if (S.stall.active) return;
+  S.stall.active = true;
+  S.stall.t = 0;
+  S.stall.startY = S.rocket.y;
+  S.stall.peakY = S.rocket.y - S.h * 0.18 - Math.random() * S.h * 0.08;
+}
+
+function enterTinkering() {
+  if (S.phase !== 'pristine') return;
+  S.phase = 'tinkering';
+  S.text.targetAlpha = 0;
+  S.tinkerT = 0;
+  // zoom in to ground level — moon disappears above
+  S.zoomTarget = 1.6;
+  S.cameraYTarget = S.h * 0.32;
+  // move vendor near the rocket so they're visible at close zoom
+  S.vendor.targetX = S.rocket.x - 140;
+  showNote('oh. okay. let\'s see what we\'ve got.');
+}
+
+function initVendorGreeting() {
+  vendorComment("hey! let's build something.", 'excited');
+}
+
+function openLunchDish() {
+  if (S.lunch.phase !== 'none') return;
+  S.lunch.phase = 'dish';
+  S.lunch.alpha = 0.6;
+  // vendor walks to the lunch side (right of rocket)
+  S.vendor.targetX = S.rocket.x + 80;
+  vendorComment("yes, please!", 'excited');
+  // pick 3 random dishes
+  const pool = shuffle([...DISHES]);
+  S.lunch.options = pool.slice(0, 3);
+  closeCardDraw();
+  closeLabelPanel();
+}
+
+function pickLunchItem(idx) {
+  const item = S.lunch.options[idx];
+  if (!item) return;
+
+  if (S.lunch.phase === 'dish') {
+    S.lunch.chosen = item;
+    S.lunch.meal = { name: item.name, thrust: item.thrust||0, wobble: item.wobble||0,
+      confidence: item.confidence||0, magnetism: item.magnetism||0, drag: item.drag||0 };
+    vendorComment("good choice! now a drink.", 'excited');
+    S.lunch.phase = 'drink';
+    const pool = shuffle([...DRINKS]);
+    S.lunch.options = pool.slice(0, 3);
+  } else if (S.lunch.phase === 'drink') {
+    // combine dish + drink into a meal gadget
+    const meal = S.lunch.meal;
+    meal.name = meal.name + ' + ' + item.name;
+    meal.thrust += item.thrust||0; meal.wobble += item.wobble||0;
+    meal.confidence += item.confidence||0; meal.magnetism += item.magnetism||0;
+    meal.drag += item.drag||0;
+    S.rocket.gadgets.push(meal);
+    recomputePhysics(S.rocket);
+    vendorComment("bon appétit!", 'proud');
+    showNote(meal.name + '.');
+    S.lunch.options = [];
+    S.lunch.phase = 'done';
+    S.lunch.pauseT = 0;
+    S.lunch.alpha = 0.8;
+  }
+}
+
+function enterLaunch() {
+  if (S.launching || S.countdown.active) return;
+  S.countdown.active = true;
+  S.countdown.t = 0;
+  S.inputLocked = true;
+  closeCardDraw();
+  closeLabelPanel();
+  S.lunch.phase = 'none';
+  S.lunch.options = [];
+  S.lunch.alpha = 0.8; // lunch button glows during countdown
+  // vendor walks back near the rocket
+  S.vendor.targetX = S.rocket.x - 140;
+  vendorComment("let's see what happens!", 'excited');
+}
+
+function commitLaunch() {
+  S.countdown.active = false;
+  S.phase = 'launching';
+  S.launching = true;
+  S.launchT = 0;
+  S.shakeMag = 12; // blast-off shake
+
+  // create flight bodies
+  S.flights = [];
+  S.flights.push(createFlightBody(S.rocket, 0));
+  S.rivals.forEach((r, i) => {
+    S.flights.push(createFlightBody(r.rocket, (i + 1) * 200));
+  });
+
+  // burst of exhaust particles at launch
+  const allRockets = [S.rocket, ...S.rivals.map(r => r.rocket)];
+  for (const rk of allRockets) {
+    for (let i = 0; i < 15; i++) {
+      const a = Math.PI * 0.3 + Math.random() * Math.PI * 0.4;
+      S.particles.push({
+        x: rk.x + (Math.random()-0.5) * 10,
+        y: rk.y + ROCKET_H/2,
+        vx: Math.cos(a) * (20 + Math.random()*40) * (Math.random()<0.5?1:-1),
+        vy: Math.sin(a) * (30 + Math.random()*50),
+        life: 1, decay: 0.012 + Math.random()*0.008,
+        size: 2 + Math.random()*4,
+        color: `hsla(${20+Math.random()*30},90%,${60+Math.random()*20}%,1)`,
+      });
+    }
+  }
+}
+
+function enterOutcome() {
+  S.phase = 'outcome';
+  S.outcomeT = 0;
+  S.choiceReady = false;
+  S.inputLocked = false;
+  S.zoomTarget = 1.0;
+  S.cameraYTarget = 0;
+  if (S.moon.bandage) {
+    vendorComment("YES! I KNEW IT!", 'proud');
+  } else {
+    vendorComment("hmm. we learned something.", 'thinking');
+  }
+}
+
+function resetToStart() {
+  S.phase = 'pristine';
+  S.rocket.labels = [];
+  S.rocket.gadgets = [];
+  recomputePhysics(S.rocket);
+  S.rivals = [];
+  S.pellArrived = false;
+  S.corvusArrived = false;
+  S.totalLabelsApplied = 0;
+  S.labelPool = shuffle(ALL_LABELS.map(l => ({ ...l })));
+  S.vendor.visible = false;
+  S.vendor.current = null;
+  S.vendor.expr = 'idle';
+  S.vendor.commentAlpha = 0;
+  S.vendor.x = 30;
+  S.vendor.targetX = 30;
+  S.vendor.cooldown = 0;
+  S.lunch.visible = false;
+  S.lunch.alpha = 0;
+  S.lunch.phase = 'none';
+  S.lunch.options = [];
+  S.lunch.meal = null;
+  S.applyAnim.active = false;
+  S.flights = [];
+  S.launching = false;
+  S.countdown.active = false;
+  S.countdown.t = 0;
+  S.groundTremor = 0;
+  S.pristineShot.active = false;
+  S.pristineShot.flight = null;
+  S.stall.active = false;
+  S.moon.bandage = false;
+  S.moon.hitBy = null;
+  S.moon.glow = 0;
+  S.moon.lean = 0;
+  S.moon.nervous = false;
+  S.particles = [];
+  S.shakeX = 0; S.shakeY = 0; S.shakeMag = 0;
+  S.zoom = 1; S.zoomTarget = 1;
+  S.cameraY = 0; S.cameraYTarget = 0;
+  S.cutIn.queue = []; S.cutIn.active = false; S.cutIn.current = null; S.cutIn.phase = 'none';
+  S.groundAlpha = 0;
+  S.tinkerT = 0;
+  S.labelPanelOpen = false;
+  S.inputLocked = false;
+  S.cardDraw.cards = [];
+  S.cardDraw.visible = false;
+  S.cardDraw.target = null;
+  closeLabelPanel();
+  showText('Shoot the Moon.');
+  layoutRockets();
+}
+
+// ===== UPDATE =====
+function update(dt) {
+  S.time += dt;
+
+  // text fade
+  if (S.text.alpha < S.text.targetAlpha) S.text.alpha = Math.min(S.text.targetAlpha, S.text.alpha + dt * 0.002);
+  if (S.text.alpha > S.text.targetAlpha) S.text.alpha = Math.max(S.text.targetAlpha, S.text.alpha - dt * 0.002);
+
+  // note fade
+  if (S.note.timer > 0) {
+    S.note.timer -= dt;
+    if (S.note.timer <= 800) S.note.alpha = Math.max(0, S.note.timer / 800);
+  }
+
+  // moon
+  S.moon.breatheT += dt * 0.0008;
+  S.moon.scale = 1 + 0.03 * Math.sin(S.moon.breatheT * Math.PI);
+
+  const tm = totalMagnetism();
+  S.moon.glow = clamp(tm / 8, 0, 1);
+
+  // lean toward higher magnetic concentration
+  if (S.phase === 'tinkering' || S.phase === 'launching') {
+    let weightedX = 0, totalW = 0;
+    const allRockets = [S.rocket, ...S.rivals.map(r => r.rocket)];
+    for (const r of allRockets) {
+      if (r.physics.magnetism > 0) {
+        weightedX += r.x * r.physics.magnetism;
+        totalW += r.physics.magnetism;
+      }
+    }
+    if (totalW > 0) {
+      const target = (weightedX / totalW - S.w * 0.5) / (S.w * 0.3);
+      S.moon.lean = lerp(S.moon.lean, clamp(target, -1, 1), dt * 0.003);
+    }
+    S.moon.nervous = tm > 4 || S.rivals.length >= 2;
+    if (S.moon.nervous) S.moon.nervousT += dt;
+  }
+
+  // shake decay
+  if (S.shakeMag > 0.2) {
+    S.shakeX = (Math.random() - 0.5) * S.shakeMag * 2;
+    S.shakeY = (Math.random() - 0.5) * S.shakeMag * 2;
+    S.shakeMag *= Math.pow(0.88, dt / 16);
+  } else {
+    S.shakeX = 0; S.shakeY = 0; S.shakeMag = 0;
+  }
+
+  // zoom
+  S.zoom = lerp(S.zoom, S.zoomTarget, dt * 0.002);
+  S.cameraY = lerp(S.cameraY, S.cameraYTarget, dt * 0.002);
+
+  // tinkering timers
+  if (S.phase === 'tinkering') {
+    S.tinkerT += dt;
+    S.groundAlpha = Math.min(1, S.groundAlpha + dt * 0.003);
+    if (S.tinkerT > 800 && !S.vendor.visible) initVendor();
+    if (S.tinkerT > 1500 && !S.lunch.visible) {
+      S.lunch.visible = true;
+    }
+    if (S.lunch.visible && S.lunch.alpha < 0.35) {
+      S.lunch.alpha = Math.min(0.35, S.lunch.alpha + dt * 0.0003);
+    }
+    if (S.vendor.visible) {
+      S.vendor.fadeT = Math.min(1, S.vendor.fadeT + dt * 0.002);
+      // expression timer — revert to idle after 2s
+      S.vendor.exprT += dt;
+      if (S.vendor.expr !== 'idle' && S.vendor.exprT > 2000) {
+        S.vendor.expr = 'idle'; S.vendor.exprT = 0;
+      }
+      // blink timer
+      S.vendor.blinkT -= dt;
+      if (S.vendor.blinkT < 0) S.vendor.blinkT = 3000 + Math.random() * 2000;
+      // bounce
+      if (S.vendor.expr === 'excited') S.vendor.bounceT += dt;
+      else S.vendor.bounceT = 0;
+      // comment fade
+      if (S.vendor.commentAlpha > 0) {
+        S.vendor.commentAlpha = Math.max(0, S.vendor.commentAlpha - dt * 0.0004);
+      }
+      // gadget cooldown
+      if (S.vendor.cooldown > 0) S.vendor.cooldown = Math.max(0, S.vendor.cooldown - dt);
+      // walk toward target position
+      if (Math.abs(S.vendor.x - S.vendor.targetX) > 1) {
+        S.vendor.x = lerp(S.vendor.x, S.vendor.targetX, dt * 0.004);
+      } else {
+        S.vendor.x = S.vendor.targetX;
+      }
+    }
+
+    // lunch phase updates
+    if (S.lunch.phase === 'done') {
+      S.lunch.pauseT += dt;
+      if (S.lunch.pauseT >= 600) {
+        S.lunch.phase = 'none';
+        enterLaunch();
+      }
+    }
+
+    // apply animation
+    if (S.applyAnim.active) {
+      S.applyAnim.t += dt;
+      const prog = S.applyAnim.t / S.applyAnim.duration;
+      // at 70% through, actually apply the label
+      if (prog >= 0.7 && S.applyAnim.label) {
+        const target = S.applyAnim.targetRocket || S.rocket;
+        target.labels.push(S.applyAnim.label);
+        recomputePhysics(target);
+        S.applyAnim.label = null; // only push once
+        // spark particles at rocket
+        for (let i = 0; i < 8; i++) {
+          const ang = Math.random() * TAU;
+          S.particles.push({
+            x: target.x + (Math.random()-0.5) * 10,
+            y: target.y,
+            vx: Math.cos(ang) * (15 + Math.random() * 25),
+            vy: Math.sin(ang) * (15 + Math.random() * 25) - 10,
+            life: 1, decay: 0.02 + Math.random() * 0.015,
+            size: 1.5 + Math.random() * 2,
+            color: `hsla(${30 + Math.random() * 30},90%,${65 + Math.random() * 20}%,1)`,
+          });
+        }
+      }
+      if (prog >= 1) {
+        S.applyAnim.active = false;
+        S.inputLocked = false;
+        // spawn rivals if needed
+        if (!S.pellArrived && S.rocket.labels.length >= 1) setTimeout(spawnPell, 400);
+        if (!S.corvusArrived && S.totalLabelsApplied >= 5) setTimeout(spawnCorvus, 600);
+      }
+    }
+  }
+
+  // countdown (pre-launch buildup)
+  if (S.countdown.active) {
+    S.countdown.t += dt;
+    const prog = clamp(S.countdown.t / S.countdown.duration, 0, 1);
+
+    // building shake — starts tiny, grows exponential
+    S.shakeMag = Math.max(S.shakeMag, prog * prog * 8);
+
+    // gathering exhaust at rocket bases — increasing density
+    if (Math.random() < prog * 0.6) {
+      const allRockets = [S.rocket, ...S.rivals.map(r => r.rocket)];
+      for (const rk of allRockets) {
+        S.particles.push({
+          x: rk.x + (Math.random()-0.5) * 12,
+          y: rk.y + ROCKET_H/2 + Math.random() * 4,
+          vx: (Math.random()-0.5) * 8,
+          vy: 3 + Math.random() * 8,
+          life: 0.4 + prog * 0.4, decay: 0.015 + Math.random()*0.01,
+          size: 1 + Math.random() * 2 * (1 + prog),
+          color: `hsla(${15+Math.random()*25},80%,${55+Math.random()*20}%,1)`,
+        });
+      }
+    }
+
+    // ground tremor — oscillating ground offset
+    S.groundTremor = Math.sin(S.time * 0.02) * prog * 3;
+
+    // dramatic pullback — moon reappears as rockets prepare to fly
+    if (prog > 0.6) {
+      S.zoomTarget = 0.92;
+      S.cameraYTarget = 0;
+    }
+
+    // pulse the lunch button
+    S.lunch.alpha = 0.5 + 0.3 * Math.sin(S.time * 0.006 * (1 + prog * 3));
+
+    if (S.countdown.t >= S.countdown.duration) {
+      S.groundTremor = 0;
+      commitLaunch();
+    }
+  }
+
+  // rival sneers fade
+  for (const r of S.rivals) {
+    if (r.sneerAlpha > 0) r.sneerAlpha = Math.max(0, r.sneerAlpha - dt * 0.0005);
+    // entrance animation
+    if (!r.arrived) {
+      r.enterT = Math.min(1, r.enterT + dt * 0.002);
+      if (r.enterT >= 1) r.arrived = true;
+    }
+  }
+
+  // cut-in timing
+  if (S.cutIn.active) {
+    S.cutIn.t += dt;
+    if (S.cutIn.phase === 'enter' && S.cutIn.t >= 300) {
+      S.cutIn.phase = 'hold';
+      S.cutIn.t = 0;
+    } else if (S.cutIn.phase === 'hold' && S.cutIn.t >= 2200) {
+      S.cutIn.phase = 'exit';
+      S.cutIn.t = 0;
+    } else if (S.cutIn.phase === 'exit' && S.cutIn.t >= 300) {
+      S.cutIn.phase = 'none';
+      S.cutIn.t = 0;
+      setTimeout(processCutInQueue, 200);
+    }
+  }
+
+  // stall animation
+  if (S.stall.active) {
+    S.stall.t += dt * 0.0012;
+    if (S.stall.t >= 1) {
+      S.stall.active = false;
+      S.rocket.y = S.stall.startY;
+      showNote('not yet. not like that.');
+    } else {
+      const t = S.stall.t;
+      // ease up then ease back down
+      const rise = t < 0.4 ? easeOutCubic(t / 0.4) : 1;
+      const fall = t >= 0.4 ? easeInOutQuad((t - 0.4) / 0.6) : 0;
+      const peakOffset = S.stall.startY - S.stall.peakY;
+      S.rocket.y = S.stall.startY - peakOffset * rise + peakOffset * fall;
+    }
+  }
+
+  // pristine shot
+  if (S.pristineShot.active) {
+    const f = S.pristineShot.flight;
+    integrateFlight(f, dt);
+    if (checkMoonHit(f)) {
+      S.pristineShot.active = false;
+      enterOutcome();
+    } else if (!f.alive) {
+      S.pristineShot.active = false;
+      S.inputLocked = false;
+      showNote('it almost made it. try again whenever.');
+    }
+  }
+
+  // launch phase
+  if (S.phase === 'launching') {
+    S.launchT += dt;
+    let allDone = true;
+    for (const f of S.flights) {
+      if (!f.alive) continue;
+      if (S.launchT < f.launchDelay) { allDone = false; continue; }
+      allDone = false;
+      integrateFlight(f, dt);
+      if (checkMoonHit(f)) {
+        // continue sim for others but note the hit
+      }
+    }
+    checkCollisions();
+    if (allDone || S.flights.every(f => !f.alive)) {
+      S.launching = false;
+      enterOutcome();
+    }
+  }
+
+  // outcome
+  if (S.phase === 'outcome') {
+    S.outcomeT += dt;
+    if (S.outcomeT > 1200) S.choiceReady = true;
+    if (!S.moon.bandage && S.outcomeT > 2000) {
+      // nobody hit — quiet reset to tinkering (if we were tinkering) or pristine
+      showNote('the moon is still there.');
+      if (S.totalLabelsApplied > 0) {
+        S.phase = 'tinkering';
+        S.launching = false;
+        S.flights = [];
+        S.inputLocked = false;
+        // zoom back into tinkering
+        S.zoomTarget = 1.6;
+        S.cameraYTarget = S.h * 0.32;
+      } else {
+        S.phase = 'pristine';
+        S.inputLocked = false;
+        S.flights = [];
+      }
+    }
+  }
+
+  // particles
+  for (let i = S.particles.length - 1; i >= 0; i--) {
+    const p = S.particles[i];
+    p.x += p.vx * dt / 1000;
+    p.y += p.vy * dt / 1000;
+    p.vy += 8 * dt / 1000;
+    p.life -= p.decay * dt / 16;
+    if (p.life <= 0) S.particles.splice(i, 1);
+  }
+
+  // star twinkle
+  for (const star of S.stars) {
+    star.twinklePhase += star.twinkleSpeed * dt;
+  }
+}
+
+// ===== RENDER =====
+function render() {
+  ctx.save();
+  ctx.translate(S.shakeX, S.shakeY);
+
+  // camera transform: zoom + vertical pan
+  const ox = S.w / 2, oy = S.h * 0.5;
+  ctx.translate(ox, oy);
+  ctx.scale(S.zoom, S.zoom);
+  ctx.translate(-ox, -oy - S.cameraY);
+
+  // sky gradient (expanded for zoom/pan)
+  const grad = ctx.createLinearGradient(0, -S.h, 0, S.h * 2);
+  grad.addColorStop(0, '#04041a');
+  grad.addColorStop(0.5, '#08082a');
+  grad.addColorStop(1, '#0c0c20');
+  ctx.fillStyle = grad;
+  ctx.fillRect(-S.w, -S.h, S.w * 3, S.h * 3);
+
+  // stars
+  renderStars();
+
+  // ground line (with tremor during countdown)
+  if (S.groundAlpha > 0) {
+    ctx.strokeStyle = `rgba(255,255,255,${S.groundAlpha * 0.1})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (S.countdown.active && S.groundTremor) {
+      // jagged trembling ground
+      for (let gx = 0; gx <= S.w; gx += 8) {
+        const trem = Math.sin(gx * 0.05 + S.time * 0.015) * S.groundTremor;
+        if (gx === 0) ctx.moveTo(gx, S.groundY + trem);
+        else ctx.lineTo(gx, S.groundY + trem);
+      }
+    } else {
+      ctx.moveTo(0, S.groundY);
+      ctx.lineTo(S.w, S.groundY);
+    }
+    ctx.stroke();
+  }
+
+  // moon
+  renderMoon();
+
+  // vendor
+  if (S.vendor.visible) renderVendor();
+
+  // lunch button
+  if (S.lunch.visible && (S.phase === 'tinkering' || S.countdown.active)) renderLunchButton();
+
+  // rockets (not during launch — flights replace them)
+  if (S.phase !== 'launching' && S.phase !== 'outcome') {
+    // rival rockets + figures
+    for (const rival of S.rivals) {
+      renderRivalRocket(rival);
+    }
+    // player rocket
+    if (!S.stall.active || true) {
+      renderRocket(S.rocket);
+    }
+  }
+
+  // flight trails + rockets during launch
+  if (S.phase === 'launching') {
+    for (const f of S.flights) {
+      renderTrail(f);
+      if (f.alive) renderFlightRocket(f);
+    }
+  }
+  // pristine shot trail
+  if (S.pristineShot.active) {
+    const f = S.pristineShot.flight;
+    renderTrail(f);
+    if (f.alive) renderFlightRocket(f);
+  }
+
+  // particles (during flight, pristine shot, or countdown)
+  if (S.phase === 'launching' || S.pristineShot.active || S.countdown.active) renderParticles();
+
+  // countdown pulse overlay
+  if (S.countdown.active) {
+    const prog = clamp(S.countdown.t / S.countdown.duration, 0, 1);
+    const pulse = Math.sin(S.time * 0.008 * (1 + prog * 3)) * 0.5 + 0.5;
+    ctx.fillStyle = `rgba(255,200,120,${prog * pulse * 0.04})`;
+    ctx.fillRect(-S.w, -S.h, S.w * 3, S.h * 3);
+  }
+
+  // card draw
+  if (S.cardDraw.visible) renderCardDraw();
+
+  // text
+  renderText();
+
+  // outcome overlay
+  if (S.phase === 'outcome' && S.moon.bandage) {
+    renderOutcomeOverlay();
+  }
+
+  ctx.restore();
+
+  // cut-in overlay (outside zoom transform — fixed to screen)
+  renderCutIn();
+}
+
+function renderStars() {
+  for (const star of S.stars) {
+    const tw = 0.6 + 0.4 * Math.sin(star.twinklePhase);
+    ctx.globalAlpha = star.alpha * tw;
+    ctx.fillStyle = '#c8d0e0';
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, TAU);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function renderMoon() {
+  const mx = S.moonX + S.moon.lean * 30;
+  const my = S.moonY;
+  const r = MOON_RADIUS * S.moon.scale;
+  const nervousOff = S.moon.nervous ? Math.sin(S.moon.nervousT * 0.003) * 5 : 0;
+
+  // glow
+  if (S.moon.glow > 0 || true) {
+    const glowR = r + 15 + S.moon.glow * 25;
+    const glowGrad = ctx.createRadialGradient(mx + nervousOff, my, r * 0.5, mx + nervousOff, my, glowR);
+    const glowAlpha = 0.08 + S.moon.glow * 0.25;
+    glowGrad.addColorStop(0, `rgba(255,245,200,${glowAlpha})`);
+    glowGrad.addColorStop(0.6, `rgba(255,235,170,${glowAlpha * 0.4})`);
+    glowGrad.addColorStop(1, 'rgba(255,235,170,0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(mx + nervousOff, my, glowR, 0, TAU);
+    ctx.fill();
+  }
+
+  // body
+  ctx.fillStyle = hsl(45, 8 + S.moon.glow * 20, 82 + S.moon.glow * 8);
+  ctx.beginPath();
+  ctx.arc(mx + nervousOff, my, r, 0, TAU);
+  ctx.fill();
+
+  // subtle crater shadows
+  ctx.globalAlpha = 0.08;
+  ctx.fillStyle = '#8a7a50';
+  ctx.beginPath(); ctx.arc(mx + nervousOff - 8, my - 5, 6, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx + nervousOff + 10, my + 8, 4, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx + nervousOff + 3, my - 12, 3, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // bandage
+  if (S.moon.bandage) {
+    const bx = mx + nervousOff + Math.cos(S.moon.hitAngle) * r * 0.5;
+    const by = my + Math.sin(S.moon.hitAngle) * r * 0.5;
+    ctx.strokeStyle = 'rgba(255,200,180,0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(bx - 6, by); ctx.lineTo(bx + 6, by); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx, by - 6); ctx.lineTo(bx, by + 6); ctx.stroke();
+  }
+}
+
+function renderRocket(rocket) {
+  const x = rocket.x, y = rocket.y;
+  const w = ROCKET_W, h = ROCKET_H;
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // wobble visual — rocket vibrates if high wobble or countdown
+  const wAmt = Math.max(0, rocket.physics.wobble);
+  let vibrate = 0;
+  if (wAmt > 0.3) {
+    vibrate = Math.sin(S.time * 0.01 * (1 + wAmt)) * wAmt * 1.5 * 0.02;
+  }
+  if (S.countdown.active) {
+    const prog = clamp(S.countdown.t / S.countdown.duration, 0, 1);
+    vibrate += Math.sin(S.time * 0.03 * (1 + prog * 4)) * prog * 0.06;
+  }
+  if (vibrate) ctx.rotate(vibrate);
+
+  // body
+  ctx.fillStyle = rocket.color;
+  ctx.fillRect(-w/2, -h/2, w, h);
+
+  // nose cone
+  ctx.beginPath();
+  ctx.moveTo(-w/2, -h/2);
+  ctx.lineTo(0, -h/2 - 12);
+  ctx.lineTo(w/2, -h/2);
+  ctx.closePath();
+  ctx.fill();
+
+  // fins
+  ctx.beginPath();
+  ctx.moveTo(-w/2, h/2);
+  ctx.lineTo(-w/2 - 6, h/2 + 5);
+  ctx.lineTo(-w/2, h/2 - 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(w/2, h/2);
+  ctx.lineTo(w/2 + 6, h/2 + 5);
+  ctx.lineTo(w/2, h/2 - 6);
+  ctx.closePath();
+  ctx.fill();
+
+  // labels as stripes on body
+  const labelCount = rocket.labels.length + rocket.gadgets.length;
+  if (labelCount > 0) {
+    const stripeH = Math.min(3, (h - 4) / labelCount);
+    let sy = -h/2 + 3;
+    for (const l of rocket.labels) {
+      const hue = labelHue(l);
+      ctx.fillStyle = hsl(hue, 60, 55, 0.7);
+      ctx.fillRect(-w/2 + 2, sy, w - 4, stripeH - 1);
+      sy += stripeH;
+    }
+    for (const g of rocket.gadgets) {
+      ctx.fillStyle = 'rgba(180,255,200,0.5)';
+      ctx.fillRect(-w/2 + 2, sy, w - 4, stripeH - 1);
+      sy += stripeH;
+    }
+  }
+
+  ctx.restore();
+}
+
+function labelHue(label) {
+  const axis = primaryAxis(label);
+  switch(axis) {
+    case 'thrust': return 15;
+    case 'wobble': return 280;
+    case 'confidence': return 200;
+    case 'magnetism': return 55;
+    case 'drag': return 130;
+    default: return 0;
+  }
+}
+
+function renderRivalRocket(rival) {
+  if (rival.enterT < 1 && !rival.arrived) {
+    const t = easeOutBack(rival.enterT);
+    const targetX = rival.rocket.x;
+    rival.rocket.x = lerp(rival.enterFrom, targetX, t);
+    renderRocket(rival.rocket);
+    rival.rocket.x = targetX;
+  } else {
+    renderRocket(rival.rocket);
+  }
+
+  // rival figure (simple)
+  const rx = rival.rocket.x;
+  const ry = S.groundY;
+  const figX = rx + (rival.name === 'pell' ? -22 : 22);
+  ctx.fillStyle = rival.rocket.color;
+  ctx.globalAlpha = 0.6;
+  // head
+  ctx.beginPath();
+  ctx.arc(figX, ry - 20, 5, 0, TAU);
+  ctx.fill();
+  // body line
+  ctx.strokeStyle = rival.rocket.color;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(figX, ry - 15);
+  ctx.lineTo(figX, ry - 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // sneer
+  if (rival.sneerAlpha > 0) {
+    ctx.globalAlpha = rival.sneerAlpha;
+    ctx.fillStyle = rival.rocket.color;
+    ctx.font = '11px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(rival.sneerText, figX, ry - 30);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function renderFlightRocket(f) {
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  // orient toward velocity
+  const angle = Math.atan2(f.vy, f.vx) + Math.PI / 2;
+  ctx.rotate(angle);
+
+  const w = ROCKET_W * 0.8, h = ROCKET_H * 0.8;
+
+  ctx.fillStyle = f.color;
+  ctx.fillRect(-w/2, -h/2, w, h);
+  ctx.beginPath();
+  ctx.moveTo(-w/2, -h/2);
+  ctx.lineTo(0, -h/2 - 10);
+  ctx.lineTo(w/2, -h/2);
+  ctx.closePath();
+  ctx.fill();
+
+  // fins
+  ctx.beginPath();
+  ctx.moveTo(-w/2, h/2); ctx.lineTo(-w/2-5, h/2+4); ctx.lineTo(-w/2, h/2-5); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(w/2, h/2); ctx.lineTo(w/2+5, h/2+4); ctx.lineTo(w/2, h/2-5); ctx.closePath(); ctx.fill();
+
+  ctx.restore();
+}
+
+function renderTrail(f) {
+  if (f.trail.length < 2) return;
+  // draw trail segments, brightening at phase shift points
+  for (let i = 1; i < f.trail.length; i++) {
+    const pt = f.trail[i];
+    ctx.beginPath();
+    ctx.moveTo(f.trail[i-1].x, f.trail[i-1].y);
+    ctx.lineTo(pt.x, pt.y);
+    if (pt.phaseShift) {
+      // bright flash segment at phase activation
+      ctx.strokeStyle = `hsla(${pt.phaseHue || 0},70%,70%,0.6)`;
+      ctx.lineWidth = 3.5;
+    } else {
+      ctx.strokeStyle = f.color.replace(',1)', ',0.25)');
+      ctx.lineWidth = 2;
+    }
+    ctx.stroke();
+  }
+}
+
+function renderParticles() {
+  for (const p of S.particles) {
+    ctx.globalAlpha = clamp(p.life, 0, 1);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, TAU);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function renderVendor() {
+  if (!S.vendor.visible) return;
+  const a = S.vendor.fadeT;
+  if (a < 0.01) return;
+  const PX = 3;
+  const baseX = S.vendor.x;
+  const baseY = S.groundY - 48;
+  const bounce = S.vendor.expr === 'excited' ? Math.sin(S.vendor.bounceT * 0.012) * 3 : 0;
+  const blink = S.vendor.blinkT < 120;
+
+  ctx.globalAlpha = a;
+
+  function px(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(baseX + x * PX, baseY + y * PX + bounce, (w||1) * PX, (h||1) * PX);
+  }
+
+  const P = VENDOR_PAL;
+  const excited = S.vendor.expr === 'excited';
+  const proud = S.vendor.expr === 'proud';
+
+  // ponytail (behind head)
+  px(1, 0, 1, 1, P.hair); px(0, 1, 1, 1, P.hair); px(-1, 2, 1, 3, P.hair);
+  px(-1, 5, 1, 2, P.hair); px(0, 6, 1, 1, P.hair);
+  // hair top
+  px(1, 0, 4, 1, P.hair); px(1, 1, 5, 1, P.hair);
+  // head
+  px(2, 2, 3, 4, P.skin);
+  // hair sides
+  px(1, 2, 1, 2, P.hair); px(5, 2, 1, 2, P.hair);
+  // glasses
+  px(2, 3, 1, 1, P.glasses); px(3, 3, 1, 1, proud ? P.accent : P.glasses); px(4, 3, 1, 1, P.glasses);
+  // eyes (behind glasses) — blink closes them
+  if (blink) {
+    px(2, 3, 1, 1, P.glasses); px(4, 3, 1, 1, P.glasses);
+  } else {
+    px(2, 3, 1, 1, excited ? '#ffffff' : P.lens); px(4, 3, 1, 1, excited ? '#ffffff' : P.lens);
+  }
+  // mouth
+  if (excited) {
+    px(3, 5, 1, 1, P.accent); // open smile
+  } else if (proud) {
+    px(2, 5, 3, 1, P.mouth); // wide grin
+  } else {
+    px(3, 5, 1, 1, P.mouth); // small smile
+  }
+  // coat body
+  px(1, 6, 5, 4, P.coat);
+  px(1, 7, 1, 3, P.coatShade); px(5, 7, 1, 3, P.coatShade);
+  // arms
+  px(0, 7, 1, 2, P.coat); px(6, 7, 1, 2, P.coat);
+  if (excited) { px(0, 6, 1, 1, P.coat); px(6, 6, 1, 1, P.coat); } // arms up when excited
+  // legs
+  px(2, 10, 1, 2, P.coatShade); px(4, 10, 1, 2, P.coatShade);
+  // sparkle near glasses when proud
+  if (proud && Math.sin(S.time * 0.008) > 0.3) {
+    px(6, 2, 1, 1, '#ffffcc');
+  }
+
+  // gadget display
+  if (S.vendor.current && S.lunch.phase === 'none') {
+    ctx.font = '10px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(200,220,200,0.6)';
+    ctx.textAlign = 'left';
+    ctx.fillText(VENDOR_LINES[S.vendor.lineIdx], baseX + 24, baseY + 14);
+    ctx.fillStyle = 'rgba(180,255,200,0.7)';
+    ctx.fillText(S.vendor.current.name, baseX + 24, baseY + 26);
+  }
+
+  // speech bubble
+  if (S.vendor.commentAlpha > 0.01) {
+    ctx.globalAlpha = a * S.vendor.commentAlpha * 0.85;
+    ctx.font = '9px "Courier New", monospace';
+    const lines = wrapText(S.vendor.comment, 100);
+    const bw = 110, bh = 12 * lines.length + 8;
+    const bx = baseX + 24, by = baseY - bh - 6;
+    ctx.fillStyle = 'rgba(20,20,30,0.75)';
+    ctx.strokeStyle = 'rgba(200,210,200,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, 4);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(230,225,215,0.9)';
+    ctx.textAlign = 'left';
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], bx + 5, by + 12 + i * 12);
+    }
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+function getLunchCardLayout() {
+  const cw = 52, ch = 60, gap = 8;
+  const count = S.lunch.options.length;
+  const totalW = count * cw + (count - 1) * gap;
+  // food cards appear near the vendor (who walks to the right side)
+  const sx = S.vendor.x - totalW - 10;
+  const sy = S.groundY - 80 - ch;
+  return { cw, ch, gap, sx, sy, count };
+}
+
+function getLunchButtonPos() {
+  const bw = 60, bh = 24;
+  const bx = S.rocket.x + 120;
+  const by = S.groundY - 20 - bh/2;
+  return { bw, bh, bx, by };
+}
+
+function renderLunchButton() {
+  const { bw, bh, bx, by } = getLunchButtonPos();
+
+  ctx.globalAlpha = S.lunch.alpha;
+
+  // glow during countdown
+  if (S.countdown.active) {
+    const prog = clamp(S.countdown.t / S.countdown.duration, 0, 1);
+    const pulse = 0.6 + 0.4 * Math.sin(S.time * 0.008 * (1 + prog * 2));
+    const glowR = 20 + prog * 15;
+    const gg = ctx.createRadialGradient(bx+bw/2, by+bh/2, 5, bx+bw/2, by+bh/2, glowR + bw/2);
+    gg.addColorStop(0, `rgba(255,180,80,${0.15 * pulse * prog})`);
+    gg.addColorStop(1, 'rgba(255,180,80,0)');
+    ctx.fillStyle = gg;
+    ctx.fillRect(bx - glowR, by - glowR, bw + glowR*2, bh + glowR*2);
+  }
+
+  ctx.strokeStyle = S.countdown.active ? 'rgba(255,200,130,0.5)' : 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, bw, bh);
+  ctx.fillStyle = S.countdown.active ? 'rgba(255,200,130,0.2)' : 'rgba(255,255,255,0.15)';
+  ctx.fillRect(bx, by, bw, bh);
+
+  const lunchText = S.lunch.phase === 'dish' ? 'pick a dish' :
+                    S.lunch.phase === 'drink' ? 'now a drink' :
+                    S.lunch.phase === 'done' ? 'bon appétit' : 'Lunch';
+  ctx.font = '11px "Courier New", monospace';
+  ctx.fillStyle = S.countdown.active ? 'rgba(255,220,160,0.8)' : 'rgba(255,255,255,0.5)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(lunchText, bx + bw/2, by + bh/2);
+  ctx.textBaseline = 'alphabetic';
+  ctx.globalAlpha = 1;
+
+  // food cards
+  if ((S.lunch.phase === 'dish' || S.lunch.phase === 'drink') && S.lunch.options.length > 0) {
+    const { cw, ch, gap, sx, sy } = getLunchCardLayout();
+    const { x: hx, y: hy } = screenToLogical(S.hoverX, S.hoverY);
+    let hoveredTip = '';
+
+    for (let i = 0; i < S.lunch.options.length; i++) {
+      const item = S.lunch.options[i];
+      const cx = sx + i * (cw + gap);
+      const hovered = hitRect(hx, hy, cx, sy, cw, ch);
+
+      ctx.fillStyle = hovered ? 'rgba(30,30,50,0.95)' : 'rgba(20,20,40,0.9)';
+      ctx.strokeStyle = hovered ? 'rgba(255,200,130,0.6)' : 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = 1;
+      ctx.fillRect(cx, sy, cw, ch);
+      ctx.strokeRect(cx, sy, cw, ch);
+
+      // emoji
+      ctx.font = '18px serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(item.emoji, cx + cw/2, sy + 22);
+
+      // name
+      ctx.font = '8px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText(item.name, cx + cw/2, sy + 36);
+
+      // axis bar
+      ctx.font = '7px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(180,220,180,0.5)';
+      ctx.fillText(axisBar(item), cx + cw/2, sy + 48);
+
+      if (hovered) hoveredTip = item.tip;
+    }
+
+    // tooltip
+    if (hoveredTip) {
+      ctx.font = '9px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(255,240,200,0.8)';
+      ctx.textAlign = 'left';
+      ctx.fillText(hoveredTip, sx, sy - 6);
+    }
+  }
+}
+
+function renderText() {
+  // main text
+  if (S.text.alpha > 0.01 && S.text.content) {
+    ctx.globalAlpha = S.text.alpha;
+    ctx.font = '16px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.textAlign = 'center';
+    ctx.fillText(S.text.content, S.w/2, S.h * 0.5);
+    // subtext
+    if (S.phase === 'pristine' && !S.pristineShot.active) {
+      ctx.font = '11px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillText("it's right there.", S.w/2, S.h * 0.5 + 22);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // note
+  if (S.note.alpha > 0.01 && S.note.content) {
+    ctx.globalAlpha = S.note.alpha * 0.6;
+    ctx.font = '12px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.textAlign = 'center';
+    ctx.fillText(S.note.content, S.w/2, S.groundY + 30);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function renderOutcomeOverlay() {
+  const t = clamp(S.outcomeT / 1200, 0, 1);
+  // dim
+  ctx.fillStyle = `rgba(4,4,20,${t * 0.7})`;
+  ctx.fillRect(-S.w, -S.h, S.w * 3, S.h * 3);
+
+  // large moon
+  const mx = S.w / 2;
+  const my = S.h * 0.38;
+  const r = MOON_RADIUS * 2.5 * easeOutCubic(t);
+
+  // glow
+  const glowR = r + 30;
+  const gg = ctx.createRadialGradient(mx, my, r * 0.5, mx, my, glowR);
+  gg.addColorStop(0, 'rgba(255,245,200,0.15)');
+  gg.addColorStop(1, 'rgba(255,245,200,0)');
+  ctx.fillStyle = gg;
+  ctx.beginPath(); ctx.arc(mx, my, glowR, 0, TAU); ctx.fill();
+
+  // body
+  ctx.fillStyle = hsl(45, 12, 84);
+  ctx.beginPath(); ctx.arc(mx, my, r, 0, TAU); ctx.fill();
+
+  // bandage
+  const bx = mx + Math.cos(S.moon.hitAngle) * r * 0.35;
+  const by = my + Math.sin(S.moon.hitAngle) * r * 0.35;
+  ctx.strokeStyle = 'rgba(255,200,180,0.8)';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(bx - 10, by); ctx.lineTo(bx + 10, by); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx, by - 10); ctx.lineTo(bx, by + 10); ctx.stroke();
+
+  // choice buttons
+  if (S.choiceReady) {
+    const btnY = my + r + 50;
+    const btnW = 70, btnH = 30;
+    const niceX = mx - 50 - btnW/2;
+    const sorryX = mx + 50 - btnW/2;
+
+    ctx.globalAlpha = Math.min(1, (S.outcomeT - 1200) / 600);
+
+    // nice
+    ctx.strokeStyle = 'rgba(180,255,200,0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(niceX, btnY, btnW, btnH);
+    ctx.font = '13px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(180,255,200,0.7)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('nice', niceX + btnW/2, btnY + btnH/2);
+
+    // sorry
+    ctx.strokeStyle = 'rgba(255,200,180,0.5)';
+    ctx.strokeRect(sorryX, btnY, btnW, btnH);
+    ctx.fillStyle = 'rgba(255,200,180,0.7)';
+    ctx.fillText('sorry', sorryX + btnW/2, btnY + btnH/2);
+
+    ctx.textBaseline = 'alphabetic';
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ===== INPUT =====
+canvas.addEventListener('pointerdown', onPointer);
+canvas.addEventListener('pointermove', e => { S.hoverX = e.clientX; S.hoverY = e.clientY; });
+
+function screenToLogical(sx, sy) {
+  // inverse of the render zoom + camera pan transform
+  const ox = S.w / 2, oy = S.h * 0.5;
+  return {
+    x: (sx - ox) / S.zoom + ox - S.shakeX / S.zoom,
+    y: (sy - oy) / S.zoom + oy + S.cameraY - S.shakeY / S.zoom,
+  };
+}
+
+function onPointer(e) {
+  if (S.inputLocked && S.phase !== 'outcome') return;
+  const { x, y } = screenToLogical(e.clientX, e.clientY);
+
+  // outcome choice
+  if (S.phase === 'outcome' && S.moon.bandage && S.choiceReady) {
+    const mx = S.w / 2;
+    const my = S.h * 0.38;
+    const r = MOON_RADIUS * 2.5;
+    const btnY = my + r + 50;
+    const btnW = 70, btnH = 30;
+    if (hitRect(x, y, mx - 50 - btnW/2, btnY, btnW, btnH) ||
+        hitRect(x, y, mx + 50 - btnW/2, btnY, btnW, btnH)) {
+      resetToStart();
+      return;
+    }
+    return;
+  }
+
+  if (S.phase === 'launching' || S.phase === 'outcome') return;
+
+  // card draw interaction
+  if (S.cardDraw.visible && S.cardDraw.cards.length > 0) {
+    const { cardW, cardH, gap, startX, cardY } = getCardLayout();
+
+    // check card clicks
+    for (let i = 0; i < S.cardDraw.cards.length; i++) {
+      const cx = startX + i * (cardW + gap);
+      if (hitRect(x, y, cx, cardY, cardW, cardH)) {
+        applyCard(i);
+        return;
+      }
+    }
+
+    // shuffle button
+    if (S.labelPool.length > 0) {
+      const sbW = 60, sbH = 20;
+      const sbX = S.w/2 - sbW/2;
+      const sbY = cardY + cardH + 8;
+      if (hitRect(x, y, sbX, sbY, sbW, sbH)) {
+        shuffleCards();
+        return;
+      }
+    }
+
+    // tap outside cards → close
+    if (y < cardY - 30) {
+      closeCardDraw();
+      closeLabelPanel();
+      return;
+    }
+  }
+
+  // moon
+  const moonScreenX = S.moonX + S.moon.lean * 30 + (S.moon.nervous ? Math.sin(S.moon.nervousT * 0.003) * 5 : 0);
+  if (hitCircle(x, y, moonScreenX, S.moonY, MOON_RADIUS * S.moon.scale + 12)) {
+    if (S.phase === 'pristine') { firePristineShot(); return; }
+    if (S.phase === 'tinkering') { triggerStall(); return; }
+  }
+
+  // player rocket
+  if (hitRect(x, y, S.rocket.x - 18, S.rocket.y - ROCKET_H/2 - 12, 36, ROCKET_H + 16)) {
+    if (S.phase === 'pristine') { enterTinkering(); return; }
+    if (S.phase === 'tinkering') {
+      if (S.labelPanelOpen && S.labelTarget === 'player') { closeLabelPanel(); }
+      else { openLabelPanel('player'); }
+      return;
+    }
+  }
+
+  // rival rockets
+  for (const rival of S.rivals) {
+    if (rival.arrived && hitRect(x, y, rival.rocket.x - 18, rival.rocket.y - ROCKET_H/2 - 12, 36, ROCKET_H + 16)) {
+      if (S.phase === 'tinkering') {
+        if (S.labelPanelOpen && S.labelTarget === rival.name) { closeLabelPanel(); }
+        else { openLabelPanel(rival.name); }
+        return;
+      }
+    }
+  }
+
+  // vendor
+  if (S.vendor.visible && S.phase === 'tinkering' && S.lunch.phase === 'none') {
+    if (hitRect(x, y, S.vendor.x - 5, S.groundY - 55, 80, 50)) {
+      applyGadget();
+      return;
+    }
+  }
+
+  // lunch food cards
+  if ((S.lunch.phase === 'dish' || S.lunch.phase === 'drink') && S.lunch.options.length > 0 && S.phase === 'tinkering') {
+    const { cw, ch, gap, sx, sy } = getLunchCardLayout();
+    for (let i = 0; i < S.lunch.options.length; i++) {
+      const cx = sx + i * (cw + gap);
+      if (hitRect(x, y, cx, sy, cw, ch)) {
+        pickLunchItem(i);
+        return;
+      }
+    }
+  }
+
+  // lunch button
+  if (S.lunch.visible && S.phase === 'tinkering' && S.lunch.phase === 'none') {
+    const { bw, bh, bx, by } = getLunchButtonPos();
+    if (hitRect(x, y, bx, by, bw, bh)) {
+      openLunchDish();
+      return;
+    }
+  }
+}
+
+// ===== MAIN LOOP =====
+let lastTime = 0;
+function frame(time) {
+  const dt = Math.min(time - lastTime, 50);
+  lastTime = time;
+  if (dt > 0) { update(dt); render(); }
+  requestAnimationFrame(frame);
+}
+
+// ===== INIT =====
+function init() {
+  resize();
+  initStars();
+  S.labelPool = shuffle(ALL_LABELS.map(l => ({ ...l })));
+  showText('Shoot the Moon.');
+  requestAnimationFrame(frame);
+}
+
+init();
+</script>
+</body>
+</html>
