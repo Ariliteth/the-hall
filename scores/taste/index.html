@@ -212,6 +212,286 @@
     60% { opacity: 1; }
   }
 
+  /* ── MAGAZINE ── */
+  #magazine-container {
+    position: relative;
+    width: 94%;
+    max-width: 600px;
+    z-index: 2;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  #magazine-container.active { display: flex; }
+
+  /* Cover */
+  #mag-cover {
+    display: none;
+    width: 100%;
+    max-width: 520px;
+    aspect-ratio: 3/4;
+    border-radius: 4px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  #mag-cover.active { display: flex; }
+  #mag-cover:hover { transform: scale(1.02); box-shadow: 0 6px 28px rgba(0,0,0,0.5); }
+  #mag-cover .cover-title {
+    font-family: Georgia, serif;
+    font-size: 1.6rem;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.88);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    text-align: center;
+    padding: 0 24px;
+  }
+  #mag-cover .cover-sub {
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin-top: 8px;
+  }
+
+  /* Spread */
+  #magazine-spread {
+    display: none;
+    width: 100%;
+    max-width: 560px;
+    background: #e8e0cc;
+    border-radius: 3px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.35);
+    overflow: hidden;
+  }
+  #magazine-spread.active { display: flex; }
+
+  .mag-page {
+    flex: 1;
+    min-height: 340px;
+    padding: 28px 22px 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  .mag-page-left {
+    background: #f4eed8;
+    border-right: 1px solid #d8ceb4;
+    box-shadow: inset -4px 0 8px rgba(0,0,0,0.04);
+  }
+  .mag-page-right {
+    background: #f6f0da;
+    box-shadow: inset 4px 0 8px rgba(0,0,0,0.03);
+  }
+
+  /* Prose */
+  .mag-prose {
+    font-family: Georgia, serif;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: #3a2e18;
+    margin-bottom: 16px;
+  }
+  .mag-prose .drop-cap {
+    float: left;
+    font-size: 2.8rem;
+    line-height: 0.85;
+    padding: 2px 6px 0 0;
+    color: #5a4020;
+    font-family: Georgia, serif;
+  }
+
+  /* Panels */
+  .mag-panel {
+    background: #faf4e2;
+    border: 1.5px solid #d4c8a8;
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: background 0.4s, border-color 0.4s;
+  }
+  .mag-panel:hover:not(.unlocked) {
+    border-color: #b8a878;
+    background: #fcf8ec;
+  }
+  .mag-panel.unlocked {
+    background: rgba(120,170,100,0.12);
+    border-color: rgba(120,170,100,0.35);
+    cursor: default;
+  }
+  .mag-panel.locked-out {
+    opacity: 0.55;
+    cursor: default;
+  }
+  .mag-panel-category {
+    font-size: 0.55rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #8a7a58;
+    margin-bottom: 4px;
+    font-family: -apple-system, sans-serif;
+  }
+  .mag-panel-title {
+    font-family: Georgia, serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #3a2e18;
+    margin-bottom: 6px;
+  }
+  .mag-panel-body {
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #5a4e30;
+    margin-bottom: 8px;
+  }
+  .mag-panel-unlock {
+    font-size: 0.65rem;
+    font-style: italic;
+    color: #8a7a58;
+  }
+  .mag-panel .unlocked-mark {
+    display: none;
+    font-size: 0.55rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(100,150,80,0.6);
+    text-align: right;
+    margin-top: 4px;
+  }
+  .mag-panel.unlocked .unlocked-mark { display: block; }
+  .mag-panel.unlocked .mag-panel-unlock { display: none; }
+  .mag-panel-large { min-height: 100px; }
+
+  /* Scribbles */
+  .mag-scribble {
+    position: absolute;
+    font-family: 'Segoe Script', 'Apple Chancery', 'Comic Sans MS', cursive;
+    font-size: 0.65rem;
+    color: rgba(100,80,50,0.4);
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  /* Footer */
+  .mag-footer {
+    display: flex;
+    justify-content: space-between;
+    position: absolute;
+    bottom: 8px;
+    left: 22px;
+    right: 22px;
+    font-size: 0.5rem;
+    letter-spacing: 1px;
+    color: rgba(100,80,50,0.3);
+    font-family: -apple-system, sans-serif;
+  }
+
+  /* Navigation */
+  .mag-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 4px;
+  }
+  .mag-nav-btn {
+    background: none;
+    border: none;
+    color: #8a7a5a;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px 10px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+    font-family: Georgia, serif;
+  }
+  .mag-nav-btn:hover { opacity: 1; }
+  .mag-nav-btn:disabled { opacity: 0.15; cursor: default; }
+  .mag-nav-page {
+    font-size: 0.6rem;
+    color: #8a7a5a;
+    letter-spacing: 1px;
+    min-width: 60px;
+    text-align: center;
+  }
+
+  /* Rack */
+  #mag-rack {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    padding: 6px 12px;
+    min-height: 28px;
+  }
+  .mag-rack-spine {
+    width: 14px;
+    height: 44px;
+    border-radius: 1px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .mag-rack-spine:hover { transform: translateY(-3px); box-shadow: 0 3px 8px rgba(0,0,0,0.3); }
+  .mag-rack-spine.current { outline: 1.5px solid rgba(200,184,122,0.5); outline-offset: 1px; }
+  .mag-rack-spine .spine-label {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-90deg);
+    font-size: 0.3rem;
+    letter-spacing: 0.5px;
+    color: rgba(255,255,255,0.5);
+    white-space: nowrap;
+    transform-origin: center;
+  }
+
+  /* Toast */
+  #mag-toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(42,31,10,0.92);
+    color: #c8b87a;
+    padding: 14px 28px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: Georgia, serif;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+    text-align: center;
+    max-width: 300px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  #mag-toast.visible { opacity: 1; }
+
+  /* Done reading */
+  #mag-done-btn {
+    background: none;
+    border: 1px solid rgba(200,184,122,0.2);
+    color: rgba(200,184,122,0.5);
+    font-family: Georgia, serif;
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    padding: 8px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  #mag-done-btn:hover {
+    color: #c8b87a;
+    border-color: rgba(200,184,122,0.4);
+  }
+
   /* ── CHOOSE STORE PHASE ── */
   #store-phase {
     flex-direction: column;
@@ -317,45 +597,68 @@
     gap: 16px;
   }
 
-  #display-surface {
-    background: linear-gradient(180deg, var(--wood) 0%, var(--wood-dark) 100%);
-    border-radius: 8px;
-    padding: 16px;
+  /* ── BINS ── */
+  #bins-area {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
     justify-content: center;
-    min-height: 140px;
-    position: relative;
   }
 
-  .produce-item {
-    width: 80px;
+  .bin {
+    min-width: 72px;
+    background: linear-gradient(180deg, var(--wood) 0%, var(--wood-dark) 100%);
+    border-radius: 6px;
+    padding: 8px 6px 6px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
-    padding: 10px 6px;
-    background: rgba(255,255,255,0.12);
-    border-radius: 6px;
+  }
+  .bin-label {
+    font-size: 0.5rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 2px;
+  }
+  .bin-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    min-height: 40px;
+    align-items: center;
+  }
+  .bin-empty {
+    font-size: 0.45rem;
+    color: rgba(255,255,255,0.2);
+    font-style: italic;
+    padding: 8px 0;
+  }
+
+  .bin-item {
+    width: 64px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 5px;
     cursor: grab;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.12s, background 0.12s, box-shadow 0.12s;
     position: relative;
   }
-  .produce-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-  .produce-item:active { cursor: grabbing; }
-  .produce-item.allocated { opacity: 0.3; pointer-events: none; }
-  .produce-item.sliced {
+  .bin-item:hover { transform: translateY(-2px); background: rgba(255,255,255,0.18); box-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+  .bin-item:active { cursor: grabbing; }
+  .bin-item .produce-emoji { font-size: 1.6rem; }
+  .bin-item .produce-name { font-size: 0.45rem; color: rgba(255,255,255,0.7); letter-spacing: 0.5px; }
+  .bin-item.allocated { opacity: 0.3; pointer-events: none; }
+  .bin-item.sliced {
     border: 1px solid var(--accent);
     background: rgba(212,136,58,0.15);
   }
-  .produce-item.sliced .produce-name::after {
-    content: ' (cut)';
-    font-style: italic;
-    opacity: 0.7;
-  }
-  .produce-item .produce-emoji { font-size: 1.8rem; transition: transform 0.2s; }
-  .produce-item .produce-name { font-size: 0.6rem; color: rgba(255,255,255,0.7); letter-spacing: 1px; }
 
   .quality-badges {
     display: flex;
@@ -596,6 +899,42 @@
   .ghost-slot.filled .slot-item { display: flex; }
   .ghost-slot .slot-item .slot-emoji { font-size: 1rem; }
 
+  /* Ghost trace — was here, left nothing */
+  .ghost-trace {
+    font-size: 0.55rem;
+    color: rgba(154,138,106,0.2);
+    font-style: italic;
+    padding: 8px 0;
+    text-align: center;
+    letter-spacing: 3px;
+  }
+
+  /* Impossible slot — can't be filled, just sits there */
+  .ghost-slot.impossible {
+    opacity: 0.5;
+    border-style: dotted;
+  }
+
+  /* Ghost arrival animation */
+  #ghost-section.arriving {
+    animation: ghost-arrive 1.8s ease-out forwards;
+  }
+  @keyframes ghost-arrive {
+    0% { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Ghost fade-out — the list blows away */
+  #ghost-section.fading {
+    animation: ghost-fade-away 4s ease-in forwards;
+    pointer-events: none;
+  }
+  @keyframes ghost-fade-away {
+    0% { opacity: 1; transform: translateY(0); }
+    60% { opacity: 0.3; transform: translateY(-3px); }
+    100% { opacity: 0; transform: translateY(-12px); }
+  }
+
   /* ── GOING HOME PHASE ── */
   #home-phase {
     flex-direction: column;
@@ -727,6 +1066,23 @@
     <div id="lamp-glow"></div>
     <div id="shelf-label">Your Shelf</div>
     <div id="trophy-shelf"></div>
+    <!-- MAGAZINE -->
+    <div id="magazine-container">
+      <div id="mag-cover"></div>
+      <div id="magazine-spread">
+        <div class="mag-page mag-page-left" id="mag-left"></div>
+        <div class="mag-page mag-page-right" id="mag-right"></div>
+      </div>
+      <div class="mag-nav">
+        <button class="mag-nav-btn" id="mag-prev" onclick="turnPage(-1)">&lsaquo;</button>
+        <span class="mag-nav-page" id="mag-page-indicator"></span>
+        <button class="mag-nav-btn" id="mag-next" onclick="turnPage(1)">&rsaquo;</button>
+      </div>
+      <div id="mag-rack"></div>
+      <button id="mag-done-btn" onclick="closeMagazine()">Done Reading</button>
+    </div>
+    <div id="mag-toast"></div>
+
     <div id="wife-list-delivery">
       <h3>Today's List</h3>
       <div id="wife-lines"></div>
@@ -752,7 +1108,7 @@
     </div>
     <div id="shop-body">
       <div id="display-area">
-        <div id="display-surface"></div>
+        <div id="bins-area"></div>
         <div id="tool-bench">
           <div class="tool-zone" data-tool="trampoline">
             <div class="tool-emoji">🔵</div>
@@ -828,6 +1184,233 @@ function seededRng(seed) {
 }
 
 // ===== DATA =====
+// ===== MAGAZINE ISSUES =====
+const ISSUES = [
+  {
+    id: 'citrus-01',
+    name: 'The Citrus Issue',
+    color: '#a0522d',
+    pages: [
+      // Spread 1
+      {
+        left: {
+          prose: {
+            text: 'There is a moment, holding a good lemon, when you know before you squeeze. The skin resists just enough. The weight says yes. Everything about citrus is an answer to a question your hands already asked.',
+            dropCap: true
+          },
+          scribbles: [
+            { text: 'the handshake test!!', x: 78, y: 22, rotate: -4 },
+            { text: '\u2665', x: 85, y: 68, rotate: 12, style: 'font-size:1rem;opacity:0.25' },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'citrus-blood-orange',
+              size: 'large',
+              category: 'new variety',
+              title: 'Blood Orange',
+              body: 'Arriving at Maria\u2019s this week. Interior runs from ruby to near-black depending on the season. Heavier than it looks. Tastes like an orange that remembered something.',
+              unlock: { type: 'variety', key: 'blood_orange', desc: 'Blood oranges now appear at Maria\u2019s' }
+            }
+          ],
+          scribbles: [
+            { text: 'she likes the crooked ones', x: 60, y: 82, rotate: 2 },
+          ]
+        }
+      },
+      // Spread 2
+      {
+        left: {
+          prose: {
+            text: 'The peach is the most honest fruit. It cannot pretend. But a lemon can hold its secrets for weeks, sitting on the counter, waiting for someone who knows how to ask.',
+            dropCap: true
+          },
+          scribbles: [
+            { text: '...how do tannins actually taste', x: 70, y: 15, rotate: -2 },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'citrus-meyer-lemon',
+              size: 'large',
+              category: 'new variety',
+              title: 'Meyer Lemon',
+              body: 'Rounder, thinner-skinned, more orange than it wants to admit. Makes everything it touches feel deliberate. Limited availability \u2014 Maria gets them when she gets them.',
+              unlock: { type: 'variety', key: 'meyer_lemon', desc: 'Meyer lemons occasionally appear at Maria\u2019s' }
+            },
+            {
+              id: 'citrus-squeeze-technique',
+              size: 'small',
+              category: 'technique',
+              title: 'The Two-Handed Press',
+              body: 'Firmness is not about force. Cup the fruit, thumbs meeting at the crown. Let it tell you.',
+              unlock: { type: 'technique', key: 'squeeze_precision', desc: 'Gentle Calipers now reveal a hint about freshness' }
+            }
+          ],
+          scribbles: []
+        }
+      },
+      // Spread 3
+      {
+        left: {
+          prose: {
+            text: 'A melon that feels light for its size is not worth your time or hers. But a lime that feels heavy \u2014 that is a lime with something to say. We underestimate the small ones.',
+            dropCap: true
+          },
+          scribbles: [
+            { text: 'buy on tuesday not friday', x: 72, y: 40, rotate: -6 },
+            { text: 'check maria\u2019s for these', x: 65, y: 75, rotate: 3 },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'citrus-marias-rotation',
+              size: 'small',
+              category: 'store note',
+              title: 'Maria\u2019s Tuesday Delivery',
+              body: 'She restocks citrus on Tuesdays. What you find on a Friday has been waiting. What you find on a Tuesday just arrived.',
+              unlock: { type: 'store_note', key: 'marias_fresh_day', desc: 'Tuesday runs at Maria\u2019s have fresher stock' }
+            },
+            {
+              id: 'citrus-succulent-lemon',
+              size: 'small',
+              category: 'variety',
+              title: 'Succulent Lemons',
+              body: 'Not a new breed \u2014 a description. Certain lemons run wet. Juice pools before you finish cutting. Maria sometimes marks these with a small chalk dot on the stem end.',
+              unlock: { type: 'variety', key: 'succulent_lemon', desc: 'Succulent lemons now appear rarely at Maria\u2019s' }
+            }
+          ],
+          scribbles: [
+            { text: '\u266B', x: 88, y: 10, rotate: 15, style: 'font-size:0.9rem;opacity:0.2' },
+          ]
+        }
+      },
+      // Spread 4
+      {
+        left: {
+          prose: {
+            text: 'We heard a rumor at the market. Someone upstream \u2014 a grower, maybe two \u2014 has been crossing grapefruits with something sweeter. They are calling them Grapemelons. Nobody has tasted one yet. We are paying attention.',
+            dropCap: true
+          },
+          scribbles: [
+            { text: 'GRAPEMELON???', x: 72, y: 28, rotate: -8, style: 'font-size:0.75rem;color:rgba(160,82,45,0.5)' },
+            { text: '\u2665 \u2665', x: 82, y: 36, rotate: 5, style: 'font-size:0.6rem;opacity:0.2' },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'citrus-grapemelon-rumor',
+              size: 'large',
+              category: 'fad watch',
+              title: 'The Grapemelon',
+              body: 'Unconfirmed. A cross between grapefruit and an undisclosed melon-adjacent citrus. Early reports describe it as \u201Cwhat grapefruit would taste like if it liked you.\u201D We will follow this.',
+              unlock: { type: 'fad_watch', key: 'grapemelon', desc: 'You\u2019ll hear about this again' }
+            }
+          ],
+          scribbles: [
+            { text: 'tell Jan', x: 80, y: 78, rotate: 1 },
+          ]
+        }
+      },
+      // Spread 5
+      {
+        left: {
+          prose: {
+            text: 'The tangerine is the lemon\u2019s younger cousin who showed up to dinner in a wrinkled shirt and charmed everyone anyway. It peels in your hands like it was waiting to be opened. Nobody takes it seriously enough.',
+            dropCap: true
+          },
+          scribbles: [
+            { text: 'the wrinkled ones peel easier', x: 68, y: 72, rotate: -3 },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'citrus-tangerine-note',
+              size: 'large',
+              category: 'variety',
+              title: 'Tangerine',
+              body: 'Smaller than an orange, sweeter than it has any right to be. The skin separates with almost no resistance. Maria keeps these near the register \u2014 impulse fruit, she calls them.',
+              unlock: { type: 'store_note', key: 'tangerine_register', desc: 'You\u2019ll notice tangerines near the register now' }
+            }
+          ],
+          scribbles: [
+            { text: 'impulse fruit!!', x: 75, y: 82, rotate: 6, style: 'color:rgba(160,82,45,0.45)' },
+          ]
+        }
+      },
+      // Spread 6
+      {
+        left: {
+          prose: {
+            text: 'Key limes are the size of a large marble and twice as opinionated. You need six where one regular lime would do. This is not inefficiency \u2014 this is commitment. Someone who buys key limes is telling you something about how they spend their afternoon.',
+            dropCap: true
+          },
+          scribbles: [
+            { text: 'six!!', x: 82, y: 20, rotate: -10, style: 'font-size:0.8rem;color:rgba(100,80,50,0.35)' },
+            { text: 'pie??', x: 78, y: 60, rotate: 4 },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'citrus-key-lime',
+              size: 'small',
+              category: 'variety',
+              title: 'Key Limes',
+              body: 'Tiny, round, and yellower than you expect. The juice is sharper and more floral than a regular lime. Maria gets them irregularly \u2014 when her supplier has them, she has them.',
+              unlock: { type: 'store_note', key: 'key_lime_irregular', desc: 'Key limes appear irregularly at Maria\u2019s' }
+            },
+            {
+              id: 'citrus-weight-lesson',
+              size: 'small',
+              category: 'technique',
+              title: 'The Weight of Juice',
+              body: 'Heavy for its size. That\u2019s the whole lesson. Doesn\u2019t matter which citrus. If it\u2019s heavy for its size, there\u2019s juice inside. Your hands already know this. Trust them.',
+              unlock: { type: 'technique', key: 'weight_confidence', desc: 'Fruitrampoline readings feel more precise' }
+            }
+          ],
+          scribbles: [
+            { text: '\u2665', x: 88, y: 45, rotate: 15, style: 'font-size:1.1rem;opacity:0.18' },
+          ]
+        }
+      },
+      // Spread 7
+      {
+        left: {
+          prose: {
+            text: 'We end where we began. With a lemon in your hand and a question you already know the answer to. The skin resists. The weight says yes. You have been doing this longer than you think. Next issue, we leave citrus. There is a rumor about potatoes.',
+            dropCap: true
+          },
+          scribbles: [
+            { text: 'potatoes.', x: 72, y: 75, rotate: -2 },
+            { text: 'POTATOES', x: 74, y: 80, rotate: 3, style: 'font-size:0.7rem;color:rgba(100,80,50,0.4)' },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'citrus-marias-trust',
+              size: 'large',
+              category: 'store note',
+              title: 'What Maria Doesn\u2019t Stock',
+              body: 'If Maria doesn\u2019t have it, she decided you don\u2019t need it this week. This is not a failing. This is curation. She knows her supply. She knows when to wait. You could learn from this.',
+              unlock: { type: 'store_note', key: 'marias_curation', desc: 'You begin to understand Maria\u2019s gaps' }
+            }
+          ],
+          scribbles: [
+            { text: 'thank you, Maria', x: 62, y: 80, rotate: -4, style: 'color:rgba(100,80,50,0.3)' },
+          ]
+        }
+      },
+    ]
+  }
+];
+
 const STORES = {
   marias: {
     name: "Maria's Produce",
@@ -837,7 +1420,7 @@ const STORES = {
     surface: 'wood',
     freshBias: 0.7,
     ripeBias: 0.4,
-    count: 5,
+    count: 24,
   },
 };
 
@@ -846,6 +1429,8 @@ const CITRUS = {
   orange:     { emoji: '🍊', name: 'Orange' },
   grapefruit: { emoji: '🍈', name: 'Grapefruit' },
   lime:       { emoji: '🍏', name: 'Lime' },
+  tangerine:  { emoji: '🍊', name: 'Tangerine' },
+  key_lime:   { emoji: '🍏', name: 'Key Lime' },
 };
 const CITRUS_KEYS = Object.keys(CITRUS);
 
@@ -867,7 +1452,7 @@ function getWifeList(run) {
   ];
   // Later runs: shuffle items, sharpen preferences
   const rng = seededRng(hashStr('wife' + run));
-  const items = ['lemon', 'orange', 'grapefruit', 'lime'];
+  const items = CITRUS_KEYS.slice(); // draw from whatever's available
   const prefs = ['firmness', 'weight', 'freshness', 'juiciness', null];
   const count = 2 + Math.floor(rng() * 2); // 2-3 items
   const list = [];
@@ -898,6 +1483,21 @@ const GHOST_PHRASES = [
   { item: 'grapefruit', pref: 'freshness', full: "grapefruit. Fresh ones." },
   { item: 'lime',       pref: 'firmness',  full: "limes. Firm ones." },
   { item: 'lime',       pref: null,        full: "limes. Anything green." },
+  { item: 'tangerine',  pref: 'freshness', full: "tangerines. Fresh ones." },
+  { item: 'tangerine',  pref: null,        full: "tangerines. The small kind." },
+  { item: 'key_lime',   pref: 'firmness',  full: "key limes. Firm ones." },
+  { item: 'key_lime',   pref: null,        full: "key limes if she has them." },
+];
+
+// Things the ghost sometimes asks for that Maria doesn't carry
+const GHOST_IMPOSSIBLE = [
+  { item: null, pref: null, full: "apples. The red kind." },
+  { item: null, pref: null, full: "pears." },
+  { item: null, pref: null, full: "something sweet." },
+  { item: null, pref: null, full: "plums if they have them." },
+  { item: null, pref: null, full: "bananas." },
+  { item: null, pref: null, full: "peaches. Soft ones." },
+  { item: null, pref: null, full: "~~~" },
 ];
 
 function smudge(text, rng, intensity) {
@@ -920,14 +1520,50 @@ function smudge(text, rng, intensity) {
 
 function getGhostList(run, ghostSeed, drift) {
   const rng = seededRng(hashStr('ghost' + ghostSeed + run));
-  const count = rng() > 0.6 ? 2 : 1; // usually 1, sometimes 2
+
+  // The ghost is weather. It doesn't owe you anything.
+  const presenceRng = seededRng(hashStr('ghostpresence' + ghostSeed + run * 7919));
+  const presenceRoll = presenceRng();
+
+  // ~30% chance: absent entirely
+  if (presenceRoll < 0.30) return [];
+
+  // ~8% chance: ghost was here but left — just a trace
+  if (presenceRoll < 0.38) return [{ item: null, pref: null, desc: '~~~', fullyIllegible: true, trace: true }];
+
+  // Arrival delay: sometimes the list is already there, sometimes it slides in later
+  // 0 = immediate, positive = milliseconds of delay before ghost section appears
+  const delayRoll = rng();
+  const arrivalDelay = delayRoll < 0.5 ? 0              // half the time: immediate
+                     : delayRoll < 0.8 ? 4000 + rng() * 8000   // 4-12 seconds
+                     : 12000 + rng() * 18000;            // 12-30 seconds — you're mid-shopping
+
+  // Variable list length: usually 1, sometimes 2, rarely 3
+  const countRoll = rng();
+  const count = countRoll < 0.50 ? 1 : countRoll < 0.85 ? 2 : 3;
+
+  // Legibility varies wildly per run
+  const legRoll = rng();
+  const legibility = legRoll < 0.12 ? 0.02 + rng() * 0.08   // ~12%: crystalline — almost no smudge
+                   : legRoll > 0.82 ? 0.75 + rng() * 0.2     // ~18%: near-illegible
+                   : 0.2 + rng() * 0.5;                       // ~70%: normal range
+
+  // Fade chance: ~15% of the time, the ghost list fades away mid-shopping
+  const fadeRoll = rng();
+  const fadeAfter = fadeRoll < 0.15 ? 15000 + rng() * 25000 : 0; // 15-40s then fades
+
   const list = [];
   const used = new Set();
 
-  // Legibility varies per run: 0.2 (quite readable) to 0.8 (mostly smudged)
-  const legibility = 0.2 + rng() * 0.6;
-
   for (let i = 0; i < count; i++) {
+    // Small chance of an impossible request — something Maria doesn't sell
+    if (rng() < 0.12) {
+      const imp = GHOST_IMPOSSIBLE[Math.floor(rng() * GHOST_IMPOSSIBLE.length)];
+      const desc = imp.full === '~~~' ? '~~~' : smudge(imp.full, rng, legibility);
+      list.push({ item: null, pref: null, desc, fullyIllegible: imp.full === '~~~', impossible: true });
+      continue;
+    }
+
     // Pick a phrase, influenced by drift
     let candidates = GHOST_PHRASES.filter(p => !used.has(p.item));
     if (candidates.length === 0) candidates = GHOST_PHRASES;
@@ -935,7 +1571,6 @@ function getGhostList(run, ghostSeed, drift) {
     // Weight toward drifted preferences
     let pick;
     if (Object.keys(drift).length > 0 && rng() > 0.4) {
-      // Find candidates whose pref matches a strong drift
       const driftKeys = Object.entries(drift).sort((a, b) => b[1] - a[1]);
       const drifted = candidates.filter(c => c.pref && driftKeys.some(([k]) => k === c.pref));
       pick = drifted.length > 0 ? drifted[Math.floor(rng() * drifted.length)] : candidates[Math.floor(rng() * candidates.length)];
@@ -945,8 +1580,8 @@ function getGhostList(run, ghostSeed, drift) {
 
     used.add(pick.item);
 
-    // Fully illegible sometimes (~15% chance)
-    const fullyIllegible = rng() < 0.15;
+    // Fully illegible chance scales with legibility
+    const fullyIllegible = rng() < legibility * 0.3;
     const desc = fullyIllegible ? '~~~' : smudge(pick.full, rng, legibility);
 
     list.push({
@@ -956,6 +1591,10 @@ function getGhostList(run, ghostSeed, drift) {
       fullyIllegible,
     });
   }
+
+  // Attach weather metadata to the list
+  list._arrivalDelay = arrivalDelay;
+  list._fadeAfter = fadeAfter;
 
   return list;
 }
@@ -968,8 +1607,7 @@ const S = {
   wife: { list: [], satisfaction: 0.5, memory: [] },
 
   store: null,
-  display: [],  // { id, type, emoji, name, quality:{}, revealed:{}, allocated: null }
-
+  bins: {},     // { typeKey: [item, ...] } — Maria's stock by type
   basket: { wife: [], ghost: [] },
 
   sliceUsed: false,
@@ -987,6 +1625,15 @@ const S = {
 
   critic: { preferences: {} },
 
+  magazine: {
+    unlocked: [],           // panel IDs that have been unlocked
+    currentIssue: null,     // which issue is currently being read
+    currentSpread: 0,       // spread index within current issue
+    issuesEncountered: [],  // all issue IDs ever delivered
+    unlockedThisVisit: false, // limits to one unlock per lamp visit
+    coverSeen: {},          // { issueId: true } — tracks if cover has been shown
+  },
+
   t: 0,
 };
 
@@ -1003,6 +1650,13 @@ function save() {
     ghostSeed: S.ghost.seed,
     ghostHistory: S.ghost.history.slice(-8),
     ghostDrift: S.ghost.drift,
+    magazine: {
+      unlocked: S.magazine.unlocked,
+      currentIssue: S.magazine.currentIssue,
+      currentSpread: S.magazine.currentSpread,
+      issuesEncountered: S.magazine.issuesEncountered,
+      coverSeen: S.magazine.coverSeen,
+    },
   };
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch(e) {}
 }
@@ -1020,6 +1674,13 @@ function load() {
     S.ghost.seed = d.ghostSeed || null;
     S.ghost.history = d.ghostHistory || [];
     S.ghost.drift = d.ghostDrift || {};
+    if (d.magazine) {
+      S.magazine.unlocked = d.magazine.unlocked || [];
+      S.magazine.currentIssue = d.magazine.currentIssue || null;
+      S.magazine.currentSpread = d.magazine.currentSpread || 0;
+      S.magazine.issuesEncountered = d.magazine.issuesEncountered || [];
+      S.magazine.coverSeen = d.magazine.coverSeen || {};
+    }
   } catch(e) {}
 }
 
@@ -1032,36 +1693,52 @@ function ensureGhostSeed() {
 }
 
 // ===== QUALITY GENERATION =====
-function generateDisplay(storeKey, run) {
+let _nextItemId = 0;
+
+function generateBins(storeKey, run) {
   const store = STORES[storeKey];
   const rng = seededRng(hashStr(storeKey + run));
-  const count = store.count;
-  const items = [];
+  const bins = {};
+  _nextItemId = 0;
 
-  for (let i = 0; i < count; i++) {
+  // Initialize empty bins for all available types
+  for (const key of CITRUS_KEYS) bins[key] = [];
+
+  // Distribute ~count items across types with natural weighting
+  const total = store.count;
+  for (let i = 0; i < total; i++) {
     const typeKey = CITRUS_KEYS[Math.floor(rng() * CITRUS_KEYS.length)];
     const ct = CITRUS[typeKey];
     const quality = {};
     for (const qk of Object.keys(QUALS)) {
-      let base = 0.3 + rng() * 0.5; // 0.3-0.8 base
+      let base = 0.3 + rng() * 0.5;
       if (qk === 'freshness') base += store.freshBias * 0.2 - 0.1;
       if (qk === 'firmness') base += (1 - store.ripeBias) * 0.15 - 0.075;
-      // Per-item variance
       base += (rng() - 0.5) * 0.3;
       quality[qk] = Math.max(0, Math.min(1, base));
     }
-    items.push({
-      id: i,
+    bins[typeKey].push({
+      id: _nextItemId++,
       type: typeKey,
       emoji: ct.emoji,
       name: ct.name,
       quality,
-      revealed: {},   // { weight: true, ... }
+      revealed: {},
       sliced: false,
-      allocated: null, // null | slotIndex
     });
   }
-  return items;
+  return bins;
+}
+
+// Find an item across all locations (bins, basket)
+function findItem(id) {
+  for (const items of Object.values(S.bins)) {
+    const found = items.find(i => i.id === id);
+    if (found) return found;
+  }
+  for (const item of S.basket.wife) { if (item && item.id === id) return item; }
+  for (const item of S.basket.ghost) { if (item && item.id === id) return item; }
+  return null;
 }
 
 // ===== CRITIC =====
@@ -1147,25 +1824,317 @@ function renderTrophyShelf() {
   for (const t of S.trophies) {
     const div = document.createElement('div');
     div.className = 'trophy' + (t.hasGem ? ' gem' : '');
-    div.title = `${t.name} — Run ${t.run + 1}`;
+    div.title = t.wifeLabel || t.name;
     div.innerHTML = `<div class="trophy-item">${t.emoji}</div><div class="trophy-base" style="background:${trophyColor(t)}"></div>`;
     shelf.appendChild(div);
   }
 }
 
-// ===== PHASE: LAMP =====
-function enterLamp() {
-  setPhase('lamp');
+// ===== MAGAZINE =====
 
-  // Age existing trophies
-  for (const t of S.trophies) { t.age = (t.age || 0) + 1; }
+function getIssue(id) { return ISSUES.find(i => i.id === id); }
+
+function determineLampIssue() {
+  // The lamp curates: deliver issues in order, one at a time
+  for (const issue of ISSUES) {
+    if (!S.magazine.issuesEncountered.includes(issue.id)) {
+      S.magazine.issuesEncountered.push(issue.id);
+      S.magazine.currentIssue = issue.id;
+      S.magazine.currentSpread = 0;
+      save();
+      return issue;
+    }
+  }
+  // All issues encountered — stay on whatever was last read
+  if (!S.magazine.currentIssue && ISSUES.length > 0) {
+    S.magazine.currentIssue = ISSUES[0].id;
+  }
+  return getIssue(S.magazine.currentIssue);
+}
+
+function enterMagazine() {
+  const container = document.getElementById('magazine-container');
+  const issue = determineLampIssue();
+
+  if (!issue) {
+    // No issues exist yet — skip magazine
+    container.classList.remove('active');
+    deliverWifeList();
+    return;
+  }
+
+  S.magazine.unlockedThisVisit = false;
+  container.classList.add('active');
+
+  // Hide wife list and button until magazine is done
+  document.getElementById('wife-list-delivery').style.display = 'none';
+  document.getElementById('go-shopping-btn').style.display = 'none';
+
+  // Show cover if this is a new issue
+  if (!S.magazine.coverSeen[issue.id]) {
+    renderCover(issue);
+  } else {
+    hideCover();
+    showSpread();
+    renderSpread(issue.id, S.magazine.currentSpread);
+  }
+
+  renderRack();
+}
+
+function renderCover(issue) {
+  const cover = document.getElementById('mag-cover');
+  cover.style.background = issue.color;
+  cover.innerHTML = `<div class="cover-title">${issue.name}</div><div class="cover-sub">Taste Magazine</div>`;
+  cover.classList.add('active');
+  cover.onclick = () => {
+    S.magazine.coverSeen[issue.id] = true;
+    save();
+    hideCover();
+    showSpread();
+    renderSpread(issue.id, S.magazine.currentSpread);
+  };
+
+  // Hide spread and nav while cover is showing
+  document.getElementById('magazine-spread').classList.remove('active');
+  document.querySelector('.mag-nav').style.display = 'none';
+  document.getElementById('mag-done-btn').style.display = 'none';
+}
+
+function hideCover() {
+  document.getElementById('mag-cover').classList.remove('active');
+}
+
+function showSpread() {
+  document.getElementById('magazine-spread').classList.add('active');
+  document.querySelector('.mag-nav').style.display = 'flex';
+  document.getElementById('mag-done-btn').style.display = '';
+}
+
+function renderSpread(issueId, spreadIndex) {
+  const issue = getIssue(issueId);
+  if (!issue) return;
+
+  const spread = issue.pages[spreadIndex];
+  if (!spread) return;
+
+  const leftEl = document.getElementById('mag-left');
+  const rightEl = document.getElementById('mag-right');
+  leftEl.innerHTML = '';
+  rightEl.innerHTML = '';
+
+  // Left page — prose
+  if (spread.left.prose) {
+    const proseDiv = document.createElement('div');
+    proseDiv.className = 'mag-prose';
+    const text = spread.left.prose.text;
+    if (spread.left.prose.dropCap && text.length > 0) {
+      proseDiv.innerHTML = `<span class="drop-cap">${text[0]}</span>${text.slice(1)}`;
+    } else {
+      proseDiv.textContent = text;
+    }
+    leftEl.appendChild(proseDiv);
+  }
+
+  // Left page — panels (if any)
+  if (spread.left.panels) {
+    for (const panel of spread.left.panels) {
+      leftEl.appendChild(renderPanel(panel));
+    }
+  }
+
+  // Left page — scribbles
+  renderScribbles(spread.left.scribbles || [], leftEl);
+
+  // Left page — footer
+  const leftFooter = document.createElement('div');
+  leftFooter.className = 'mag-footer';
+  leftFooter.innerHTML = `<span>${issue.name}</span><span>${spreadIndex * 2 + 1}</span>`;
+  leftEl.appendChild(leftFooter);
+
+  // Right page — panels
+  if (spread.right.panels) {
+    for (const panel of spread.right.panels) {
+      rightEl.appendChild(renderPanel(panel));
+    }
+  }
+
+  // Right page — prose (if any)
+  if (spread.right.prose) {
+    const proseDiv = document.createElement('div');
+    proseDiv.className = 'mag-prose';
+    proseDiv.textContent = spread.right.prose.text;
+    rightEl.appendChild(proseDiv);
+  }
+
+  // Right page — scribbles
+  renderScribbles(spread.right.scribbles || [], rightEl);
+
+  // Right page — footer
+  const rightFooter = document.createElement('div');
+  rightFooter.className = 'mag-footer';
+  rightFooter.innerHTML = `<span>${spreadIndex * 2 + 2}</span><span></span>`;
+  rightEl.appendChild(rightFooter);
+
+  // Update nav
+  updateNav(issue, spreadIndex);
+}
+
+function renderPanel(panel) {
+  const isUnlocked = S.magazine.unlocked.includes(panel.id);
+  const div = document.createElement('div');
+  const sizeClass = panel.size === 'large' ? ' mag-panel-large' : '';
+  const stateClass = isUnlocked ? ' unlocked' : (S.magazine.unlockedThisVisit ? ' locked-out' : '');
+  div.className = `mag-panel${sizeClass}${stateClass}`;
+
+  div.innerHTML = `
+    <div class="mag-panel-category">${panel.category}</div>
+    <div class="mag-panel-title">${panel.title}</div>
+    <div class="mag-panel-body">${panel.body}</div>
+    <div class="mag-panel-unlock">${panel.unlock.desc}</div>
+    <div class="unlocked-mark">unlocked</div>
+  `;
+
+  if (!isUnlocked && !S.magazine.unlockedThisVisit) {
+    div.onclick = () => unlockPanel(panel);
+  }
+
+  return div;
+}
+
+function renderScribbles(scribbles, pageEl) {
+  for (const s of scribbles) {
+    const el = document.createElement('div');
+    el.className = 'mag-scribble';
+    el.textContent = s.text;
+    el.style.left = s.x + '%';
+    el.style.top = s.y + '%';
+    el.style.transform = `rotate(${s.rotate || 0}deg)`;
+    if (s.style) el.style.cssText += ';' + s.style;
+    pageEl.appendChild(el);
+  }
+}
+
+function updateNav(issue, spreadIndex) {
+  const prevBtn = document.getElementById('mag-prev');
+  const nextBtn = document.getElementById('mag-next');
+  const indicator = document.getElementById('mag-page-indicator');
+
+  prevBtn.disabled = spreadIndex <= 0;
+  nextBtn.disabled = spreadIndex >= issue.pages.length - 1;
+  indicator.textContent = `${spreadIndex + 1} / ${issue.pages.length}`;
+}
+
+function renderRack() {
+  const rack = document.getElementById('mag-rack');
+  rack.innerHTML = '';
+
+  for (const issueId of S.magazine.issuesEncountered) {
+    const issue = getIssue(issueId);
+    if (!issue) continue;
+
+    const spine = document.createElement('div');
+    spine.className = 'mag-rack-spine' + (issueId === S.magazine.currentIssue ? ' current' : '');
+    spine.style.background = issue.color;
+    spine.title = issue.name;
+
+    const label = document.createElement('span');
+    label.className = 'spine-label';
+    // Abbreviate: first word
+    label.textContent = issue.name.split(' ').slice(1, 3).join(' ');
+    spine.appendChild(label);
+
+    spine.onclick = () => openIssue(issueId);
+    rack.appendChild(spine);
+  }
+}
+
+function unlockPanel(panel) {
+  if (S.magazine.unlockedThisVisit) return;
+  if (S.magazine.unlocked.includes(panel.id)) return;
+
+  S.magazine.unlocked.push(panel.id);
+  S.magazine.unlockedThisVisit = true;
+  applyUnlock(panel.unlock);
   save();
 
-  renderTrophyShelf();
+  // Show toast
+  const toast = document.getElementById('mag-toast');
+  toast.textContent = panel.unlock.desc;
+  toast.classList.add('visible');
+  setTimeout(() => toast.classList.remove('visible'), 2400);
 
-  // Ghost lamp hint — faint ~~~ when the ghost has history
-  const ghostHint = document.getElementById('ghost-lamp-hint');
-  ghostHint.style.display = S.ghost.history.length > 0 ? '' : 'none';
+  // Re-render current spread to update panel states
+  renderSpread(S.magazine.currentIssue, S.magazine.currentSpread);
+}
+
+function applyUnlock(unlock) {
+  // Apply the unlock effect to the game world
+  switch (unlock.type) {
+    case 'variety':
+      // Add to CITRUS if not already there
+      if (!CITRUS[unlock.key]) {
+        const VARIETY_DEFS = {
+          blood_orange:    { emoji: '\uD83C\uDF4A', name: 'Blood Orange' },
+          meyer_lemon:     { emoji: '\uD83C\uDF4B', name: 'Meyer Lemon' },
+          succulent_lemon: { emoji: '\uD83C\uDF4B', name: 'Succulent Lemon' },
+        };
+        if (VARIETY_DEFS[unlock.key]) {
+          CITRUS[unlock.key] = VARIETY_DEFS[unlock.key];
+          // Rebuild the keys array
+          CITRUS_KEYS.length = 0;
+          CITRUS_KEYS.push(...Object.keys(CITRUS));
+        }
+      }
+      break;
+    case 'technique':
+      // Store in critic preferences for now — tools can read this later
+      S.critic.preferences[unlock.key] = true;
+      break;
+    case 'store_note':
+      // Store as a flag — store behavior can read this later
+      S.critic.preferences[unlock.key] = true;
+      break;
+    case 'fad_watch':
+      // Plant a seed — future issues or wife behavior can reference this
+      S.critic.preferences[unlock.key] = true;
+      break;
+  }
+}
+
+function turnPage(direction) {
+  const issue = getIssue(S.magazine.currentIssue);
+  if (!issue) return;
+
+  const newIndex = S.magazine.currentSpread + direction;
+  if (newIndex < 0 || newIndex >= issue.pages.length) return;
+
+  S.magazine.currentSpread = newIndex;
+  save();
+  renderSpread(issue.id, newIndex);
+}
+
+function openIssue(issueId) {
+  S.magazine.currentIssue = issueId;
+  S.magazine.currentSpread = 0;
+  save();
+
+  hideCover();
+  showSpread();
+  renderSpread(issueId, 0);
+  renderRack();
+}
+
+function closeMagazine() {
+  const container = document.getElementById('magazine-container');
+  container.classList.remove('active');
+  deliverWifeList();
+}
+
+function deliverWifeList() {
+  // Show wife list area and button
+  document.getElementById('wife-list-delivery').style.display = '';
+  document.getElementById('go-shopping-btn').style.display = '';
 
   // Generate wife's list
   S.wife.list = getWifeList(S.run);
@@ -1185,6 +2154,41 @@ function enterLamp() {
   const btn = document.getElementById('go-shopping-btn');
   btn.classList.remove('visible');
   setTimeout(() => btn.classList.add('visible'), 400 + S.wife.list.length * 500 + 300);
+}
+
+// Restore unlocked varieties on load
+function restoreUnlocks() {
+  for (const panelId of S.magazine.unlocked) {
+    // Find the panel definition
+    for (const issue of ISSUES) {
+      for (const page of issue.pages) {
+        const allPanels = [...(page.left.panels || []), ...(page.right.panels || [])];
+        for (const panel of allPanels) {
+          if (panel.id === panelId) {
+            applyUnlock(panel.unlock);
+          }
+        }
+      }
+    }
+  }
+}
+
+// ===== PHASE: LAMP =====
+function enterLamp() {
+  setPhase('lamp');
+
+  // Age existing trophies
+  for (const t of S.trophies) { t.age = (t.age || 0) + 1; }
+  save();
+
+  renderTrophyShelf();
+
+  // Ghost lamp hint — faint ~~~ when the ghost has history
+  const ghostHint = document.getElementById('ghost-lamp-hint');
+  ghostHint.style.display = S.ghost.history.length > 0 ? '' : 'none';
+
+  // Enter magazine — wife's list waits until magazine is done
+  enterMagazine();
 }
 
 // ===== PHASE: CHOOSE STORE =====
@@ -1213,40 +2217,105 @@ function enterShopping(storeKey) {
   S.sliceUsed = false;
   S.basket.wife = [];
   S.basket.ghost = [];
-  S.display = generateDisplay(storeKey, S.run);
+  S.bins = generateBins(storeKey, S.run);
 
   // Generate ghost list for this run
   ensureGhostSeed();
   S.ghost.list = getGhostList(S.run, S.ghost.seed, S.ghost.drift);
 
   setPhase('shopping');
+  hubMsg('hub:minimize'); // show HUD bar with eject during active play
 
   document.getElementById('shop-store-tag').textContent = '— ' + STORES[storeKey].name;
 
-  renderDisplay();
+  renderBins();
   renderListSlots();
-  renderGhostSlots();
   updateDoneBtn();
 
   // Reset blade tool visual
   document.querySelector('.tool-zone[data-tool="blade"]').classList.remove('used');
+
+  // Clear any previous ghost timers
+  if (S._ghostFadeTimer) clearTimeout(S._ghostFadeTimer);
+  if (S._ghostArriveTimer) clearTimeout(S._ghostArriveTimer);
+
+  // Ghost weather: arrival delay and fade
+  const ghostSection = document.getElementById('ghost-section');
+  ghostSection.classList.remove('arriving', 'fading');
+  const delay = S.ghost.list._arrivalDelay || 0;
+  const fadeAfter = S.ghost.list._fadeAfter || 0;
+
+  if (delay > 0 && S.ghost.list.length > 0) {
+    // Ghost hasn't arrived yet — hide section, schedule arrival
+    ghostSection.style.display = 'none';
+    S._ghostArriveTimer = setTimeout(() => {
+      if (S.phase !== 'shopping') return; // left already
+      renderGhostSlots();
+      ghostSection.classList.add('arriving');
+    }, delay);
+  } else {
+    renderGhostSlots();
+  }
+
+  if (fadeAfter > 0 && S.ghost.list.length > 0) {
+    const totalDelay = delay + fadeAfter;
+    S._ghostFadeTimer = setTimeout(() => {
+      if (S.phase !== 'shopping') return;
+      ghostSection.classList.add('fading');
+      // After fade completes, return any ghost-allocated items
+      setTimeout(() => {
+        S.basket.ghost.forEach((item, i) => {
+          if (item) { item.allocated = false; S.basket.ghost[i] = undefined; }
+        });
+        S.ghost.list = []; // gone
+        ghostSection.style.display = 'none';
+        renderBins();
+      }, 4200);
+    }, totalDelay);
+  }
 }
 
-function renderDisplay() {
-  const surface = document.getElementById('display-surface');
-  surface.innerHTML = '';
+function renderBins() {
+  const area = document.getElementById('bins-area');
+  area.innerHTML = '';
 
-  for (const item of S.display) {
-    const el = document.createElement('div');
-    el.className = 'produce-item' + (item.allocated !== null ? ' allocated' : '') + (item.sliced ? ' sliced' : '');
-    el.dataset.id = item.id;
-    el.innerHTML = `
-      <div class="produce-emoji">${item.emoji}</div>
-      <div class="produce-name">${item.name}</div>
-      <div class="quality-badges">${renderBadges(item)}</div>
-    `;
-    el.addEventListener('pointerdown', onPointerDown);
-    surface.appendChild(el);
+  for (const typeKey of CITRUS_KEYS) {
+    const items = S.bins[typeKey] || [];
+    const ct = CITRUS[typeKey];
+    const bin = document.createElement('div');
+    bin.className = 'bin';
+    bin.dataset.type = typeKey;
+
+    const label = document.createElement('div');
+    label.className = 'bin-label';
+    label.textContent = ct.name;
+    bin.appendChild(label);
+
+    const itemsDiv = document.createElement('div');
+    itemsDiv.className = 'bin-items';
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'bin-empty';
+      empty.textContent = '—';
+      itemsDiv.appendChild(empty);
+    } else {
+      for (const item of items) {
+        const el = document.createElement('div');
+        el.className = 'bin-item' + (item.allocated ? ' allocated' : '') + (item.sliced ? ' sliced' : '');
+        el.dataset.id = item.id;
+        el.innerHTML = `
+          <div class="produce-emoji">${item.emoji}</div>
+          <div class="produce-name">${item.name}</div>
+          <div class="quality-badges">${renderBadges(item)}</div>
+        `;
+        if (!item.allocated) el.addEventListener('pointerdown', onBinItemDown);
+        itemsDiv.appendChild(el);
+      }
+    }
+
+    bin.appendChild(itemsDiv);
+    area.appendChild(bin);
   }
 }
 
@@ -1279,6 +2348,8 @@ function renderListSlots() {
         <div class="slot-desc">${entry.desc}</div>
         <div class="slot-item"><span class="slot-emoji">${allocated.emoji}</span> ${allocated.name}</div>
       `;
+      slot.style.cursor = 'pointer';
+      slot.onclick = () => returnFromSlot('wife', i);
     } else {
       slot.innerHTML = `<div class="slot-desc">${entry.desc}</div><div class="slot-item"></div>`;
     }
@@ -1296,11 +2367,23 @@ function renderGhostSlots() {
     return;
   }
 
+  // Check if list is just a trace (ghost was here but left)
+  if (S.ghost.list.length === 1 && S.ghost.list[0].trace) {
+    section.style.display = '';
+    header.textContent = '';
+    container.innerHTML = '';
+    const mark = document.createElement('div');
+    mark.className = 'ghost-trace';
+    mark.textContent = '—';
+    container.appendChild(mark);
+    return;
+  }
+
   section.style.display = '';
 
   // Partially illegible header — varies by run
   const headerRng = seededRng(hashStr('ghostheader' + S.ghost.seed + S.run));
-  const headers = ['som~~~ne\'s list', '~~~', 'a li~~~', 'found ~~~is', '~~~st'];
+  const headers = ['som~~~ne\'s list', '~~~', 'a li~~~', 'found ~~~is', '~~~st', '', '(no name)'];
   header.textContent = headers[Math.floor(headerRng() * headers.length)];
 
   container.innerHTML = '';
@@ -1308,6 +2391,7 @@ function renderGhostSlots() {
   S.ghost.list.forEach((entry, i) => {
     const slot = document.createElement('div');
     slot.className = 'ghost-slot';
+    if (entry.impossible) slot.classList.add('impossible');
     slot.dataset.idx = i;
     slot.dataset.listType = 'ghost';
 
@@ -1318,6 +2402,8 @@ function renderGhostSlots() {
         <div class="slot-desc">${renderSmudgedText(entry.desc)}</div>
         <div class="slot-item"><span class="slot-emoji">${allocated.emoji}</span> ${allocated.name}</div>
       `;
+      slot.style.cursor = 'pointer';
+      slot.onclick = () => returnFromSlot('ghost', i);
     } else {
       slot.innerHTML = `<div class="slot-desc">${renderSmudgedText(entry.desc)}</div><div class="slot-item"></div>`;
     }
@@ -1337,11 +2423,13 @@ function updateDoneBtn() {
 }
 
 // ===== DRAG SYSTEM =====
-function onPointerDown(e) {
+
+// Drag from bin item to tools or slots
+function onBinItemDown(e) {
   const el = e.currentTarget;
   const id = parseInt(el.dataset.id);
-  const item = S.display.find(d => d.id === id);
-  if (!item || item.allocated !== null) return;
+  const item = findItem(id);
+  if (!item || item.allocated) return;
 
   e.preventDefault();
   S.drag.active = true;
@@ -1356,6 +2444,17 @@ function onPointerDown(e) {
   ghost.style.top = e.clientY + 'px';
 
   el.style.opacity = '0.3';
+}
+
+function hitTest(e, selector) {
+  let hit = null;
+  document.querySelectorAll(selector).forEach(el => {
+    const r = el.getBoundingClientRect();
+    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+      hit = el;
+    }
+  });
+  return hit;
 }
 
 document.addEventListener('pointermove', (e) => {
@@ -1376,11 +2475,11 @@ document.addEventListener('pointermove', (e) => {
     tz.classList.toggle('hover', over && !tz.classList.contains('used'));
   });
 
-  // Hit-test list slots (wife + ghost)
+  // Hit-test list slots (wife + ghost, skip impossible)
   document.querySelectorAll('.list-slot, .ghost-slot').forEach(ls => {
     const r = ls.getBoundingClientRect();
     const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-    ls.classList.toggle('hover', over && !ls.classList.contains('filled'));
+    ls.classList.toggle('hover', over && !ls.classList.contains('filled') && !ls.classList.contains('impossible'));
   });
 });
 
@@ -1391,7 +2490,7 @@ document.addEventListener('pointerup', (e) => {
   const ghost = document.getElementById('drag-ghost');
   ghost.classList.remove('active');
 
-  const item = S.display.find(d => d.id === S.drag.itemId);
+  const item = findItem(S.drag.itemId);
   if (!item) return;
 
   // Clear all hovers
@@ -1399,56 +2498,29 @@ document.addEventListener('pointerup', (e) => {
   document.querySelectorAll('.list-slot.hover, .ghost-slot.hover').forEach(ls => ls.classList.remove('hover'));
 
   // Check tool zones
-  let hitTool = null;
-  document.querySelectorAll('.tool-zone').forEach(tz => {
-    if (tz.classList.contains('used')) return;
-    const r = tz.getBoundingClientRect();
-    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
-      hitTool = tz.dataset.tool;
-    }
-  });
-
-  if (hitTool) {
-    triggerTool(hitTool, item);
-    // Restore opacity
-    const el = document.querySelector(`.produce-item[data-id="${item.id}"]`);
-    if (el) el.style.opacity = '';
+  const hitToolEl = hitTest(e, '.tool-zone:not(.used)');
+  if (hitToolEl) {
+    triggerTool(hitToolEl.dataset.tool, item);
+    renderBins();
     return;
   }
 
-  // Check list slots
-  let hitSlot = null;
-  document.querySelectorAll('.list-slot').forEach(ls => {
-    if (ls.classList.contains('filled')) return;
-    const r = ls.getBoundingClientRect();
-    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
-      hitSlot = parseInt(ls.dataset.idx);
-    }
-  });
-
-  if (hitSlot !== null) {
-    allocateItem(item, hitSlot);
+  // Check wife list slots
+  const hitSlotEl = hitTest(e, '.list-slot:not(.filled)');
+  if (hitSlotEl) {
+    allocateItem(item, parseInt(hitSlotEl.dataset.idx));
     return;
   }
 
   // Check ghost slots
-  let hitGhost = null;
-  document.querySelectorAll('.ghost-slot').forEach(gs => {
-    if (gs.classList.contains('filled')) return;
-    const r = gs.getBoundingClientRect();
-    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
-      hitGhost = parseInt(gs.dataset.idx);
-    }
-  });
-
-  if (hitGhost !== null) {
-    allocateGhostItem(item, hitGhost);
+  const hitGhostEl = hitTest(e, '.ghost-slot:not(.filled):not(.impossible)');
+  if (hitGhostEl) {
+    allocateGhostItem(item, parseInt(hitGhostEl.dataset.idx));
     return;
   }
 
-  // Spring back
-  const el = document.querySelector(`.produce-item[data-id="${item.id}"]`);
-  if (el) el.style.opacity = '';
+  // Spring back — re-render to restore opacity
+  renderBins();
 });
 
 // ===== TOOL TRIGGERS =====
@@ -1477,7 +2549,7 @@ function closeToolAnim() {
   document.getElementById('anim-emoji').style.opacity = '';
   document.getElementById('anim-emoji').style.transform = '';
   document.getElementById('tool-anim-overlay').classList.remove('active');
-  renderDisplay();
+  renderBins();
   // Deliver pending critic remark now that overlay is gone
   if (S._pendingCritic) {
     const c = S._pendingCritic;
@@ -1658,23 +2730,34 @@ function animSlice(item) {
 
 // ===== ALLOCATION =====
 function allocateItem(item, slotIdx) {
-  item.allocated = slotIdx;
+  item.allocated = true;
   S.basket.wife[slotIdx] = item;
   const slot = S.wife.list[slotIdx];
   slot.idx = slotIdx;
   criticOnAllocate(item, slot);
-  renderDisplay();
+  renderBins();
   renderListSlots();
   updateDoneBtn();
 }
 
 function allocateGhostItem(item, slotIdx) {
-  item.allocated = 'ghost-' + slotIdx;
+  item.allocated = true;
   S.basket.ghost[slotIdx] = item;
-  // No critic remark — the ghost doesn't judge aloud
-  renderDisplay();
+  renderBins();
   renderGhostSlots();
   renderListSlots();
+}
+
+function returnFromSlot(listType, slotIdx) {
+  const basket = listType === 'wife' ? S.basket.wife : S.basket.ghost;
+  const item = basket[slotIdx];
+  if (!item) return;
+  basket[slotIdx] = undefined;
+  item.allocated = false;
+  renderBins();
+  if (listType === 'wife') renderListSlots();
+  else renderGhostSlots();
+  updateDoneBtn();
 }
 
 // ===== PHASE: GOING HOME =====
@@ -1784,10 +2867,29 @@ function enterGoingHome() {
     const standEl = document.getElementById('trophy-big-stand');
     S.trophies.push(trophy);
     standEl.style.background = hasGem ? (trophy.magnitude > 0.5 ? 'hsl(0,60%,55%)' : 'hsl(270,50%,55%)') : 'var(--trophy-gold)';
-    document.getElementById('trophy-big-label').textContent =
+    const neutralReveals = [
+      `"Oh, ${trophy.name.toLowerCase()}."`,
+      `"Mm. ${trophy.name.toLowerCase()}."`,
+      `"That'll work."`,
+      `"Fine."`,
+    ];
+    const displeasedReveals = [
+      `"...the ${trophy.name.toLowerCase()}."`,
+      `"Hm."`,
+      `She doesn't say anything.`,
+    ];
+    const rng = seededRng(hashStr('trophy' + S.run + trophy.name));
+    const revealText =
       reactionTone === 'pleased' ? `"The ${trophy.name.toLowerCase()}."` :
-      reactionTone === 'neutral' ? `She sets the ${trophy.name.toLowerCase()} on the shelf.` :
-      `"...the ${trophy.name.toLowerCase()}."`;
+      reactionTone === 'neutral' ? neutralReveals[Math.floor(rng() * neutralReveals.length)] :
+      displeasedReveals[Math.floor(rng() * displeasedReveals.length)];
+    // Shelf hover: her voice, compressed
+    trophy.wifeLabel =
+      reactionTone === 'pleased' ? `"The ${trophy.name.toLowerCase()}."` :
+      reactionTone === 'neutral' ? `"${trophy.name.toLowerCase()}."` :
+      `"...${trophy.name.toLowerCase()}."`;
+
+    document.getElementById('trophy-big-label').textContent = revealText;
     revealEl.classList.add('visible');
 
     // Scraggle
@@ -1853,6 +2955,19 @@ function enterGoingHome() {
           S.ghost.drift[ghostEntry.pref] = (S.ghost.drift[ghostEntry.pref] || 0) + (val - 0.5) * 0.1;
         }
       });
+    } else if (S.ghost.list && S.ghost.list.length > 0 && !S.ghost.list[0].trace) {
+      // Ghost was present but got nothing — you ignored it, or couldn't fill it
+      const IGNORED_LINES = ['The list is still there.', 'The handwriting waits.', 'Nothing given. Nothing taken.'];
+      const ignRng = seededRng(hashStr('ghostignore' + S.ghost.seed + S.run));
+      const ignText = IGNORED_LINES[Math.floor(ignRng() * IGNORED_LINES.length)];
+      setTimeout(() => {
+        const refl = document.createElement('div');
+        refl.className = 'ghost-reflection';
+        refl.style.color = '#9a9080';
+        refl.textContent = ignText;
+        linesEl.appendChild(refl);
+      }, 800);
+      ghostDelay = 2800;
     }
 
     S.run++;
@@ -1873,6 +2988,7 @@ function setPhase(phase) {
 
 // ===== INIT =====
 load();
+restoreUnlocks();
 enterLamp();
 </script>
 </body>
