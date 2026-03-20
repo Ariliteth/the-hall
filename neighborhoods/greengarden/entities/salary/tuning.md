@@ -6,6 +6,8 @@ Capable beyond almost nothing. Presents questions on birthdays.
 
 **Tags:** decisive, leadership, attentive
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

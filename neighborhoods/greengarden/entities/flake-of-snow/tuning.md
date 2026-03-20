@@ -6,6 +6,8 @@ A bit of water wearing individuality.
 
 **Tags:** unique, chilly, independent
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

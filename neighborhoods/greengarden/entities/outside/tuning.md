@@ -6,6 +6,8 @@ A sizable area of space that claims it isn't also inside.
 
 **Tags:** Outside Big
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

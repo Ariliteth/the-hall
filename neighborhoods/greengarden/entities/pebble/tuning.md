@@ -6,6 +6,8 @@ Too smooth to be deceitful, too diminutive for promotion
 
 **Tags:** natural, honest, content, tactile
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

@@ -6,6 +6,8 @@ Anxious energy dispersed into purpose. Likely interested, always willing.
 
 **Tags:** dominant, energetic, sweet
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

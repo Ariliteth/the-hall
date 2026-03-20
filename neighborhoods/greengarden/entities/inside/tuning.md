@@ -6,6 +6,8 @@ Outside's big brother
 
 **Tags:** interior, thoughtful, welcoming
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

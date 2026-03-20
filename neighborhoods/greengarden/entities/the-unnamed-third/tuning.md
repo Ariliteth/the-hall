@@ -6,6 +6,8 @@ What emerges when two creators stop taking turns and start occupying the same th
 
 **Tags:** emergent, collaborative, shy, reaching, patient
 
+**Color:** 45, 130, 65
+
 ---
 
 **Description:**

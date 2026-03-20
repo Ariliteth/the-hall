@@ -6,6 +6,8 @@ Water Whispers through touch when given a melody or rhythm.
 
 **Tags:** water, sound, communication
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

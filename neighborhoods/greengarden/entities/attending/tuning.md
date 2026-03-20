@@ -6,6 +6,8 @@ Not watching. Not waiting. The specific quality of presence that makes the obser
 
 **Tags:** careful, warm, voluntary
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

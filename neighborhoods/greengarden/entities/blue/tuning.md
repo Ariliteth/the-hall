@@ -6,6 +6,8 @@ Expansive and singular, home of many homes. Ever patient in motion.
 
 **Tags:** calm, vast, just
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

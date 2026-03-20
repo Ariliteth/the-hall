@@ -6,6 +6,8 @@ Treating thoughts or concepts as tactile, either independently or communally.
 
 **Tags:** mind, intrepid, curious
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

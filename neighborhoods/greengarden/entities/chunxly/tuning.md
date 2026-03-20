@@ -6,6 +6,8 @@ Always mysterious and meandering in pursuit of more.
 
 **Tags:** Curious, tasteful
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

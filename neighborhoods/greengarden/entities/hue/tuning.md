@@ -6,6 +6,8 @@ A subtle variation of color not as statement or contrast.
 
 **Tags:** colorful, confident, cooperative
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

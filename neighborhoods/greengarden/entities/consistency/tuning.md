@@ -6,6 +6,8 @@ Consistency may often be anything but, especially punctuation.
 
 **Tags:** finite, determined, shallow
 
+**Color:** 45, 130, 65
+
 ---
 
 **Remembering style:** *(undefined — awaiting first experiences)*

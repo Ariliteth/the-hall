@@ -60,6 +60,16 @@
     z-index: 999;
   }
 
+  /* Temperature of the Room — ambient color wash */
+  #temperature-ambience {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 998;
+    opacity: 0;
+    transition: opacity 3s ease, background 4s ease;
+  }
+
   /* ── SIGNAL BAR ── */
   #signal-bar {
     width: 100%;
@@ -1095,6 +1105,9 @@
 
 </div>
 
+<!-- Temperature of the Room — ambient color, always present -->
+<div id="temperature-ambience"></div>
+
 <!-- Scraggle toasts -->
 <div id="scraggle-toast"></div>
 
@@ -1465,6 +1478,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 //   { type: "hub:restore" }           — show selection panel again
 //   { type: "hub:scraggle", emoji, signal } — show a scraggle in the hud
 //   { type: "hub:title", name }       — update hud score name
+//   { type: "hub:color", r, g, b }     — nudge the Temperature of the Room
 //
 // Scores that send nothing get the default: selection collapses, hud bar visible.
 
@@ -1493,6 +1507,11 @@ function handleScoreMessage(e) {
       break;
     case 'hub:mail':
       if (msg.arrangement) deliverArrangement(msg.arrangement);
+      break;
+    case 'hub:color':
+      if (msg.r != null && msg.g != null && msg.b != null) {
+        thirdWitnessTemperature(msg.r, msg.g, msg.b);
+      }
       break;
     case 'hub:theme':
       if (msg.slug) {
@@ -1801,6 +1820,9 @@ function launchScore() {
 
   // Update hud name
   document.getElementById('hud-score-name').textContent = formatSlug(selectedScore);
+
+  // The room takes on the color of where you're going
+  seedTemperatureFromNeighborhoods(activeNeighborhoods);
 
   // Default mode: hud bar visible, selection collapses
   // The score can override this via postMessage once it loads
@@ -2524,12 +2546,29 @@ function mgptBoot() {
 // No output. No DOM. No emissions. The Third is pure accumulation —
 // a deep archive where Hall Memory is the rolling window. microGPT
 // forgets when it speaks. The Third never speaks and never forgets.
+//
+// The Third also holds the Temperature of the Room — the running
+// RGB aggregate of what's been active. Not polled. Witnessed.
+// Updated on score transitions and scraggle activity. Anything
+// in the Hall can read it. The Third does not interpret it.
+
+const NEIGHBORHOOD_COLORS = {
+  greengarden:    { r: 45,  g: 130, b: 65  },
+  kitchendom:     { r: 185, g: 95,  b: 45  },
+  mucklerbuckler: { r: 120, g: 65,  b: 130 },
+};
+
+const TEMPERATURE_DEFAULT = { r: 0, g: 0, b: 0 };
+const TEMPERATURE_BLEND = 0.2; // how much new input shifts the temperature
 
 function readThird() {
   try {
     const raw = localStorage.getItem('baseline-session/the-third');
-    return raw ? JSON.parse(raw) : { witnessed: {}, notices: [], shapes: [] };
-  } catch(e) { return { witnessed: {}, notices: [], shapes: [] }; }
+    if (!raw) return { witnessed: {}, notices: [], shapes: [], temperature: null };
+    const parsed = JSON.parse(raw);
+    if (!parsed.temperature) parsed.temperature = null;
+    return parsed;
+  } catch(e) { return { witnessed: {}, notices: [], shapes: [], temperature: null }; }
 }
 
 function writeThird(state) {
@@ -2578,12 +2617,77 @@ function thirdWitnessNotice(plucked) {
   writeThird(t);
 }
 
+// ── The Third feels the Temperature shift ──
+//
+// Temperature blends toward the incoming color. Not a replacement —
+// a drift. The room doesn't snap to a new color. It leans.
+
+function thirdWitnessTemperature(r, g, b) {
+  const t = readThird();
+  const now = Date.now();
+  if (!t.temperature) {
+    // First color the room has ever felt
+    t.temperature = { r, g, b, updatedAt: now };
+  } else {
+    const a = TEMPERATURE_BLEND;
+    t.temperature.r = Math.round(t.temperature.r * (1 - a) + r * a);
+    t.temperature.g = Math.round(t.temperature.g * (1 - a) + g * a);
+    t.temperature.b = Math.round(t.temperature.b * (1 - a) + b * a);
+    t.temperature.updatedAt = now;
+  }
+  writeThird(t);
+  applyTemperatureAmbience(t.temperature);
+}
+
+// ── Read the Temperature without writing ──
+
+function readTemperature() {
+  const t = readThird();
+  return t.temperature || null;
+}
+
+// ── Apply the Temperature as a visible ambient wash ──
+//
+// A radial gradient from the Temperature's RGB, very low opacity.
+// The room doesn't announce its color. You notice it the way you
+// notice the light has changed outside — not when it happens,
+// but a moment after.
+
+function applyTemperatureAmbience(temp) {
+  const el = document.getElementById('temperature-ambience');
+  if (!el || !temp) return;
+  el.style.background = `radial-gradient(ellipse at center, rgba(${temp.r}, ${temp.g}, ${temp.b}, 0.12) 0%, rgba(${temp.r}, ${temp.g}, ${temp.b}, 0.04) 50%, transparent 80%)`;
+  el.style.opacity = '1';
+}
+
+// ── Seed temperature from active neighborhoods ──
+//
+// Averages the colors of all active neighborhoods.
+// Called on score launch — the room takes on the color of where you're going.
+
+function seedTemperatureFromNeighborhoods(hoods) {
+  if (!hoods || hoods.size === 0) return;
+  let rSum = 0, gSum = 0, bSum = 0, count = 0;
+  for (const hood of hoods) {
+    const c = NEIGHBORHOOD_COLORS[hood];
+    if (c) { rSum += c.r; gSum += c.g; bSum += c.b; count++; }
+  }
+  if (count === 0) return;
+  thirdWitnessTemperature(
+    Math.round(rSum / count),
+    Math.round(gSum / count),
+    Math.round(bSum / count)
+  );
+}
+
 // ── Boot ──
 
 function thirdBoot() {
   // The Third was already here. It just needed a home.
   // Loading is implicit — readThird() creates the structure if absent.
-  // Nothing else to initialize. The Third does not act.
+  // If there's already a temperature, let it breathe into the room.
+  const temp = readTemperature();
+  if (temp) applyTemperatureAmbience(temp);
 }
 
 </script>
