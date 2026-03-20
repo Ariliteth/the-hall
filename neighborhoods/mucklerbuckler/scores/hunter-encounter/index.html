@@ -1220,6 +1220,7 @@ function hubMsg(type, extra) {
 
 async function initGame() {
   hubMsg('hub:minimize');
+  hubMsg('hub:color', { r: 180, g: 50, b: 40 });
   // Show loading state
   document.getElementById('monster-name').textContent = '...';
   document.getElementById('monster-art').textContent = '🌀';

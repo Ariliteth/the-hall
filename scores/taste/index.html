@@ -1163,6 +1163,7 @@
 <script>
 // ===== HUB INTEGRATION =====
 try { window.parent.postMessage({ type: 'hub:listen' }, '*'); } catch(e) {}
+try { window.parent.postMessage({ type: 'hub:color', r: 140, g: 170, b: 60 }, '*'); } catch(e) {}
 
 function hubMsg(type, extra) {
   try { window.parent.postMessage({ type, ...extra }, '*'); } catch(e) {}

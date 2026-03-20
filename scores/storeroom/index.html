@@ -583,6 +583,12 @@
 <div id="gimme-dots"></div>
 
 <script>
+// ── Hub integration ──
+if (window.parent !== window) {
+  window.parent.postMessage({ type: 'hub:minimize' }, '*');
+  window.parent.postMessage({ type: 'hub:color', r: 150, g: 110, b: 70 }, '*');
+}
+
 // ─────────────────────────────────────────────
 //  STOREROOM
 // ─────────────────────────────────────────────

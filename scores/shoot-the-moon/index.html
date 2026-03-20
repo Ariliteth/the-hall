@@ -22,6 +22,7 @@ canvas{display:block;position:absolute;top:0;left:0}
 <script>
 // ===== HUB INTEGRATION =====
 try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
+try { window.parent.postMessage({ type: 'hub:color', r: 140, g: 160, b: 180 }, '*'); } catch(e) {}
 
 // ===== CONSTANTS =====
 const TAU = Math.PI * 2;

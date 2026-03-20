@@ -299,7 +299,7 @@
 </head>
 <body>
   <canvas id="bg-canvas"></canvas>
-  <script>if (window.parent !== window) window.parent.postMessage({ type: 'hub:minimize' }, '*');</script>
+  <script>if (window.parent !== window) { window.parent.postMessage({ type: 'hub:minimize' }, '*'); window.parent.postMessage({ type: 'hub:color', r: 30, g: 90, b: 110 }, '*'); }</script>
 
   <div id="caravan-bar">
     <div id="caravan-label">Caravan</div>

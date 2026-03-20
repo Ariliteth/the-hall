@@ -4190,6 +4190,7 @@ document.getElementById('btnFinish').addEventListener('click', exportCreature);
 // ── hub integration ──
 if (window.parent !== window) {
   window.parent.postMessage({ type: 'hub:minimize' }, '*');
+  window.parent.postMessage({ type: 'hub:color', r: 170, g: 120, b: 80 }, '*');
 }
 
 // ── idle voice timer ──

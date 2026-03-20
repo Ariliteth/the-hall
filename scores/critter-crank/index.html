@@ -3840,6 +3840,7 @@ function init() {
   // Hub minimize
   if (window.parent !== window) {
     window.parent.postMessage({ type: 'hub:minimize' }, '*');
+    window.parent.postMessage({ type: 'hub:color', r: 70, g: 180, b: 90 }, '*');
   }
 
   // D-pad hold detection (for splash mode)

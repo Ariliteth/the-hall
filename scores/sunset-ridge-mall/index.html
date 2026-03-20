@@ -3040,6 +3040,7 @@ function init() {
 
   // Hub integration
   window.parent.postMessage({ type: 'hub:minimize' }, '*');
+  window.parent.postMessage({ type: 'hub:color', r: 190, g: 180, b: 140 }, '*');
 
   renderHUD();
 }
