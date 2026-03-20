@@ -50,7 +50,8 @@ A digital neighborhood system where autonomous entities with memory and identity
 
 ## Technical Conventions
 - **Stack:** Vanilla HTML/JS for all scores (no build step). The Grimoire is the only exception (Vite/React). Canvas for rendering-heavy scores (LODE, Bao).
-- **Persistence:** GitHub for entity storage. localStorage (`baseline-session/*`) for cross-score state.
+- **Persistence:** GitHub for entity storage. localStorage (`baseline-session/*`) for cross-score state. Temperature of the Room in `baseline-session/the-third`.
+- **Color Canvas:** Every entity tuning carries `color: [R, G, B]` (or `**Color:** R, G, B` in Markdown tunings). Neighborhood defaults: Greengarden `[45, 130, 65]`, Kitchendom `[185, 95, 45]`, Mucklerbuckler `[120, 65, 130]`. The Third holds the Temperature (blended RGB aggregate). Scores nudge it via `hub:color` postMessage. `readTemperature()` returns current state. `NEIGHBORHOOD_COLORS` constant in hub.
 - **File naming:** `snake_case` for scripts, `SCREAMING_SNAKE` for skill/convention docs, `Title Case` for design documents
 - **Output size:** If a response exceeds ~200 lines of code, split it into separate implementation steps
 - **Dev server:** `node .claude/serve.mjs` serves everything at localhost:3002
