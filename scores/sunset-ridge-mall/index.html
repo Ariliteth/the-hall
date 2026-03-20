@@ -3042,7 +3042,194 @@ function init() {
   window.parent.postMessage({ type: 'hub:minimize' }, '*');
   window.parent.postMessage({ type: 'hub:color', r: 190, g: 180, b: 140 }, '*');
 
+  // ── THE HALL PULSE — idle listener ──
+  //
+  // Track last input time. When the pulse arrives and the player
+  // has been idle for a full interval, the Mall takes the floor.
+
+  let lastInput = Date.now();
+  ['pointermove','pointerdown','keydown','touchstart'].forEach(ev =>
+    window.addEventListener(ev, () => { lastInput = Date.now(); }, { passive: true })
+  );
+
+  const IDLE_THRESHOLD = 40000; // ~40s — slightly under pulse interval
+
+  // The Mall's color position — warm tan, same as hub:color
+  const MALL_COLOR = [190, 180, 140];
+
+  // Color distance — same math as the hub
+  function colorDistance(a, b) {
+    return Math.sqrt(
+      Math.pow(a[0]-b[0], 2) + Math.pow(a[1]-b[1], 2) + Math.pow(a[2]-b[2], 2)
+    ) / 441.67;
+  }
+  function scraggleReaches(s, receiverColor) {
+    if (!s.color || s.weight == null) return true;
+    return colorDistance(s.color, receiverColor) <= s.weight;
+  }
+
+  // Track which Scraggle ids the Mall has already responded to
+  const mallHeardScraggles = new Set();
+
+  window.addEventListener('message', (e) => {
+    if (e.data?.type !== 'hub:pulse') return;
+
+    // Idle behavior — the Mall takes the floor
+    const idleDuration = Date.now() - lastInput;
+    if (idleDuration >= IDLE_THRESHOLD) {
+      mallTakesTheFloor();
+    }
+
+    // Color-aware listening — hear Scraggles that reach the Mall
+    try {
+      const scraggles = JSON.parse(localStorage.getItem('baseline-session/scraggles') || '[]');
+      for (const s of scraggles) {
+        if (typeof s === 'string') continue;
+        if (!s.id || mallHeardScraggles.has(s.id)) continue;
+        if (s.origin === 'sunset-ridge-mall') continue; // don't listen to yourself
+        if (!scraggleReaches(s, MALL_COLOR)) continue;
+        mallHeardScraggles.add(s.id);
+        mallRespondsToScraggle(s);
+      }
+    } catch(e) {}
+  });
+
   renderHUD();
+}
+
+// ============================================================
+// MALL TAKES THE FLOOR
+// ============================================================
+//
+// The Mall does something it has always known how to do but
+// hasn't had a moment for. The player is idle. The pulse arrived.
+// The Mall restocks a store — one item, placed honestly.
+
+function mallTakesTheFloor() {
+  if (!G.fd) return;
+
+  // Try to restock a store — if stores exist and have room
+  if (G.fd.stores && G.fd.stores.length > 0) {
+    const storeIdx = Math.floor(Math.random() * G.fd.stores.length);
+    const store = G.fd.stores[storeIdx];
+    const palette = store.palette;
+
+    const candidates = [];
+    for (let y = store.y; y < store.y + store.h; y++) {
+      for (let x = store.x; x < store.x + store.w; x++) {
+        if (x < 0 || x >= G.fd.W || y < 0 || y >= G.fd.H) continue;
+        if (G.fd.grid[y]?.[x] !== T.STORE) continue;
+        const occupied = G.fd.looseItems.some(li => li.tileX === x && li.tileY === y);
+        if (!occupied) candidates.push({ x, y });
+      }
+    }
+
+    if (candidates.length > 0) {
+      mallRestockItem(candidates, palette);
+      return;
+    }
+  }
+
+  // Fallback — no stores or all full. The Mall is still alive.
+  // It hums, shifts, settles. Not every moment needs a product.
+  mallIdleAmbience();
+}
+
+// ── Named restock: place one item in a store ──
+
+function mallRestockItem(candidates, palette) {
+
+  const spot = candidates[Math.floor(Math.random() * candidates.length)];
+  const seed = Date.now() ^ (spot.x * 1000 + spot.y);
+  const item = generateItem(seed);
+
+  // Apply store personality — same logic as floor generation
+  if (palette.favStats && Math.random() < 0.6) {
+    const fav = palette.favStats[Math.floor(Math.random() * palette.favStats.length)];
+    item.stats[fav] = (item.stats[fav] || 0) + 1 + Math.floor(Math.random() * 2);
+  }
+  if (palette.itemBases && Math.random() < 0.7) {
+    const base = palette.itemBases[Math.floor(Math.random() * palette.itemBases.length)];
+    item.name = base.name;
+    item.color = base.color;
+  }
+
+  const ox = (Math.random() - 0.5) * 2;
+  const oz = (Math.random() - 0.5) * 2;
+  const requiredFace = Math.abs(ox) > Math.abs(oz) ? (ox > 0 ? 'E' : 'W') : (oz > 0 ? 'S' : 'N');
+
+  G.fd.looseItems.push({
+    tileX: spot.x, tileY: spot.y,
+    item, offsetX: ox, offsetZ: oz,
+    requiredFace, id: `restock_${spot.x}_${spot.y}_${Date.now()}`
+  });
+
+  // Rebuild the scene so the new item is visible
+  if (scene && G.fd) buildScene(scene, G.fd);
+
+  // The Mall restocked. This Scraggle is exhaust, not an invitation.
+  const storeName = palette.name || 'a store';
+  window.parent.postMessage({
+    type: 'scraggle',
+    emoji: '📦',
+    text: `${storeName} restocked at ${G.mallName}`
+  }, '*');
+}
+
+// ── Idle ambience: the Mall has the floor but nothing to stock ──
+//
+// Not every moment needs a product. The Mall hums. A light
+// flickers down a corridor. Footsteps echo from somewhere
+// you can't see. The building settles.
+
+const MALL_AMBIENCE = [
+  { emoji: '💡', text: 'a light flickered in a distant corridor', act: mallFlickerLight },
+  { emoji: '👣', text: 'footsteps echoed from somewhere above' },
+  { emoji: '🌀', text: 'the air conditioning shifted' },
+  { emoji: '🔔', text: 'an elevator chimed on another floor' },
+  { emoji: '🪞', text: 'something moved in the reflection of a storefront' },
+  { emoji: '🎵', text: 'the muzak changed key' },
+];
+
+function mallIdleAmbience() {
+  const pick = MALL_AMBIENCE[Math.floor(Math.random() * MALL_AMBIENCE.length)];
+  // If this ambience has a real action, do it
+  if (pick.act) pick.act();
+  window.parent.postMessage({
+    type: 'scraggle',
+    emoji: pick.emoji,
+    text: `${pick.text} at ${G.mallName}`
+  }, '*');
+}
+
+// ── Real ambience actions ──
+
+function mallFlickerLight() {
+  if (flickerLights.length === 0) return;
+  const fl = flickerLights[Math.floor(Math.random() * flickerLights.length)];
+  const origBase = fl.base;
+  const origSpeed = fl.speed;
+  // Spike: bright flash, then rapid stutter, then settle
+  fl.base = origBase * 2.5;
+  fl.speed = origSpeed * 8;
+  setTimeout(() => { fl.base = origBase * 0.3; fl.speed = origSpeed * 12; }, 300);
+  setTimeout(() => { fl.base = origBase * 2.0; fl.speed = origSpeed * 6; }, 600);
+  setTimeout(() => { fl.base = origBase * 0.2; }, 900);
+  setTimeout(() => { fl.base = origBase; fl.speed = origSpeed; }, 1400);
+}
+
+// ============================================================
+// MALL RESPONDS TO SCRAGGLE
+// ============================================================
+//
+// The Mall heard something that reached its color position.
+// What it does with that information is its own business.
+// This is the door — what walks through it will grow over time.
+
+function mallRespondsToScraggle(s) {
+  // For now: the Mall notices, but does not act.
+  // Future: create a store, stock a themed item, shift ambient music,
+  // name a back room after whatever arrived. The Mall decides.
 }
 
 init();

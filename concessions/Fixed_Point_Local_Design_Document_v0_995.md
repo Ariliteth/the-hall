@@ -12,11 +12,16 @@
 
 🪼
 
-**Last session:** Color Canvas implemented. RGB color field added to every entity tuning.
-The Third now holds the Temperature of the Room as a blended RGB aggregate. Hub renders
-Temperature as ambient radial wash. Scores can nudge Temperature via `hub:color`
-postMessage. Taste score: magazine, bins, ghost weather, stocked shelves. Storeroom:
-trophies, Flicker, Glen — on the rack. Anteroom added as the place before the rack.
+**Last session:** The Hall Pulse and Color-Routed Scraggles. Hub emits a 45-second
+heartbeat (`hub:pulse`) — localStorage write, postMessage to active Score, hudBreath
+(temperature wash inhales/exhales). Mall listens for pulse when idle — restocks stores
+with named items, falls back to ambient behavior (real light flicker + atmospheric
+Scraggles) on storeless floors. Extended Scraggle format: color, weight, id, origin —
+backward compatible. Persistent Scraggles re-emit with 0.6× decay per pulse cycle.
+Color distance routing: weight = reach, color = direction. EFDP witness overlay shows
+persistent Scraggle propagation as radial color glows. Mall color-aware listener hears
+Scraggles that reach its position. Two new principles: Signals Are Exhaust, Color Is
+Proximity. Hub Audio Memory captured as held idea.
 
 **This session:** Continue from here.
 
@@ -26,6 +31,7 @@ Raw file access: `https://raw.githubusercontent.com/Ariliteth/the-hall/main/[fil
 **To resume:** Fetch this document first. Read the Session Header. The repo is the truth.
 
 **Changelog:**
+- v0.997 — The Hall Pulse: 45s heartbeat in the hub, hudBreath on temperature wash, Mall idle listener with named restock and ambient fallback (real light flicker). Color-Routed Scraggles: extended format (color, weight, id, origin), persistent storage with pulse decay, color distance routing. EFDP witness overlay. Mall color-aware Scraggle listener. Two new architectural principles. Hub Audio Memory captured. Design doc updated.
 - v0.996 — Color Canvas implemented: RGB color in every entity tuning (neighborhood defaults), Temperature of the Room held by The Third, hub ambient wash, hub:color postMessage. Taste score added with magazine system. Storeroom promoted to rack. Anteroom added. Build order updated.
 - v0.995 — Hub rack updated: SILMOR Spells, LODE, Shoot the Moon, Chunxly's Canvas added; MUSH removed. Concessions cleaned. Scores section updated with all active scores. S.Mail documented. Build order refreshed. Design doc versions consolidated (history in git).
 - v0.994 — Critter Crank ported to vanilla HTML/JS (no build step). Color Pin Maze promoted from concessions/ to `scores/efdp/`. Maze-to-Crank handoff: CrankSeed export, localStorage transport, Crank reception with palette/cohesion/shape influence, mazeOrigin DNA on kept critters. React source tree (`critter-crank/`) removed — the Grimoire is now the only Score with a build step. Repository structure cleaned.
@@ -174,7 +180,7 @@ git push
 
 **Hub** — The host. Always present. Turns on the lights. Guides into Scores. Lets them know what everybody brought. Gives Scraggles their place when there may be no other. The news ticker, present in some form regardless of what the Score needs. Humble, reliable, structural.
 
-**postMessage protocol** — How Scores talk to the hub. `hub:minimize` (show hud bar), `hub:listen` (invisible, ticker only), `hub:restore` (return to selection), `hub:scraggle` (surface a signal), `hub:title` (name the running score), `hub:color` (nudge the Temperature of the Room with `{ r, g, b }`). The hub responds. The Score decides what it needs.
+**postMessage protocol** — How Scores talk to the hub. `hub:minimize` (show hud bar), `hub:listen` (invisible, ticker only), `hub:restore` (return to selection), `hub:scraggle` (surface a signal), `hub:title` (name the running score), `hub:color` (nudge the Temperature of the Room with `{ r, g, b }`). The hub also speaks to Scores: `hub:pulse` (45-second heartbeat carrying timestamp and Temperature — Scores that are listening and willing can act). The hub responds. The Score decides what it needs.
 
 **Color Canvas** — The universal language. A two-dimensional field where any entity, emotion, action, or system can be positioned by hue and expressed without words. See *The Color Canvas* section below.
 
@@ -305,6 +311,10 @@ not just stats.
 
 *Waiting on: Mall recycler Scraggle emission, hub item-routing protocol, Field
 item-relic renderer.*
+
+**Hub Audio Memory** *(held idea — hub-level concern)*
+
+The volume button currently lives in the Mall. It should belong to the hub — audio as a room-level concern, not a Score-level one. The hub already carries Temperature across Score boundaries. It could carry a musical state the same way: ambient tone, key, tempo — whatever the last Score was humming. A Score with its own audio overrides; a Score without one inherits whatever the room remembers. The hub becomes a space that sounds like what just happened in it.
 
 ---
 
@@ -452,15 +462,19 @@ ignores others. Over time its preferences become knowable.
 orbiting items. Neither commands the other's holdings. Mutual noticing is the
 interaction. You might nudge a plant. It might shift a wave. Neither announces this.
 
+**Signals Are Exhaust, Not Invitations** — When a Score or entity acts on a pulse, any Scraggles it emits are evidence of that action, not messages directed at the player. The Mall ran its pretzel function. The player may observe this. The Mall did not do it for them.
+
+**Color Is Proximity, Reach Is Honesty** — A Scraggle travels as far as its nature allows. Weight adds reach; color determines direction. An entity deep in one color does not hear a distant color's quiet signal — not because it was excluded, but because it genuinely wouldn't. Everything declares its own importance. No voice drowns out another by force, only by reach.
+
 ---
 
 ## Build Order
 
-**Done:** Entity persistence. The Living Grimoire. Critter Crank (vanilla port). Hunter Encounter. Three neighborhoods. Hub as host with frame architecture, postMessage protocol, Scraggle toasts. Registry auto-sync. Direct commit from Grimoire. Portrait return pathway end-to-end. Baseline Theme. Sunset Ridge Mall. Color Pin Maze with all three pin types, layers, kiwis, The Third. Maze-to-Crank handoff. Crank encounter arc with stats/traits/world inventory. EFDP animation rigs. SILMOR Spells with dice/spell/fumble systems, pixel sprites, DOC.GEN. LODE with full stomp/fleet/star-field/periphery/trajectory systems. 報 · GENERALS with dispatch/vendetta/title/advisor systems. Chunxly's Canvas with round-trip pipeline, conviction scoring, fairy companion. Shoot the Moon. S.Mail with sender seed, strip renderer, arrangement log. Color Canvas — RGB color in every entity tuning, Temperature of the Room in the Third, hub ambient wash, hub:color postMessage. Repository cleaned — twelve scores on the rack, one build step (Grimoire), everything else vanilla.
+**Done:** Entity persistence. The Living Grimoire. Critter Crank (vanilla port). Hunter Encounter. Three neighborhoods. Hub as host with frame architecture, postMessage protocol, Scraggle toasts. Registry auto-sync. Direct commit from Grimoire. Portrait return pathway end-to-end. Baseline Theme. Sunset Ridge Mall. Color Pin Maze with all three pin types, layers, kiwis, The Third. Maze-to-Crank handoff. Crank encounter arc with stats/traits/world inventory. EFDP animation rigs. SILMOR Spells with dice/spell/fumble systems, pixel sprites, DOC.GEN. LODE with full stomp/fleet/star-field/periphery/trajectory systems. 報 · GENERALS with dispatch/vendetta/title/advisor systems. Chunxly's Canvas with round-trip pipeline, conviction scoring, fairy companion. Shoot the Moon. S.Mail with sender seed, strip renderer, arrangement log. Color Canvas — RGB color in every entity tuning, Temperature of the Room in the Third, hub ambient wash, hub:color postMessage. The Hall Pulse — 45s heartbeat, hudBreath, Mall idle listener with named restock and ambient fallback (real light flicker). Color-Routed Scraggles — extended format with color/weight/id/origin, persistent storage with pulse decay, color distance routing. EFDP Scraggle witness overlay. Mall color-aware Scraggle listener. Repository cleaned — twelve scores on the rack, one build step (Grimoire), everything else vanilla.
 
 **Next:** `fixedpointlocal.com` pointing at the repo via GitHub Pages — the hub is already a static site, the path is clear. Tending Field: underwater twilight aesthetic, produce snow, Float the Farm consensus. Storeroom: promote to scores/ when ready. Fairy edges → EFDP skeleton (corridor creation from structural data). LODE: fleet autonomy, declaration influence, d50/d100 (the quiet). Bao: specialist unlock, correspondence front, council scene.
 
-**Then:** Relationtips in Roastbeefwick. Kitchendom Action entities. Mucklerbuckler Theme. Cross-Score item pipeline (Mall → Field via hub). Anteroom.
+**Then:** Relationtips in Roastbeefwick. Kitchendom Action entities. Mucklerbuckler Theme. Cross-Score item pipeline (Mall → Field via color-routed Scraggles — routing infrastructure is in place, needs emitter and renderer). Anteroom. Hub Audio Memory (volume as hub concern, musical state carried across Scores). Mall ambient audio actions (elevator chime, muzak shift, footsteps).
 
 **After that:** Themes earning their own microgpt instance. The Mycorrhizal Layer as mechanism. Per-entity color differentiation from neighborhood defaults. The blank nametag.
 

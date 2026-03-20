@@ -1435,6 +1435,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   mgptBoot();
   setInterval(mgptWatch, 60000);
 
+  // The Hall Pulse — 45s heartbeat, same cadence family as S.Mail
+  setInterval(emitPulse, PULSE_INTERVAL);
+
   // The Third — was already here. Just needed a home.
   thirdBoot();
 
@@ -1509,7 +1512,7 @@ function handleScoreMessage(e) {
       break;
     case 'hub:scraggle':
     case 'scraggle':
-      receiveScraggle(msg.emoji || '✦', msg.signal || msg.text || '');
+      receiveScraggle(msg.emoji || '✦', msg.signal || msg.text || '', true, 'hub', msg);
       break;
     case 'hub:mail':
       if (msg.arrangement) deliverArrangement(msg.arrangement);
@@ -1587,8 +1590,9 @@ function pollScraggles() {
   } catch(e) {}
 }
 
-function receiveScraggle(emoji, signal, writeToStorage = true, source = 'hub') {
+function receiveScraggle(emoji, signal, writeToStorage = true, source = 'hub', extended = null) {
   // Show in hud feed if hud bar is visible
+  // The hub sees everything — it has no color position. It is the room.
   const feed = document.getElementById('hud-scraggle-feed');
   const hudVisible = document.getElementById('hud-bar').classList.contains('visible');
   if (hudVisible) {
@@ -1601,18 +1605,33 @@ function receiveScraggle(emoji, signal, writeToStorage = true, source = 'hub') {
     while (feed.children.length > 8) feed.removeChild(feed.firstChild);
   }
 
-  // Show as toast regardless
-  showScraggleToast(emoji, signal);
+  // Show as toast regardless — re-emitted Scraggles don't re-toast
+  if (!extended?.reemit) showScraggleToast(emoji, signal);
+
+  // Build the storage entry — extended format if available
+  const entry = { emoji, signal, source, arrivedAt: Date.now() };
+  if (extended?.color) entry.color = extended.color;
+  if (extended?.weight != null) entry.weight = extended.weight;
+  if (extended?.id) entry.id = extended.id;
+  if (extended?.origin) entry.origin = extended.origin;
+  if (extended?.reemit) entry.reemit = true;
 
   // Write to storage if it came from outside (postMessage)
   if (writeToStorage) {
     try {
       const raw = localStorage.getItem('baseline-session/scraggles');
       const scraggles = raw ? JSON.parse(raw) : [];
-      scraggles.push({ emoji, signal, source, arrivedAt: Date.now() });
+      scraggles.push(entry);
+      // Keep last 24
+      while (scraggles.length > 24) scraggles.shift();
       localStorage.setItem('baseline-session/scraggles', JSON.stringify(scraggles));
       lastScraggleCount = scraggles.length;
     } catch(e) {}
+  }
+
+  // Enroll persistent Scraggles — weight > 0.5 with a unique id
+  if (extended?.weight > 0.5 && extended?.id && !extended?.reemit) {
+    enrollPersistentScraggle(entry);
   }
 
   // Feed Hall Memory — every glyph witnessed is remembered
@@ -2687,6 +2706,141 @@ function seedTemperatureFromNeighborhoods(hoods) {
     Math.round(gSum / count),
     Math.round(bSum / count)
   );
+}
+
+// ============================================================
+// THE HALL PULSE
+// ============================================================
+//
+// The Hall has a pulse. It runs at the highest layer — the hub —
+// and makes moments available. Scores and entities that are
+// listening and willing can take a pulse and do something
+// appropriately scaled. The pulse does not command. It does not
+// ask for a response. It makes a condition true and moves on.
+
+const PULSE_INTERVAL = 45000; // 45 seconds — same cadence family as S.Mail
+
+function emitPulse() {
+  const temperature = readTemperature();
+
+  // localStorage — for Scores that poll
+  localStorage.setItem('baseline-session/pulse', JSON.stringify({
+    t: Date.now(),
+    temperature: temperature
+  }));
+
+  // postMessage — for the active Score in the frame
+  const frame = document.getElementById('score-frame');
+  if (scoreRunning && frame && frame.contentWindow) {
+    try {
+      frame.contentWindow.postMessage({
+        type: 'hub:pulse',
+        t: Date.now(),
+        temperature: temperature
+      }, '*');
+    } catch(e) { /* frame may not be ready — that's fine */ }
+  }
+
+  // Process persistent Scraggles — re-emit with decay
+  processPersistentScraggles();
+
+  // The hub feels its own pulse
+  hudBreath();
+}
+
+// ── hudBreath: the hub acknowledges the pulse ──
+//
+// A brief deepening of the Temperature wash. The player should not
+// consciously notice — but over time the hub feels alive rather than idle.
+// 200ms inhale, 800ms exhale.
+
+function hudBreath() {
+  const wash = document.getElementById('temperature-ambience');
+  if (!wash) return;
+  const current = parseFloat(wash.style.opacity) || 0;
+  // Only breathe if there's already a temperature visible
+  if (current <= 0) return;
+  wash.style.transition = 'opacity 200ms ease-in';
+  wash.style.opacity = String(Math.min(current + 0.04, 0.2));
+  setTimeout(() => {
+    wash.style.transition = 'opacity 800ms ease-out';
+    wash.style.opacity = String(current);
+  }, 200);
+}
+
+// ============================================================
+// COLOR-ROUTED SCRAGGLES
+// ============================================================
+//
+// Scraggles carry a color position and a weight. Color determines
+// direction. Weight determines reach. Everything is honest about
+// what it is.
+
+// ── Color distance in RGB space, normalized to 0.0–1.0 ──
+
+function colorDistance(a, b) {
+  return Math.sqrt(
+    Math.pow(a[0] - b[0], 2) +
+    Math.pow(a[1] - b[1], 2) +
+    Math.pow(a[2] - b[2], 2)
+  ) / 441.67; // max possible distance (√(255²×3))
+}
+
+// ── Does a Scraggle reach a receiver at a given color position? ──
+//
+// Legacy Scraggles (plain emoji or no color/weight) always reach.
+// Extended Scraggles reach if their weight >= the color distance.
+
+function scraggleReaches(scraggle, receiverColor) {
+  if (!scraggle.color || scraggle.weight == null) return true; // legacy — always reaches
+  const dist = colorDistance(scraggle.color, receiverColor);
+  return dist <= scraggle.weight;
+}
+
+// ── Enroll a Scraggle for persistent re-emission ──
+
+function enrollPersistentScraggle(entry) {
+  try {
+    const persistent = JSON.parse(localStorage.getItem('baseline-session/persistent-scraggles') || '[]');
+    if (persistent.find(p => p.id === entry.id)) return; // already enrolled
+    persistent.push({ ...entry, pulseCount: 0 });
+    localStorage.setItem('baseline-session/persistent-scraggles', JSON.stringify(persistent));
+  } catch(e) {}
+}
+
+// ── Process persistent Scraggles on each pulse ──
+//
+// Important Scraggles re-emit with decaying weight. They say what
+// they have to say, then get quieter. 0.6× decay per pulse cycle.
+// Max 4 cycles. Below 0.15 weight: done.
+
+function processPersistentScraggles() {
+  try {
+    const scraggles = JSON.parse(localStorage.getItem('baseline-session/scraggles') || '[]');
+    const persistent = JSON.parse(localStorage.getItem('baseline-session/persistent-scraggles') || '[]');
+
+    const stillActive = [];
+
+    for (const s of persistent) {
+      if (typeof s === 'string') continue; // legacy, skip
+
+      s.weight = s.weight * 0.6; // decay per pulse cycle
+      s.pulseCount = (s.pulseCount || 0) + 1;
+
+      if (s.weight >= 0.15 && s.pulseCount <= 4) {
+        // Re-emit into scraggles with current (decayed) weight
+        scraggles.push({ ...s, reemit: true });
+        stillActive.push(s);
+      }
+      // Below threshold or too many cycles: Scraggle is done.
+      // It said what it had to say.
+    }
+
+    // Keep last 24
+    while (scraggles.length > 24) scraggles.shift();
+    localStorage.setItem('baseline-session/scraggles', JSON.stringify(scraggles));
+    localStorage.setItem('baseline-session/persistent-scraggles', JSON.stringify(stillActive));
+  } catch(e) {}
 }
 
 // ── Boot ──

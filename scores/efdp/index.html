@@ -143,6 +143,7 @@
     <button id="btn-press">Press</button>
     <button id="btn-scatter">Scatter</button>
     <button id="btn-kiwi" class="kiwi">Kiwis</button>
+    <button id="btn-scraggles" class="kiwi" title="Show active Scraggle field">Scraggles</button>
     <button id="btn-third" class="third">Third</button>
     <button id="btn-reset-color" class="danger">Clear Color</button>
     <button id="btn-restore" disabled title="Restore pins from memory">Restore</button>
@@ -774,6 +775,8 @@ let wallDensity = 0; // % of interior walls to remove after maze generation
 let layers = [], activeLayerIndex = 0;
 let thirdMode = 'interactive';  // 'interactive' | 'pipeline'
 let thirdSuggestions = [];      // ghost pin suggestions from The Third
+let showScraggleField = false;  // witness overlay for active Scraggle propagation
+let scraggleWitnessData = [];   // persistent Scraggles currently resonating
 
 // --- Layer management ---
 
@@ -2331,6 +2334,36 @@ function renderMaze() {
     }
   }
 
+  // Scraggle witness overlay — live picture of what is resonating
+  if (showScraggleField && scraggleWitnessData.length > 0 && maze) {
+    const W = maze.w, H = maze.h;
+    const maxReach = Math.max(W, H); // grid diagonal in cells
+    for (const s of scraggleWitnessData) {
+      if (!s.color || s.weight == null) continue;
+      const [r, g, b] = s.color;
+      // Map the Scraggle's weight to a radius in cells
+      const radiusCells = Math.max(1, Math.round(s.weight * maxReach * 0.5));
+      // Place at a deterministic position derived from emoji codepoint
+      const code = (s.emoji || '').codePointAt(0) || 0;
+      const cx = code % W;
+      const cy = Math.floor(code / W) % H;
+      const alpha = Math.min(0.25, s.weight * 0.3);
+      // Radial glow
+      const pxR = radiusCells * CELL;
+      const grad = ctx.createRadialGradient(
+        cx * CELL + CELL / 2, cy * CELL + CELL / 2, 0,
+        cx * CELL + CELL / 2, cy * CELL + CELL / 2, pxR
+      );
+      grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(
+        cx * CELL + CELL / 2 - pxR, cy * CELL + CELL / 2 - pxR,
+        pxR * 2, pxR * 2
+      );
+    }
+  }
+
   // Walls
   ctx.strokeStyle = 'rgba(100,100,130,0.6)';
   ctx.lineWidth = 1;
@@ -2878,6 +2911,36 @@ initMaze();
 // Hub integration — collapse selection panel when EFDP launches
 try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
 try { window.parent.postMessage({ type: 'hub:color', r: 60, g: 140, b: 160 }, '*'); } catch(e) {}
+
+// ── Scraggle witness overlay ──
+//
+// EFDP can optionally render active Scraggle propagation as a live
+// overlay — showing how far each persistent Scraggle's color is
+// currently reaching. This is not interactive. It's a witness view.
+// A live picture of what is resonating through the Hall.
+
+document.getElementById('btn-scraggles').onclick = () => {
+  showScraggleField = !showScraggleField;
+  document.getElementById('btn-scraggles').classList.toggle('active', showScraggleField);
+  if (showScraggleField) refreshScraggleWitness();
+  renderMaze();
+};
+
+function refreshScraggleWitness() {
+  try {
+    const raw = localStorage.getItem('baseline-session/persistent-scraggles');
+    scraggleWitnessData = raw ? JSON.parse(raw) : [];
+  } catch(e) { scraggleWitnessData = []; }
+}
+
+// Listen for the Hall Pulse — refresh witness data on each pulse
+window.addEventListener('message', (e) => {
+  if (e.data?.type !== 'hub:pulse') return;
+  if (showScraggleField) {
+    refreshScraggleWitness();
+    renderMaze();
+  }
+});
 </script>
 </body>
 </html>
