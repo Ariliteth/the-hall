@@ -18,6 +18,8 @@
   }
   #hud.visible { opacity: 1; }
   #hud .spoil { padding: 2px 7px; border-radius: 3px; background: rgba(255,255,255,0.04); }
+  #hud .echo { padding: 2px 7px; border-radius: 3px; background: rgba(255,255,255,0.02); opacity: 0.45; font-size: 11px; }
+  #hud .echo-sep { opacity: 0.15; font-size: 11px; padding: 0 2px; }
   #tier {
     position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
     font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 2px;
@@ -113,15 +115,37 @@ const RING_DECEL_MS = 600;
 const RING_HOLD_MS = 500;
 const RING_TRANSITION_MS = 600;
 
+// Constellation: face adjacency per tier (index pairs sharing an edge)
+// Index 0 = emblem (center). Remaining indices = ring positions from getFacePositions.
+const FACE_ADJACENCY = [
+  // d4: triangle — emblem touches all 3, outer ring is a cycle
+  [[0,1],[0,2],[0,3],[1,2],[2,3],[3,1]],
+  // d6: square — emblem center, 5 around, cycle + spokes
+  [[0,1],[0,2],[0,3],[0,4],[0,5],[1,2],[2,3],[3,4],[4,5],[5,1]],
+  // d8: diamond — emblem + 7 ring, cycle + spokes
+  [[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,1]],
+  // d10: emblem + 4 inner + 5 outer, inner↔outer bridges
+  [[0,1],[0,2],[0,3],[0,4],[1,2],[2,3],[3,4],[4,1],[1,5],[2,6],[3,7],[4,8],[5,6],[6,7],[7,8],[8,9],[9,5]],
+  // d12: emblem + 5 inner + 6 outer
+  [[0,1],[0,2],[0,3],[0,4],[0,5],[1,2],[2,3],[3,4],[4,5],[5,1],[1,6],[2,7],[3,8],[4,9],[5,10],[6,7],[7,8],[8,9],[9,10],[10,11],[11,6]],
+  // d20: emblem + 9 inner + 10 outer
+  [[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[0,8],[0,9],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,1],[1,10],[2,11],[3,12],[4,13],[5,14],[6,15],[7,16],[8,17],[9,18],[10,11],[11,12],[12,13],[13,14],[14,15],[15,16],[16,17],[17,18],[18,19],[19,10]],
+];
+
+// Constellation timing
+const CONSTELLATION_FADE_IN = 800;
+const CONSTELLATION_MIN_MS = 600; // minimum before nod is accepted
+
 // ===== STATE =====
 
 const S = {
-  phase: 'rings', // rings | emblem | declaration | play | stomping | evolving | ascending
+  phase: 'rings', // rings | emblem | declaration | play | stomping | evolving | constellation | ascending
   tier: 0,
   faces: [],
   emblem: null,
   hsl: null,
   declaration: null,  // the heading — where the fleet is going
+  declarationType: 0, // 0=flat(TOWARD) 1=mult(BEYOND) 2=adjacency(WITHIN)
   declarationChoices: [], // three words offered after emblem selection
   companions: [],
   spoils: {},
@@ -167,6 +191,15 @@ const S = {
   // trajectories (ghost emoji lookahead per lane)
   trajectories: [[], [], []],
   pingHighlights: [], // [{lane, depth, accentHsl}] from companion pings
+
+  // constellation (interior view)
+  constellationT: 0,
+  constellationPulses: [], // [{fromIdx, toIdx, t, speed}] — light traveling edges
+  constellationReady: false, // true once minimum time has passed
+  constellationReturnPhase: null, // non-null = on-demand look (return here on nod)
+
+  // stomp feedback (floating deltas)
+  stompFeedback: [], // [{text, x, y, t, duration}]
 
   // star field
   stars: [],
@@ -758,6 +791,9 @@ function renderField() {
       ctx.font = `${Math.max(12, emojiSize * 0.32)}px monospace`;
       ctx.fillStyle = S.hsl ? cFaint(0.5) : 'rgba(255,255,255,0.25)';
       ctx.fillText(hints[i], 0, emojiSize * 0.85);
+
+      // production deltas — infrastructure preserved for challenges, hidden during normal play
+      // if (S.declaration && S.phase === 'challenge') { ... }
     }
 
     ctx.restore();
@@ -978,14 +1014,14 @@ function renderCompanions() {
       }
     }
 
-    // show preferred face on the die — veterans are brighter, they know who they are
+    // show preferred face on the die — big enough to read, bright enough to matter
     // ripple brightens the face momentarily — they felt the stomp
     if (comp.preferredFace && !rollActive) {
-      const faceSize = Math.max(14, sz * 0.55);
+      const faceSize = Math.max(16, sz * 0.7);
       ctx.font = `${faceSize}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      let faceAlpha = (isVeteran || isSeasoned) ? 0.85 : 0.55;
+      let faceAlpha = (isVeteran || isSeasoned) ? 0.95 : 0.75;
       if (rippleBoost > 0.05) faceAlpha = Math.min(1, faceAlpha + rippleBoost * 0.6);
       ctx.globalAlpha = faceAlpha;
       ctx.fillText(comp.preferredFace, cx, cy);
@@ -1004,7 +1040,7 @@ function renderCompanions() {
 
     // show roll result emoji (only after delay) — overrides preferred face
     if (rollActive && roll.result) {
-      const resultSize = Math.max(12, sz * 0.45);
+      const resultSize = Math.max(16, sz * 0.65);
       ctx.font = `${resultSize}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -1087,9 +1123,20 @@ function renderPrompt(text) {
 
 function updateHud() {
   const entries = Object.entries(S.spoils).sort((a, b) => b[1] - a[1]);
-  hudEl.innerHTML = entries.map(([emoji, count]) =>
-    `<span class="spoil">${emoji}\u00d7${count}</span>`
-  ).join('');
+  let html = entries.map(([emoji, count]) => {
+    return `<span class="spoil">${emoji}\u00d7${count}</span>`;
+  }).join('');
+
+  // single total yield — the number that grows
+  if (S.declaration) {
+    const total = calcTotalProduction();
+    if (total > 0) {
+      html += `<span class="echo-sep">\u00b7</span>`;
+      html += `<span class="echo">${total}</span>`;
+    }
+  }
+
+  hudEl.innerHTML = html;
   hudEl.classList.toggle('visible', entries.length > 0);
   if (S.hsl) {
     hudEl.style.color = cPrimary();
@@ -1467,6 +1514,8 @@ function renderDeclaration() {
   S.declarationFade = Math.min(1, (S.declarationFade || 0) + 0.02);
   const alpha = S.declarationFade * 0.7;
 
+  const hints = ['stack deep', 'collect all', 'contrast wins'];
+
   S.declarationChoices.forEach((word, i) => {
     const pos = positions[i];
     const drift = Math.sin(performance.now() * 0.0008 + i * 2.1) * 4;
@@ -1479,6 +1528,13 @@ function renderDeclaration() {
     ctx.fillStyle = S.hsl ? cFaint(0.6) : 'rgba(255,255,255,0.4)';
     ctx.letterSpacing = '3px';
     ctx.fillText(word, pos.x, pos.y + drift);
+
+    // Economic hint — whisper beneath
+    const hintSz = Math.max(9, baseSz * 0.38);
+    ctx.font = `${hintSz}px 'Courier New', monospace`;
+    ctx.fillStyle = cFaint(0.25);
+    ctx.letterSpacing = '1px';
+    ctx.fillText(hints[i], pos.x, pos.y + drift + baseSz * 0.9);
     ctx.restore();
   });
 }
@@ -1493,6 +1549,7 @@ function handleStomp(dir) {
     const idx = dir + 1;
     if (idx < 0 || idx >= S.declarationChoices.length) return;
     S.declaration = S.declarationChoices[idx];
+    S.declarationType = idx; // 0=flat 1=mult 2=adjacency
     // visual: stomp toward the word position
     const fieldPos = getFieldPositions();
     const target = fieldPos[idx];
@@ -1788,9 +1845,426 @@ function advanceTier() {
   populateStars();
 }
 
+// ===== PRODUCTION MATH =====
+
+function getAdjacentIndices(faceIdx) {
+  const edges = FACE_ADJACENCY[S.tier] || [];
+  const adj = [];
+  edges.forEach(([a, b]) => {
+    if (a === faceIdx && b < S.faces.length) adj.push(b);
+    if (b === faceIdx && a < S.faces.length) adj.push(a);
+  });
+  return adj;
+}
+
+function getFleetEcho(emoji) {
+  let count = 0;
+  S.companions.forEach(c => {
+    if (c.faces.some(f => f.emoji === emoji)) count++;
+  });
+  return 1 + count * 0.5;
+}
+
+function getDeclarationBonus(faceIdx, facesArr) {
+  const faces = facesArr || S.faces;
+  const face = faces[faceIdx];
+  if (!face || !face.emoji) return 0;
+
+  const edges = FACE_ADJACENCY[S.tier] || [];
+  const adj = [];
+  edges.forEach(([a, b]) => {
+    if (a === faceIdx && b < faces.length) adj.push(b);
+    if (b === faceIdx && a < faces.length) adj.push(a);
+  });
+
+  switch (S.declarationType) {
+    case 0: // TOWARD — flat: +2 per adjacent SAME
+      return adj.filter(i => faces[i] && faces[i].emoji === face.emoji).length * 2;
+    case 1: { // BEYOND — breadth: +1 per unique emoji on the whole die
+      const uniques = new Set(faces.filter(f => f && f.emoji).map(f => f.emoji));
+      return uniques.size;
+    }
+    case 2: // WITHIN — contrast: +2 per adjacent DIFFERENT
+      return adj.filter(i => faces[i] && faces[i].emoji && faces[i].emoji !== face.emoji).length * 2;
+    default: return 0;
+  }
+}
+
+// Per-emoji passive abilities — discovered, never explained
+const EMOJI_PASSIVES = {
+  [EMOJI_POOL[8]]: { // 🍄 Mushroom — "Finds room where others haven't looked yet."
+    apply(prod, faceIdx, faces) {
+      const empty = TIERS[S.tier].sides - faces.length;
+      return prod + empty * 2;
+    }
+  },
+};
+
+function calcFaceProduction(faceIdx, facesArr) {
+  const faces = facesArr || S.faces;
+  const face = faces[faceIdx];
+  if (!face || !face.emoji) return 0;
+  const base = 1 + (face.improved || 0); // investment compounds
+  const declBonus = getDeclarationBonus(faceIdx, faces);
+  const echo = getFleetEcho(face.emoji);
+  let prod = Math.round((base + declBonus) * echo);
+  // per-emoji passive
+  const passive = EMOJI_PASSIVES[face.emoji];
+  if (passive) prod = passive.apply(prod, faceIdx, faces);
+  return prod;
+}
+
+function calcTotalProduction(facesArr) {
+  const faces = facesArr || S.faces;
+  let total = 0;
+  for (let i = 0; i < faces.length; i++) total += calcFaceProduction(i, faces);
+  return total;
+}
+
+function calcEmojiProduction(facesArr) {
+  // Returns { emoji: totalProd } for each emoji type
+  const faces = facesArr || S.faces;
+  const byEmoji = {};
+  for (let i = 0; i < faces.length; i++) {
+    const f = faces[i];
+    if (!f || !f.emoji) continue;
+    const prod = calcFaceProduction(i, faces);
+    byEmoji[f.emoji] = (byEmoji[f.emoji] || 0) + prod;
+  }
+  return byEmoji;
+}
+
+function calcProjectedDeltas(emoji) {
+  // Returns per-emoji production deltas if this emoji were added
+  const current = calcEmojiProduction();
+  const simFaces = S.faces.map(f => ({ ...f }));
+  simFaces.push({ emoji, improved: 0 });
+  const projected = calcEmojiProduction(simFaces);
+  const deltas = {};
+  const allEmoji = new Set([...Object.keys(current), ...Object.keys(projected)]);
+  allEmoji.forEach(e => {
+    const diff = (projected[e] || 0) - (current[e] || 0);
+    if (diff !== 0) deltas[e] = diff;
+  });
+  return deltas;
+}
+
+// ===== CONSTELLATION (THE INTERIOR) =====
+
+function enterConstellation(returnPhase) {
+  S.constellationReturnPhase = returnPhase || null;
+  S.phase = 'constellation';
+  S.constellationT = 0;
+  S.constellationReady = false;
+  S.constellationPulses = [];
+  S.inputLocked = true; // locked until minimum time passes
+  S.burstT = 0;
+}
+
+function getConstellationLayout() {
+  // Arrange faces in the die's geometric projection, scaled to fill the screen
+  const tier = S.tier;
+  const faces = S.faces;
+  const n = faces.length;
+  const cx = canvas.width / 2;
+  const cy = canvas.height * 0.45;
+  const scale = Math.min(canvas.width, canvas.height) * 0.28;
+
+  const positions = [];
+  // Center node (emblem)
+  positions.push({ x: cx, y: cy });
+
+  if (n <= 1) return positions;
+
+  // Single ring for d4-d8 (small die), two rings for d10+
+  if (n <= 9) {
+    const r = scale * 0.75;
+    for (let i = 1; i < n; i++) {
+      const a = -Math.PI / 2 + (2 * Math.PI * (i - 1)) / (n - 1);
+      positions.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+    }
+  } else {
+    const inner = Math.floor((n - 1) / 2);
+    const outer = n - 1 - inner;
+    const r1 = scale * 0.45;
+    const r2 = scale * 0.85;
+    for (let i = 0; i < inner; i++) {
+      const a = -Math.PI / 2 + (2 * Math.PI * i) / inner;
+      positions.push({ x: cx + Math.cos(a) * r1, y: cy + Math.sin(a) * r1 });
+    }
+    for (let i = 0; i < outer; i++) {
+      const a = -Math.PI / 2 + (2 * Math.PI * i) / outer;
+      positions.push({ x: cx + Math.cos(a) * r2, y: cy + Math.sin(a) * r2 });
+    }
+  }
+
+  return positions;
+}
+
+function getAdjacencyEdges() {
+  const tier = S.tier;
+  const n = S.faces.length;
+  const raw = FACE_ADJACENCY[tier] || [];
+  // Only include edges where both indices have faces
+  return raw.filter(([a, b]) => a < n && b < n);
+}
+
+function updateConstellation(dt) {
+  S.constellationT += dt;
+
+  // Minimum viewing time before nod is accepted
+  if (!S.constellationReady && S.constellationT >= CONSTELLATION_MIN_MS) {
+    S.constellationReady = true;
+    S.inputLocked = false;
+  }
+
+  // Spawn pulses along edges — favor high-value connections
+  const edges = getAdjacencyEdges();
+  if (edges.length > 0 && Math.random() < 0.04) {
+    // Weight toward valuable edges
+    const weighted = edges.filter(([a, b]) => {
+      const fa = S.faces[a], fb = S.faces[b];
+      if (!fa || !fa.emoji || !fb || !fb.emoji) return false;
+      const same = fa.emoji === fb.emoji;
+      if (S.declarationType === 0) return same || Math.random() < 0.2;
+      if (S.declarationType === 2) return !same || Math.random() < 0.2;
+      return true;
+    });
+    const pool = weighted.length > 0 ? weighted : edges;
+    const edge = pool[Math.floor(Math.random() * pool.length)];
+    const fromEmoji = S.faces[edge[0]];
+    const isEmblemPulse = fromEmoji && fromEmoji.emoji === S.emblem;
+    S.constellationPulses.push({
+      fromIdx: edge[0],
+      toIdx: edge[1],
+      t: 0,
+      speed: isEmblemPulse ? 1.2 : 0.6 + Math.random() * 0.6,
+    });
+  }
+
+  // Update pulses
+  S.constellationPulses.forEach(p => {
+    p.t += (dt / 1000) * p.speed;
+  });
+  S.constellationPulses = S.constellationPulses.filter(p => p.t < 1);
+}
+
+function constellationNod() {
+  if (!S.constellationReady) return;
+  S.inputLocked = true;
+
+  // Fade out, then advance
+  S.constellationFading = true;
+  S.constellationFadeT = 0;
+}
+
+function renderConstellation() {
+  const fadeIn = Math.min(1, S.constellationT / CONSTELLATION_FADE_IN);
+  const fadeOut = S.constellationFading
+    ? Math.max(0, 1 - (S.constellationFadeT || 0))
+    : 1;
+  const alpha = fadeIn * fadeOut;
+  if (alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const positions = getConstellationLayout();
+  const edges = getAdjacencyEdges();
+  const now = performance.now();
+
+  // Draw edges — brightness reflects declaration value
+  edges.forEach(([a, b]) => {
+    if (a >= positions.length || b >= positions.length) return;
+    const pa = positions[a];
+    const pb = positions[b];
+
+    const faceA = S.faces[a];
+    const faceB = S.faces[b];
+    const bothFilled = faceA && faceA.emoji && faceB && faceB.emoji;
+
+    if (!bothFilled) {
+      // Empty edge — barely visible
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.strokeStyle = cFaint(0.05);
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+      return;
+    }
+
+    // Edge value depends on declaration model
+    const same = faceA.emoji === faceB.emoji;
+    let edgeValue = 0; // 0 = dormant, 1 = maximum
+    switch (S.declarationType) {
+      case 0: // TOWARD — same edges are hot
+        edgeValue = same ? 1 : 0.15;
+        break;
+      case 1: // BEYOND — all filled edges contribute equally
+        edgeValue = 0.5;
+        break;
+      case 2: // WITHIN — different edges are hot
+        edgeValue = same ? 0.1 : 1;
+        break;
+    }
+
+    const breathe = 0.03 * Math.sin(now * 0.002 + a * 0.7 + b * 1.3);
+    const edgeAlpha = 0.08 + edgeValue * (0.35 + breathe);
+    const lineW = 0.6 + edgeValue * 2;
+
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.strokeStyle = cFaint(edgeAlpha);
+    ctx.lineWidth = lineW;
+    ctx.stroke();
+
+    // Hot edges get a soft glow line underneath
+    if (edgeValue > 0.5) {
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.strokeStyle = cFaint(edgeValue * 0.08);
+      ctx.lineWidth = lineW + 4;
+      ctx.stroke();
+    }
+  });
+
+  // Draw pulses traveling along edges
+  S.constellationPulses.forEach(p => {
+    if (p.fromIdx >= positions.length || p.toIdx >= positions.length) return;
+    const pa = positions[p.fromIdx];
+    const pb = positions[p.toIdx];
+    const px = lerp(pa.x, pb.x, p.t);
+    const py = lerp(pa.y, pb.y, p.t);
+    const pulseAlpha = (1 - p.t) * 0.6;
+
+    ctx.beginPath();
+    ctx.arc(px, py, 3, 0, Math.PI * 2);
+    ctx.fillStyle = cFaint(pulseAlpha);
+    ctx.fill();
+
+    // trailing glow
+    ctx.beginPath();
+    ctx.arc(px, py, 8, 0, Math.PI * 2);
+    ctx.fillStyle = cFaint(pulseAlpha * 0.3);
+    ctx.fill();
+  });
+
+  // Draw face nodes
+  const emojiSize = Math.min(canvas.width, canvas.height) * 0.055;
+  positions.forEach((pos, i) => {
+    const face = S.faces[i];
+    if (!face) return;
+
+    const isEmblem = face.emoji === S.emblem;
+
+    // Node glow — emblem pulses gently, others breathe
+    const breathe = isEmblem
+      ? 0.15 + 0.08 * Math.sin(now * 0.003)
+      : 0.06 + 0.03 * Math.sin(now * 0.002 + i * 1.7);
+
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, emojiSize * (isEmblem ? 0.9 : 0.65), 0, Math.PI * 2);
+    ctx.fillStyle = cFaint(breathe);
+    ctx.fill();
+
+    if (isEmblem) {
+      // Emblem radiates — soft outer ring
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, emojiSize * 1.3, 0, Math.PI * 2);
+      ctx.strokeStyle = cFaint(0.08 + 0.04 * Math.sin(now * 0.002));
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Emoji
+    if (face.emoji) {
+      ctx.font = `${isEmblem ? emojiSize * 1.1 : emojiSize * 0.85}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(face.emoji, pos.x, pos.y);
+
+      // Production value below the emoji
+      const prod = calcFaceProduction(i);
+      if (prod > 0) {
+        const prodSize = Math.max(9, emojiSize * 0.3);
+        ctx.font = `${prodSize}px 'Courier New', monospace`;
+        ctx.fillStyle = cFaint(0.4);
+        ctx.fillText(prod, pos.x, pos.y + emojiSize * (isEmblem ? 0.85 : 0.7));
+      }
+    }
+  });
+
+  // Per-emoji production breakdown — top of constellation
+  const emojiProd = calcEmojiProduction();
+  const prodEntries = Object.entries(emojiProd).sort((a, b) => b[1] - a[1]);
+  if (prodEntries.length > 0) {
+    const lineSize = Math.max(14, canvas.width * 0.022);
+    const numSize = Math.max(11, canvas.width * 0.015);
+    const startY = canvas.height * 0.09;
+    const totalWidth = prodEntries.length * lineSize * 2.8;
+    const startX = (canvas.width - totalWidth) / 2 + lineSize * 1.4;
+
+    prodEntries.forEach(([emoji, prod], idx) => {
+      const x = startX + idx * lineSize * 2.8;
+      // Emoji
+      ctx.font = `${lineSize}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, x, startY);
+      // Production number
+      ctx.font = `${numSize}px 'Courier New', monospace`;
+      ctx.fillStyle = cFaint(0.4);
+      ctx.fillText(prod, x, startY + lineSize * 0.9);
+    });
+  }
+
+  // Companions as small satellites orbiting the constellation edge
+  const constellationR = Math.min(canvas.width, canvas.height) * 0.32;
+  S.companions.forEach((comp, ci) => {
+    const conv = comp.conviction || 0;
+    const orbitR = constellationR * (0.9 + (1 - conv) * 0.3);
+    const speed = 0.0003 + conv * 0.0002;
+    const angle = (comp.idlePhase || 0) + now * speed + ci * 0.8;
+    const cx = canvas.width / 2 + Math.cos(angle) * orbitR;
+    const cy = canvas.height * 0.45 + Math.sin(angle) * orbitR * 0.6; // flatten orbit
+
+    const sz = 8 + conv * 4;
+    const [ch, cs, cl] = comp.accentHsl;
+    ctx.beginPath();
+    ctx.arc(cx, cy, sz, 0, Math.PI * 2);
+    ctx.fillStyle = hsl(ch, cs, cl, 0.15 + conv * 0.15);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, sz * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = hsl(ch, cs, cl, 0.3 + conv * 0.2);
+    ctx.fill();
+  });
+
+  // "NOD" prompt — appears after minimum time
+  if (S.constellationReady) {
+    const promptAlpha = 0.15 + 0.1 * Math.sin(now * 0.003);
+    ctx.font = `${Math.max(11, canvas.width * 0.013)}px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = cFaint(promptAlpha);
+    ctx.letterSpacing = '4px';
+    ctx.fillText('NOD', canvas.width / 2, canvas.height * 0.88);
+    ctx.letterSpacing = '0px';
+  }
+
+  ctx.restore();
+}
+
 // ===== UPDATE =====
 
 function update(dt) {
+  // stomp feedback float
+  S.stompFeedback.forEach(f => { f.t += dt / f.duration; });
+  S.stompFeedback = S.stompFeedback.filter(f => f.t < 1);
+
   // shake decay
   if (S.shakeMag > 0.2) {
     S.shakeX = (Math.random() - 0.5) * S.shakeMag * 2;
@@ -1866,6 +2340,29 @@ function update(dt) {
       updateEvolution(dt);
       break;
 
+    case 'constellation':
+      updateConstellation(dt);
+      // Handle fade-out
+      if (S.constellationFading) {
+        S.constellationFadeT = (S.constellationFadeT || 0) + dt / 500;
+        if (S.constellationFadeT >= 1) {
+          S.constellationFading = false;
+          if (S.constellationReturnPhase) {
+            // On-demand look — return to where we were
+            S.phase = S.constellationReturnPhase;
+            S.constellationReturnPhase = null;
+            S.inputLocked = false;
+          } else {
+            // Post-evolution — advance to next tier
+            advanceTier();
+            S.phase = 'play';
+            S.inputLocked = false;
+            generateChoices();
+          }
+        }
+      }
+      break;
+
     case 'ascending':
       // final state — could add celebration later
       break;
@@ -1891,12 +2388,31 @@ function updateStomp(dt) {
       // fill face at moment of contact (skip for declaration stomps)
       const isDeclarationStomp = S.declarationChoices.includes(S.stompEmoji);
       if (!isDeclarationStomp) {
+        // Capture deltas before the face is added
+        const deltas = S.declaration ? calcProjectedDeltas(S.stompEmoji) : null;
+
         if (!S.emblem) {
           S.emblem = S.stompEmoji;
           S.hsl = EMOJI_HSL[S.emblem] || [0, 0, 60];
           S.faces.push({ emoji: S.emblem, improved: 0 });
         } else {
           fillFace(S.stompEmoji);
+        }
+
+        // Spawn floating feedback
+        if (deltas) {
+          const sorted = Object.entries(deltas).sort((a, b) => b[1] - a[1]);
+          const top = sorted.slice(0, 2); // emblem + biggest
+          top.forEach(([emoji, delta], idx) => {
+            if (delta <= 0) return;
+            S.stompFeedback.push({
+              text: `${emoji}+${delta}`,
+              x: S.stompToX + (idx - 0.5) * 40,
+              y: S.stompToY - 20,
+              t: 0,
+              duration: 1200,
+            });
+          });
         }
       } else {
         triggerShake(2); // gentle shake for declaration — acknowledgment, not impact
@@ -1986,12 +2502,8 @@ function updateEvolution(dt) {
       spawnCompanions(); // then the player sheds two new companions
     }
   } else if (S.burstT >= BURST_DURATION) {
-    // done
-    advanceTier();
-    S.phase = 'play';
-    S.burstT = 0;
-    S.inputLocked = false;
-    generateChoices();
+    // evolution burst complete — open the die, show the constellation
+    enterConstellation();
   }
 }
 
@@ -2019,6 +2531,14 @@ function render() {
   if (S.phase === 'rings') {
     renderRings();
     ctx.restore();
+    return;
+  }
+
+  // constellation — the interior
+  if (S.phase === 'constellation') {
+    renderConstellation();
+    ctx.restore();
+    updateTierLabel();
     return;
   }
 
@@ -2071,6 +2591,21 @@ function render() {
     renderBurst();
   }
 
+  // stomp feedback — floating deltas
+  S.stompFeedback.forEach(f => {
+    const alpha = 1 - f.t;
+    const rise = f.t * 60;
+    const sz = Math.max(11, Math.min(canvas.width, canvas.height) * 0.018);
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.7;
+    ctx.font = `${sz}px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = cGlow();
+    ctx.fillText(f.text, f.x, f.y - rise);
+    ctx.restore();
+  });
+
   ctx.restore();
 
   // tier label
@@ -2105,12 +2640,26 @@ function getDiePos() {
 function onKey(e) {
   if (S.inputLocked) return;
 
+  // constellation: any key is a nod
+  if (S.phase === 'constellation' && S.constellationReady) {
+    constellationNod();
+    return;
+  }
+
   // ring selection: any arrow or space to thrust
   if (S.phase === 'rings' && S.ringPhase === 'spinning') {
     if (['ArrowLeft','ArrowUp','ArrowRight',' '].includes(e.key)) {
       S.ringPhase = 'decelerating';
       S.ringT = 0;
       S.inputLocked = true;
+      return;
+    }
+  }
+
+  // look inside — down arrow during play/emblem opens constellation
+  if (e.key === 'ArrowDown' && S.faces.length > 1) {
+    if (S.phase === 'play' || S.phase === 'emblem') {
+      enterConstellation(S.phase);
       return;
     }
   }
@@ -2124,6 +2673,26 @@ function onKey(e) {
 
 window.addEventListener('keydown', onKey);
 
+// click: ensure focus lands here (iframe keyboard capture)
+canvas.addEventListener('click', e => {
+  window.focus();
+  if (S.inputLocked) return;
+  if (S.phase === 'constellation' && S.constellationReady) {
+    constellationNod();
+    return;
+  }
+  if (S.phase === 'rings' && S.ringPhase === 'spinning') {
+    S.ringPhase = 'decelerating';
+    S.ringT = 0;
+    S.inputLocked = true;
+    return;
+  }
+  const x = e.clientX / canvas.width;
+  if (x < 0.33) handleStomp(-1);
+  else if (x > 0.66) handleStomp(1);
+  else handleStomp(0);
+});
+
 // touch: tap position determines direction
 let touchX = 0;
 canvas.addEventListener('touchstart', e => {
@@ -2133,6 +2702,12 @@ canvas.addEventListener('touchstart', e => {
 
 canvas.addEventListener('touchend', e => {
   if (S.inputLocked) return;
+  // constellation: tap is a nod
+  if (S.phase === 'constellation' && S.constellationReady) {
+    constellationNod();
+    e.preventDefault();
+    return;
+  }
   // ring selection: tap anywhere to thrust
   if (S.phase === 'rings' && S.ringPhase === 'spinning') {
     S.ringPhase = 'decelerating';

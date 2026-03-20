@@ -1419,6 +1419,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Listen for messages from score frames
   window.addEventListener('message', handleScoreMessage);
 
+  // Reclaim iframe focus when clicking back into the score area
+  document.getElementById('score-area').addEventListener('click', () => {
+    const frame = document.getElementById('score-frame');
+    if (scoreRunning && frame.contentWindow) frame.contentWindow.focus();
+  });
+
   // Poll Scraggles — even with no score running, the hub is listening
   setInterval(pollScraggles, 3000);
 
@@ -1827,6 +1833,9 @@ function launchScore() {
   // Default mode: hud bar visible, selection collapses
   // The score can override this via postMessage once it loads
   setHubMode('hud');
+
+  // Give the iframe focus so keyboard-only scores (e.g. LODE) receive input
+  frame.addEventListener('load', () => frame.contentWindow.focus(), { once: true });
 }
 
 function ejectScore() {
