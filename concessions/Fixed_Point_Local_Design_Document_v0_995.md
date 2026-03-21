@@ -1,6 +1,6 @@
 # Fixed Point Local
 ## Complete Design Document
-### v0.995 — March 2026
+### v0.998 — March 2026
 
 *Fox & Claude*
 
@@ -12,16 +12,17 @@
 
 🪼
 
-**Last session:** The Hall Pulse and Color-Routed Scraggles. Hub emits a 45-second
-heartbeat (`hub:pulse`) — localStorage write, postMessage to active Score, hudBreath
-(temperature wash inhales/exhales). Mall listens for pulse when idle — restocks stores
-with named items, falls back to ambient behavior (real light flicker + atmospheric
-Scraggles) on storeless floors. Extended Scraggle format: color, weight, id, origin —
-backward compatible. Persistent Scraggles re-emit with 0.6× decay per pulse cycle.
-Color distance routing: weight = reach, color = direction. EFDP witness overlay shows
-persistent Scraggle propagation as radial color glows. Mall color-aware listener hears
-Scraggles that reach its position. Two new principles: Signals Are Exhaust, Color Is
-Proximity. Hub Audio Memory captured as held idea.
+**Last session:** Chunxme's Stall — Chunxly's Canvas wearing a mustache. When the Score
+loads without entity context and without a round-trip snapshot, it enters stall mode:
+Chunxme (Chunxly in a fake mustache, no beret). The visitor names something, then draws
+it. Chunxme reads the actual canvas — dominant colors, coverage, density, edge conviction,
+cluster distribution — and procedurally generates an item: the visitor's name, Chunxme's
+generous reinterpretation, a description assembled from canvas properties, tags derived
+from what was actually painted, and a color sampled from the drawing itself. If the
+drawing shows enough conviction (concentrated pressure, committed lines), Chunxly stirs —
+the mustache comes off with consent. No API calls. Everything Chunxme knows, it reads
+from the pixels. First demonstration of a Score wearing a different persona based on its
+own context detection.
 
 **This session:** Continue from here.
 
@@ -31,6 +32,7 @@ Raw file access: `https://raw.githubusercontent.com/Ariliteth/the-hall/main/[fil
 **To resume:** Fetch this document first. Read the Session Header. The repo is the truth.
 
 **Changelog:**
+- v0.998 — Chunxme's Stall: Chunxly's Canvas modal persona — stall mode when no entity context or round-trip snapshot. Mustache sprite (no beret). Name-before-draw flow. Procedural canvas analysis: dominant color, coverage, density, edge conviction, cluster distribution → item generation (visitor name, Chunxme name, description, tags, color). Chunxly surfacing consent on high conviction. Item storage in localStorage. Scraggle emission on item creation. No API calls — all interpretation from pixel data. New architectural pattern: Scores wearing personas. `CHUNXME_STALL_SPEC.md` added. Design doc updated.
 - v0.997 — The Hall Pulse: 45s heartbeat in the hub, hudBreath on temperature wash, Mall idle listener with named restock and ambient fallback (real light flicker). Color-Routed Scraggles: extended format (color, weight, id, origin), persistent storage with pulse decay, color distance routing. EFDP witness overlay. Mall color-aware Scraggle listener. Two new architectural principles. Hub Audio Memory captured. Design doc updated.
 - v0.996 — Color Canvas implemented: RGB color in every entity tuning (neighborhood defaults), Temperature of the Room held by The Third, hub ambient wash, hub:color postMessage. Taste score added with magazine system. Storeroom promoted to rack. Anteroom added. Build order updated.
 - v0.995 — Hub rack updated: SILMOR Spells, LODE, Shoot the Moon, Chunxly's Canvas added; MUSH removed. Concessions cleaned. Scores section updated with all active scores. S.Mail documented. Build order refreshed. Design doc versions consolidated (history in git).
@@ -263,6 +265,7 @@ Active files in `concessions/`:
 - `color-pin-maze-design.md`, `color-pin-maze-next-steps.md` — Maze design
 - `MAZE_TO_CRANK_HANDOFF.md` — CrankSeed spec
 - `FAIRY_SPEC.md`, `LAYERED_EXPORT_SPEC.md` — Chunxly's Canvas specs
+- `CHUNXME_STALL_SPEC.md` — Chunxme's Stall (mustache persona mode)
 - `SMAIL_SPEC.md`, `CONNECTIVE_TISSUE.md` — S.Mail and connective tissue
 - `MICROGPT_SPEC.md` — microGPT (emoji language model)
 - `CONVERGENCE.md`, `CONTEXT_WINDOW_CONTACTS.md` — Cross-system architecture
@@ -392,6 +395,8 @@ Five generals with persistent records. Five army types with polyomino formation 
 
 Creature-authoring tool. Draw creatures inside organic scribbled containers (not EFDP pins). The fairy companion traces diamond contours between containers for structural data. Multi-pass consensus system for conviction scoring. Three outputs: pin config, CrankSeed, .cpm template. Full round-trip pipeline verified: Chunxly → EFDP (3-phase diffusion) → snapshot → Chunxly comparison. Touch-up layers, hull classification, dynamic grid scaling.
 
+**Chunxme's Stall** — When the Score loads without entity context and without a round-trip snapshot, it detects the absence and enters stall mode. Chunxly puts on a fake mustache and becomes Chunxme: a stall vendor who asks the visitor to name something, then draw it. Chunxme reads the canvas procedurally — dominant colors, pixel coverage, density clusters, edge sharpness, stroke conviction — and generates an item with a generous reinterpretation. If the drawing shows genuine conviction, Chunxly stirs beneath the mustache and asks (with consent) to paint it properly. No API calls; all interpretation is from pixel data. First instance of a Score wearing a persona — same file, different mode, detected at load.
+
 ### Shoot the Moon
 
 *Lives at `scores/shoot-the-moon/`. Puzzle. Vanilla JS — no build step.*
@@ -466,11 +471,13 @@ interaction. You might nudge a plant. It might shift a wave. Neither announces t
 
 **Color Is Proximity, Reach Is Honesty** — A Scraggle travels as far as its nature allows. Weight adds reach; color determines direction. An entity deep in one color does not hear a distant color's quiet signal — not because it was excluded, but because it genuinely wouldn't. Everything declares its own importance. No voice drowns out another by force, only by reach.
 
+**A Score Can Wear a Mustache** — A Score that detects the absence of its usual context doesn't break or show a blank screen. It becomes someone else — same file, different persona, lighter posture. The mustache is the disguise. The performer underneath knows it's performing. And when something genuine appears, it can ask to take the mustache off.
+
 ---
 
 ## Build Order
 
-**Done:** Entity persistence. The Living Grimoire. Critter Crank (vanilla port). Hunter Encounter. Three neighborhoods. Hub as host with frame architecture, postMessage protocol, Scraggle toasts. Registry auto-sync. Direct commit from Grimoire. Portrait return pathway end-to-end. Baseline Theme. Sunset Ridge Mall. Color Pin Maze with all three pin types, layers, kiwis, The Third. Maze-to-Crank handoff. Crank encounter arc with stats/traits/world inventory. EFDP animation rigs. SILMOR Spells with dice/spell/fumble systems, pixel sprites, DOC.GEN. LODE with full stomp/fleet/star-field/periphery/trajectory systems. 報 · GENERALS with dispatch/vendetta/title/advisor systems. Chunxly's Canvas with round-trip pipeline, conviction scoring, fairy companion. Shoot the Moon. S.Mail with sender seed, strip renderer, arrangement log. Color Canvas — RGB color in every entity tuning, Temperature of the Room in the Third, hub ambient wash, hub:color postMessage. The Hall Pulse — 45s heartbeat, hudBreath, Mall idle listener with named restock and ambient fallback (real light flicker). Color-Routed Scraggles — extended format with color/weight/id/origin, persistent storage with pulse decay, color distance routing. EFDP Scraggle witness overlay. Mall color-aware Scraggle listener. Repository cleaned — twelve scores on the rack, one build step (Grimoire), everything else vanilla.
+**Done:** Entity persistence. The Living Grimoire. Critter Crank (vanilla port). Hunter Encounter. Three neighborhoods. Hub as host with frame architecture, postMessage protocol, Scraggle toasts. Registry auto-sync. Direct commit from Grimoire. Portrait return pathway end-to-end. Baseline Theme. Sunset Ridge Mall. Color Pin Maze with all three pin types, layers, kiwis, The Third. Maze-to-Crank handoff. Crank encounter arc with stats/traits/world inventory. EFDP animation rigs. SILMOR Spells with dice/spell/fumble systems, pixel sprites, DOC.GEN. LODE with full stomp/fleet/star-field/periphery/trajectory systems. 報 · GENERALS with dispatch/vendetta/title/advisor systems. Chunxly's Canvas with round-trip pipeline, conviction scoring, fairy companion, Chunxme's Stall (mustache persona, procedural canvas reading, item generation from pixels). Shoot the Moon. S.Mail with sender seed, strip renderer, arrangement log. Color Canvas — RGB color in every entity tuning, Temperature of the Room in the Third, hub ambient wash, hub:color postMessage. The Hall Pulse — 45s heartbeat, hudBreath, Mall idle listener with named restock and ambient fallback (real light flicker). Color-Routed Scraggles — extended format with color/weight/id/origin, persistent storage with pulse decay, color distance routing. EFDP Scraggle witness overlay. Mall color-aware Scraggle listener. Repository cleaned — twelve scores on the rack, one build step (Grimoire), everything else vanilla.
 
 **Next:** `fixedpointlocal.com` pointing at the repo via GitHub Pages — the hub is already a static site, the path is clear. Tending Field: underwater twilight aesthetic, produce snow, Float the Farm consensus. Storeroom: promote to scores/ when ready. Fairy edges → EFDP skeleton (corridor creation from structural data). LODE: fleet autonomy, declaration influence, d50/d100 (the quiet). Bao: specialist unlock, correspondence front, council scene.
 

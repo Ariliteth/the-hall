@@ -113,6 +113,35 @@ body::after{content:'';position:fixed;inset:0;
   padding:6px 14px;font-family:var(--mono);font-size:.58rem;color:var(--cold);letter-spacing:.05em;
   z-index:500;opacity:0;transition:transform .38s cubic-bezier(.34,1.56,.64,1),opacity .38s;white-space:nowrap;}
 .notif.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── Chunxme's Stall ── */
+.stall-name-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;}
+.stall-name-label{font-family:var(--mono);font-size:.55rem;color:rgba(255,230,180,.3);letter-spacing:.12em;text-transform:uppercase;}
+.stall-name-input{background:rgba(255,230,180,.04);border:1px solid rgba(255,230,180,.12);border-radius:6px;
+  padding:10px 16px;font-family:var(--serif);font-size:.85rem;color:var(--text);text-align:center;
+  width:220px;outline:none;transition:border-color .2s;}
+.stall-name-input:focus{border-color:var(--amber);}
+.stall-name-input::placeholder{color:rgba(255,230,180,.18);font-style:italic;}
+.stall-item-panel{width:calc(100% - 28px);max-width:512px;border:1px solid var(--border2);border-radius:8px;
+  background:var(--surface);margin-top:6px;overflow:hidden;flex-shrink:0;
+  display:none;animation:seedReveal .5s cubic-bezier(.4,0,.2,1);}
+.stall-item-panel.show{display:block;}
+.stall-item-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+.stall-item-name{font-family:var(--serif);font-size:.95rem;color:var(--amber);font-weight:600;}
+.stall-item-chunxme-name{font-family:var(--mono);font-size:.6rem;color:var(--teal);letter-spacing:.08em;}
+.stall-item-desc{font-family:var(--serif);font-size:.72rem;color:var(--text);line-height:1.6;font-style:italic;}
+.stall-item-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.stall-item-tag{font-family:var(--mono);font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;
+  padding:2px 6px;border-radius:3px;background:rgba(255,230,180,.05);color:rgba(255,230,180,.4);
+  border:1px solid rgba(255,230,180,.08);}
+.stall-item-color{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.1);}
+.stall-consent{display:flex;gap:8px;margin-top:4px;}
+.stall-keep{display:flex;align-items:center;gap:10px;margin-top:6px;padding-top:8px;
+  border-top:1px solid rgba(255,230,180,.06);}
+.stall-thumb{width:48px;height:48px;border-radius:4px;border:1px solid rgba(255,255,255,.08);
+  image-rendering:pixelated;object-fit:cover;}
+.stall-keep-label{font-family:var(--mono);font-size:.48rem;color:rgba(255,230,180,.3);
+  letter-spacing:.08em;text-transform:uppercase;}
 </style>
 </head>
 <body>
@@ -163,6 +192,9 @@ body::after{content:'';position:fixed;inset:0;
   </div>
   <div class="seed-body" id="seedBody"></div>
 </div>
+<div class="stall-item-panel" id="stallItemPanel">
+  <div class="stall-item-body" id="stallItemBody"></div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════
@@ -193,6 +225,10 @@ const S = {
   suggestEdge: null,
   // canvas sizing
   canvasSize: 512,
+  // stall mode
+  stallMode: false,
+  stallName: '',
+  chunxlySurfacingItem: null,
 };
 
 const PX = 5; // sprite pixel size
@@ -341,6 +377,57 @@ const VOICE = {
   compare_emergent: [
     ["The maze found something I didn't see. Interesting. I am noting my surprise.",
      "That's new."],
+  ],
+  // ── Chunxme's Stall voices ──
+  stall_landing: [
+    ["A visitor. No image, no brief. Just a visitor. I have my mustache. What will they make?",
+     "Hello! Name your thing first — then we'll draw it."],
+    ["Empty canvas. A stranger. I am ready to be generous. I am always generous in the stall.",
+     "What are you making today?"],
+  ],
+  stall_name_received: [
+    ["They said '{name}'. I don't know what that is yet. That's the good part.",
+     "'{name}'! Perfect. Now show me."],
+    ["'{name}'. I can already feel something. I am trying not to get ahead of myself.",
+     "'{name}' — okay. Draw it for me."],
+  ],
+  stall_interpreting: [
+    ["I'm looking at what they made. I see things. I always see things. I am being honest.",
+     "Let me see what we've got here..."],
+    ["The drawing is in front of me. I am finding the real thing inside it. It is in there.",
+     "Oh, there's something here."],
+  ],
+  stall_reveal: [
+    ["There it is. I named it and described it. The visitor's version is the true version. Mine is just what I see.",
+     "There — that's what you made."],
+    ["I found the thing inside their drawing. I may be wrong about the details. I am not wrong that something is there.",
+     "It's real. It exists now."],
+  ],
+  stall_chunxly_stirs: [
+    ["Wait. Something is happening. I see something here that is — I want to take the mustache off for a moment. Just a moment.",
+     "Oh. Oh, I actually see something. Mind if I — may I paint this properly?"],
+  ],
+  stall_chunxly_declined: [
+    ["They said no. That's fine. That's their right. I am putting the mustache back on. I liked the mustache anyway.",
+     "Of course. It's yours as it is."],
+  ],
+  stall_chunxly_handoff: [
+    ["The mustache is off. My real tools are on the bar. I'm handing them the brush — my brush. They'll know what to do. They already showed me they would.",
+     "Here — my palette, my brushes. Paint over what you started. I trust you with it."],
+    ["I don't do this. I don't hand someone my tools. But look at what they drew. They earned this.",
+     "The full set. Smaller brush, bigger brush, one more color. Your drawing stays — build on it."],
+  ],
+  stall_chunxly_repainted: [
+    ["They painted with my tools. On top of what they already made. I want to see what they did to it.",
+     "Let me see what you made of it."],
+    ["It's different now. They took what was theirs and added what was mine. That's — I need to look at this carefully.",
+     "Show me."],
+  ],
+  stall_chunxly_revealed: [
+    ["This is the thing now. Their hand and my tools. I can tell where the stall drawing ends and the brush begins. Both are true.",
+     "There. That's what it became."],
+    ["Two passes. One generous, one considered. The item is both. I'm putting the mustache back on but I'll remember this.",
+     "It's finished. Both of us made this."],
   ],
 };
 
@@ -506,6 +593,24 @@ const SPRITE_DATA = {
     '..SS..SS........',
     '..KK..KK........',
   ],
+  mustache: [
+    '................',
+    '................',
+    '................',
+    '..SSSSSSSS......',
+    '..SSEESEES......',
+    '..SSPPSPPS......',
+    '..SUUUUUUS......',
+    '...USSMSSSU.....',
+    '...SSSSSS.......',
+    '..GGGGGGGG......',
+    '..GGGGGGGG......',
+    '..GGGGGGGGb.....',
+    '..GGGGGGGG b....',
+    '...SS..SS...b...',
+    '...SS..SS....t..',
+    '...KK..KK.......',
+  ],
 };
 
 const SPRITE_PALETTE = {
@@ -522,6 +627,7 @@ const SPRITE_PALETTE = {
   'G': [80, 100, 120],    // smock
   'b': [140, 100, 60],    // brush handle
   't': [212, 168, 75],    // brush tip (amber)
+  'U': [55, 35, 20],      // mustache (dark brown — obviously fake)
   '.': null,
 };
 
@@ -2060,7 +2166,10 @@ function render() {
 
   // image background (if loaded)
   if (S.imageCanvas) {
-    $ctx.globalAlpha = 0.35;
+    // stall/chunxly-painting: the drawing IS the artwork — full opacity
+    // normal mode: reference image underneath nodes — dimmed
+    const isDirectPainting = S.stallMode || S.phase === 'chunxly-painting';
+    $ctx.globalAlpha = isDirectPainting ? 1.0 : 0.35;
     $ctx.drawImage(S.imageCanvas, 0, 0, S.imgW, S.imgH, 0, 0, sz, sz);
     $ctx.globalAlpha = 1;
   }
@@ -2423,6 +2532,7 @@ function canvasCoords(e) {
 
 let pointerDown = false, pointerMoved = false, pointerStartNode = null;
 let longPressTimer = null;
+function isDrawingPhase() { return S.phase === 'drawing' || S.phase === 'chunxly-painting'; }
 
 function onPointerDown(e) {
   e.preventDefault();
@@ -2430,7 +2540,7 @@ function onPointerDown(e) {
   pointerDown = true;
   pointerMoved = false;
 
-  if (S.phase === 'drawing') {
+  if (isDrawingPhase()) {
     S.isDrawing = true;
     lastDrawX = -1; lastDrawY = -1;
     drawBrush(x * S.imgW / S.canvasSize, y * S.imgH / S.canvasSize);
@@ -2461,7 +2571,7 @@ function onPointerMove(e) {
   if (!pointerDown && S.phase !== 'visitor') return;
   const { x, y } = canvasCoords(e);
 
-  if (S.phase === 'drawing' && S.isDrawing) {
+  if (isDrawingPhase() && S.isDrawing) {
     drawBrush(x * S.imgW / S.canvasSize, y * S.imgH / S.canvasSize);
     render();
     return;
@@ -2505,7 +2615,7 @@ function onPointerUp(e) {
   e.preventDefault();
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 
-  if (S.phase === 'drawing') {
+  if (isDrawingPhase()) {
     S.isDrawing = false;
     lastDrawX = -1; lastDrawY = -1;
     pointerDown = false;
@@ -2665,7 +2775,7 @@ $canvas.addEventListener('mousedown', onPointerDown);
 $canvas.addEventListener('mousemove', onPointerMove);
 $canvas.addEventListener('mouseup', onPointerUp);
 $canvas.addEventListener('mouseleave', () => {
-  if (S.phase === 'drawing') { S.isDrawing = false; lastDrawX = -1; lastDrawY = -1; }
+  if (isDrawingPhase()) { S.isDrawing = false; lastDrawX = -1; lastDrawY = -1; }
   pointerDown = false; S.hoverNode = null; S.connectFrom = null; render();
 });
 $canvas.addEventListener('contextmenu', onRightClick);
@@ -4184,7 +4294,11 @@ $drop.addEventListener('drop', e => {
 });
 
 document.getElementById('btnBlank').addEventListener('click', startBlankCanvas);
-document.getElementById('btnSee').addEventListener('click', letChunxlySee);
+document.getElementById('btnSee').addEventListener('click', () => {
+  if (S.phase === 'chunxly-painting') letChunxlySeeSurfaced();
+  else if (S.stallMode) letChunxmeSee();
+  else letChunxlySee();
+});
 document.getElementById('btnFinish').addEventListener('click', exportCreature);
 
 // ── hub integration ──
@@ -4458,6 +4572,640 @@ function showSeedPanel(seed) {
   };
 }
 
+// ═══════════════════════════════════════════════════════
+//  Chunxme's Stall — mode, analysis, item creation
+// ═══════════════════════════════════════════════════════
+
+// stall drawing palette: 6 colors, 2 sizes (lighter constraints)
+const STALL_COLORS = [
+  [220, 180, 140], [90, 158, 58], [85, 136, 204],
+  [196, 96, 96], [160, 120, 200], [50, 50, 55]
+];
+const STALL_SIZES = [6, 14];
+
+function enterStallMode() {
+  // title
+  document.querySelector('.logo').textContent = "Chunxme's Stall";
+  document.title = "Chunxme's Stall";
+
+  // sprite: mustache on
+  drawSprite('mustache');
+
+  // voice
+  const [iv, ov] = pickVoice('stall_landing');
+  setVoice(iv, ov, true);
+  setPhase('stall');
+
+  // replace drop zone with name input
+  const $dropBorder = document.getElementById('dropBorder');
+  $dropBorder.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'stall-name-wrap';
+  wrap.innerHTML = `
+    <div class="stall-name-label">name your thing</div>
+    <input class="stall-name-input" id="stallNameInput" type="text"
+           placeholder="what is it?" maxlength="40" autocomplete="off">
+    <button class="btn" id="btnStallGo">draw it</button>
+  `;
+  $dropBorder.appendChild(wrap);
+
+  // listen for name submission
+  const $input = document.getElementById('stallNameInput');
+  const $go = document.getElementById('btnStallGo');
+
+  function submitName() {
+    const name = $input.value.trim();
+    if (!name) return;
+    S.stallName = name;
+    const [iv2, ov2] = pickVoice('stall_name_received', { name });
+    setVoice(iv2, ov2, true);
+    startStallCanvas();
+  }
+
+  $go.addEventListener('click', submitName);
+  $input.addEventListener('keydown', e => { if (e.key === 'Enter') submitName(); });
+  $input.focus();
+}
+
+function startStallCanvas() {
+  // constrained palette
+  DRAW_COLORS.length = 0;
+  STALL_COLORS.forEach(c => DRAW_COLORS.push(c));
+  DRAW_SIZES.length = 0;
+  STALL_SIZES.forEach(s => DRAW_SIZES.push(s));
+
+  S.drawColor = STALL_COLORS[0];
+  S.drawSize = STALL_SIZES[0];
+
+  // rebuild draw bar with constrained tools
+  buildDrawBar();
+
+  // create blank canvas for drawing
+  const sz = S.canvasSize;
+  S.imageCanvas = document.createElement('canvas');
+  S.imageCanvas.width = sz;
+  S.imageCanvas.height = sz;
+  S.imgW = sz;
+  S.imgH = sz;
+  const ictx = S.imageCanvas.getContext('2d');
+  ictx.fillStyle = '#1c1914';
+  ictx.fillRect(0, 0, sz, sz);
+
+  // hide drop zone, show draw bar
+  $drop.classList.add('hidden');
+  $drawBar.classList.add('show');
+
+  // show the "let chunxme see" button
+  const btnSee = document.getElementById('btnSee');
+  btnSee.style.display = '';
+  btnSee.textContent = 'let chunxme see';
+  S.phase = 'drawing';
+  setPhase('drawing');
+  drawSprite('mustache');
+}
+
+function letChunxmeSee() {
+  S.phase = 'analyzing';
+  setPhase('interpreting');
+  const [iv, ov] = pickVoice('stall_interpreting');
+  setVoice(iv, ov, true);
+  drawSprite('mustache');
+  document.getElementById('btnSee').style.display = 'none';
+  $drawBar.classList.remove('show');
+
+  // brief pause — Chunxme is looking
+  setTimeout(() => {
+    const item = analyzeStallDrawing();
+    revealStallItem(item);
+  }, 1200 + Math.random() * 800);
+}
+
+// ── canvas reading for stall items ──
+function analyzeStallDrawing() {
+  const ctx = S.imageCanvas.getContext('2d');
+  const w = S.imgW, h = S.imgH;
+  const px = ctx.getImageData(0, 0, w, h).data;
+
+  // sample border to find background color
+  const bgSamples = [];
+  for (let i = 0; i < w; i++) {
+    const top = i * 4;
+    bgSamples.push([px[top], px[top+1], px[top+2]]);
+    const bot = ((h-1)*w + i) * 4;
+    bgSamples.push([px[bot], px[bot+1], px[bot+2]]);
+  }
+  for (let j = 0; j < h; j++) {
+    const left = (j*w) * 4;
+    bgSamples.push([px[left], px[left+1], px[left+2]]);
+    const right = (j*w + w-1) * 4;
+    bgSamples.push([px[right], px[right+1], px[right+2]]);
+  }
+  const bgR = Math.round(bgSamples.reduce((s,c) => s+c[0], 0) / bgSamples.length);
+  const bgG = Math.round(bgSamples.reduce((s,c) => s+c[1], 0) / bgSamples.length);
+  const bgB = Math.round(bgSamples.reduce((s,c) => s+c[2], 0) / bgSamples.length);
+  const bgThreshold = 45; // color distance from bg to count as "drawn"
+
+  // full pixel scan (every 3rd pixel for speed)
+  let totalPx = 0, drawnPx = 0;
+  let sumR = 0, sumG = 0, sumB = 0;
+  let sumX = 0, sumY = 0;
+  let minX = w, maxX = 0, minY = h, maxY = 0;
+  const colorBuckets = {}; // hue bucket → count
+  let edgeSum = 0, edgeCount = 0;
+  const step = 3;
+
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      totalPx++;
+      const off = (y * w + x) * 4;
+      const r = px[off], g = px[off+1], b = px[off+2];
+      const dist = Math.sqrt((r-bgR)**2 + (g-bgG)**2 + (b-bgB)**2);
+      if (dist < bgThreshold) continue;
+
+      drawnPx++;
+      sumR += r; sumG += g; sumB += b;
+      sumX += x; sumY += y;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+
+      // hue bucketing (30° buckets = 12 buckets)
+      const [hue, sat] = rgbToHsl(r, g, b);
+      if (sat > 0.1) {
+        const bucket = Math.floor(hue / 30);
+        colorBuckets[bucket] = (colorBuckets[bucket] || 0) + 1;
+      }
+
+      // local edge: compare to neighbor
+      if (x + step < w) {
+        const noff = (y * w + x + step) * 4;
+        const dr = r - px[noff], dg = g - px[noff+1], db = b - px[noff+2];
+        const edgeDist = Math.sqrt(dr*dr + dg*dg + db*db);
+        edgeSum += edgeDist;
+        edgeCount++;
+      }
+    }
+  }
+
+  // ── derived metrics ──
+  const coverage = drawnPx / totalPx;
+  const avgR = drawnPx ? Math.round(sumR / drawnPx) : 128;
+  const avgG = drawnPx ? Math.round(sumG / drawnPx) : 128;
+  const avgB = drawnPx ? Math.round(sumB / drawnPx) : 128;
+  const centerX = drawnPx ? sumX / drawnPx : w / 2;
+  const centerY = drawnPx ? sumY / drawnPx : h / 2;
+
+  // concentration: how far is the center of mass from canvas center?
+  const cxNorm = (centerX / w - 0.5) * 2; // -1 to 1
+  const cyNorm = (centerY / h - 0.5) * 2;
+  const spread = Math.sqrt(cxNorm * cxNorm + cyNorm * cyNorm);
+
+  // bounding box aspect
+  const bbW = Math.max(1, maxX - minX);
+  const bbH = Math.max(1, maxY - minY);
+  const aspect = bbW / bbH; // >1 = wide, <1 = tall
+
+  // stroke density: drawn pixels within the bounding box
+  const bbArea = (bbW / step) * (bbH / step);
+  const density = bbArea > 0 ? drawnPx / bbArea : 0;
+
+  // color count: distinct hue buckets with significant presence
+  const bucketEntries = Object.entries(colorBuckets).sort((a,b) => b[1] - a[1]);
+  const minBucketSize = drawnPx * 0.05;
+  const colorCount = bucketEntries.filter(([,c]) => c > minBucketSize).length;
+
+  // edge density (average edge magnitude)
+  const avgEdge = edgeCount ? edgeSum / edgeCount : 0;
+
+  // symmetry: compare left/right drawn pixel counts
+  let leftCount = 0, rightCount = 0;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      const off = (y * w + x) * 4;
+      const dist = Math.sqrt((px[off]-bgR)**2 + (px[off+1]-bgG)**2 + (px[off+2]-bgB)**2);
+      if (dist < bgThreshold) continue;
+      if (x < w / 2) leftCount++; else rightCount++;
+    }
+  }
+  const symmetry = 1 - Math.abs(leftCount - rightCount) / Math.max(1, leftCount + rightCount);
+
+  // ── tag selection ──
+  const tags = [];
+
+  // coverage tags
+  if (coverage < 0.08) tags.push('delicate');
+  else if (coverage > 0.35) tags.push('bold');
+  else tags.push('confident');
+
+  // concentration
+  if (spread < 0.25) tags.push('focused');
+  else if (spread > 0.6) tags.push('restless');
+
+  // color count
+  if (colorCount <= 1) tags.push('pure');
+  else if (colorCount >= 4) tags.push('vivid');
+  else if (colorCount >= 2) tags.push('considered');
+
+  // edge character
+  if (avgEdge > 80) tags.push('defined');
+  else if (avgEdge < 30) tags.push('gentle');
+  else tags.push('textured');
+
+  // aspect (only if distinct)
+  if (aspect > 1.5) tags.push('sprawling');
+  else if (aspect < 0.67) tags.push('towering');
+
+  // density
+  if (density < 0.15) tags.push('suggested');
+  else if (density > 0.55) tags.push('substantial');
+
+  // keep 2-3 tags
+  const finalTags = tags.slice(0, 3);
+
+  // ── description assembly ──
+  const shapeFragments = [
+    [() => spread < 0.3 && coverage > 0.08 && coverage < 0.4, "A single, considered shape."],
+    [() => spread > 0.4 && coverage > 0.1, "Several pieces that clearly belong together."],
+    [() => coverage > 0.35, "A bold mark that fills the space."],
+    [() => coverage < 0.08 && spread < 0.3, "Barely there — but it knows what it is."],
+    [() => coverage < 0.08, "A whisper of a thing."],
+    [() => true, "Something is here."],
+  ];
+
+  const textureFragments = [
+    [() => avgEdge > 80 && density > 0.4, "The lines committed."],
+    [() => avgEdge < 30 && density < 0.2, "Soft everywhere — like it was dreamed."],
+    [() => avgEdge > 50, "Some parts firm, some parts wondering."],
+    [() => density > 0.5, "Dense. Packed in tight."],
+    [() => true, "The strokes have a feeling about them."],
+  ];
+
+  const colorFragments = [
+    [() => colorCount <= 1, "All one color — that takes conviction."],
+    [() => colorCount >= 4, "The colors are having a conversation."],
+    [() => colorCount >= 2 && symmetry > 0.7, "Balanced. The colors found their places."],
+    [() => colorCount >= 2, "A few colors, each with something to say."],
+    [() => true, ""],
+  ];
+
+  const shapePick = shapeFragments.find(([test]) => test())[1];
+  const texturePick = textureFragments.find(([test]) => test())[1];
+  const colorPick = colorFragments.find(([test]) => test())[1];
+  const description = [shapePick, texturePick, colorPick].filter(Boolean).join(' ');
+
+  // ── chunxme name: generous interpretation ──
+  const chunxmeName = generateChunxmeName(S.stallName, finalTags, coverage, avgEdge);
+
+  // ── chunxly_stirs: conviction test ──
+  const convictionScore =
+    (avgEdge > 60 ? 1 : 0) +             // committed edges
+    (coverage > 0.05 && coverage < 0.4 ? 1 : 0) + // restraint
+    (spread < 0.35 ? 1 : 0) +            // focused
+    (density > 0.3 ? 1 : 0) +            // intentional fill
+    (symmetry > 0.6 ? 0.5 : 0);          // structural awareness
+  const chunxlyStirs = convictionScore >= 3.5;
+
+  return {
+    id: `stall-item-${Date.now()}`,
+    visitor_name: S.stallName,
+    chunxme_name: chunxmeName,
+    description,
+    tags: finalTags,
+    color: [avgR, avgG, avgB],
+    provenance: 'visitor',
+    timestamp: Date.now(),
+    chunxly_version: false,
+    chunxly_stirs: chunxlyStirs,
+    // raw metrics for potential future use
+    _metrics: { coverage, spread, density, colorCount, avgEdge, symmetry, aspect, convictionScore }
+  };
+}
+
+// ── Chunxme's generous naming ──
+const CHUNXME_PREFIXES = [
+  'Genuine', 'Authentic', 'Premium', 'Artisanal', 'Limited Edition',
+  'Handcrafted', 'One-of-a-Kind', 'Certified', 'Distinguished',
+  'Remarkable', 'Notable', 'Legendary', 'Experimental'
+];
+const CHUNXME_SUFFIXES_BY_TAG = {
+  delicate: ['(Miniature)', '(Whisper Edition)', '(Subtle)'],
+  bold: ['(Grand)', '(Deluxe)', '(Statement Piece)'],
+  focused: ['(Precise)', '(Essential)'],
+  restless: ['(Wandering)', '(Explorer Model)'],
+  pure: ['(Monochrome)', '(Essence)'],
+  vivid: ['(Full Spectrum)', '(Chromatic)'],
+  defined: ['(Sharp)', '(Professional Grade)'],
+  gentle: ['(Soft Touch)', '(Cloud Series)'],
+  towering: ['(Tall)', '(Spire Edition)'],
+  sprawling: ['(Wide)', '(Panoramic)'],
+  substantial: ['(Heavy Duty)', '(Dense)'],
+  suggested: ['(Implied)', '(Draft)'],
+};
+
+function generateChunxmeName(visitorName, tags, coverage, avgEdge) {
+  const prefix = CHUNXME_PREFIXES[Math.floor(Math.random() * CHUNXME_PREFIXES.length)];
+  const tagSuffix = tags.length > 0 && CHUNXME_SUFFIXES_BY_TAG[tags[0]]
+    ? CHUNXME_SUFFIXES_BY_TAG[tags[0]][Math.floor(Math.random() * CHUNXME_SUFFIXES_BY_TAG[tags[0]].length)]
+    : '';
+  return `${prefix} ${visitorName}${tagSuffix ? ' ' + tagSuffix : ''}`;
+}
+
+// ── Chunxly's considered naming (no sales pitch — just what it is) ──
+const CHUNXLY_QUALIFIERS = [
+  'Study of', 'Sketch:', 'Working', 'Painted', 'Rendered',
+  'Draft of', 'Composed', 'Observed', 'Traced', 'Layered'
+];
+const CHUNXLY_NOTES_BY_TAG = {
+  delicate: ['— fine lines', '— light touch'],
+  bold: ['— with weight', '— committed'],
+  focused: ['— centered', '— intentional'],
+  restless: ['— reaching', '— in motion'],
+  pure: ['— single voice', '— stripped'],
+  vivid: ['— full color', '— saturated'],
+  defined: ['— sharp edge', '— precise'],
+  gentle: ['— softened', '— quiet'],
+  towering: ['— vertical', '— tall form'],
+  sprawling: ['— wide frame', '— extended'],
+  substantial: ['— dense', '— present'],
+  suggested: ['— implied', '— emerging'],
+};
+
+function generateChunxlyName(visitorName, tags) {
+  const q = CHUNXLY_QUALIFIERS[Math.floor(Math.random() * CHUNXLY_QUALIFIERS.length)];
+  const note = tags.length > 0 && CHUNXLY_NOTES_BY_TAG[tags[0]]
+    ? CHUNXLY_NOTES_BY_TAG[tags[0]][Math.floor(Math.random() * CHUNXLY_NOTES_BY_TAG[tags[0]].length)]
+    : '';
+  return `${q} ${visitorName}${note ? ' ' + note : ''}`;
+}
+
+// ── item reveal ──
+function revealStallItem(item) {
+  S.phase = 'done';
+  setPhase('revealed');
+
+  const [iv, ov] = pickVoice('stall_reveal');
+  setVoice(iv, ov, true);
+  drawSprite('mustache');
+
+  const $panel = document.getElementById('stallItemPanel');
+  const $body = document.getElementById('stallItemBody');
+  const [r, g, b] = item.color;
+
+  $body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="stall-item-color" style="background:rgb(${r},${g},${b})"></div>
+      <div class="stall-item-name">${item.visitor_name}</div>
+    </div>
+    <div class="stall-item-chunxme-name">${item.chunxme_name}</div>
+    <div class="stall-item-desc">"${item.description}"</div>
+    <div class="stall-item-tags">
+      ${item.tags.map(t => `<span class="stall-item-tag">${t}</span>`).join('')}
+    </div>
+  `;
+  $panel.classList.add('show');
+
+  // store item
+  storeStallItem(item);
+
+  // keep button — let the visitor take the drawing home
+  addKeepButton(item);
+
+  // emit scraggle
+  emitStallScraggle(item);
+
+  // chunxly surfacing check
+  if (item.chunxly_stirs) {
+    setTimeout(() => offerChunxlySurfacing(item), 2000);
+  }
+}
+
+// ── keep button: export drawing + save thumbnail to item ──
+function addKeepButton(item) {
+  const $body = document.getElementById('stallItemBody');
+
+  // generate thumbnail data URL from the canvas
+  const thumbCanvas = document.createElement('canvas');
+  thumbCanvas.width = 128;
+  thumbCanvas.height = 128;
+  const tctx = thumbCanvas.getContext('2d');
+  tctx.fillStyle = '#1c1914';
+  tctx.fillRect(0, 0, 128, 128);
+  tctx.drawImage(S.imageCanvas, 0, 0, S.imgW, S.imgH, 0, 0, 128, 128);
+  const thumbDataUrl = thumbCanvas.toDataURL('image/png');
+
+  // save thumbnail into the item's storage record
+  const key = 'baseline-session/stall-items';
+  try {
+    const items = JSON.parse(localStorage.getItem(key)) || [];
+    const stored = items.find(i => i.id === item.id);
+    if (stored) {
+      stored.thumbnail = thumbDataUrl;
+      localStorage.setItem(key, JSON.stringify(items));
+    }
+  } catch(e) {}
+
+  const keepDiv = document.createElement('div');
+  keepDiv.className = 'stall-keep';
+  keepDiv.innerHTML = `
+    <img class="stall-thumb" src="${thumbDataUrl}" alt="${item.visitor_name}">
+    <button class="btn" id="btnKeep">keep</button>
+    <div class="stall-keep-label">save as image</div>
+  `;
+  $body.appendChild(keepDiv);
+
+  document.getElementById('btnKeep').addEventListener('click', () => {
+    // export full-resolution canvas as PNG download
+    const link = document.createElement('a');
+    link.download = `${item.visitor_name.toLowerCase().replace(/\s+/g, '-')}.png`;
+    link.href = S.imageCanvas.toDataURL('image/png');
+    link.click();
+
+    // update button to confirm
+    const btn = document.getElementById('btnKeep');
+    btn.textContent = 'kept';
+    btn.style.opacity = '0.4';
+    btn.style.pointerEvents = 'none';
+  });
+}
+
+// ── item storage ──
+function storeStallItem(item) {
+  const key = 'baseline-session/stall-items';
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem(key)) || []; } catch(e) {}
+  items.push({
+    id: item.id,
+    visitor_name: item.visitor_name,
+    chunxme_name: item.chunxme_name,
+    description: item.description,
+    tags: item.tags,
+    color: item.color,
+    provenance: item.provenance,
+    timestamp: item.timestamp,
+    chunxly_version: item.chunxly_version,
+  });
+  localStorage.setItem(key, JSON.stringify(items));
+}
+
+// ── scraggle emission ──
+function emitStallScraggle(item) {
+  if (window.parent === window) return;
+  window.parent.postMessage({
+    type: 'hub:scraggle',
+    scraggle: {
+      emoji: '🛍️',
+      color: item.color,
+      weight: item.chunxly_version ? 0.8 : 0.6,
+      id: item.id,
+      origin: 'chunxly-canvas',
+      label: item.chunxme_name
+    }
+  }, '*');
+}
+
+// ── chunxly re-reads after surfacing ──
+function letChunxlySeeSurfaced() {
+  S.phase = 'analyzing';
+  setPhase('interpreting');
+  const [iv, ov] = pickVoice('stall_chunxly_repainted');
+  setVoice(iv, ov, true);
+  drawSprite('watching');
+  document.getElementById('btnSee').style.display = 'none';
+  $drawBar.classList.remove('show');
+
+  // Chunxly looks — more carefully this time
+  setTimeout(() => {
+    const originalItem = S.chunxlySurfacingItem;
+    const reParsed = analyzeStallDrawing();
+
+    // Chunxly's version: the re-read item with considered naming
+    const chunxlyItem = {
+      ...originalItem,
+      chunxly_version: true,
+      // re-read from the combined canvas
+      color: reParsed.color,
+      tags: reParsed.tags,
+      description: reParsed.description,
+      chunxly_stirs: reParsed.chunxly_stirs,
+      // Chunxly names it — not Chunxme
+      chunxme_name: generateChunxlyName(originalItem.visitor_name, reParsed.tags),
+    };
+
+    // reveal the elevated item
+    revealChunxlyItem(chunxlyItem);
+  }, 1500 + Math.random() * 1000);
+}
+
+function revealChunxlyItem(item) {
+  S.phase = 'done';
+  setPhase('revealed');
+
+  const [iv, ov] = pickVoice('stall_chunxly_revealed');
+  setVoice(iv, ov, true);
+  drawSprite('pleased');
+
+  const $panel = document.getElementById('stallItemPanel');
+  const $body = document.getElementById('stallItemBody');
+  const [r, g, b] = item.color;
+
+  $body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="stall-item-color" style="background:rgb(${r},${g},${b})"></div>
+      <div class="stall-item-name">${item.visitor_name}</div>
+    </div>
+    <div class="stall-item-chunxme-name">${item.chunxme_name}</div>
+    <div class="stall-item-desc">"${item.description}"</div>
+    <div class="stall-item-tags">
+      ${item.tags.map(t => `<span class="stall-item-tag">${t}</span>`).join('')}
+    </div>
+  `;
+  $panel.classList.add('show');
+
+  // update storage with the Chunxly version
+  storeStallItem(item);
+
+  // keep button — the collaboration is worth keeping
+  addKeepButton(item);
+
+  // re-emit scraggle with higher weight — Chunxly touched this
+  emitStallScraggle(item);
+
+  // title back to stall, mustache back on after a moment
+  setTimeout(() => {
+    document.querySelector('.logo').textContent = "Chunxme's Stall";
+    document.title = "Chunxme's Stall";
+    drawSprite('mustache');
+  }, 5000);
+}
+
+// ── chunxly surfacing consent ──
+function offerChunxlySurfacing(item) {
+  const [iv, ov] = pickVoice('stall_chunxly_stirs');
+  setVoice(iv, ov, true);
+  drawSprite('pleased');
+
+  const $body = document.getElementById('stallItemBody');
+  const consentDiv = document.createElement('div');
+  consentDiv.className = 'stall-consent';
+  consentDiv.innerHTML = `
+    <button class="btn" id="btnChunxlyYes">yes, paint it</button>
+    <button class="btn" id="btnChunxlyNo">no, it's mine as-is</button>
+  `;
+  $body.appendChild(consentDiv);
+
+  document.getElementById('btnChunxlyYes').addEventListener('click', () => {
+    // Chunxly surfaces — hand the visitor the real tools
+    consentDiv.remove();
+    document.getElementById('stallItemPanel').classList.remove('show');
+
+    // restore full Chunxly palette
+    const FULL_COLORS = [
+      [220, 180, 140], [90, 158, 58], [85, 136, 204],
+      [196, 96, 96], [160, 120, 200], [50, 50, 55], [230, 225, 215]
+    ];
+    const FULL_SIZES = [4, 8, 16];
+    DRAW_COLORS.length = 0;
+    FULL_COLORS.forEach(c => DRAW_COLORS.push(c));
+    DRAW_SIZES.length = 0;
+    FULL_SIZES.forEach(s => DRAW_SIZES.push(s));
+    S.drawColor = FULL_COLORS[0];
+    S.drawSize = FULL_SIZES[1]; // medium brush — Chunxly's default
+
+    // rebuild draw bar with full tools
+    buildDrawBar();
+
+    // voice + sprite: the handoff
+    const [iv, ov] = pickVoice('stall_chunxly_handoff');
+    setVoice(iv, ov, true);
+    drawSprite('eager');
+
+    // title shift — the mustache is off
+    document.querySelector('.logo').textContent = "Chunxly's Canvas";
+    document.title = "Chunxly's Canvas";
+
+    // re-show canvas tools
+    $drawBar.classList.add('show');
+    setPhase('chunxly-painting');
+    document.getElementById('phaseTag').textContent = 'drawing';
+
+    // show "done" button for the repainted version
+    const btnSee = document.getElementById('btnSee');
+    btnSee.style.display = '';
+    btnSee.textContent = 'show chunxly';
+
+    // store reference to original item for re-interpretation
+    S.chunxlySurfacingItem = item;
+  });
+
+  document.getElementById('btnChunxlyNo').addEventListener('click', () => {
+    consentDiv.remove();
+    const [iv2, ov2] = pickVoice('stall_chunxly_declined');
+    setVoice(iv2, ov2, true);
+    drawSprite('mustache');
+  });
+}
+
 // ── init ──
 buildDrawBar();
 resizeCanvas();
@@ -4465,11 +5213,23 @@ drawSprite('idle');
 tick();
 window.addEventListener('resize', resizeCanvas);
 
-// round-trip detection
-(function detectRoundTrip() {
-  const hasSnapshot = !!localStorage.getItem('baseline-session/efdp-snapshot');
-  const hasOriginal = !!localStorage.getItem('baseline-session/chunxly-original');
-  if (hasSnapshot && hasOriginal) {
+// ── mode detection: stall vs full context ──
+(function detectMode() {
+  const params = new URLSearchParams(location.search);
+  const hasEntityContext = !!params.get('entity');
+  const hasRoundTrip = !!localStorage.getItem('baseline-session/efdp-snapshot')
+                    && !!localStorage.getItem('baseline-session/chunxly-original');
+  const forceStall = !!params.get('stall');
+
+  if (forceStall || (!hasEntityContext && !hasRoundTrip)) {
+    // no prior intent — stranger at the door. put the mustache on.
+    S.stallMode = true;
+    enterStallMode();
+    return;
+  }
+
+  // round-trip detection (only in full-context mode)
+  if (hasRoundTrip) {
     document.getElementById('dropLabel').textContent = 'the maze sent something back';
     document.getElementById('dropOr').textContent = '';
     document.getElementById('btnBlank').style.display = 'none';
