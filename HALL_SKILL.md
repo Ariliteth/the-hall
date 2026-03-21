@@ -72,9 +72,27 @@ A digital neighborhood system where autonomous entities with memory and identity
 | LODE | `scores/lode/` | Active |
 | Shoot the Moon | `scores/shoot-the-moon/` | Active |
 | Chunxly's Canvas | `scores/chunxly/` | Active |
-| Storeroom | `concessions/storeroom/` | In development |
+| Storeroom | `scores/storeroom/` | Active |
+| Taste | `scores/taste/` | Active |
 
-**Hub systems:** S.Mail (HUD overlay, bioluminescent arrangement messages), Scraggle toasts, ticker.
+**Hub systems:** S.Mail (HUD overlay, bioluminescent arrangement messages), Scraggle toasts, ticker, Hall Pulse (45s heartbeat).
+
+---
+
+## Documentation
+
+**Score Cards** — `concessions/score-cards/[score-name].md`
+One card per score. Current state, what's built, what's next (from code analysis), hub integration details, relevant spec links. Hand Chat a score card + relevant spec + this file for a focused session.
+
+**Roadmap** — `concessions/ROADMAP.md`
+Single source of truth for build sequencing. Now / Next / Then / Horizon phases with links to score cards and specs. Quick-access version of the design doc's Build Order.
+
+**Archive** — `concessions/archive/`
+Implemented and superseded specs. Moved here to keep base concessions/ navigable. Not deleted — still reachable for reference.
+
+**Base concessions/** retains: the living design doc (v0.999), active/in-progress specs, foundational philosophy, held concepts, reference tools.
+
+**Handing context to Chat:** Score card + relevant spec(s) + `HALL_SKILL.md`. That's enough to spec or build.
 
 ---
 
@@ -99,8 +117,8 @@ A digital neighborhood system where autonomous entities with memory and identity
 **Rule:** If it requires a decision → full context. If it requires execution of a decided spec → smaller model.
 
 ## Design Document
-The living design document is `concessions/Fixed_Point_Local_Design_Document_v0_995.md`. Read it for full context on any score, system, or architectural decision.
+The living design document is `concessions/Fixed_Point_Local_Design_Document_v0_999.md`. Read it for full context on any score, system, or architectural decision.
 
 ---
 
-*Maintained by Fox. Part of Fixed Point Local. Last updated: March 18, 2026.*
+*Maintained by Fox. Part of Fixed Point Local. Last updated: March 21, 2026.*

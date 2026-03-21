@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/pre-commit-docs.js",
+            "timeout": 10,
+            "statusMessage": "Checking for score documentation updates..."
+          }
+        ]
+      }
+    ]
+  }
+}
