@@ -172,7 +172,7 @@
     position: relative;
     width: 100%;
     height: 60px;
-    overflow: hidden;
+    overflow: visible;
     display: flex;
     align-items: center;
   }
@@ -590,6 +590,28 @@ if (window.parent !== window) {
 }
 
 // ─────────────────────────────────────────────
+//  SCRAGGLES
+// ─────────────────────────────────────────────
+
+function emitScraggle(emoji, color, weight, id) {
+  try {
+    const raw = localStorage.getItem('baseline-session/scraggles');
+    const scraggles = raw ? JSON.parse(raw) : [];
+    scraggles.push({
+      emoji,
+      color,
+      weight: Math.min(1, Math.max(0, weight)),
+      id:     id || ('sr-' + Date.now()),
+      origin: 'storeroom',
+      ts:     Date.now(),
+    });
+    // Keep last 40 (consistent with hub's pulse decay window)
+    if (scraggles.length > 40) scraggles.splice(0, scraggles.length - 40);
+    localStorage.setItem('baseline-session/scraggles', JSON.stringify(scraggles));
+  } catch (e) {}
+}
+
+// ─────────────────────────────────────────────
 //  STOREROOM
 // ─────────────────────────────────────────────
 
@@ -821,6 +843,10 @@ function checkPerfect(obj, proximity) {
     showPerfect(obj);
     obj.perfectCooldown = 8;
     obj.perfectCount++;
+    // First perfect — the Hall should know
+    if (obj.perfectCount === 1) {
+      emitScraggle('✨', [200, 184, 122], 0.3, 'sr-perfect-' + obj.key);
+    }
   }
 }
 
@@ -882,7 +908,7 @@ function recordRoomAccuracy(score) {
       return;
     }
 
-    if (score < 0.4 || (R.strictMode && score < 0.7)) {
+    if (score < 0.25 || (R.strictMode && score < 0.55)) {
       triggerFailure();
       R.gimmeCount = 2 + Math.floor(Math.random() * 4);
       updateGimmeDots();
@@ -1120,6 +1146,10 @@ function triggerDeparture(obj) {
   // Going-away party — identical to failure celebration
   triggerFailure();
 
+  // Tell the Hall — weight reflects how much time we had together
+  const departureWeight = Math.min(1, obj.interactionCount / 40);
+  emitScraggle('🪦', [150, 110, 70], departureWeight, 'sr-depart-' + obj.key);
+
   // Remove from active objects
   const idx = R.objects.indexOf(obj);
   if (idx !== -1) R.objects.splice(idx, 1);
@@ -1319,6 +1349,18 @@ function triggerGhost(outline) {
 //  TROPHIES — the inversion
 // ─────────────────────────────────────────────
 
+// Trophy colors — each one has its own temperature
+const TROPHY_COLORS = {
+  '🏆': [200, 160, 60],
+  '🍕': [200, 100, 60],
+  '📋': [140, 160, 180],
+  '⭐': [220, 200, 80],
+  '🧸': [180, 140, 100],
+  '🎖️': [160, 140, 180],
+  '🫖': [120, 160, 140],
+  '🧊': [140, 180, 200],
+};
+
 function mountTrophy(trophy) {
   const shelf = document.getElementById('shelf-' + trophy.shelf);
   if (!shelf) return;
@@ -1347,6 +1389,10 @@ function mountTrophy(trophy) {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     el.style.opacity = '1';
   }));
+
+  // Tell the Hall a trophy arrived
+  const tcolor = TROPHY_COLORS[trophy.emoji] || [150, 110, 70];
+  emitScraggle(trophy.emoji, tcolor, 0.4, 'sr-trophy-' + R.trophyCount);
 
   // Tap to acknowledge
   el.addEventListener('pointerdown', e => {
@@ -1524,11 +1570,11 @@ function evaluateTap(obj) {
   const expectedPulses = obj.cycle.pulseCount;
   const expectedGap = obj.cycle.gapMs;
 
-  // Count score
+  // Count score — getting the count right matters most, but off-by-one is fine
   const countDiff = Math.abs(taps.length - expectedPulses);
-  const countScore = Math.max(0, 1 - countDiff * 0.4);
+  const countScore = Math.max(0, 1 - countDiff * 0.25);
 
-  // Gap score
+  // Gap score — rhythm is felt, not measured
   const intervals = [];
   for (let i = 1; i < taps.length; i++) intervals.push(taps[i] - taps[i - 1]);
   let gapScore = 1;
@@ -1537,10 +1583,10 @@ function evaluateTap(obj) {
     for (const iv of intervals) {
       gapErr += Math.min(Math.abs(iv - expectedGap) / (expectedGap + 1), 1);
     }
-    gapScore = Math.max(0, 1 - gapErr / intervals.length);
+    gapScore = Math.max(0, 1 - gapErr / intervals.length * 0.6);
   }
 
-  const mechanicalScore = countScore * 0.5 + gapScore * 0.5;
+  const mechanicalScore = countScore * 0.6 + gapScore * 0.4;
 
   // Preference proximity
   const actualParams = { pulseCount: taps.length, gapMs: intervals.length > 0 ? intervals.reduce((a, b) => a + b, 0) / intervals.length : 0 };
@@ -1644,7 +1690,7 @@ function startHoldCycle(obj) {
 function evaluateHold(obj, heldFor) {
   const straightMs = obj.cycle.straightMs;
   const ratio = Math.abs(heldFor - straightMs) / straightMs;
-  const mechanicalScore = Math.max(0, 1 - ratio * 1.2);
+  const mechanicalScore = Math.max(0, 1 - ratio * 0.7);
 
   const actualParams = { straightMs: heldFor };
   const proximity = preferenceProximity(obj, actualParams);
@@ -1857,7 +1903,7 @@ function evaluateSwipe(obj, velocity) {
   const c = obj.cycle;
   const expectedV = c.lastDir * c.lastSpeed;
   const vErr = Math.abs(velocity - expectedV) / (Math.abs(expectedV) + 0.01);
-  const mechanicalScore = Math.max(0, 1 - vErr * 0.8);
+  const mechanicalScore = Math.max(0, 1 - vErr * 0.5);
 
   // Preference proximity — how close to what the object actually wants
   const actualParams = {

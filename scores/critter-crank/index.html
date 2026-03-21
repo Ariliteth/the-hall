@@ -365,6 +365,12 @@ var TAG_SHAPE_MAP = {
   quick: ["scatter","spike"], swift: ["spike","line"], nimble: ["line","scatter"],
   curious: ["eye","blob"], tasteful: ["circle","diamond"], meandering: ["irregular","scatter"],
   seeking: ["eye","line"],
+  // Stall analysis tags (from Chunxly pixel analysis)
+  delicate: ["scatter","line"], confident: ["blob","circle"], focused: ["circle","ring"],
+  restless: ["irregular","scatter"], pure: ["circle","ring"], considered: ["diamond","circle"],
+  vivid: ["cross","diamond"], gentle: ["ring","circle"], textured: ["irregular","blob"],
+  defined: ["spike","diamond"], towering: ["rect","line"], sprawling: ["blob","irregular"],
+  suggested: ["scatter","line"], substantial: ["blob","rect"],
 };
 
 // ── All Shape Names ──────────────────────────────────────────────────────────
@@ -1955,9 +1961,30 @@ function readCrankContext() {
             triangle:["relic","creature"]
           };
           seed.recipePool = recipeMap[seed.dominantPinType] || ["flora","spirit"];
-          // Kitchendom: resolve affinity from paletteKey
-          if (seed.source === "chunxly") {
-            seed.kitchenAffinity = KITCHENDOM_AFFINITY_MAP[seed.paletteKey] || null;
+          // carry entity identity from Chunxly (slug + name for portrait export)
+          if (seed.slug && !seed.name && seed.entityName) {
+            seed.name = seed.entityName;
+          }
+          // build custom palette from Chunxly color clusters (direct mode)
+          if (seed.source === "chunxly" && seed.colorClusters && seed.colorClusters.length > 0) {
+            var c0 = seed.colorClusters[0].color; // largest cluster (e.g. red body)
+            var c1 = seed.colorClusters.length > 1 ? seed.colorClusters[1].color : c0;  // second (e.g. green wings)
+            var c2 = seed.colorClusters.length > 2 ? seed.colorClusters[2].color : c1;  // third (e.g. gold accent)
+            function toHex(r,g,b) { return "#" + [r,g,b].map(function(v){return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0");}).join(""); }
+            function darken(c, f) { return [c[0]*f, c[1]*f, c[2]*f]; }
+            function lighten(c, f) { return [c[0]+(255-c[0])*f, c[1]+(255-c[1])*f, c[2]+(255-c[2])*f]; }
+            var d0 = darken(c0, 0.15);  // very dark
+            var d1 = darken(c0, 0.45);  // dark
+            var lt = lighten(c0, 0.7);  // lightest tint
+            PALETTES["_chunxly"] = [
+              toHex(d0[0],d0[1],d0[2]),   // [0] darkest — deep shadow of dominant
+              toHex(d1[0],d1[1],d1[2]),   // [1] dark — shadow of dominant
+              toHex(c0[0],c0[1],c0[2]),   // [2] main — dominant cluster color
+              toHex(c2[0],c2[1],c2[2]),   // [3] mid — third cluster (gold/accent)
+              toHex(c1[0],c1[1],c1[2]),   // [4] accent — second cluster (green)
+              toHex(lt[0],lt[1],lt[2]),   // [5] lightest — tint of dominant
+            ];
+            seed._hasDirectPalette = true;
           }
           S.crankContext = seed;
         }
@@ -2060,6 +2087,32 @@ function fisherYates(arr) {
 // ── Generation Pipeline ──────────────────────────────────────────────────────
 var MAIN_RECIPE_POOL   = ["creature","creature","creature","spirit","spirit","flora"];
 
+// Chunxly-direct roll: trusts the seed completely, no world/voice blending
+function generateChunxlyRoll() {
+  var ms = S.crankContext;
+  var seed = Date.now() + Math.floor(Math.random() * 99999);
+  // shape hints: seed's own + stall tags mapped through TAG_SHAPE_MAP
+  var shapes = (ms.extraShapeHints || []).slice();
+  if (ms.stallTags) {
+    ms.stallTags.forEach(function(tag) {
+      var hints = TAG_SHAPE_MAP[tag];
+      if (hints) hints.forEach(function(h) {
+        if (shapes.indexOf(h) < 0) shapes.push(h);
+      });
+    });
+  }
+  return {
+    seed: seed,
+    recipeKey: "creature",
+    extraShapes: shapes,
+    palKey: ms._hasDirectPalette ? "_chunxly" : (ms.paletteKey || "creature"),
+    cohesionMode: ms.cohesionMode || "clustered",
+    worldNote: "chunxly-direct",
+    voiceEmoji: "",
+    worldIcon: WORLDS[S.worldKey] ? WORLDS[S.worldKey].icon : ""
+  };
+}
+
 function generateRoll(bias) {
   // bias: "creature" (main slot) or "inventory" (right column)
   // Falls back to world pool if no bias given
@@ -2093,6 +2146,13 @@ function generateRoll(bias) {
   var entityHints = [];
   if (S.crankContext && S.crankContext.tags) {
     S.crankContext.tags.forEach(function(tag) {
+      var hints = TAG_SHAPE_MAP[tag];
+      if (hints) entityHints = entityHints.concat(hints);
+    });
+  }
+  // Stall analysis tags (from Chunxly pixel analysis of PNG)
+  if (S.crankContext && S.crankContext.stallTags) {
+    S.crankContext.stallTags.forEach(function(tag) {
       var hints = TAG_SHAPE_MAP[tag];
       if (hints) entityHints = entityHints.concat(hints);
     });
@@ -2369,7 +2429,9 @@ function doSingle() {
     S._cranksSinceSquatter = 0;
   }
 
-  var roll = generateRoll("creature");
+  var roll = (S.crankContext && S.crankContext.source === "chunxly" && S.crankContext._hasDirectPalette)
+    ? generateChunxlyRoll()
+    : generateRoll("creature");
   if (!roll) return;
   S.mainCreature = roll;
   S.worldInventory = generateWorldInventory(roll);
@@ -3209,7 +3271,7 @@ function renderMachine() {
       + '</div>';
   } else if (S.crankContext && S.crankContext.source === "chunxly") {
     var ms = S.crankContext;
-    var affinityLabel = ms.kitchenAffinity ? ms.kitchenAffinity.toUpperCase() : (ms.paletteKey || ms.dominantHex || "").toUpperCase();
+    var affinityLabel = ms._hasDirectPalette ? "DIRECT" : (ms.kitchenAffinity ? ms.kitchenAffinity.toUpperCase() : (ms.paletteKey || ms.dominantHex || "").toUpperCase());
     ctxBanner = '<div style="background:rgba(94,196,168,0.05);border:1px solid #1a4a3a;border-radius:4px;padding:4px 8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px">'
       + '<div style="font-size:4px;color:#5ec4a8;letter-spacing:0.08em">CANVAS \u00B7 ' + esc(affinityLabel) + '</div>'
       + '<button onclick="dismissContext()" style="background:none;border:none;color:#1a4a3a;font-size:5px;cursor:pointer;font-family:inherit;padding:0">\u2715</button>'

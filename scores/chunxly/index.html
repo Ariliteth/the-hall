@@ -2935,9 +2935,20 @@ function exportCreature() {
 
   // dominant color: weighted average by fairy body mass (accent nodes contribute less)
   // falls back to flat average if fairy data isn't available
+  // filter out nodes matching image background (detected by Stall pixel analysis)
+  const bgThreshold = 55;
+  let bgColor = null;
+  if (S.stallAnalysis && S.stallAnalysis._bgColor) {
+    bgColor = S.stallAnalysis._bgColor;
+  }
   const colorWeightSum = [0, 0, 0];
   let totalWeight = 0;
   S.nodes.forEach(n => {
+    // skip nodes whose color is close to the image background
+    if (bgColor) {
+      const bgDist = Math.sqrt((n.color[0] - bgColor[0]) ** 2 + (n.color[1] - bgColor[1]) ** 2 + (n.color[2] - bgColor[2]) ** 2);
+      if (bgDist < bgThreshold) return;
+    }
     // body nodes get full weight, accents get 0.15, limbs/details get 0.5
     const roleWeight = n.structuralRole === 'body' ? 1.0
       : n.structuralRole === 'accent' ? 0.15
@@ -2962,23 +2973,62 @@ function exportCreature() {
       })();
   const dominantHex = rgbToHex(avgColor[0], avgColor[1], avgColor[2]);
 
-  // secondary color: color of node furthest from average
+  // secondary color: color of non-background node furthest from average
   let maxColorDist = 0, secondaryHex = null;
   for (const n of S.nodes) {
+    if (bgColor) {
+      const bgDist = Math.sqrt((n.color[0] - bgColor[0]) ** 2 + (n.color[1] - bgColor[1]) ** 2 + (n.color[2] - bgColor[2]) ** 2);
+      if (bgDist < bgThreshold) continue;
+    }
     const d = Math.sqrt((n.color[0] - avgColor[0]) ** 2 + (n.color[1] - avgColor[1]) ** 2 + (n.color[2] - avgColor[2]) ** 2);
     if (d > maxColorDist && d > 50) { maxColorDist = d; secondaryHex = rgbToHex(n.color[0], n.color[1], n.color[2]); }
   }
 
-  // palette key
+  // palette key — match against largest color cluster's hue (most pixels)
+  // hue-based matching correctly maps "bright red" to fire, not to item/brown
+  // falls back to RGB distance for low-saturation clusters
   const CRANK_PAL_REFS = {
     nature: [90, 158, 58], creature: [15, 52, 96], item: [139, 69, 19],
     fire: [139, 0, 0], ice: [0, 51, 102], poison: [75, 0, 130],
     ghost: [26, 26, 62], earth: [61, 43, 31], water: [0, 136, 204], light: [61, 51, 0]
   };
-  let bestPal = 'creature', bestPalDist = Infinity;
-  for (const [key, ref] of Object.entries(CRANK_PAL_REFS)) {
-    const d = Math.sqrt((avgColor[0] - ref[0]) ** 2 + (avgColor[1] - ref[1]) ** 2 + (avgColor[2] - ref[2]) ** 2);
-    if (d < bestPalDist) { bestPalDist = d; bestPal = key; }
+  // hue (center of 30° bucket) → palette key mapping
+  const HUE_PAL_MAP = [
+    /* 0°   red         */ 'fire',
+    /* 30°  orange      */ 'item',
+    /* 60°  yellow      */ 'light',
+    /* 90°  yellow-grn  */ 'nature',
+    /* 120° green       */ 'nature',
+    /* 150° cyan-grn    */ 'water',
+    /* 180° cyan        */ 'water',
+    /* 210° blue        */ 'creature',
+    /* 240° indigo      */ 'ghost',
+    /* 270° purple      */ 'poison',
+    /* 300° magenta     */ 'poison',
+    /* 330° red-magenta */ 'fire',
+  ];
+  let bestPal = 'creature';
+  const topCluster = S.stallAnalysis && S.stallAnalysis._colorClusters && S.stallAnalysis._colorClusters[0];
+  if (topCluster && topCluster.count > 0) {
+    // check saturation of cluster color — hue is only meaningful for saturated colors
+    const [, clusterSat] = rgbToHsl(topCluster.color[0], topCluster.color[1], topCluster.color[2]);
+    if (clusterSat > 0.15) {
+      bestPal = HUE_PAL_MAP[Math.floor(topCluster.hue / 30) % 12];
+    } else {
+      // low saturation (gray/brown) — use RGB distance as fallback
+      let bestPalDist = Infinity;
+      for (const [key, ref] of Object.entries(CRANK_PAL_REFS)) {
+        const d = Math.sqrt((topCluster.color[0] - ref[0]) ** 2 + (topCluster.color[1] - ref[1]) ** 2 + (topCluster.color[2] - ref[2]) ** 2);
+        if (d < bestPalDist) { bestPalDist = d; bestPal = key; }
+      }
+    }
+  } else {
+    // no cluster data — use weighted average with RGB distance
+    let bestPalDist = Infinity;
+    for (const [key, ref] of Object.entries(CRANK_PAL_REFS)) {
+      const d = Math.sqrt((avgColor[0] - ref[0]) ** 2 + (avgColor[1] - ref[1]) ** 2 + (avgColor[2] - ref[2]) ** 2);
+      if (d < bestPalDist) { bestPalDist = d; bestPal = key; }
+    }
   }
 
   // cohesion from graph topology
@@ -3100,6 +3150,20 @@ function exportCreature() {
       return { fairy, visitor, seep, unlabeled };
     })(),
   };
+
+  // add Stall analysis data (tags, naming, entity identity, color clusters)
+  if (S.stallAnalysis) {
+    crankSeed.stallTags = S.stallAnalysis.tags || [];
+    crankSeed.stallName = S.stallAnalysis.chunxme_name || null;
+    crankSeed.stallDescription = S.stallAnalysis.description || null;
+    if (S.stallAnalysis._colorClusters) {
+      crankSeed.colorClusters = S.stallAnalysis._colorClusters;
+    }
+  }
+  if (S.stallName) {
+    crankSeed.slug = S.stallName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    crankSeed.entityName = S.stallName;
+  }
 
   // add round-trip data if comparison was performed
   if (S.roundTrip) {
@@ -4199,28 +4263,61 @@ function loadImage(file) {
       S.imgW = w;
       S.imgH = h;
 
-      $drop.classList.add('hidden');
-      const [iv, ov] = pickVoice('image_load');
-      setVoice(iv, ov, true);
-      setPhase('analyzing');
-      render();
+      // ask for creature name before analysis (mirrors Stall's name-before-draw)
+      promptCreatureName(() => {
+        $drop.classList.add('hidden');
+        const [iv, ov] = pickVoice('image_load');
+        setVoice(iv, ov, true);
+        setPhase('analyzing');
+        render();
 
-      // brief pause then analyze + daub
-      setTimeout(() => {
-        const candidates = analyzeMultiPass();
-        if (candidates.length === 0) {
-          setVoice("The image is... very uniform. I can't find distinct features. I am noting my confusion.",
-                   "Hmm. Try a different image?", true);
-          setPhase('visitor');
-          document.getElementById('btnFinish').style.display = '';
-          return;
-        }
-        daubSequence(candidates);
-      }, 800);
+        // brief pause then analyze + daub
+        setTimeout(() => {
+          const candidates = analyzeMultiPass();
+          if (candidates.length === 0) {
+            setVoice("The image is... very uniform. I can't find distinct features. I am noting my confusion.",
+                     "Hmm. Try a different image?", true);
+            setPhase('visitor');
+            document.getElementById('btnFinish').style.display = '';
+            return;
+          }
+          // run Stall pixel analysis alongside multi-pass (for tags + naming)
+          S.stallAnalysis = analyzeStallDrawing();
+          daubSequence(candidates);
+        }, 800);
+      });
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+function promptCreatureName(onSubmit) {
+  const $dropBorder = document.getElementById('dropBorder');
+  $dropBorder.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'stall-name-wrap';
+  wrap.innerHTML = `
+    <div class="stall-name-label">name this creature</div>
+    <input class="stall-name-input" id="creatureNameInput" type="text"
+           placeholder="what is it called?" maxlength="40" autocomplete="off">
+    <button class="btn" id="btnCreatureName">let chunxly see</button>
+  `;
+  $dropBorder.appendChild(wrap);
+
+  const $input = document.getElementById('creatureNameInput');
+  const $go = document.getElementById('btnCreatureName');
+
+  function submit() {
+    const name = $input.value.trim();
+    if (!name) return;
+    S.stallName = name;
+    onSubmit();
+  }
+
+  $go.addEventListener('click', submit);
+  $input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  $input.focus();
 }
 
 function startBlankCanvas() {
@@ -4504,6 +4601,19 @@ function showSeedPanel(seed) {
     return `<span class="seed-swatch" style="background:${hex}"></span>${hex}`;
   }
 
+  // entity identity + stall tags (if present)
+  if (seed.entityName) {
+    row('creature', `<span style="color:var(--amber)">${seed.entityName}</span>`);
+    if (seed.slug) row('slug', seed.slug);
+  }
+  if (seed.stallTags && seed.stallTags.length > 0) {
+    row('tags', seed.stallTags.map(t => `<span class="stall-item-tag">${t}</span>`).join(' '));
+  }
+  if (seed.stallName) {
+    row('stall name', seed.stallName);
+  }
+  if (seed.entityName || seed.stallTags) divider();
+
   // shape
   const shapeHints = seed.extraShapeHints ? seed.extraShapeHints.join(', ') : '—';
   row('shape', `${seed.dominantPinType} — ${shapeHints}`);
@@ -4711,6 +4821,7 @@ function analyzeStallDrawing() {
   let sumX = 0, sumY = 0;
   let minX = w, maxX = 0, minY = h, maxY = 0;
   const colorBuckets = {}; // hue bucket → count
+  const bucketRGB = {};   // hue bucket → { sumR, sumG, sumB, count }
   let edgeSum = 0, edgeCount = 0;
   const step = 3;
 
@@ -4730,11 +4841,16 @@ function analyzeStallDrawing() {
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
 
-      // hue bucketing (30° buckets = 12 buckets)
+      // hue bucketing (30° buckets = 12 buckets) with per-bucket RGB tracking
       const [hue, sat] = rgbToHsl(r, g, b);
       if (sat > 0.1) {
         const bucket = Math.floor(hue / 30);
         colorBuckets[bucket] = (colorBuckets[bucket] || 0) + 1;
+        if (!bucketRGB[bucket]) bucketRGB[bucket] = { sumR: 0, sumG: 0, sumB: 0, count: 0 };
+        bucketRGB[bucket].sumR += r;
+        bucketRGB[bucket].sumG += g;
+        bucketRGB[bucket].sumB += b;
+        bucketRGB[bucket].count++;
       }
 
       // local edge: compare to neighbor
@@ -4878,7 +4994,27 @@ function analyzeStallDrawing() {
     chunxly_version: false,
     chunxly_stirs: chunxlyStirs,
     // raw metrics for potential future use
-    _metrics: { coverage, spread, density, colorCount, avgEdge, symmetry, aspect, convictionScore }
+    _metrics: { coverage, spread, density, colorCount, avgEdge, symmetry, aspect, convictionScore },
+    // detected background color (for filtering in CrankSeed color calculation)
+    _bgColor: [bgR, bgG, bgB],
+    // top color clusters by pixel count (largest hue buckets with average RGB)
+    _colorClusters: (() => {
+      return Object.entries(colorBuckets)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([bucket, count]) => {
+          const rgb = bucketRGB[bucket];
+          return {
+            hue: Number(bucket) * 30,
+            count,
+            color: rgb ? [
+              Math.round(rgb.sumR / rgb.count),
+              Math.round(rgb.sumG / rgb.count),
+              Math.round(rgb.sumB / rgb.count)
+            ] : [128, 128, 128]
+          };
+        });
+    })(),
   };
 }
 
