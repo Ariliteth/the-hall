@@ -259,6 +259,24 @@ var WORLDS = {
       hardware: "radial-gradient(ellipse at 50% 50%, rgba(255,140,40,0.06) 0%, transparent 60%), repeating-linear-gradient(0deg, transparent, transparent 6px, rgba(200,60,0,0.05) 6px, rgba(200,60,0,0.05) 7px)",
     },
   },
+  kitchendom: {
+    label: "Kitchendom", icon: "\u25C9",
+    flavor: "Where tastes argue and seasons win. Everything here has been prepared.",
+    bg: "#1a0f08", accent: "#d4a574",
+    palettePool: ["umamian","salterran","sourvren","bitterish","sweetese"],
+    recipePool: ["creature","flora","item"],
+    extraHints: ["blob","circle","diamond","irregular"],
+    cohesionBias: ["clustered","radial"],
+    // Crystal terra cotta — asymmetric, hand-formed, warm
+    body: {
+      radius: "16px 20px 18px 22px",
+      gradient: "linear-gradient(170deg,rgba(185,95,45,0.5) 0%,rgba(140,65,25,0.65) 100%)",
+      glow: "0 20px 50px rgba(185,95,45,0.45), 0 0 0 2px rgba(210,160,80,0.2) inset",
+      border: "rgba(200,140,60,0.3)",
+      screenGlow: "rgba(210,160,80,0.1)",
+      hardware: "radial-gradient(ellipse at 30% 60%, rgba(210,160,80,0.07) 0%, transparent 55%), repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(185,95,45,0.04) 10px, rgba(185,95,45,0.04) 11px)",
+    },
+  },
 };
 
 var WORLD_KEYS = Object.keys(WORLDS);

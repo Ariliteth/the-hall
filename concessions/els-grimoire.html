@@ -30,7 +30,7 @@
 
   body {
     background: #0d1a13;
-    background-image:
+    background-image: 
       radial-gradient(ellipse at 20% 50%, #1a2e1f 0%, transparent 60%),
       radial-gradient(ellipse at 80% 20%, #0f1e16 0%, transparent 50%);
     min-height: 100vh;
@@ -42,6 +42,7 @@
     cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Ccircle cx='10' cy='10' r='3' fill='%23c9a84c' opacity='0.7'/%3E%3C/svg%3E") 10 10, auto;
   }
 
+  /* Floating ambient spores in background */
   .ambient-spores {
     position: fixed;
     inset: 0;
@@ -63,6 +64,7 @@
     100% { transform: translateY(-10vh) translateX(var(--drift-x)) scale(1.5); opacity: 0; }
   }
 
+  /* Book container */
   .grimoire {
     position: relative;
     z-index: 1;
@@ -73,6 +75,7 @@
     perspective: 1200px;
   }
 
+  /* Left spine/cover */
   .book-spine {
     width: 32px;
     background: linear-gradient(to right, #1a0e08, var(--spine), #2a1810, var(--spine) 80%, #4a3020);
@@ -96,6 +99,7 @@
     opacity: 0.7;
   }
 
+  /* Book pages wrapper */
   .book-pages {
     flex: 1;
     position: relative;
@@ -104,17 +108,19 @@
     border-radius: 0 6px 6px 0;
   }
 
+  /* Page texture */
   .book-pages::before {
     content: '';
     position: absolute;
     inset: 0;
-    background-image:
+    background-image: 
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"),
       linear-gradient(to bottom, rgba(200,185,160,0.2) 0%, transparent 30%, rgba(200,185,160,0.1) 100%);
     pointer-events: none;
     z-index: 10;
   }
 
+  /* Page left binding shadow */
   .book-pages::after {
     content: '';
     position: absolute;
@@ -127,6 +133,7 @@
     z-index: 20;
   }
 
+  /* Left page (spread) */
   .page-left {
     position: absolute;
     left: 0; top: 0; bottom: 0;
@@ -139,6 +146,7 @@
     overflow: hidden;
   }
 
+  /* Right page */
   .page-right {
     position: absolute;
     right: 0; top: 0; bottom: 0;
@@ -150,6 +158,7 @@
     overflow: hidden;
   }
 
+  /* Page turn overlay */
   .page-turn-overlay {
     position: absolute;
     inset: 0;
@@ -171,6 +180,7 @@
     100% { transform: scaleX(0) translateX(100%); opacity: 0; }
   }
 
+  /* Crease spore dust */
   .crease {
     position: absolute;
     left: 50%;
@@ -185,14 +195,15 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(to bottom,
-      transparent 5%,
-      rgba(120,90,50,0.15) 15%,
-      rgba(120,90,50,0.2) 50%,
-      rgba(120,90,50,0.15) 85%,
+    background: linear-gradient(to bottom, 
+      transparent 5%, 
+      rgba(120,90,50,0.15) 15%, 
+      rgba(120,90,50,0.2) 50%, 
+      rgba(120,90,50,0.15) 85%, 
       transparent 95%);
   }
 
+  /* Spore dust canvas sits over the crease */
   .spore-canvas {
     position: absolute;
     left: 50%;
@@ -204,6 +215,7 @@
     pointer-events: none;
   }
 
+  /* Entry heading */
   .entry-number {
     font-family: 'Caveat', cursive;
     font-size: 11px;
@@ -224,6 +236,12 @@
   .entry-title em {
     font-style: italic;
     color: var(--moss);
+  }
+
+  /* Ruled lines */
+  .ruled {
+    position: relative;
+    flex: 1;
   }
 
   .ruled-line {
@@ -249,12 +267,24 @@
     border-bottom-color: rgba(140,110,70,0.3);
   }
 
+  /* Illustration placeholder — color-flood shape */
   .illustration {
     border: 1px solid var(--parchment-shadow);
     border-radius: 2px;
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
+  }
+
+  .illustration svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Color flood fill for incomplete regions */
+  .color-region {
+    transition: opacity 0.8s ease;
   }
 
   .color-region.incomplete {
@@ -267,6 +297,7 @@
     50% { opacity: 0.55; }
   }
 
+  /* Margin notes */
   .margin-note {
     font-family: 'Caveat', cursive;
     font-size: 12px;
@@ -291,6 +322,7 @@
     flex-shrink: 0;
   }
 
+  /* Gold decorative rule */
   .gold-rule {
     height: 1px;
     background: linear-gradient(to right, transparent, var(--gold-dim), var(--gold), var(--gold-dim), transparent);
@@ -298,6 +330,7 @@
     margin: 4px 0;
   }
 
+  /* Page number */
   .page-number {
     position: absolute;
     bottom: 16px;
@@ -310,6 +343,7 @@
   .page-left .page-number { left: 48px; }
   .page-right .page-number { right: 44px; }
 
+  /* Color swatch row */
   .color-swatches {
     display: flex;
     gap: 6px;
@@ -335,6 +369,7 @@
     color: var(--ink-ghost);
   }
 
+  /* Navigation — page turn button */
   .turn-page-btn {
     position: absolute;
     right: 12px;
@@ -355,38 +390,14 @@
   }
 
   .turn-page-btn:hover { color: var(--gold); }
+
   .turn-page-btn::after {
     content: '›';
     font-size: 18px;
     line-height: 1;
   }
 
-  .turn-prev-btn {
-    position: absolute;
-    left: 12px;
-    bottom: 12px;
-    z-index: 100;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: 'IM Fell English', serif;
-    font-size: 11px;
-    color: var(--gold-dim);
-    letter-spacing: 1px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    transition: color 0.3s;
-  }
-
-  .turn-prev-btn:hover { color: var(--gold); }
-  .turn-prev-btn::before {
-    content: '‹';
-    font-size: 18px;
-    line-height: 1;
-  }
-
+  /* Door creak effect on page turn */
   .grimoire.turning {
     animation: bookCreak 0.3s ease-out;
   }
@@ -398,11 +409,51 @@
     100% { transform: rotate(0deg); }
   }
 
-  @keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
+  /* Spore glitter particles in crease - CSS animated */
+  .crease-spore {
+    position: absolute;
+    left: 50%;
+    border-radius: 50%;
+    animation: sporeGlitter linear infinite;
+    pointer-events: none;
   }
 
+  @keyframes sporeGlitter {
+    0% { opacity: 0; transform: translateX(-50%) scale(0.5); }
+    30% { opacity: 1; }
+    70% { opacity: 0.6; }
+    100% { opacity: 0; transform: translateX(calc(-50% + var(--sx))) translateY(var(--sy)) scale(0.2); }
+  }
+
+  /* Ink stain / color flood on hover over incomplete */
+  .flood-zone {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .flood-zone .flood-color {
+    position: absolute;
+    inset: 0;
+    background: var(--flood-hue, rgba(180,210,160,0.25));
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 1.2s cubic-bezier(0.22,1,0.36,1);
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: multiply;
+  }
+
+  .flood-zone:hover .flood-color,
+  .flood-zone.flooded .flood-color {
+    transform: scaleX(1);
+  }
+
+  .flood-zone > *:not(.flood-color) {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Entry sections */
   .section-head {
     font-family: 'IM Fell English', serif;
     font-style: italic;
@@ -413,6 +464,7 @@
     margin-bottom: 4px;
   }
 
+  /* Dot grid area */
   .dot-grid {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
@@ -439,6 +491,7 @@
     box-shadow: 0 0 4px rgba(200,165,70,0.5);
   }
 
+  /* Entry transition */
   .entry-content {
     transition: opacity 0.5s ease;
   }
@@ -447,6 +500,7 @@
     opacity: 0;
   }
 
+  /* Cover page (entry 0) */
   .cover-content {
     display: flex;
     flex-direction: column;
@@ -498,6 +552,12 @@
     cursor: pointer;
   }
 
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* Background subtle vignette glow on the book */
   .book-glow {
     position: absolute;
     inset: -60px;
@@ -512,77 +572,6 @@
     50% { opacity: 1; }
   }
 
-  .flood-zone {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .flood-zone .flood-color {
-    position: absolute;
-    inset: 0;
-    background: var(--flood-hue, rgba(180,210,160,0.25));
-    transform: scaleX(0);
-    transform-origin: left center;
-    transition: transform 1.2s cubic-bezier(0.22,1,0.36,1);
-    pointer-events: none;
-    z-index: 1;
-    mix-blend-mode: multiply;
-  }
-
-  .flood-zone:hover .flood-color,
-  .flood-zone.flooded .flood-color {
-    transform: scaleX(1);
-  }
-
-  .flood-zone > *:not(.flood-color) {
-    position: relative;
-    z-index: 2;
-  }
-
-  /* Loading state */
-  .loading-message {
-    font-family: 'Caveat', cursive;
-    font-size: 16px;
-    color: var(--ink-ghost);
-    text-align: center;
-    animation: pulse 2s ease-in-out infinite;
-  }
-
-  /* Entity count badge on cover */
-  .entity-count {
-    font-family: 'Caveat', cursive;
-    font-size: 12px;
-    color: var(--ink-ghost);
-    margin-top: 4px;
-  }
-
-  /* Neighborhood label */
-  .neighborhood-label {
-    font-family: 'IM Fell English', serif;
-    font-size: 10px;
-    color: var(--ink-ghost);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    opacity: 0.7;
-  }
-
-  /* Tag pills */
-  .tag-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .tag-pill {
-    font-family: 'Caveat', cursive;
-    font-size: 11px;
-    color: var(--ink-ghost);
-    background: rgba(140,110,70,0.08);
-    border: 1px solid rgba(140,110,70,0.15);
-    border-radius: 8px;
-    padding: 1px 8px;
-    line-height: 1.4;
-  }
 </style>
 </head>
 <body>
@@ -595,165 +584,149 @@
     <div class="spine-text">El's Grimoire</div>
   </div>
   <div class="book-pages" id="bookPages">
+    
+    <!-- CREASE with spore dust -->
     <div class="crease" id="crease"></div>
     <canvas class="spore-canvas" id="sporeCanvas"></canvas>
+
+    <!-- Page turn overlay -->
     <div class="page-turn-overlay" id="pageTurnOverlay"></div>
 
+    <!-- LEFT PAGE -->
     <div class="page-left" id="pageLeft">
-      <div class="entry-content" id="leftContent">
-        <div class="cover-content">
-          <div class="loading-message">gathering pages...</div>
-        </div>
-      </div>
-      <div class="page-number" id="pageNumLeft"></div>
+      <div class="entry-content" id="leftContent"></div>
+      <div class="page-number" id="pageNumLeft">i</div>
     </div>
 
+    <!-- RIGHT PAGE -->
     <div class="page-right" id="pageRight">
       <div class="entry-content" id="rightContent"></div>
-      <div class="page-number" id="pageNumRight"></div>
+      <div class="page-number" id="pageNumRight">ii</div>
     </div>
 
-    <button class="turn-prev-btn" id="prevBtn" style="display:none">back</button>
+    <!-- Page turn button -->
     <button class="turn-page-btn" id="turnBtn">turn</button>
   </div>
 </div>
 
 <script>
-// ─── CONFIG ─────────────────────────────────────────────────────────────────
-const HALL_REPO = 'Ariliteth/the-hall';
-const HALL_BRANCH = 'main';
-const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+// ─── DATA ───────────────────────────────────────────────────────────────────
 
-function baseUrl(path) {
-  if (IS_LOCAL) return '/' + path;
-  return `https://raw.githubusercontent.com/${HALL_REPO}/${HALL_BRANCH}/${path}`;
-}
-
-// ─── HUB INTEGRATION ───────────────────────────────────────────────────────
-if (window.parent !== window) {
-  try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
-  try { window.parent.postMessage({ type: 'hub:color', r: 90, g: 110, b: 60 }, '*'); } catch(e) {}
-}
-
-// ─── TUNING PARSER (dual format) ────────────────────────────────────────────
-function parseTuning(md, slug, neighborhood) {
-  const lines = md.split('\n');
-  let name = slug;
-  let category = 'spirit';
-  let description = '';
-  let tags = [];
-  let color = null;
-
-  // Detect format: YAML-like starts with "name:" on first non-empty line
-  const firstLine = lines.find(l => l.trim().length > 0) || '';
-  const isYaml = /^name\s*:/i.test(firstLine);
-
-  if (isYaml) {
-    // Kitchendom format: key: value
-    for (const line of lines) {
-      const kv = line.match(/^(\w[\w\s]*?):\s*(.+)/);
-      if (!kv) continue;
-      const key = kv[1].trim().toLowerCase();
-      const val = kv[2].trim();
-      if (key === 'name') name = val;
-      else if (key === 'category') category = val.toLowerCase();
-      else if (key === 'description') description = val;
-      else if (key === 'tags') {
-        // [a, b, c] or a, b, c
-        const inner = val.replace(/^\[/, '').replace(/\]$/, '');
-        tags = inner.split(',').map(t => t.trim()).filter(Boolean);
-      }
-      else if (key === 'color') {
-        const nums = val.replace(/^\[/, '').replace(/\]$/, '').split(',').map(n => parseInt(n.trim()));
-        if (nums.length === 3 && nums.every(n => !isNaN(n))) color = nums;
-      }
-    }
-  } else {
-    // Markdown format: # Name, **Key:** value
-    const headingLine = lines.find(l => l.startsWith('# '));
-    if (headingLine) name = headingLine.replace('# ', '').trim();
-
-    const catMatch = md.match(/\*\*Category:\*\*\s*(.+)/);
-    if (catMatch) category = catMatch[1].trim().toLowerCase();
-
-    const tagMatch = md.match(/\*\*Tags:\*\*\s*(.+)/);
-    if (tagMatch) tags = tagMatch[1].split(',').map(t => t.trim()).filter(Boolean);
-
-    const colorMatch = md.match(/\*\*Color:\*\*\s*(.+)/);
-    if (colorMatch) {
-      const nums = colorMatch[1].split(',').map(n => parseInt(n.trim()));
-      if (nums.length === 3 && nums.every(n => !isNaN(n))) color = nums;
-    }
-
-    // Description: lines between heading block and first ** or --- that aren't key-value
-    const descLines = [];
-    let pastHeading = false;
-    for (const line of lines) {
-      if (line.startsWith('# ')) { pastHeading = true; continue; }
-      if (!pastHeading) continue;
-      if (line.startsWith('**') || line.startsWith('---') || line.startsWith('*Inscribed')) break;
-      const trimmed = line.trim();
-      if (trimmed) descLines.push(trimmed);
-    }
-    description = descLines.join(' ');
+const entries = [
+  {
+    left: `cover`,
+    right: `cover-right`,
+    pageNums: ['', '']
+  },
+  {
+    left: {
+      title: 'Velvet Sporecap',
+      titleItalic: 'Amanita velutina',
+      entryNum: 'Entry I — Autumn',
+      lines: [
+        { text: 'Found at the base of the old alder, three rings deep.', type: 'normal' },
+        { text: 'The cap splits radially when pressed — releases a perfume', type: 'normal' },
+        { text: 'that is simultaneously mineral and sweet. Dangerous, perhaps.', type: 'normal' },
+        { text: '', type: 'ruled-blank' },
+        { text: 'Color: a deep arterial red fading to amber at the margins.', type: 'italic' },
+        { text: 'When light hits it, you see the color before you see the form.', type: 'italic' },
+      ],
+      swatches: ['#8b2020','#c45a2a','#d4943a','#e8c878'],
+      swatch_label: 'color memory: arterial → amber → gold',
+      illustration: 'mushroom',
+    },
+    right: {
+      title: 'Field Observations',
+      lines: [
+        { text: 'The gills are free, cream-colored, close-set.', type: 'handwritten' },
+        { text: 'Stipe: 8cm, fibrous, with a faint ring at mid-height.', type: 'handwritten' },
+        { text: '', type: 'ruled-blank' },
+        { text: 'What I cannot name yet is the quality of its silence.', type: 'italic' },
+        { text: 'It sits in the leaf litter as if placed there by intention.', type: 'italic' },
+        { text: '', type: 'ruled-blank' },
+      ],
+      marginNote: 'do not eat. do not touch the eyes after handling.',
+      flood: { text: 'Spore print: a rich burgundy — almost purple in low light. This color, if given room, would fill the entire page.', hue: 'rgba(120,40,80,0.15)' },
+      dotGrid: true,
+    },
+    pageNums: ['1', '2']
+  },
+  {
+    left: {
+      title: 'The Pale Moth',
+      titleItalic: 'Acronicta lobeliae',
+      entryNum: 'Entry VII — Late Summer',
+      lines: [
+        { text: 'It came to the lamp three nights running. The wing pattern', type: 'normal' },
+        { text: 'shifts depending on the angle of light — a feature that should', type: 'normal' },
+        { text: 'make it easier to identify and does not.', type: 'normal' },
+        { text: '', type: 'ruled-blank' },
+        { text: 'The body is furred, cream-grey. Legs articulated with', type: 'normal' },
+        { text: 'extraordinary precision.', type: 'normal' },
+      ],
+      swatches: ['#d4cfc0','#a8a090','#7a7468','#4a4840'],
+      swatch_label: 'wing dust: cream → ash → slate',
+      illustration: 'moth',
+    },
+    right: {
+      title: 'Incomplete',
+      lines: [
+        { text: 'The antennae: I did not see them clearly enough.', type: 'handwritten' },
+        { text: 'The hindwings: it never opened them fully.', type: 'handwritten' },
+        { text: '', type: 'ruled-blank' },
+        { text: 'Where the drawing is unfinished, the color comes in:', type: 'italic' },
+        { text: 'a soft, almost apologetic blue that fills the white space', type: 'italic' },
+        { text: 'and pretends to be fact.', type: 'italic' },
+      ],
+      marginNote: 'the blue is not wrong. it is simply what blue knows about moths.',
+      flood: { text: 'Color fills what observation cannot complete. The blue knows something about this creature that sight refuses.', hue: 'rgba(100,130,190,0.18)' },
+      dotGrid: false,
+    },
+    pageNums: ['13', '14']
+  },
+  {
+    left: {
+      title: 'Lichen Psalms',
+      titleItalic: 'Xanthoria parietina — notes on the unmoved',
+      entryNum: 'Entry XIV — All Seasons',
+      lines: [
+        { text: 'Lichen does not grow. It accumulates. There is a difference.', type: 'normal' },
+        { text: 'The orange-yellow species on the south wall has been there', type: 'normal' },
+        { text: 'since before the wall was built, in a sense.', type: 'normal' },
+        { text: '', type: 'ruled-blank' },
+        { text: 'It is two organisms in a covenant neither chose.', type: 'italic' },
+        { text: 'The fungus provides shelter. The alga provides food.', type: 'italic' },
+        { text: 'Neither can leave.', type: 'italic' },
+      ],
+      swatches: ['#d4a830','#c08828','#8a6020','#4a3810'],
+      swatch_label: 'presence: solar → ochre → earth',
+      illustration: 'lichen',
+    },
+    right: {
+      title: 'On Reading the Unreadable',
+      lines: [
+        { text: 'Some patches are too old to distinguish their structure.', type: 'handwritten' },
+        { text: 'They have become uniform. A plane of color only.', type: 'handwritten' },
+        { text: '', type: 'ruled-blank' },
+        { text: 'For these I simply record the color and let it stand', type: 'italic' },
+        { text: 'as the complete observation. Color is the deepest fact.', type: 'italic' },
+        { text: 'Structure is later, and revisable.', type: 'italic' },
+      ],
+      marginNote: 'yellow here means: I have survived everything, including you.',
+      flood: { text: 'When structure dissolves, the yellow remains. It is the oldest information — older than form.', hue: 'rgba(210,170,40,0.18)' },
+      dotGrid: true,
+    },
+    pageNums: ['27', '28']
   }
+];
 
-  return { name, category, description, tags, color, slug, neighborhood };
-}
-
-// ─── NEIGHBORHOOD DEFAULTS ─────────────────────────────────────────────────
-const NEIGHBORHOOD_COLORS = {
-  greengarden: [45, 130, 65],
-  kitchendom: [185, 95, 45],
-  mucklerbuckler: [120, 65, 130],
-};
-
-function entityColor(entity) {
-  return entity.color || NEIGHBORHOOD_COLORS[entity.neighborhood] || [120, 110, 90];
-}
-
-// ─── DATA LOADING ───────────────────────────────────────────────────────────
-async function fetchRegistry() {
-  try {
-    const res = await fetch(baseUrl('registry.json'));
-    if (!res.ok) throw new Error();
-    return await res.json();
-  } catch {
-    return { neighborhoods: {
-      greengarden:    { entities: ['chunxly'] },
-      kitchendom:     { entities: ['briny-broadswordfish'] },
-      mucklerbuckler: { entities: ['scalescream'] },
-    }};
-  }
-}
-
-async function loadEntities() {
-  const reg = await fetchRegistry();
-  const entities = [];
-  for (const [n, entry] of Object.entries(reg.neighborhoods)) {
-    const slugs = Array.isArray(entry) ? entry : (entry.entities || []);
-    for (const slug of slugs) {
-      try {
-        const url = baseUrl(`neighborhoods/${n}/entities/${slug}/tuning.md`);
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const e = parseTuning(await res.text(), slug, n);
-        entities.push(e);
-      } catch {}
-    }
-  }
-  return entities;
-}
-
-// ─── STATE ──────────────────────────────────────────────────────────────────
-let entries = [];
+// ─── STATE ─────────────────────────────────────────────────────────────────
 let currentPage = 0;
 let turning = false;
 
-// ─── SPORE CANVAS ───────────────────────────────────────────────────────────
+// ─── SPORE CANVAS ──────────────────────────────────────────────────────────
 const sporeCanvas = document.getElementById('sporeCanvas');
 const sCtx = sporeCanvas.getContext('2d');
-const sporeColors = ['#b8d4a8','#d4c8e8','#e8d4a0','#c8e0d4','#d4b8c8','#c8d4b0'];
 
 function resizeSporeCanvas() {
   const rect = sporeCanvas.parentElement.getBoundingClientRect();
@@ -761,10 +734,13 @@ function resizeSporeCanvas() {
   sporeCanvas.height = rect.height || 580;
 }
 
+const sporeColors = ['#b8d4a8','#d4c8e8','#e8d4a0','#c8e0d4','#d4b8c8','#c8d4b0'];
+
 function animateSpores() {
   resizeSporeCanvas();
   const h = sporeCanvas.height;
   const w = sporeCanvas.width;
+  
   const particles = [];
   for (let i = 0; i < 18; i++) {
     particles.push({
@@ -782,6 +758,8 @@ function animateSpores() {
 
   function frame() {
     sCtx.clearRect(0, 0, w, h);
+    
+    // Crease line
     const grad = sCtx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, 'rgba(120,90,50,0)');
     grad.addColorStop(0.2, 'rgba(120,90,50,0.12)');
@@ -804,13 +782,16 @@ function animateSpores() {
       }
       p.x += p.vx;
       p.y += p.vy;
-      const alpha = p.glitter
+      
+      const alpha = p.glitter 
         ? Math.abs(Math.sin(Date.now() * 0.003 + p.y)) * p.life
         : p.life * 0.7;
+      
       sCtx.beginPath();
       sCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       sCtx.fillStyle = p.color + Math.floor(alpha * 255).toString(16).padStart(2,'0');
       sCtx.fill();
+      
       if (p.glitter && alpha > 0.4) {
         sCtx.beginPath();
         sCtx.arc(p.x - 0.5, p.y - 0.5, p.r * 0.4, 0, Math.PI * 2);
@@ -818,12 +799,13 @@ function animateSpores() {
         sCtx.fill();
       }
     });
+    
     requestAnimationFrame(frame);
   }
   frame();
 }
 
-// ─── AMBIENT BACKGROUND SPORES ──────────────────────────────────────────────
+// ─── AMBIENT BACKGROUND SPORES ─────────────────────────────────────────────
 function createAmbientSpores() {
   const container = document.getElementById('ambientSpores');
   for (let i = 0; i < 30; i++) {
@@ -845,47 +827,112 @@ function createAmbientSpores() {
   }
 }
 
-// ─── COLOR FLOOD ILLUSTRATION ───────────────────────────────────────────────
-function colorFloodSVG(rgb) {
-  const [r, g, b] = rgb;
-  // Organic shape that breathes — color as the deepest available fact
-  return `<svg viewBox="0 0 320 140" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:140px">
+// ─── ILLUSTRATIONS ─────────────────────────────────────────────────────────
+function mushromSVG() {
+  return `<svg viewBox="0 0 180 140" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:140px">
     <defs>
-      <filter id="cf${r}${g}">
-        <feTurbulence baseFrequency="0.03" numOctaves="4" seed="${r + g + b}" result="noise"/>
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G"/>
-      </filter>
-      <radialGradient id="cg${r}${g}" cx="50%" cy="40%">
-        <stop offset="0%" stop-color="rgb(${r},${g},${b})" stop-opacity="0.7"/>
-        <stop offset="60%" stop-color="rgb(${r},${g},${b})" stop-opacity="0.4"/>
-        <stop offset="100%" stop-color="rgb(${r},${g},${b})" stop-opacity="0.1"/>
+      <radialGradient id="capGrad" cx="45%" cy="30%">
+        <stop offset="0%" stop-color="#c45a2a" stop-opacity="0.9"/>
+        <stop offset="100%" stop-color="#7a1a1a" stop-opacity="0.8"/>
       </radialGradient>
+      <filter id="sketch">
+        <feTurbulence baseFrequency="0.04" numOctaves="4" seed="3" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
     </defs>
-    <!-- color flood — the entity's self before form -->
-    <ellipse cx="160" cy="70" rx="130" ry="55" fill="url(#cg${r}${g})" filter="url(#cf${r}${g})" class="color-region incomplete"/>
-    <!-- edge wisps -->
-    <ellipse cx="80" cy="50" rx="45" ry="25" fill="rgba(${r},${g},${b},0.15)" filter="url(#cf${r}${g})"/>
-    <ellipse cx="230" cy="85" rx="50" ry="20" fill="rgba(${r},${g},${b},0.12)" filter="url(#cf${r}${g})"/>
-    <!-- spore dots at edges of knowledge -->
-    <circle cx="50" cy="35" r="2" fill="rgba(${r},${g},${b},0.5)"/>
-    <circle cx="270" cy="100" r="1.5" fill="rgba(${r},${g},${b},0.4)"/>
-    <circle cx="160" cy="15" r="1" fill="rgba(${r},${g},${b},0.3)"/>
-    <!-- ink notation -->
-    <text x="240" y="130" font-family="Caveat, cursive" font-size="9" fill="rgba(${Math.min(r+40,255)},${Math.min(g+40,255)},${Math.min(b+40,255)},0.4)">awaiting form</text>
+    <!-- cap shadow -->
+    <ellipse cx="90" cy="72" rx="52" ry="6" fill="rgba(80,30,20,0.15)" filter="url(#sketch)"/>
+    <!-- stipe -->
+    <path d="M82 68 Q84 90 85 118 Q90 122 95 118 Q96 90 98 68" fill="#e8d8b0" stroke="#c9a870" stroke-width="0.5" filter="url(#sketch)"/>
+    <!-- ring -->
+    <ellipse cx="90" cy="88" rx="8" ry="2" fill="none" stroke="#c9a870" stroke-width="1" stroke-dasharray="2,1"/>
+    <!-- cap -->
+    <path d="M38 68 Q45 28 90 22 Q135 28 142 68 Q115 74 90 73 Q65 74 38 68Z" fill="url(#capGrad)" filter="url(#sketch)"/>
+    <!-- spots -->
+    <circle cx="72" cy="44" r="5" fill="rgba(240,220,180,0.7)"/>
+    <circle cx="95" cy="36" r="4" fill="rgba(240,220,180,0.6)"/>
+    <circle cx="115" cy="50" r="3.5" fill="rgba(240,220,180,0.5)"/>
+    <circle cx="62" cy="58" r="2.5" fill="rgba(240,220,180,0.4)"/>
+    <!-- ink hatching lines on stipe -->
+    <line x1="86" y1="78" x2="84" y2="95" stroke="rgba(100,70,30,0.2)" stroke-width="0.5"/>
+    <line x1="90" y1="74" x2="89" y2="110" stroke="rgba(100,70,30,0.15)" stroke-width="0.5"/>
+    <line x1="93" y1="78" x2="95" y2="98" stroke="rgba(100,70,30,0.2)" stroke-width="0.5"/>
+    <!-- small leaf -->
+    <path d="M68 108 Q74 98 80 104 Q74 108 68 108Z" fill="rgba(74,103,65,0.5)" stroke="rgba(50,80,40,0.4)" stroke-width="0.5"/>
   </svg>`;
 }
 
-// ─── RENDER ─────────────────────────────────────────────────────────────────
+function mothSVG() {
+  return `<svg viewBox="0 0 180 130" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:130px">
+    <defs>
+      <filter id="sketch2">
+        <feTurbulence baseFrequency="0.05" numOctaves="3" seed="7"/>
+        <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+      </filter>
+    </defs>
+    <!-- left wings -->
+    <path d="M90 65 Q50 20 18 35 Q30 65 45 70 Q65 75 90 72Z" fill="rgba(190,185,170,0.85)" stroke="rgba(80,70,60,0.4)" stroke-width="0.7" filter="url(#sketch2)"/>
+    <path d="M90 72 Q55 85 30 100 Q50 108 72 95 Q85 88 90 80Z" fill="rgba(170,165,150,0.75)" stroke="rgba(80,70,60,0.3)" stroke-width="0.5" filter="url(#sketch2)"/>
+    <!-- right wings -->
+    <path d="M90 65 Q130 20 162 35 Q150 65 135 70 Q115 75 90 72Z" fill="rgba(200,195,180,0.85)" stroke="rgba(80,70,60,0.4)" stroke-width="0.7" filter="url(#sketch2)"/>
+    <path d="M90 72 Q125 85 150 100 Q130 108 108 95 Q95 88 90 80Z" fill="rgba(175,170,155,0.75)" stroke="rgba(80,70,60,0.3)" stroke-width="0.5" filter="url(#sketch2)"/>
+    <!-- wing pattern spots -->
+    <circle cx="58" cy="48" r="6" fill="rgba(100,90,80,0.3)"/>
+    <circle cx="122" cy="48" r="6" fill="rgba(100,90,80,0.3)"/>
+    <!-- body -->
+    <ellipse cx="90" cy="72" rx="5" ry="18" fill="rgba(180,175,160,0.9)" stroke="rgba(80,70,60,0.4)" stroke-width="0.5"/>
+    <!-- antennae - one side complete, one faded (incomplete observation) -->
+    <path d="M88 56 Q80 38 72 30" stroke="rgba(80,70,60,0.7)" stroke-width="0.8" fill="none"/>
+    <circle cx="72" cy="30" r="1.5" fill="rgba(80,70,60,0.6)"/>
+    <path d="M92 56 Q100 38 108 30" stroke="rgba(140,130,120,0.3)" stroke-width="0.6" fill="none" stroke-dasharray="2,1"/>
+    <!-- eye -->
+    <circle cx="88" cy="60" r="1.5" fill="rgba(40,30,20,0.7)"/>
+    <circle cx="92" cy="60" r="1.5" fill="rgba(40,30,20,0.7)"/>
+    <!-- unfinished blue color flood for incomplete wing area -->
+    <path d="M90 72 Q55 85 30 100 Q50 108 72 95 Q85 88 90 80Z" fill="rgba(100,130,190,0.22)"/>
+  </svg>`;
+}
 
-function renderCover(entityCount) {
+function lichenSVG() {
+  return `<svg viewBox="0 0 180 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:120px">
+    <defs>
+      <filter id="rough">
+        <feTurbulence baseFrequency="0.08" numOctaves="4" seed="12"/>
+        <feDisplacementMap in="SourceGraphic" scale="3"/>
+      </filter>
+    </defs>
+    <!-- stone surface -->
+    <rect x="10" y="70" width="160" height="40" rx="3" fill="rgba(160,150,140,0.4)" filter="url(#rough)"/>
+    <!-- lichen patches - xanthoria style -->
+    <path d="M30 68 Q45 45 60 50 Q75 48 80 62 Q70 75 50 78 Q32 76 30 68Z" fill="rgba(210,165,30,0.8)" filter="url(#rough)"/>
+    <path d="M55 60 Q70 38 88 44 Q100 42 104 58 Q95 70 75 72 Q56 70 55 60Z" fill="rgba(195,150,25,0.75)" filter="url(#rough)"/>
+    <path d="M100 65 Q112 50 128 55 Q140 53 144 66 Q136 78 118 80 Q100 78 100 65Z" fill="rgba(220,175,35,0.8)" filter="url(#rough)"/>
+    <!-- lobes detail -->
+    <path d="M38 66 Q42 58 50 60 Q48 68 38 66Z" fill="rgba(240,200,50,0.6)"/>
+    <path d="M65 56 Q70 48 78 52 Q74 60 65 56Z" fill="rgba(230,185,40,0.6)"/>
+    <path d="M108 62 Q114 54 122 57 Q118 66 108 62Z" fill="rgba(240,200,50,0.6)"/>
+    <!-- apothecia (fruiting bodies) -->
+    <circle cx="52" cy="65" r="3.5" fill="rgba(140,80,20,0.8)"/>
+    <circle cx="52" cy="65" r="2" fill="rgba(100,50,15,0.9)"/>
+    <circle cx="80" cy="60" r="3" fill="rgba(150,90,25,0.7)"/>
+    <circle cx="122" cy="66" r="4" fill="rgba(140,80,20,0.8)"/>
+    <circle cx="122" cy="66" r="2.5" fill="rgba(100,50,15,0.9)"/>
+    <!-- ink contour notes -->
+    <text x="15" y="110" font-family="Caveat, cursive" font-size="8" fill="rgba(80,60,30,0.5)">wall face, south aspect</text>
+    <text x="120" y="110" font-family="Caveat, cursive" font-size="8" fill="rgba(80,60,30,0.5)">scale: ~22cm</text>
+  </svg>`;
+}
+
+// ─── RENDER ────────────────────────────────────────────────────────────────
+
+function renderCover() {
   return `<div class="cover-content">
     <div style="font-family:'IM Fell English',serif;font-size:11px;color:var(--ink-ghost);letter-spacing:3px;text-transform:uppercase;">A Field Grimoire</div>
     <div class="cover-title">El's Grimoire</div>
     <div class="cover-subtitle">Observations of small, persistent, often overlooked things — their colors, their silences, their refusal to be fully named.</div>
     <div class="gold-rule" style="width:60%;margin:8px auto"></div>
     <div class="cover-author">E. L. — ongoing</div>
-    <div class="entity-count">${entityCount} resident${entityCount !== 1 ? 's' : ''} inscribed</div>
-    <div class="open-prompt" onclick="turnToPage(1)">open the book ›</div>
+    <div class="open-prompt" id="openPrompt" onclick="nextPage()">open the book ›</div>
   </div>`;
 }
 
@@ -904,110 +951,54 @@ function renderCoverRight() {
   </div>`;
 }
 
-function romanize(num) {
-  const vals = [1000,900,500,400,100,90,50,40,10,9,5,4,1];
-  const syms = ['M','CM','D','CD','C','XC','L','XL','X','IX','V','IV','I'];
-  let result = '';
-  for (let i = 0; i < vals.length; i++) {
-    while (num >= vals[i]) { result += syms[i]; num -= vals[i]; }
-  }
-  return result;
-}
-
-function wrapDescription(text, maxCharsPerLine) {
-  if (!text) return [];
-  const words = text.split(' ');
-  const lines = [];
-  let current = '';
-  for (const word of words) {
-    if (current.length + word.length + 1 > maxCharsPerLine && current.length > 0) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = current ? current + ' ' + word : word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
-function renderEntityLeft(entity, index) {
-  const rgb = entityColor(entity);
-  const entryNum = `Entry ${romanize(index + 1)} — ${entity.neighborhood}`;
-  const descLines = wrapDescription(entity.description, 55);
-  const swatchBase = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-  // Generate a swatch gradient from the entity color
-  const swatches = [
-    swatchBase,
-    `rgb(${Math.min(rgb[0]+30,255)},${Math.min(rgb[1]+30,255)},${Math.min(rgb[2]+30,255)})`,
-    `rgb(${Math.max(rgb[0]-30,0)},${Math.max(rgb[1]-30,0)},${Math.max(rgb[2]-30,0)})`,
-    `rgb(${Math.min(rgb[0]+60,255)},${Math.min(rgb[1]+20,255)},${Math.min(rgb[2]+40,255)})`,
-  ];
-
+function renderLeft(entry) {
+  if (!entry || entry === 'cover') return renderCover();
+  const illus = entry.illustration === 'mushroom' ? mushromSVG() 
+    : entry.illustration === 'moth' ? mothSVG() 
+    : lichenSVG();
+  
   return `
-    <div class="entry-number">${entryNum}</div>
-    <div class="entry-title">${entity.name}<br><em style="font-size:14px">${entity.category}</em></div>
+    <div class="entry-number">${entry.entryNum}</div>
+    <div class="entry-title">${entry.title}<br><em style="font-size:14px">${entry.titleItalic}</em></div>
     <div class="gold-rule"></div>
-    <div class="illustration" style="height:148px">${colorFloodSVG(rgb)}</div>
+    <div class="illustration" style="height:${entry.illustration==='mushroom'?'148px':entry.illustration==='moth'?'138px':'128px'}">${illus}</div>
     <div class="color-swatches">
-      ${swatches.map(c => `<div class="swatch" style="background:${c}" title="${c}"></div>`).join('')}
-      <span class="swatch-label">color: ${rgb.join(', ')}</span>
+      ${entry.swatches.map(c => `<div class="swatch" style="background:${c}" title="${c}"></div>`).join('')}
+      <span class="swatch-label">${entry.swatch_label}</span>
     </div>
-    ${descLines.map(l => `<div class="ruled-line">${l}</div>`).join('')}
+    ${entry.lines.map(l => {
+      if (l.type === 'ruled-blank') return `<div style="border-bottom:1px solid rgba(140,110,70,0.15);height:6px;margin-bottom:4px"></div>`;
+      return `<div class="ruled-line ${l.type === 'italic' ? 'italic' : l.type === 'handwritten' ? 'handwritten' : ''}">${l.text}</div>`;
+    }).join('')}
   `;
 }
 
-function renderEntityRight(entity, index) {
-  const rgb = entityColor(entity);
-  const floodHue = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.15)`;
-  const tagNote = entity.tags.length > 0
-    ? entity.tags.slice(0, 5).join(', ')
-    : 'not yet observed closely enough';
-
-  // Seed dot grid from entity slug
-  const seedHash = entity.slug.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+function renderRight(entry) {
+  if (!entry || entry === 'cover-right') return renderCoverRight();
+  
+  const dotGrid = entry.dotGrid ? `
+    <div class="section-head" style="margin-top:4px">Spore Pattern</div>
+    <div class="dot-grid" id="dotGrid">
+      ${Array(36).fill(0).map((_,i) => `<div class="dot-cell${Math.random()>0.65?' lit':''}" data-i="${i}"></div>`).join('')}
+    </div>` : '';
 
   return `
-    <div class="section-head">${entity.neighborhood}</div>
+    <div class="section-head">${entry.title}</div>
     <div class="gold-rule"></div>
-    <div class="neighborhood-label">${entity.category} — resident</div>
-    <div style="border-bottom:1px solid rgba(140,110,70,0.15);height:6px;margin-bottom:4px"></div>
+    ${entry.lines.map(l => {
+      if (l.type === 'ruled-blank') return `<div style="border-bottom:1px solid rgba(140,110,70,0.15);height:6px;margin-bottom:4px"></div>`;
+      return `<div class="ruled-line ${l.type === 'italic' ? 'italic' : l.type === 'handwritten' ? 'handwritten' : ''}">${l.text}</div>`;
+    }).join('')}
     <div class="margin-bracket">
-      <div class="margin-note">${tagNote}</div>
+      <div class="margin-note">${entry.marginNote}</div>
     </div>
-    ${entity.tags.length > 0 ? `
-    <div class="section-head" style="margin-top:4px">Observed Qualities</div>
-    <div class="tag-row">
-      ${entity.tags.map(t => `<span class="tag-pill">${t}</span>`).join('')}
-    </div>` : ''}
-    <div class="section-head" style="margin-top:8px">Spore Pattern</div>
-    <div class="dot-grid">
-      ${Array(36).fill(0).map((_, i) => {
-        const lit = ((seedHash * (i + 1) * 7) % 100) > 60;
-        return `<div class="dot-cell${lit ? ' lit' : ''}" data-i="${i}"></div>`;
-      }).join('')}
-    </div>
-    <div class="flood-zone" style="margin-top:8px;--flood-hue:${floodHue};padding:8px;border:1px dashed rgba(140,110,70,0.25);border-radius:2px">
+    ${dotGrid}
+    <div class="flood-zone" style="margin-top:8px;--flood-hue:${entry.flood.hue};padding:8px;border:1px dashed rgba(140,110,70,0.25);border-radius:2px">
       <div class="flood-color"></div>
       <div class="section-head">Color Note</div>
-      <div class="ruled-line italic" style="font-size:11px">The color here is what is known before the form resolves. It is the oldest information — older than shape.</div>
+      <div class="ruled-line italic" style="font-size:11px">${entry.flood.text}</div>
     </div>
   `;
-}
-
-function buildEntries(entities) {
-  const pages = [
-    { type: 'cover', pageNums: ['', ''] }
-  ];
-  entities.forEach((entity, i) => {
-    pages.push({
-      type: 'entity',
-      entity: entity,
-      index: i,
-      pageNums: [String(i * 2 + 1), String(i * 2 + 2)]
-    });
-  });
-  return pages;
 }
 
 function setPage(idx) {
@@ -1016,91 +1007,72 @@ function setPage(idx) {
   const rightEl = document.getElementById('rightContent');
   const pnL = document.getElementById('pageNumLeft');
   const pnR = document.getElementById('pageNumRight');
-  const prevBtn = document.getElementById('prevBtn');
-
-  if (e.type === 'cover') {
-    leftEl.innerHTML = renderCover(entries.length - 1);
-    rightEl.innerHTML = renderCoverRight();
-  } else {
-    leftEl.innerHTML = renderEntityLeft(e.entity, e.index);
-    rightEl.innerHTML = renderEntityRight(e.entity, e.index);
-  }
-
+  
+  leftEl.innerHTML = renderLeft(e.left);
+  rightEl.innerHTML = renderRight(e.right);
   pnL.textContent = e.pageNums[0];
   pnR.textContent = e.pageNums[1];
 
-  // Show/hide back button
-  prevBtn.style.display = idx > 0 ? '' : 'none';
-
-  // Bind dot grid clicks
+  // Bind dot grid
   setTimeout(() => {
     document.querySelectorAll('.dot-cell').forEach(cell => {
-      cell.addEventListener('click', () => cell.classList.toggle('lit'));
+      cell.addEventListener('click', () => {
+        cell.classList.toggle('lit');
+      });
     });
   }, 100);
 }
 
-// ─── PAGE TURN ──────────────────────────────────────────────────────────────
-function turnToPage(targetIdx) {
+// ─── PAGE TURN ─────────────────────────────────────────────────────────────
+function nextPage() {
   if (turning) return;
-  if (targetIdx < 0 || targetIdx >= entries.length) return;
-
+  if (currentPage >= entries.length - 1) {
+    currentPage = 0;
+  } else {
+    currentPage++;
+  }
+  
   turning = true;
-  currentPage = targetIdx;
-
   const overlay = document.getElementById('pageTurnOverlay');
   const grimoire = document.getElementById('grimoire');
-
+  
+  // Creak the book
   grimoire.classList.add('turning');
   setTimeout(() => grimoire.classList.remove('turning'), 350);
-
+  
+  // Fade content
   document.getElementById('leftContent').classList.add('fading');
   document.getElementById('rightContent').classList.add('fading');
-
+  
+  // Page turn animation
   overlay.classList.add('turning');
-
+  
   setTimeout(() => {
     setPage(currentPage);
     document.getElementById('leftContent').classList.remove('fading');
     document.getElementById('rightContent').classList.remove('fading');
   }, 400);
-
+  
   setTimeout(() => {
     overlay.classList.remove('turning');
     turning = false;
   }, 900);
 }
 
-function nextPage() {
-  if (currentPage >= entries.length - 1) {
-    turnToPage(0);
-  } else {
-    turnToPage(currentPage + 1);
-  }
-}
-
-function prevPage() {
-  if (currentPage > 0) turnToPage(currentPage - 1);
-}
-
 document.getElementById('turnBtn').addEventListener('click', nextPage);
-document.getElementById('prevBtn').addEventListener('click', prevPage);
 
-// Click right edge to turn forward
+// Click anywhere on right edge to turn
 document.getElementById('pageRight').addEventListener('click', (e) => {
-  if (e.target.closest('.flood-zone') || e.target.closest('.dot-cell') || e.target.closest('.tag-pill')) return;
+  if (e.target.closest('.flood-zone') || e.target.closest('.dot-cell')) return;
+  // only right portion
   const rect = document.getElementById('bookPages').getBoundingClientRect();
   if (e.clientX > rect.left + rect.width * 0.8) nextPage();
 });
 
-// ─── INIT ───────────────────────────────────────────────────────────────────
+// ─── INIT ──────────────────────────────────────────────────────────────────
 createAmbientSpores();
 animateSpores();
-
-loadEntities().then(entities => {
-  entries = buildEntries(entities);
-  setPage(0);
-});
+setPage(0);
 </script>
 </body>
 </html>
