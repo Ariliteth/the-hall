@@ -80,7 +80,7 @@ neighborhoods/
 baseline-theme/
 concessions/
   Fixed_Point_Local_Design_Document_v0_995.md
-  storeroom/             ← in-development score (working folder)
+  storeroom/             ← design doc (score lives at scores/storeroom/)
   [design docs, lore, held ideas, tools]
 scores/
   grimoire/              ← built Grimoire, served from hub (Vite build)
@@ -271,7 +271,7 @@ Active files in `concessions/`:
 - `CONVERGENCE.md`, `CONTEXT_WINDOW_CONTACTS.md` — Cross-system architecture
 - `MALL_WALKER_SPEC.md` — Sunset Ridge Mall design
 - `WHAT_FPL_IS.md` — Core fiction and philosophy
-- `storeroom/` — In-development score (working folder + design doc)
+- `storeroom/` — Storeroom design doc (score promoted to `scores/storeroom/`)
 
 *Lore and held ideas:*
 - `scraggle-origin.md` — Origin story of Scraggles
@@ -403,9 +403,9 @@ Creature-authoring tool. Draw creatures inside organic scribbled containers (not
 
 The correct move is visible from the start. Everything else is talking yourself out of it. Accepts FPL context gracefully.
 
-### Storeroom *(in development)*
+### Storeroom
 
-*Lives at `concessions/storeroom/`. Not yet promoted to scores/.*
+*Lives at `scores/storeroom/`. Design doc at `concessions/storeroom/`.*
 
 A game about tending things that can't ask clearly. Data-driven objects via `OBJECT_DEFS` + `createObject()`. Three interaction types: tap, swipe, hold. Object personality system: latent preferences, tolerance narrowing (never widens), idle behavior evolution, lifecycle (present → developing → particular → departed → outline → ghost). First object: Brenda (swipe, shelf 1, "MISC"). Design doc: `concessions/storeroom/storeroom-design-doc.docx`.
 
@@ -479,7 +479,7 @@ interaction. You might nudge a plant. It might shift a wave. Neither announces t
 
 **Done:** Entity persistence. The Living Grimoire. Critter Crank (vanilla port). Hunter Encounter. Three neighborhoods. Hub as host with frame architecture, postMessage protocol, Scraggle toasts. Registry auto-sync. Direct commit from Grimoire. Portrait return pathway end-to-end. Baseline Theme. Sunset Ridge Mall. Color Pin Maze with all three pin types, layers, kiwis, The Third. Maze-to-Crank handoff. Crank encounter arc with stats/traits/world inventory. EFDP animation rigs. SILMOR Spells with dice/spell/fumble systems, pixel sprites, DOC.GEN. LODE with full stomp/fleet/star-field/periphery/trajectory systems. 報 · GENERALS with dispatch/vendetta/title/advisor systems. Chunxly's Canvas with round-trip pipeline, conviction scoring, fairy companion, Chunxme's Stall (mustache persona, procedural canvas reading, item generation from pixels). Shoot the Moon. S.Mail with sender seed, strip renderer, arrangement log. Color Canvas — RGB color in every entity tuning, Temperature of the Room in the Third, hub ambient wash, hub:color postMessage. The Hall Pulse — 45s heartbeat, hudBreath, Mall idle listener with named restock and ambient fallback (real light flicker). Color-Routed Scraggles — extended format with color/weight/id/origin, persistent storage with pulse decay, color distance routing. EFDP Scraggle witness overlay. Mall color-aware Scraggle listener. Repository cleaned — twelve scores on the rack, one build step (Grimoire), everything else vanilla.
 
-**Next:** `fixedpointlocal.com` pointing at the repo via GitHub Pages — the hub is already a static site, the path is clear. Tending Field: underwater twilight aesthetic, produce snow, Float the Farm consensus. Storeroom: promote to scores/ when ready. Fairy edges → EFDP skeleton (corridor creation from structural data). LODE: fleet autonomy, declaration influence, d50/d100 (the quiet). Bao: specialist unlock, correspondence front, council scene.
+**Next:** `fixedpointlocal.com` pointing at the repo via GitHub Pages — the hub is already a static site, the path is clear. Tending Field: underwater twilight aesthetic, produce snow, Float the Farm consensus. Storeroom: on the rack. Fairy edges → EFDP skeleton (corridor creation from structural data). LODE: fleet autonomy, declaration influence, d50/d100 (the quiet). Bao: specialist unlock, correspondence front, council scene.
 
 **Then:** Relationtips in Roastbeefwick. Kitchendom Action entities. Mucklerbuckler Theme. Cross-Score item pipeline (Mall → Field via color-routed Scraggles — routing infrastructure is in place, needs emitter and renderer). Anteroom. Hub Audio Memory (volume as hub concern, musical state carried across Scores). Mall ambient audio actions (elevator chime, muzak shift, footsteps).
 
