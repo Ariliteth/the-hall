@@ -29,9 +29,10 @@ No hub integration, no data pipeline, no registry connection yet.
 - Page numbering from entity count
 - Navigation: page turn through all entities, back button, possible index/table of contents
 
-### Phase 2: Crank Pipeline Reception
+### Phase 2: Crank Pipeline Reception ← NEXT (pipeline now proven)
 - Accept Crank output as entity illustrations (replaces hardcoded SVGs)
 - Read `baseline-session/portraits-queue` — render Crank portraits as the illustration on an entity's page
+- The Chunxly → Crank pipeline is now end-to-end: PNG drop → name → analysis → CrankSeed with slug + color clusters → Crank direct mode → catch → portrait in queue with entity slug. **Grimoire needs to read this queue and display portraits on entity pages.**
 - Read `critter-collection-v2` for creature data when building new entity pages
 - Crank portal: tap an entity's illustration/glyph to open Crank with entity context (write `crank-glyph-source` to localStorage)
 - Illustrations can arrive, change, hold color variations. El receives what exists without waiting for perfection.
