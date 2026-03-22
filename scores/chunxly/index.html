@@ -4308,6 +4308,18 @@ function promptCreatureName(onSubmit) {
   const $input = document.getElementById('creatureNameInput');
   const $go = document.getElementById('btnCreatureName');
 
+  // Pre-fill from exploration handoff (Grimoire inscription writes this)
+  try {
+    const raw = localStorage.getItem('baseline-session/exploration-entity');
+    if (raw) {
+      const exp = JSON.parse(raw);
+      if (exp.name && (Date.now() - (exp.writtenAt || 0)) < 1000 * 60 * 60 * 24) {
+        $input.value = exp.name;
+        // Don't clear yet — Crank seed will carry the slug through the pipeline
+      }
+    }
+  } catch(e) {}
+
   function submit() {
     const name = $input.value.trim();
     if (!name) return;

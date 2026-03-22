@@ -737,6 +737,133 @@
     border: none;
   }
   .toc-return:hover { opacity: 1; color: var(--gold-dim); }
+
+  /* ─── INSCRIPTION ────────────────────────────────── */
+  .inscribe-field {
+    font-family: 'Caveat', cursive;
+    font-size: 15px;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(140,110,70,0.3);
+    outline: none;
+    width: 100%;
+    padding: 4px 0;
+    margin-bottom: 4px;
+    line-height: 1.6;
+  }
+  .inscribe-field::placeholder {
+    color: var(--ink-ghost);
+    opacity: 0.6;
+    font-style: italic;
+  }
+  .inscribe-field:focus {
+    border-bottom-color: var(--gold-dim);
+  }
+  textarea.inscribe-field {
+    resize: none;
+    min-height: 44px;
+    font-family: 'Lora', serif;
+    font-size: 12px;
+  }
+  .inscribe-select {
+    font-family: 'Caveat', cursive;
+    font-size: 14px;
+    color: var(--ink);
+    background: rgba(140,110,70,0.06);
+    border: 1px solid rgba(140,110,70,0.2);
+    border-radius: 3px;
+    padding: 3px 8px;
+    outline: none;
+    cursor: pointer;
+  }
+  .inscribe-select:focus { border-color: var(--gold-dim); }
+
+  .color-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .color-input-row input[type="number"] {
+    font-family: 'Caveat', cursive;
+    font-size: 14px;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(140,110,70,0.3);
+    width: 36px;
+    text-align: center;
+    outline: none;
+    padding: 2px 0;
+  }
+  .color-input-row input[type="number"]:focus {
+    border-bottom-color: var(--gold-dim);
+  }
+  .color-preview-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(80,50,20,0.2);
+    transition: background 0.3s;
+  }
+
+  .inscribe-btn {
+    font-family: 'IM Fell English', serif;
+    font-size: 12px;
+    color: var(--gold-dim);
+    background: none;
+    border: 1px solid var(--gold-dim);
+    border-radius: 3px;
+    padding: 6px 18px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.3s;
+    margin-top: 8px;
+  }
+  .inscribe-btn:hover { color: var(--gold); border-color: var(--gold); }
+  .inscribe-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .inscribe-status {
+    font-family: 'Caveat', cursive;
+    font-size: 12px;
+    color: var(--moss);
+    margin-top: 4px;
+    min-height: 16px;
+  }
+  .inscribe-status.error { color: #a04030; }
+
+  .inscribe-link {
+    font-family: 'Caveat', cursive;
+    font-size: 12px;
+    color: var(--gold-dim);
+    cursor: pointer;
+    margin-top: 8px;
+    opacity: 0.7;
+    transition: opacity 0.3s, color 0.3s;
+  }
+  .inscribe-link:hover { opacity: 1; color: var(--gold); }
+
+  .token-field {
+    font-family: monospace;
+    font-size: 10px;
+    color: var(--ink-faded);
+    background: rgba(140,110,70,0.06);
+    border: 1px solid rgba(140,110,70,0.15);
+    border-radius: 3px;
+    padding: 4px 8px;
+    width: 100%;
+    outline: none;
+  }
+  .token-field:focus { border-color: var(--gold-dim); }
+  .token-status {
+    font-family: 'Caveat', cursive;
+    font-size: 10px;
+    color: var(--moss);
+    margin-top: 2px;
+  }
 </style>
 </head>
 <body>
@@ -785,9 +912,94 @@ function baseUrl(path) {
 }
 
 // ─── HUB INTEGRATION ───────────────────────────────────────────────────────
-if (window.parent !== window) {
-  try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
-  try { window.parent.postMessage({ type: 'hub:color', r: 90, g: 110, b: 60 }, '*'); } catch(e) {}
+function hubMsg(type, data = {}) {
+  if (window.parent === window) return;
+  try { window.parent.postMessage({ type, ...data }, '*'); } catch(e) {}
+}
+
+function emitScraggle(emoji, signal) {
+  hubMsg('hub:scraggle', { emoji, signal });
+}
+
+hubMsg('hub:minimize');
+hubMsg('hub:color', { r: 90, g: 110, b: 60 });
+
+// ─── GITHUB WRITE LAYER ─────────────────────────────────────────────────────
+const GITHUB_API = 'https://api.github.com';
+let ghToken = localStorage.getItem('grimoire-gh-token') || '';
+
+function saveToken(t) {
+  ghToken = t.trim();
+  localStorage.setItem('grimoire-gh-token', ghToken);
+}
+
+async function getFileSha(path) {
+  const res = await fetch(`${GITHUB_API}/repos/${HALL_REPO}/contents/${path}`, {
+    headers: { 'Authorization': 'token ' + ghToken, 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.sha || null;
+}
+
+async function writeRepoFile(path, content, message) {
+  const sha = await getFileSha(path);
+  const body = {
+    message,
+    content: btoa(unescape(encodeURIComponent(content))),
+    branch: HALL_BRANCH,
+  };
+  if (sha) body.sha = sha;
+  const res = await fetch(`${GITHUB_API}/repos/${HALL_REPO}/contents/${path}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': 'token ' + ghToken,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'GitHub write failed: ' + res.status);
+  }
+  return res.json();
+}
+
+function slugify(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function generateTuningMd(data) {
+  const today = new Date().toISOString().slice(0, 10);
+  const lines = [
+    `name: ${data.name}`,
+    `category: ${data.category}`,
+  ];
+  if (data.description) lines.push(`description: ${data.description}`);
+  if (data.tags.length) lines.push(`tags: [${data.tags.join(', ')}]`);
+  if (data.color) lines.push(`color: [${data.color.join(', ')}]`);
+  lines.push(`remembering: (awaiting first memory)`);
+  lines.push(`forgetting: (awaiting first memory)`);
+  lines.push(`memory capacity: (undefined)`);
+  lines.push('');
+  lines.push(`*Inscribed ${today}*`);
+  lines.push('');
+  return lines.join('\n');
+}
+
+async function inscribeEntity(data) {
+  const slug = slugify(data.name);
+  const base = `neighborhoods/${data.neighborhood}/entities/${slug}`;
+  const tuning = generateTuningMd(data);
+  const memory = `<!-- ${data.name} memory — emoji string goes here -->\n`;
+  const journal = `# ${data.name} — Journal\n\n*No entries yet.*\n`;
+
+  await writeRepoFile(`${base}/tuning.md`, tuning, `Inscribe ${data.name} into ${data.neighborhood}`);
+  await writeRepoFile(`${base}/memory.md`, memory, `Add memory stub for ${data.name}`);
+  await writeRepoFile(`${base}/journal.md`, journal, `Add journal stub for ${data.name}`);
+
+  return slug;
 }
 
 // ─── TUNING PARSER (dual format) ────────────────────────────────────────────
@@ -1336,10 +1548,14 @@ function renderTocRight(byHood, pageMap) {
     }
   }
 
-  // Spore dust key at bottom
-  html += `<div style="margin-top:auto;display:flex;align-items:center;gap:8px">
-    <div style="font-family:'Caveat',cursive;font-size:11px;color:var(--ink-ghost)">spore dust key:</div>
-    ${['#b8d4a8','#d4c8e8','#e8d4a0','#c8e0d4'].map(c => `<div style="width:8px;height:8px;border-radius:50%;background:${c};border:1px solid rgba(80,50,20,0.2)"></div>`).join('')}
+  // Inscribe link + spore dust key at bottom
+  const inscribeIdx = entries.findIndex(e => e.type === 'inscribe');
+  html += `<div style="margin-top:auto;display:flex;flex-direction:column;gap:6px">
+    ${inscribeIdx >= 0 ? `<div class="inscribe-link" onclick="turnToPage(${inscribeIdx})">+ inscribe a new entity</div>` : ''}
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="font-family:'Caveat',cursive;font-size:11px;color:var(--ink-ghost)">spore dust key:</div>
+      ${['#b8d4a8','#d4c8e8','#e8d4a0','#c8e0d4'].map(c => `<div style="width:8px;height:8px;border-radius:50%;background:${c};border:1px solid rgba(80,50,20,0.2)"></div>`).join('')}
+    </div>
   </div>`;
 
   return html;
@@ -1374,6 +1590,158 @@ function renderDividerRight(hood, entities) {
       </div>
     </div>
   `;
+}
+
+// ─── INSCRIPTION PAGES ──────────────────────────────────────────────────────
+function renderInscribeLeft() {
+  const hasToken = ghToken.length > 0;
+  return `
+    <div class="entry-number">A Blank Page</div>
+    <div class="entry-title">Inscribe<br><em style="font-size:14px">a new entity</em></div>
+    <div class="gold-rule"></div>
+    <div class="section-head">Name</div>
+    <input class="inscribe-field" id="inscName" placeholder="what is it called?" autocomplete="off">
+    <div class="section-head" style="margin-top:4px">Category</div>
+    <select class="inscribe-select" id="inscCategory">
+      <option value="creature">creature</option>
+      <option value="spirit">spirit</option>
+      <option value="location">location</option>
+      <option value="tendency">tendency</option>
+      <option value="object">object</option>
+      <option value="action">action</option>
+    </select>
+    <div class="section-head" style="margin-top:6px">Neighborhood</div>
+    <select class="inscribe-select" id="inscHood">
+      <option value="greengarden">Greengarden</option>
+      <option value="kitchendom">The Kitchendom</option>
+      <option value="mucklerbuckler">Mucklerbuckler</option>
+    </select>
+    <div class="section-head" style="margin-top:6px">Description</div>
+    <textarea class="inscribe-field" id="inscDesc" placeholder="what has been observed so far..." rows="2"></textarea>
+    <div class="section-head" style="margin-top:4px">Tags</div>
+    <input class="inscribe-field" id="inscTags" placeholder="comma-separated qualities" autocomplete="off">
+  `;
+}
+
+function renderInscribeRight() {
+  const hasToken = ghToken.length > 0;
+  return `
+    <div class="section-head">Color</div>
+    <div class="color-input-row">
+      <div class="color-preview-dot" id="inscColorDot" style="background:rgb(128,128,128)"></div>
+      <input type="number" id="inscR" min="0" max="255" value="128" placeholder="R">
+      <input type="number" id="inscG" min="0" max="255" value="128" placeholder="G">
+      <input type="number" id="inscB" min="0" max="255" value="128" placeholder="B">
+    </div>
+    <div class="gold-rule" style="margin-top:10px"></div>
+    <div class="section-head">GitHub Token</div>
+    <div style="font-family:'Caveat',cursive;font-size:10px;color:var(--ink-ghost);margin-bottom:4px">
+      ${hasToken ? 'token saved — paste to replace' : 'required for inscription (contents:write scope)'}
+    </div>
+    <input type="password" class="token-field" id="inscToken" placeholder="ghp_..." value="">
+    <div class="token-status" id="tokenStatus">${hasToken ? 'token stored locally' : ''}</div>
+    <div class="gold-rule" style="margin-top:10px"></div>
+    <button class="inscribe-btn" id="inscribeBtn" onclick="doInscription()">Inscribe</button>
+    <div class="inscribe-status" id="inscStatus"></div>
+    <div class="margin-bracket" style="margin-top:auto">
+      <div class="margin-note">each inscription commits to the Hall's repository — the registry will find them shortly</div>
+    </div>
+  `;
+}
+
+function bindInscriptionEvents() {
+  setTimeout(() => {
+    const rEl = document.getElementById('inscR');
+    const gEl = document.getElementById('inscG');
+    const bEl = document.getElementById('inscB');
+    const dot = document.getElementById('inscColorDot');
+    const tokenInput = document.getElementById('inscToken');
+
+    function updateDot() {
+      if (!rEl || !gEl || !bEl || !dot) return;
+      dot.style.background = `rgb(${rEl.value},${gEl.value},${bEl.value})`;
+    }
+    if (rEl) rEl.addEventListener('input', updateDot);
+    if (gEl) gEl.addEventListener('input', updateDot);
+    if (bEl) bEl.addEventListener('input', updateDot);
+
+    if (tokenInput) {
+      tokenInput.addEventListener('change', () => {
+        if (tokenInput.value.trim()) {
+          saveToken(tokenInput.value);
+          tokenInput.value = '';
+          const status = document.getElementById('tokenStatus');
+          if (status) status.textContent = 'token saved';
+        }
+      });
+    }
+  }, 50);
+}
+
+async function doInscription() {
+  const name = document.getElementById('inscName')?.value.trim();
+  const category = document.getElementById('inscCategory')?.value;
+  const hood = document.getElementById('inscHood')?.value;
+  const desc = document.getElementById('inscDesc')?.value.trim();
+  const tagsRaw = document.getElementById('inscTags')?.value.trim();
+  const r = parseInt(document.getElementById('inscR')?.value) || 128;
+  const g = parseInt(document.getElementById('inscG')?.value) || 128;
+  const b = parseInt(document.getElementById('inscB')?.value) || 128;
+
+  const statusEl = document.getElementById('inscStatus');
+  const btn = document.getElementById('inscribeBtn');
+
+  if (!name) { statusEl.textContent = 'a name is needed'; statusEl.className = 'inscribe-status error'; return; }
+  if (!ghToken) { statusEl.textContent = 'no GitHub token — paste one above'; statusEl.className = 'inscribe-status error'; return; }
+
+  const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const color = [r, g, b];
+
+  btn.disabled = true;
+  statusEl.textContent = 'writing...';
+  statusEl.className = 'inscribe-status';
+
+  try {
+    const slug = await inscribeEntity({ name, category, neighborhood: hood, description: desc, tags, color });
+
+    // Write exploration handoff — Chunxly will pick this up and pre-fill the entity name
+    try {
+      localStorage.setItem('baseline-session/exploration-entity', JSON.stringify({
+        slug, name, neighborhood: hood, color, tags, category,
+        writtenAt: Date.now(),
+        source: 'grimoire-inscription'
+      }));
+    } catch(e) {}
+
+    statusEl.textContent = `${name} has been inscribed. the registry will find them shortly.`;
+    emitScraggle('📖', `${name} inscribed into ${HOOD_DISPLAY[hood] || hood}`);
+
+    // Insert locally so they appear immediately
+    const entity = {
+      name, category, description: desc, tags, color, slug, neighborhood: hood,
+      remembering: null, forgetting: null, memoryCapacity: null,
+      glyphSvg: null, portraits: null, portrait: null,
+    };
+    if (!entries._byHood[hood]) entries._byHood[hood] = [];
+    entries._byHood[hood].push(entity);
+    entries._byHood[hood].sort((a, b) => a.name.localeCompare(b.name));
+
+    // Rebuild pages and navigate to new entity
+    entries.length = 0;
+    const rebuilt = buildEntries(entries._byHood);
+    for (const p of rebuilt) entries.push(p);
+    entries._pageMap = rebuilt._pageMap;
+    entries._byHood = rebuilt._byHood;
+
+    const newPageIdx = entries._pageMap.get(slug);
+    if (newPageIdx !== undefined) {
+      setTimeout(() => turnToPage(newPageIdx), 800);
+    }
+  } catch (err) {
+    statusEl.textContent = err.message || 'inscription failed';
+    statusEl.className = 'inscribe-status error';
+    btn.disabled = false;
+  }
 }
 
 // ─── PAGE MODEL ──────────────────────────────────────────────────────────────
@@ -1431,6 +1799,12 @@ function buildEntries(byHood) {
     }
   }
 
+  // Inscription spread at the end
+  pages.push({
+    type: 'inscribe',
+    pageNums: [String(pageNum), String(pageNum + 1)]
+  });
+
   // Store pageMap and byHood for TOC rendering
   pages._pageMap = pageMap;
   pages._byHood = byHood;
@@ -1464,6 +1838,10 @@ function setPage(idx) {
   } else if (e.type === 'divider') {
     leftEl.innerHTML = renderDividerLeft(e.hood, e.entities);
     rightEl.innerHTML = renderDividerRight(e.hood, e.entities);
+  } else if (e.type === 'inscribe') {
+    leftEl.innerHTML = renderInscribeLeft();
+    rightEl.innerHTML = renderInscribeRight();
+    bindInscriptionEvents();
   } else {
     leftEl.innerHTML = renderEntityLeft(e.entity, e.index);
     rightEl.innerHTML = renderEntityRight(e.entity, e.index);
@@ -1477,7 +1855,7 @@ function setPage(idx) {
 
   // Show/hide TOC return (on entity and divider pages)
   if (tocReturn) {
-    tocReturn.style.display = (e.type === 'entity' || e.type === 'divider') ? '' : 'none';
+    tocReturn.style.display = (e.type === 'entity' || e.type === 'divider' || e.type === 'inscribe') ? '' : 'none';
   }
 
   // Bind dot grid clicks
@@ -1500,6 +1878,7 @@ function setPage(idx) {
           color: rgb,
           writtenAt: Date.now()
         }));
+        emitScraggle('🌱', `${entity.name} sent to the Crank`);
         ill.style.borderColor = 'var(--gold)';
         const hint = ill.querySelector('.portal-hint');
         if (hint) { hint.textContent = 'Crank seed written \u2014 launch Crank from hub'; hint.style.opacity = '1'; }
@@ -1633,6 +2012,7 @@ document.addEventListener('visibilitychange', () => {
           entity.portrait = portraits_arr[0];
           portraitViewIndex.set(entity.slug, 0); // reset to newest on new arrival
           changed = true;
+          emitScraggle('🖼️', `${entity.name} received a portrait from the Crank`);
         }
       }
     }

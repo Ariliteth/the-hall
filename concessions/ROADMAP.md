@@ -6,12 +6,10 @@
 ## Now
 Items actively in development or immediately next. The deployment sequence is the through-line.
 
-**Deployment sequence:** Crank → El's Grimoire pipeline → founding eight with pages → fixedpointlocal.com
+**Deployment sequence:** Inscription pipeline → six remaining entities → Crank shapes → fixedpointlocal.com
 
-- [ ] **Crank: Kitchendom shapes** — Founding eight need Crank output. Briny Broadswordfish first (only founding entity with full tuning). Six entities still need registry + tuning creation: Ratishes, Soyclops, Meatballrog, Spellery, Iron Orzo, Dire Beef.
-- [ ] **El's Grimoire: entity pages from registry** — Translate prototype to score. Read `registry.json` + tuning.md, render entity pages in book layout. Color floods where illustration is absent. Supersedes Vite/React Grimoire. ([score card](score-cards/els-grimoire.md))
-- [ ] **El's Grimoire: Crank reception** — Accept portraits from `baseline-session/portraits-queue`. Render Crank output as entity illustrations. Crank portal via `crank-glyph-source`.
-- [ ] **El's Grimoire: inscription + hub** — Write layer (entity commit, portrait save to GitHub). `hub:minimize`, `hub:color`, Scraggle emission.
+- [ ] **El's Grimoire: inscription pipeline** — Observe/Inscribe flow: define entity → Chunxly canvas → Crank shape → finalize → page appears. GitHub commit (tuning.md + registry.json). Auth via PAT. Six founding entities (Ratishes, Soyclops, Meatballrog, Spellery, Iron Orzo, Dire Beef) need inscription + Crank bodies. Fox has drawings ready. ([score card](score-cards/els-grimoire.md))
+- [ ] **Crank: Kitchendom shapes** — Founding eight need Crank output. Briny Broadswordfish complete (first full pipeline entity). Six entities await inscription before Crank.
 - [ ] **fixedpointlocal.com** — GitHub Pages deployment. Hub is already a static site, path is clear. Blocked on: founding eight having pages.
 - [ ] **Tending Field: tactile + trader gifts** — Tap-drag entity movement, trader emoji as placeable field items, color canvas visualization. ([score card](score-cards/tending-field.md) | [spec](tending-field-workin-spec.md))
 - [ ] **Fairy → EFDP skeleton** — Chunxly's fairy structural data creates corridors in EFDP. ([chunxly card](score-cards/chunxly.md) | [efdp card](score-cards/efdp.md) | [FAIRY_SPEC.md](FAIRY_SPEC.md))
@@ -60,6 +58,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **El's Grimoire: Phase 1+2** — Registry-driven entity catalog with Crank portrait reception. Dynamic pages from tuning.md, dual-format parser, portrait gallery with cycling, Crank portal, color floods, TOC, hub:minimize + hub:color + hub:scraggle. Supersedes Vite/React Grimoire.
 - [x] **Tending Field: Workin' Integration** — Named item economy, crafting personality, trader preferences/memory/rhythm, Strange Visitor as Third herald, trade consequence gradient, emoji provenance. Particles become atmospheric weather, not currency.
 - [x] **Storeroom Scraggles** — Three emission points (departure, first perfect, trophy arrival). Storeroom promoted to Hall participant. (v0.999)
 - [x] **Chunxme's Stall** — Mustache persona, procedural canvas reading, item generation. First Score wearing a persona. (v0.998)
