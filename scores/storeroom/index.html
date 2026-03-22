@@ -593,12 +593,13 @@ if (window.parent !== window) {
 //  SCRAGGLES
 // ─────────────────────────────────────────────
 
-function emitScraggle(emoji, color, weight, id) {
+function emitScraggle(emoji, color, weight, id, signal) {
   try {
     const raw = localStorage.getItem('baseline-session/scraggles');
     const scraggles = raw ? JSON.parse(raw) : [];
     scraggles.push({
       emoji,
+      signal: signal || '',
       color,
       weight: Math.min(1, Math.max(0, weight)),
       id:     id || ('sr-' + Date.now()),
@@ -845,7 +846,7 @@ function checkPerfect(obj, proximity) {
     obj.perfectCount++;
     // First perfect — the Hall should know
     if (obj.perfectCount === 1) {
-      emitScraggle('✨', [200, 184, 122], 0.3, 'sr-perfect-' + obj.key);
+      emitScraggle('✨', [200, 184, 122], 0.3, 'sr-perfect-' + obj.key, 'perfect: ' + obj.name);
     }
   }
 }
@@ -1148,7 +1149,7 @@ function triggerDeparture(obj) {
 
   // Tell the Hall — weight reflects how much time we had together
   const departureWeight = Math.min(1, obj.interactionCount / 40);
-  emitScraggle('🪦', [150, 110, 70], departureWeight, 'sr-depart-' + obj.key);
+  emitScraggle('🪦', [150, 110, 70], departureWeight, 'sr-depart-' + obj.key, 'departed: ' + obj.name);
 
   // Remove from active objects
   const idx = R.objects.indexOf(obj);
@@ -1392,7 +1393,7 @@ function mountTrophy(trophy) {
 
   // Tell the Hall a trophy arrived
   const tcolor = TROPHY_COLORS[trophy.emoji] || [150, 110, 70];
-  emitScraggle(trophy.emoji, tcolor, 0.4, 'sr-trophy-' + R.trophyCount);
+  emitScraggle(trophy.emoji, tcolor, 0.4, 'sr-trophy-' + R.trophyCount, 'trophy: ' + trophy.name);
 
   // Tap to acknowledge
   el.addEventListener('pointerdown', e => {
