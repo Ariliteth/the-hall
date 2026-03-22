@@ -38,6 +38,7 @@ Items that need speccing first or depend on Now/Next.
 - [ ] **Relationtips** — Undercover waiter in Roastbeefwick. Design incomplete, open questions. ([relationtips.md](relationtips.md))
 - [ ] **Kitchendom Action entities** — New entity category for The Kitchendom.
 - [ ] **Mucklerbuckler Theme** — No Theme yet for Mucklerbuckler. Hunter Encounter would consume it.
+- [ ] **El's Exploration** — Entity creation Theme. Filters hub to pipeline scores (Grimoire, Chunxly, Crank), persistent field card tracks entity progress across scores. First cross-score orchestration mode. ([ELS_EXPLORATION.md](ELS_EXPLORATION.md))
 - [ ] **Cross-Score item pipeline** — Mall → Field via color-routed Scraggles. Routing infra in place, needs emitter + renderer.
 - [ ] **Anteroom** — Hub entrance score. Spec exists ([archive/ANTEROOM_SPEC.md](archive/ANTEROOM_SPEC.md)), implementation pending.
 - [ ] **Hub Audio Memory** — Volume as hub concern, musical state carried across Scores.

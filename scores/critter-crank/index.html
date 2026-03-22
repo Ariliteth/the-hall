@@ -1945,6 +1945,7 @@ function readCrankContext() {
           }
         } catch(e) {}
       }
+      ctx._fromGrimoire = true;
       S.crankContext = ctx;
     }
   } catch(e) {}
@@ -2020,6 +2021,12 @@ function exportPortrait(critter, grid) {
     var queue = qRaw ? JSON.parse(qRaw) : [];
     queue.push(portrait);
     localStorage.setItem("baseline-session/portraits-queue", JSON.stringify(queue));
+    // Single-keep: clear Grimoire portal context after first portrait export
+    // so subsequent keeps in this session are free exploration, not stacked on one entity
+    if (S.crankContext && S.crankContext._fromGrimoire) {
+      localStorage.removeItem("crank-glyph-source");
+      S.crankContext = { slug: "", neighborhood: "", name: "", tags: [] };
+    }
   } catch(e) {}
 }
 
