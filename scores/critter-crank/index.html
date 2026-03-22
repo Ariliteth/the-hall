@@ -2855,6 +2855,9 @@ function handleCatch() {
         S.packets.unshift(packet);
         savePackets();
         pushScraggle("\u2728", "caught: " + packet.main.name);
+        // Export portrait to Grimoire queue (grab grid before cache clears)
+        var portraitGrid = getCachedGrid(S.mainCreature);
+        exportPortrait(packet.main, portraitGrid);
       }
 
       // Clear encounter
