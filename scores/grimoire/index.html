@@ -583,6 +583,160 @@
     padding: 1px 8px;
     line-height: 1.4;
   }
+
+  /* ─── TOC ─────────────────────────────────────────── */
+  .toc-title {
+    font-family: 'IM Fell English', serif;
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+
+  .toc-hood-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    margin-bottom: 4px;
+  }
+
+  .toc-hood-name {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-faded);
+    letter-spacing: 1px;
+  }
+
+  .toc-hood-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(80,50,20,0.2);
+    flex-shrink: 0;
+  }
+
+  .toc-entry {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 0;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .toc-entry:hover { color: var(--gold); }
+  .toc-entry:hover .toc-name { color: var(--gold); }
+
+  .toc-name {
+    font-family: 'Lora', serif;
+    font-size: 12px;
+    color: var(--ink-faded);
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+
+  .toc-dots {
+    flex: 1;
+    border-bottom: 1px dotted var(--parchment-shadow);
+    margin: 0 2px;
+    min-width: 12px;
+  }
+
+  .toc-page {
+    font-family: 'Caveat', cursive;
+    font-size: 11px;
+    color: var(--ink-ghost);
+    white-space: nowrap;
+  }
+
+  /* ─── NEIGHBORHOOD DIVIDER ──────────────────────── */
+  .divider-title {
+    font-family: 'IM Fell English', serif;
+    font-size: 28px;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+
+  .divider-count {
+    font-family: 'Caveat', cursive;
+    font-size: 13px;
+    color: var(--ink-ghost);
+    margin-top: 4px;
+  }
+
+  .divider-entity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 8px;
+  }
+
+  .divider-entity-name {
+    font-family: 'Lora', serif;
+    font-size: 11px;
+    color: var(--ink-ghost);
+    padding-left: 8px;
+    border-left: 2px solid rgba(140,110,70,0.15);
+  }
+
+  /* ─── GLYPH + PORTRAIT ─────────────────────────── */
+  .illustration.portal { cursor: pointer; position: relative; }
+  .illustration.portal:hover { border-color: var(--gold-dim); }
+
+  .illustration .portal-hint {
+    position: absolute;
+    bottom: 4px;
+    right: 6px;
+    font-family: 'Caveat', cursive;
+    font-size: 10px;
+    color: var(--gold-dim);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .illustration.portal:hover .portal-hint { opacity: 0.7; }
+
+  .glyph-inline svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .portrait-img {
+    width: 100%;
+    height: 148px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    display: block;
+  }
+
+  .portrait-note {
+    font-family: 'Caveat', cursive;
+    font-size: 9px;
+    color: var(--ink-ghost);
+    text-align: right;
+    margin-top: 2px;
+  }
+
+  /* ─── TOC RETURN ───────────────────────────────── */
+  .toc-return {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    font-family: 'Caveat', cursive;
+    font-size: 10px;
+    color: var(--ink-ghost);
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.3s, color 0.3s;
+    background: none;
+    border: none;
+  }
+  .toc-return:hover { opacity: 1; color: var(--gold-dim); }
 </style>
 </head>
 <body>
@@ -614,6 +768,7 @@
     </div>
 
     <button class="turn-prev-btn" id="prevBtn" style="display:none">back</button>
+    <button class="toc-return" id="tocReturn" style="display:none" onclick="turnToPage(tocPageIndex)">contents</button>
     <button class="turn-page-btn" id="turnBtn">turn</button>
   </div>
 </div>
@@ -643,6 +798,16 @@ function parseTuning(md, slug, neighborhood) {
   let description = '';
   let tags = [];
   let color = null;
+  let remembering = null;
+  let forgetting = null;
+  let memoryCapacity = null;
+
+  function cleanMemoryField(val) {
+    if (!val) return null;
+    val = val.trim().replace(/^\*?\(/, '').replace(/\)\*?$/, '');
+    if (/^undefined/i.test(val) || /awaiting first/i.test(val)) return null;
+    return val.replace(/^\*+|\*+$/g, '').trim() || null;
+  }
 
   // Detect format: YAML-like starts with "name:" on first non-empty line
   const firstLine = lines.find(l => l.trim().length > 0) || '';
@@ -659,7 +824,6 @@ function parseTuning(md, slug, neighborhood) {
       else if (key === 'category') category = val.toLowerCase();
       else if (key === 'description') description = val;
       else if (key === 'tags') {
-        // [a, b, c] or a, b, c
         const inner = val.replace(/^\[/, '').replace(/\]$/, '');
         tags = inner.split(',').map(t => t.trim()).filter(Boolean);
       }
@@ -667,6 +831,9 @@ function parseTuning(md, slug, neighborhood) {
         const nums = val.replace(/^\[/, '').replace(/\]$/, '').split(',').map(n => parseInt(n.trim()));
         if (nums.length === 3 && nums.every(n => !isNaN(n))) color = nums;
       }
+      else if (key === 'remembering') remembering = cleanMemoryField(val);
+      else if (key === 'forgetting') forgetting = cleanMemoryField(val);
+      else if (key === 'memory capacity') memoryCapacity = cleanMemoryField(val);
     }
   } else {
     // Markdown format: # Name, **Key:** value
@@ -685,6 +852,15 @@ function parseTuning(md, slug, neighborhood) {
       if (nums.length === 3 && nums.every(n => !isNaN(n))) color = nums;
     }
 
+    const remMatch = md.match(/\*\*Remembering style:\*\*\s*(.+)/);
+    if (remMatch) remembering = cleanMemoryField(remMatch[1]);
+
+    const forMatch = md.match(/\*\*Forgetting style:\*\*\s*(.+)/);
+    if (forMatch) forgetting = cleanMemoryField(forMatch[1]);
+
+    const capMatch = md.match(/\*\*Memory capacity:\*\*\s*(.+)/);
+    if (capMatch) memoryCapacity = cleanMemoryField(capMatch[1]);
+
     // Description: lines between heading block and first ** or --- that aren't key-value
     const descLines = [];
     let pastHeading = false;
@@ -698,7 +874,8 @@ function parseTuning(md, slug, neighborhood) {
     description = descLines.join(' ');
   }
 
-  return { name, category, description, tags, color, slug, neighborhood };
+  return { name, category, description, tags, color, slug, neighborhood,
+           remembering, forgetting, memoryCapacity };
 }
 
 // ─── NEIGHBORHOOD DEFAULTS ─────────────────────────────────────────────────
@@ -727,22 +904,86 @@ async function fetchRegistry() {
   }
 }
 
+// ─── PORTRAIT QUEUE ──────────────────────────────────────────────────────────
+function readPortraitQueue() {
+  try {
+    const raw = localStorage.getItem('baseline-session/portraits-queue');
+    if (!raw) return new Map();
+    const arr = JSON.parse(raw);
+    const map = new Map(); // slug → array of portraits, sorted newest-first
+    for (const p of arr) {
+      if (!p.slug) continue;
+      if (!map.has(p.slug)) map.set(p.slug, []);
+      map.get(p.slug).push(p);
+    }
+    // Sort each slug's portraits newest-first
+    for (const [, portraits] of map) {
+      portraits.sort((a, b) => (b.keptAt || 0) - (a.keptAt || 0));
+    }
+    return map;
+  } catch { return new Map(); }
+}
+
+// Track which portrait index is shown per entity (for cycling)
+const portraitViewIndex = new Map();
+
+const HOOD_ORDER = ['greengarden', 'kitchendom', 'mucklerbuckler'];
+
 async function loadEntities() {
   const reg = await fetchRegistry();
-  const entities = [];
-  for (const [n, entry] of Object.entries(reg.neighborhoods)) {
+  const portraits = readPortraitQueue();
+
+  // Build fetch promises for all entities: tuning + glyph in parallel
+  const fetches = [];
+  for (const hood of HOOD_ORDER) {
+    const entry = reg.neighborhoods[hood];
+    if (!entry) continue;
     const slugs = Array.isArray(entry) ? entry : (entry.entities || []);
     for (const slug of slugs) {
-      try {
-        const url = baseUrl(`neighborhoods/${n}/entities/${slug}/tuning.md`);
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const e = parseTuning(await res.text(), slug, n);
-        entities.push(e);
-      } catch {}
+      fetches.push({ hood, slug });
     }
   }
-  return entities;
+
+  const results = await Promise.allSettled(fetches.map(async ({ hood, slug }) => {
+    const tuningUrl = baseUrl(`neighborhoods/${hood}/entities/${slug}/tuning.md`);
+    const glyphUrl = baseUrl(`neighborhoods/${hood}/entities/${slug}/glyph.svg`);
+
+    const [tuningRes, glyphRes] = await Promise.allSettled([
+      fetch(tuningUrl).then(r => r.ok ? r.text() : null),
+      fetch(glyphUrl).then(r => r.ok ? r.text() : null),
+    ]);
+
+    const tuningText = tuningRes.status === 'fulfilled' ? tuningRes.value : null;
+    if (!tuningText) return null;
+
+    const entity = parseTuning(tuningText, slug, hood);
+    entity.glyphSvg = glyphRes.status === 'fulfilled' ? glyphRes.value : null;
+
+    // Match portraits from queue (all portraits for this entity)
+    const portraits_arr = portraits.get(slug);
+    if (portraits_arr && portraits_arr.length > 0) {
+      entity.portraits = portraits_arr;        // all, newest-first
+      entity.portrait = portraits_arr[0];      // most recent for display
+    }
+
+    return entity;
+  }));
+
+  // Group by neighborhood, sorted alphabetically within each
+  const byHood = {};
+  for (const hood of HOOD_ORDER) byHood[hood] = [];
+
+  for (const r of results) {
+    if (r.status !== 'fulfilled' || !r.value) continue;
+    const e = r.value;
+    if (byHood[e.neighborhood]) byHood[e.neighborhood].push(e);
+  }
+
+  for (const hood of HOOD_ORDER) {
+    byHood[hood].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  return byHood;
 }
 
 // ─── STATE ──────────────────────────────────────────────────────────────────
@@ -931,12 +1172,42 @@ function wrapDescription(text, maxCharsPerLine) {
   return lines;
 }
 
+// ─── ILLUSTRATION RENDERING ──────────────────────────────────────────────────
+function renderIllustration(entity) {
+  const rgb = entityColor(entity);
+
+  if (entity.portraits && entity.portraits.length > 0) {
+    const idx = portraitViewIndex.get(entity.slug) || 0;
+    const portrait = entity.portraits[idx % entity.portraits.length];
+    const date = new Date(portrait.keptAt || Date.now());
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const count = entity.portraits.length;
+    const countLabel = count > 1 ? ` (${idx % count + 1}/${count})` : '';
+    return `<div class="illustration portal" style="height:148px" data-slug="${entity.slug}" data-has-gallery="${count > 1}">
+      <img class="portrait-img" src="${portrait.dataUrl}" alt="${entity.name}">
+      <span class="portal-hint">${count > 1 ? 'tap to cycle · hold to summon Crank' : 'tap to summon Crank'}</span>
+    </div>
+    <div class="portrait-note">caught by Crank, ${dateStr}${countLabel}</div>`;
+  }
+
+  if (entity.glyphSvg && !entity.glyphSvg.includes('pending')) {
+    return `<div class="illustration portal" style="height:148px" data-slug="${entity.slug}">
+      <div class="glyph-inline" style="width:100%;height:100%">${entity.glyphSvg}</div>
+      <span class="portal-hint">tap to summon Crank</span>
+    </div>`;
+  }
+
+  return `<div class="illustration portal" style="height:148px" data-slug="${entity.slug}">
+    ${colorFloodSVG(rgb)}
+    <span class="portal-hint">tap to summon Crank</span>
+  </div>`;
+}
+
 function renderEntityLeft(entity, index) {
   const rgb = entityColor(entity);
   const entryNum = `Entry ${romanize(index + 1)} — ${entity.neighborhood}`;
   const descLines = wrapDescription(entity.description, 55);
   const swatchBase = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-  // Generate a swatch gradient from the entity color
   const swatches = [
     swatchBase,
     `rgb(${Math.min(rgb[0]+30,255)},${Math.min(rgb[1]+30,255)},${Math.min(rgb[2]+30,255)})`,
@@ -948,7 +1219,7 @@ function renderEntityLeft(entity, index) {
     <div class="entry-number">${entryNum}</div>
     <div class="entry-title">${entity.name}<br><em style="font-size:14px">${entity.category}</em></div>
     <div class="gold-rule"></div>
-    <div class="illustration" style="height:148px">${colorFloodSVG(rgb)}</div>
+    ${renderIllustration(entity)}
     <div class="color-swatches">
       ${swatches.map(c => `<div class="swatch" style="background:${c}" title="${c}"></div>`).join('')}
       <span class="swatch-label">color: ${rgb.join(', ')}</span>
@@ -964,8 +1235,9 @@ function renderEntityRight(entity, index) {
     ? entity.tags.slice(0, 5).join(', ')
     : 'not yet observed closely enough';
 
-  // Seed dot grid from entity slug
   const seedHash = entity.slug.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+
+  const hasMemory = entity.remembering || entity.forgetting || entity.memoryCapacity;
 
   return `
     <div class="section-head">${entity.neighborhood}</div>
@@ -980,6 +1252,12 @@ function renderEntityRight(entity, index) {
     <div class="tag-row">
       ${entity.tags.map(t => `<span class="tag-pill">${t}</span>`).join('')}
     </div>` : ''}
+    ${hasMemory ? `
+    <div class="section-head" style="margin-top:8px">Memory</div>
+    ${entity.remembering ? `<div class="ruled-line italic" style="font-size:11px"><em>Remembering:</em> ${entity.remembering}</div>` : ''}
+    ${entity.forgetting ? `<div class="ruled-line italic" style="font-size:11px"><em>Forgetting:</em> ${entity.forgetting}</div>` : ''}
+    ${entity.memoryCapacity ? `<div class="ruled-line italic" style="font-size:11px"><em>Capacity:</em> ${entity.memoryCapacity}</div>` : ''}
+    ` : ''}
     <div class="section-head" style="margin-top:8px">Spore Pattern</div>
     <div class="dot-grid">
       ${Array(36).fill(0).map((_, i) => {
@@ -995,19 +1273,177 @@ function renderEntityRight(entity, index) {
   `;
 }
 
-function buildEntries(entities) {
+// ─── TABLE OF CONTENTS ───────────────────────────────────────────────────────
+const HOOD_DISPLAY = {
+  greengarden: 'Greengarden',
+  kitchendom: 'The Kitchendom',
+  mucklerbuckler: 'Mucklerbuckler',
+};
+
+const HOOD_LORE = {
+  greengarden: 'The first neighborhood. Where things that persist without insistence have gathered. Moss, attention, the space between thoughts.',
+  kitchendom: 'Where flavor is philosophy and every ingredient carries rank. The founding eight await their pages here.',
+  mucklerbuckler: 'Mud, teeth, ambition. The loud neighborhood — where encounters are not polite and nothing stands still long.',
+};
+
+function renderTocLeft(byHood, pageMap) {
+  const hood = 'greengarden';
+  const entities = byHood[hood] || [];
+  const rgb = NEIGHBORHOOD_COLORS[hood];
+
+  let html = `<div class="toc-title">Contents</div>
+    <div class="gold-rule" style="margin-bottom:8px"></div>`;
+
+  html += `<div class="toc-hood-header">
+    <div class="toc-hood-swatch" style="background:rgb(${rgb.join(',')})"></div>
+    <div class="toc-hood-name">${HOOD_DISPLAY[hood]}</div>
+  </div>`;
+
+  for (const e of entities) {
+    const pageIdx = pageMap.get(e.slug);
+    const pageNum = pageIdx !== undefined ? entries[pageIdx].pageNums[0] : '?';
+    html += `<div class="toc-entry" onclick="turnToPage(${pageIdx})">
+      <span class="toc-name">${e.name}</span>
+      <span class="toc-dots"></span>
+      <span class="toc-page">${pageNum}</span>
+    </div>`;
+  }
+
+  return html;
+}
+
+function renderTocRight(byHood, pageMap) {
+  let html = '';
+
+  for (const hood of ['kitchendom', 'mucklerbuckler']) {
+    const entities = byHood[hood] || [];
+    if (entities.length === 0) continue;
+    const rgb = NEIGHBORHOOD_COLORS[hood];
+
+    html += `<div class="toc-hood-header">
+      <div class="toc-hood-swatch" style="background:rgb(${rgb.join(',')})"></div>
+      <div class="toc-hood-name">${HOOD_DISPLAY[hood]}</div>
+    </div>`;
+
+    for (const e of entities) {
+      const pageIdx = pageMap.get(e.slug);
+      const pageNum = pageIdx !== undefined ? entries[pageIdx].pageNums[0] : '?';
+      html += `<div class="toc-entry" onclick="turnToPage(${pageIdx})">
+        <span class="toc-name">${e.name}</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">${pageNum}</span>
+      </div>`;
+    }
+  }
+
+  // Spore dust key at bottom
+  html += `<div style="margin-top:auto;display:flex;align-items:center;gap:8px">
+    <div style="font-family:'Caveat',cursive;font-size:11px;color:var(--ink-ghost)">spore dust key:</div>
+    ${['#b8d4a8','#d4c8e8','#e8d4a0','#c8e0d4'].map(c => `<div style="width:8px;height:8px;border-radius:50%;background:${c};border:1px solid rgba(80,50,20,0.2)"></div>`).join('')}
+  </div>`;
+
+  return html;
+}
+
+// ─── NEIGHBORHOOD DIVIDERS ───────────────────────────────────────────────────
+function renderDividerLeft(hood, entities) {
+  const rgb = NEIGHBORHOOD_COLORS[hood];
+  const displayName = HOOD_DISPLAY[hood];
+
+  return `
+    <div style="height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px">
+      <div class="divider-title">${displayName}</div>
+      <div class="divider-count">${entities.length} resident${entities.length !== 1 ? 's' : ''} inscribed</div>
+      <div class="gold-rule" style="width:60%"></div>
+      <div style="height:120px;margin-top:8px">${colorFloodSVG(rgb)}</div>
+    </div>
+  `;
+}
+
+function renderDividerRight(hood, entities) {
+  const lore = HOOD_LORE[hood] || '';
+
+  return `
+    <div style="height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px">
+      <div class="section-head">On This Neighborhood</div>
+      <div class="ruled-line italic" style="font-size:12px;line-height:1.8">${lore}</div>
+      <div class="gold-rule"></div>
+      <div class="section-head" style="margin-top:8px">Residents</div>
+      <div class="divider-entity-list">
+        ${entities.map(e => `<div class="divider-entity-name">${e.name}</div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ─── PAGE MODEL ──────────────────────────────────────────────────────────────
+let tocPageIndex = 1;
+
+function buildEntries(byHood) {
   const pages = [
-    { type: 'cover', pageNums: ['', ''] }
+    { type: 'cover', pageNums: ['', ''] },
+    { type: 'toc', pageNums: ['i', 'ii'] },
   ];
-  entities.forEach((entity, i) => {
-    pages.push({
-      type: 'entity',
-      entity: entity,
-      index: i,
-      pageNums: [String(i * 2 + 1), String(i * 2 + 2)]
-    });
-  });
+
+  tocPageIndex = 1;
+
+  // Build page map for TOC (slug → page index) — need to pre-calculate
+  // First pass: count pages to assign numbers
+  let pageNum = 1;
+  const pageMap = new Map();
+  const structure = [];
+
+  for (const hood of HOOD_ORDER) {
+    const entities = byHood[hood] || [];
+    if (entities.length === 0) continue;
+    structure.push({ type: 'divider', hood, entities });
+    pageNum += 2; // divider spread
+    for (const entity of entities) {
+      pageMap.set(entity.slug, pages.length + structure.length + (structure[structure.length-1] === structure[structure.length-1] ? 0 : 0));
+      structure.push({ type: 'entity', entity });
+      pageNum += 2;
+    }
+  }
+
+  // Second pass: build actual pages array with correct indices
+  // Reset and rebuild with real indices
+  pageNum = 1;
+  for (const item of structure) {
+    if (item.type === 'divider') {
+      const idx = pages.length;
+      pages.push({
+        type: 'divider',
+        hood: item.hood,
+        entities: item.entities,
+        pageNums: [String(pageNum), String(pageNum + 1)]
+      });
+      pageNum += 2;
+    } else {
+      const idx = pages.length;
+      pageMap.set(item.entity.slug, idx);
+      pages.push({
+        type: 'entity',
+        entity: item.entity,
+        index: idx - 2, // display index (skip cover+toc)
+        pageNums: [String(pageNum), String(pageNum + 1)]
+      });
+      pageNum += 2;
+    }
+  }
+
+  // Store pageMap and byHood for TOC rendering
+  pages._pageMap = pageMap;
+  pages._byHood = byHood;
+
   return pages;
+}
+
+function countEntities() {
+  let total = 0;
+  for (const hood of HOOD_ORDER) {
+    total += (entries._byHood && entries._byHood[hood] ? entries._byHood[hood].length : 0);
+  }
+  return total;
 }
 
 function setPage(idx) {
@@ -1017,10 +1453,17 @@ function setPage(idx) {
   const pnL = document.getElementById('pageNumLeft');
   const pnR = document.getElementById('pageNumRight');
   const prevBtn = document.getElementById('prevBtn');
+  const tocReturn = document.getElementById('tocReturn');
 
   if (e.type === 'cover') {
-    leftEl.innerHTML = renderCover(entries.length - 1);
+    leftEl.innerHTML = renderCover(countEntities());
     rightEl.innerHTML = renderCoverRight();
+  } else if (e.type === 'toc') {
+    leftEl.innerHTML = renderTocLeft(entries._byHood, entries._pageMap);
+    rightEl.innerHTML = renderTocRight(entries._byHood, entries._pageMap);
+  } else if (e.type === 'divider') {
+    leftEl.innerHTML = renderDividerLeft(e.hood, e.entities);
+    rightEl.innerHTML = renderDividerRight(e.hood, e.entities);
   } else {
     leftEl.innerHTML = renderEntityLeft(e.entity, e.index);
     rightEl.innerHTML = renderEntityRight(e.entity, e.index);
@@ -1032,12 +1475,81 @@ function setPage(idx) {
   // Show/hide back button
   prevBtn.style.display = idx > 0 ? '' : 'none';
 
+  // Show/hide TOC return (on entity and divider pages)
+  if (tocReturn) {
+    tocReturn.style.display = (e.type === 'entity' || e.type === 'divider') ? '' : 'none';
+  }
+
   // Bind dot grid clicks
   setTimeout(() => {
     document.querySelectorAll('.dot-cell').forEach(cell => {
       cell.addEventListener('click', () => cell.classList.toggle('lit'));
     });
+
+    // Bind illustration clicks: cycle gallery or summon Crank
+    document.querySelectorAll('.illustration.portal').forEach(ill => {
+      let pressTimer = null;
+
+      function writeCrankSeed(entity) {
+        const rgb = entityColor(entity);
+        localStorage.setItem('crank-glyph-source', JSON.stringify({
+          slug: entity.slug,
+          name: entity.name,
+          neighborhood: entity.neighborhood,
+          tags: entity.tags,
+          color: rgb,
+          writtenAt: Date.now()
+        }));
+        ill.style.borderColor = 'var(--gold)';
+        const hint = ill.querySelector('.portal-hint');
+        if (hint) { hint.textContent = 'Crank seed written \u2014 launch Crank from hub'; hint.style.opacity = '1'; }
+        setTimeout(() => {
+          ill.style.borderColor = '';
+          if (hint) { hint.style.opacity = ''; }
+        }, 3000);
+      }
+
+      ill.addEventListener('click', (ev) => {
+        if (ev.target.closest('.dot-cell')) return;
+        const slug = ill.dataset.slug;
+        const entity = findEntityBySlug(slug);
+        if (!entity) return;
+
+        const hasGallery = entity.portraits && entity.portraits.length > 1;
+        if (hasGallery) {
+          // Tap cycles through portraits
+          const curr = portraitViewIndex.get(slug) || 0;
+          portraitViewIndex.set(slug, curr + 1);
+          setPage(currentPage); // re-render to show next portrait
+        } else {
+          // Single or no portrait: write Crank seed
+          writeCrankSeed(entity);
+        }
+      });
+
+      // Long-press on gallery entities to summon Crank instead of cycling
+      ill.addEventListener('mousedown', () => {
+        const slug = ill.dataset.slug;
+        const entity = findEntityBySlug(slug);
+        if (!entity || !entity.portraits || entity.portraits.length <= 1) return;
+        pressTimer = setTimeout(() => {
+          pressTimer = null;
+          writeCrankSeed(entity);
+        }, 600);
+      });
+      ill.addEventListener('mouseup', () => { if (pressTimer) clearTimeout(pressTimer); });
+      ill.addEventListener('mouseleave', () => { if (pressTimer) clearTimeout(pressTimer); });
+    });
   }, 100);
+}
+
+function findEntityBySlug(slug) {
+  if (!entries._byHood) return null;
+  for (const hood of HOOD_ORDER) {
+    const found = (entries._byHood[hood] || []).find(e => e.slug === slug);
+    if (found) return found;
+  }
+  return null;
 }
 
 // ─── PAGE TURN ──────────────────────────────────────────────────────────────
@@ -1088,17 +1600,52 @@ document.getElementById('prevBtn').addEventListener('click', prevPage);
 
 // Click right edge to turn forward
 document.getElementById('pageRight').addEventListener('click', (e) => {
-  if (e.target.closest('.flood-zone') || e.target.closest('.dot-cell') || e.target.closest('.tag-pill')) return;
+  if (e.target.closest('.flood-zone') || e.target.closest('.dot-cell') || e.target.closest('.tag-pill') || e.target.closest('.illustration') || e.target.closest('.toc-entry')) return;
   const rect = document.getElementById('bookPages').getBoundingClientRect();
   if (e.clientX > rect.left + rect.width * 0.8) nextPage();
+});
+
+// Click left edge to turn back
+document.getElementById('pageLeft').addEventListener('click', (e) => {
+  if (e.target.closest('.open-prompt') || e.target.closest('.toc-entry')) return;
+  const rect = document.getElementById('bookPages').getBoundingClientRect();
+  if (e.clientX < rect.left + rect.width * 0.2) prevPage();
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') nextPage();
+  else if (e.key === 'ArrowLeft') prevPage();
+});
+
+// Re-read portraits when tab regains visibility (returning from Crank)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !entries._byHood) return;
+  const portraits = readPortraitQueue();
+  let changed = false;
+  for (const hood of HOOD_ORDER) {
+    for (const entity of (entries._byHood[hood] || [])) {
+      const portraits_arr = portraits.get(entity.slug);
+      if (portraits_arr && portraits_arr.length > 0) {
+        const hadPortraits = entity.portraits ? entity.portraits.length : 0;
+        if (portraits_arr.length !== hadPortraits || (portraits_arr[0].keptAt !== (entity.portrait ? entity.portrait.keptAt : 0))) {
+          entity.portraits = portraits_arr;
+          entity.portrait = portraits_arr[0];
+          portraitViewIndex.set(entity.slug, 0); // reset to newest on new arrival
+          changed = true;
+        }
+      }
+    }
+  }
+  if (changed) setPage(currentPage);
 });
 
 // ─── INIT ───────────────────────────────────────────────────────────────────
 createAmbientSpores();
 animateSpores();
 
-loadEntities().then(entities => {
-  entries = buildEntries(entities);
+loadEntities().then(byHood => {
+  entries = buildEntries(byHood);
   setPage(0);
 });
 </script>
