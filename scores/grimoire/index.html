@@ -1991,6 +1991,7 @@ function isFormElement(e) {
 // Click right edge to turn forward
 document.getElementById('pageRight').addEventListener('click', (e) => {
   if (isFormElement(e)) return;
+  if (entries[currentPage] && entries[currentPage].type === 'inscribe') return;
   if (e.target.closest('.flood-zone') || e.target.closest('.dot-cell') || e.target.closest('.tag-pill') || e.target.closest('.illustration') || e.target.closest('.toc-entry')) return;
   const rect = document.getElementById('bookPages').getBoundingClientRect();
   if (e.clientX > rect.left + rect.width * 0.8) nextPage();
@@ -1999,6 +2000,7 @@ document.getElementById('pageRight').addEventListener('click', (e) => {
 // Click left edge to turn back
 document.getElementById('pageLeft').addEventListener('click', (e) => {
   if (isFormElement(e)) return;
+  if (entries[currentPage] && entries[currentPage].type === 'inscribe') return;
   if (e.target.closest('.open-prompt') || e.target.closest('.toc-entry')) return;
   const rect = document.getElementById('bookPages').getBoundingClientRect();
   if (e.clientX < rect.left + rect.width * 0.2) prevPage();
