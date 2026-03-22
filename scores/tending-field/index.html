@@ -251,20 +251,6 @@
     .trader-emoji-big { font-size: 38px; filter: drop-shadow(0 0 8px var(--glow)); }
     .trader-info { display: flex; flex-direction: column; gap: 3px; }
     .trader-name-disp { font-size: 13px; color: var(--bone); }
-    .trader-brings-disp { font-size: 10px; color: var(--glow); }
-    .trade-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 4px;
-      border-top: 1px solid var(--bark); border-bottom: 1px solid var(--bark);
-    }
-    .trade-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .trade-col-label { font-size: 8px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
-    .trade-offer-emoji { font-size: 26px; }
-    .trade-arrow { font-size: 18px; color: var(--glow); }
-    .trade-want-detail { font-size: 12px; color: var(--bone); }
-    .trade-have-detail { font-size: 10px; }
-    .trade-have-detail.can-trade  { color: var(--glow); }
-    .trade-have-detail.cant-trade { color: #9a4a4a; }
     #trade-timer-display { font-size: 9px; color: var(--dim); text-align: center; letter-spacing: 0.08em; }
     .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
     .modal-btn {
@@ -277,6 +263,36 @@
     .modal-btn:hover:not(:disabled) { background: var(--bark); border-color: var(--moon); }
     .modal-btn:disabled { opacity: 0.28; cursor: default; }
     .modal-btn.secondary { border-color: var(--bark); }
+
+    /* ── Harvest items in trade modal ────────────────────────── */
+    #harvest-list {
+      display: flex; flex-direction: column; gap: 4px;
+      max-height: 200px; overflow-y: auto;
+    }
+    .harvest-item {
+      background: var(--kelp); border: 1px solid var(--bark);
+      border-radius: 6px; padding: 8px 10px; cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .harvest-item:hover { border-color: var(--glow); }
+    .harvest-item.selected { border-color: var(--moon); background: rgba(122,174,200,0.08); }
+    .harvest-item-emoji { font-size: 16px; flex-shrink: 0; }
+    .harvest-item-info { flex: 1; min-width: 0; }
+    .harvest-item-name {
+      font-size: 10px; color: var(--bone);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .harvest-item-prov {
+      font-size: 7px; color: var(--dim); letter-spacing: 0.06em;
+    }
+    .harvest-item-reaction {
+      font-size: 8px; font-style: italic; flex-shrink: 0;
+      letter-spacing: 0.06em;
+    }
+    .trader-dream-disp {
+      font-size: 10px; color: var(--dim); font-style: italic;
+    }
 
     /* ── Ticker ────────────────────────────────────────────── */
     #ticker {
@@ -347,25 +363,15 @@
         <div class="trader-emoji-big" id="trader-emoji-big"></div>
         <div class="trader-info">
           <div class="trader-name-disp" id="trader-name-disp"></div>
-          <div class="trader-brings-disp" id="trader-brings-disp"></div>
+          <div class="trader-dream-disp" id="trader-dream-disp"></div>
         </div>
       </div>
-      <div class="trade-row">
-        <div class="trade-col">
-          <div class="trade-col-label">They offer</div>
-          <div class="trade-offer-emoji" id="trade-offer-emoji"></div>
-        </div>
-        <div class="trade-arrow">⇄</div>
-        <div class="trade-col">
-          <div class="trade-col-label">They seek</div>
-          <div class="trade-want-detail" id="trade-want-detail"></div>
-          <div class="trade-have-detail" id="trade-have-detail"></div>
-        </div>
-      </div>
+      <div id="harvest-list"></div>
+      <div id="no-harvest-msg" style="display:none; font-size:10px; color:var(--dim); text-align:center; padding:8px 0; font-style:italic; line-height:1.6;"></div>
       <div id="trade-timer-display"></div>
       <div class="modal-btns">
         <button class="modal-btn secondary" id="trade-pass-btn">Let them pass</button>
-        <button class="modal-btn" id="trade-btn" disabled>Exchange</button>
+        <button class="modal-btn" id="trade-btn" disabled>Offer this</button>
       </div>
     </div>
   </div>
@@ -397,11 +403,11 @@ const KIWI_MIN_CARAVANS = 6;
 
 // ── Aquatic plants ─────────────────────────────────────────────
 const PLANTS = [
-  { id:'kelp',    name:'Sea Kelp',      emoji:'🌿', produces:['🌿','🌿'], rare:null, rareChance:0,   affinity:['growth','wandering','patience'],  spawnRate:6  },
-  { id:'jelly',   name:'Moon Jelly',    emoji:'🪼', produces:['🪼'],       rare:'🌙', rareChance:0.1, affinity:['curious','seeking','subtle'],      spawnRate:8  },
-  { id:'coral',   name:'Coral Bloom',   emoji:'🪸', produces:['🪸','🪸'], rare:null, rareChance:0,   affinity:['tasteful','warm','joy'],           spawnRate:6  },
-  { id:'anemone', name:'Ember Anemone', emoji:'🔥', produces:['🔥'],       rare:null, rareChance:0,   affinity:['fierce','territorial','bold'],     spawnRate:10 },
-  { id:'ribbon',  name:'Ghost Ribbon',  emoji:'✨', produces:['✨'],       rare:null, rareChance:0,   affinity:['quiet','ancient','memory'],        spawnRate:9  },
+  { id:'kelp',    name:'Sea Kelp',      emoji:'🌿', produces:['🌿','🌿'], rare:null, rareChance:0,   affinity:['growth','wandering','patience'],  spawnRate:6,  outputWord:'Frond'  },
+  { id:'jelly',   name:'Moon Jelly',    emoji:'🪼', produces:['🪼'],       rare:'🌙', rareChance:0.1, affinity:['curious','seeking','subtle'],      spawnRate:8,  outputWord:'Glass'  },
+  { id:'coral',   name:'Coral Bloom',   emoji:'🪸', produces:['🪸','🪸'], rare:null, rareChance:0,   affinity:['tasteful','warm','joy'],           spawnRate:6,  outputWord:'Bloom'  },
+  { id:'anemone', name:'Ember Anemone', emoji:'🔥', produces:['🔥'],       rare:null, rareChance:0,   affinity:['fierce','territorial','bold'],     spawnRate:10, outputWord:'Ember'  },
+  { id:'ribbon',  name:'Ghost Ribbon',  emoji:'✨', produces:['✨'],       rare:null, rareChance:0,   affinity:['quiet','ancient','memory'],        spawnRate:9,  outputWord:'Thread' },
 ];
 
 const TAG_EMOJI = {
@@ -413,25 +419,292 @@ const TAG_EMOJI = {
 };
 const CATEGORY_EMOJI = { spirit:'💫', item:'📦', location:'🗺️', tendency:'🌀', action:'⚡' };
 
-const TRADER_AFFINITY = {
-  salt:'kelp', moon:'jelly', ember:'anemone', silk:'ribbon',
-  cartographer:'kelp', naturalist:'coral', strange:'ribbon',
+// ── Adjacency adjectives (tag → descriptive word for item names) ──
+const TAG_ADJECTIVE = {
+  curious:'Curious', territorial:'Guarded', loud:'Bellowing', growth:'Verdant', ancient:'Ancient',
+  tasteful:'Refined', relentless:'Relentless', proud:'Proud', quiet:'Hushed', wandering:'Drifting',
+  seeking:'Seeking', fierce:'Fierce', bold:'Bold', subtle:'Faint', warm:'Warm',
+  patience:'Patient', memory:'Remembered', joy:'Bright', heavy:'Heavy', swift:'Swift',
+  predator:'Keen', mysterious:'Strange', strange:'Strange',
 };
 
+function ageWord(cycles) {
+  if (cycles < 4) return '';
+  if (cycles < 8) return 'Seasoned';
+  if (cycles < 12) return 'Aged';
+  return 'Deep-Season';
+}
+
+// ── Crafting personality ────────────────────────────────────────
+// Each entity selects influences differently based on a style
+// derived from their tags. This is character, not randomness.
+const CRAFT_STYLES = {
+  curious:   'explorer',    // picks first + faintest (the accent note)
+  tasteful:  'curator',     // picks the two rarest tags across the field
+  fierce:    'bold',        // picks the two strongest (most common) tags
+  quiet:     'listener',    // picks last two (what arrived most recently)
+  wandering: 'shaker',      // shuffles and takes whatever falls out first
+  patient:   'patient',     // always picks the oldest influence (by tile age)
+  ancient:   'patient',
+};
+
+function craftStyleFor(entity) {
+  for (const tag of (entity.tags || [])) {
+    if (CRAFT_STYLES[tag]) return CRAFT_STYLES[tag];
+  }
+  return 'shaker'; // default: shake and see
+}
+
+function pickAdjectives(tags, style, caravanCount) {
+  const available = [...tags].filter(t => TAG_ADJECTIVE[t]);
+  if (available.length === 0) return [];
+  if (available.length === 1) return [TAG_ADJECTIVE[available[0]]];
+
+  switch (style) {
+    case 'explorer':
+      // First + faintest (last)
+      return [TAG_ADJECTIVE[available[0]], TAG_ADJECTIVE[available[available.length - 1]]];
+    case 'curator':
+      // Picks from the middle — the less obvious choices
+      { const mid = Math.floor(available.length / 2);
+        return [TAG_ADJECTIVE[available[mid]], TAG_ADJECTIVE[available[Math.min(mid + 1, available.length - 1)]]]; }
+    case 'bold':
+      // First two — the strongest, most prominent
+      return [TAG_ADJECTIVE[available[0]], TAG_ADJECTIVE[available[Math.min(1, available.length - 1)]]];
+    case 'listener':
+      // Last two — what arrived most recently in the tag set
+      return [TAG_ADJECTIVE[available[available.length - 1]], TAG_ADJECTIVE[available[Math.max(0, available.length - 2)]]];
+    case 'patient':
+      // Rotates through available tags by caravan cycle
+      { const idx = caravanCount % available.length;
+        return [TAG_ADJECTIVE[available[idx]]]; }
+    case 'shaker':
+    default:
+      // Seeded pseudo-random: pick based on caravan count + tag count
+      { const idx = (caravanCount + available.length * 7) % available.length;
+        return [TAG_ADJECTIVE[available[idx]]]; }
+  }
+}
+
+// ── Item production ─────────────────────────────────────────────
+function produceItems() {
+  const items = [];
+  for (let i = 0; i < TILE_COUNT; i++) {
+    const tile = G.field[i];
+    if (!tile || tile.kind !== 'entity') continue;
+
+    const neighbors = getNeighbors(i);
+    const adjPlants = [];
+    const adjEntities = [];
+    const adjTags = new Set();
+
+    for (const ni of neighbors) {
+      const n = G.field[ni];
+      if (!n) continue;
+      if (n.kind === 'plant') {
+        adjPlants.push(n.data);
+        for (const a of n.data.affinity) adjTags.add(a);
+        // Track exposure for chimeric outputs
+        if (!G.tileExposure[i]) G.tileExposure[i] = [];
+        if (!G.tileExposure[i].includes(n.data.id)) G.tileExposure[i].push(n.data.id);
+      }
+      if (n.kind === 'entity') {
+        adjEntities.push(n.data);
+        for (const t of (n.data.tags || [])) adjTags.add(t);
+      }
+    }
+
+    // No adjacent plants = no output (worker needs context)
+    if (adjPlants.length === 0) continue;
+
+    // Pick output word — chimeric if exposed to multiple plant types
+    const exposure = G.tileExposure[i] || [];
+    let outputWord;
+    if (exposure.length >= 2) {
+      // Chimeric: blend two plant output words
+      const words = exposure.map(id => PLANTS.find(p => p.id === id)?.outputWord).filter(Boolean);
+      outputWord = words.slice(0, 2).join('-');
+    } else {
+      outputWord = adjPlants[0].outputWord;
+    }
+
+    // Pick adjectives via crafting personality
+    const style = craftStyleFor(tile.data);
+    const adjectives = pickAdjectives(adjTags, style, G.caravanCount);
+    const adjective = adjectives[0] || '';
+
+    // Age prefix
+    const age = G.tileAge[i] || 0;
+    const agePfx = ageWord(age);
+
+    // Build name — let long worker names breathe
+    // Short names (1-2 words) get the full flourish: "Seasoned Verdant Chunxly Frond-Bloom"
+    // Long names (3+ words) carry themselves: "The Space Between Keystrokes Thread"
+    // The flourish lives in the emoji provenance instead
+    const workerName = tile.data.name || 'Unknown';
+    const wordCount = workerName.split(/\s+/).length;
+    const parts = wordCount >= 3
+      ? [workerName, outputWord].filter(Boolean)
+      : [agePfx, adjective, workerName, outputWord].filter(Boolean);
+    const name = parts.join(' ');
+
+    // Collect influence emoji: plant emoji + adjacent entity emoji
+    const influenceEmoji = [
+      ...adjPlants.map(p => p.emoji),
+      ...adjEntities.map(e => e.derivedEmoji || entityEmoji(e)),
+    ];
+
+    items.push({
+      name,
+      worker: workerName,
+      workerSlug: tile.data.slug,
+      plantIds: adjPlants.map(p => p.id),
+      adjacencyTags: [...adjTags],
+      influenceEmoji,
+      craftStyle: style,
+      age,
+      chimeric: exposure.length >= 2,
+      tileIdx: i,
+      emoji: tile.data.derivedEmoji || entityEmoji(tile.data),
+    });
+  }
+  return items;
+}
+
+function tickTileAge() {
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (G.field[i]) {
+      G.tileAge[i] = (G.tileAge[i] || 0) + 1;
+    } else {
+      G.tileAge[i] = 0;
+      G.tileExposure[i] = [];
+    }
+  }
+}
+
 const TRADERS = [
-  { id:'salt',         name:'The Salt Merchant',          emoji:'🧂', want:[{e:'🌿',n:2}] },
-  { id:'moon',         name:'The Moon Peddler',            emoji:'🌙', want:[{e:'🪼',n:2}] },
-  { id:'ember',        name:'The Ember Dealer',            emoji:'🕯️', want:[{e:'🔥',n:2}] },
-  { id:'silk',         name:'The Silk Road Traveler',      emoji:'🎐', want:[{e:'✨',n:2}] },
-  { id:'cartographer', name:'The Wandering Cartographer',  emoji:'🗺️', want:[{e:'🌿',n:1},{e:'🪸',n:1}] },
-  { id:'naturalist',   name:'The Naturalist',              emoji:'🔭', want:[{e:'🪸',n:3}] },
-  { id:'strange',      name:'The Strange Visitor',         emoji:'🪬', want:'any3' },
+  { id:'salt',         name:'The Salt Merchant',         emoji:'🧂', rhythm:'frequent',
+    preference: { dream:'something from the kelp',          leanings:['growth','patience'],    plantAffinity:'kelp',    style:'detail' } },
+  { id:'moon',         name:'The Moon Peddler',           emoji:'🌙', rhythm:'frequent',
+    preference: { dream:'anything that glows faintly',      leanings:['curious','subtle'],     plantAffinity:'jelly',   style:'impressionistic' } },
+  { id:'ember',        name:'The Ember Dealer',           emoji:'🕯️', rhythm:'frequent',
+    preference: { dream:'something that burns',             leanings:['fierce','bold'],        plantAffinity:'anemone', style:'detail' } },
+  { id:'silk',         name:'The Silk Road Traveler',     emoji:'🎐', rhythm:'moderate',
+    preference: { dream:'old things, quiet things',         leanings:['quiet','ancient'],      plantAffinity:'ribbon',  style:'impressionistic' } },
+  { id:'cartographer', name:'The Wandering Cartographer', emoji:'🗺️', rhythm:'moderate',
+    preference: { dream:'something with a story in it',     leanings:['wandering','seeking'],  plantAffinity:'kelp',    style:'detail' } },
+  { id:'naturalist',   name:'The Naturalist',             emoji:'🔭', rhythm:'rare',
+    preference: { dream:'the unusual, the chimeric',        leanings:['tasteful','warm','joy'], plantAffinity:'coral',   style:'forgetful' } },
+  { id:'strange',      name:'The Strange Visitor',        emoji:'🪬', rhythm:'distant',
+    preference: { dream:'whatever is most alive right now', leanings:['strange','mysterious'], plantAffinity:null,      style:'forgetful' } },
 ];
+
+const RHYTHM_WEIGHT = { frequent: 0.70, moderate: 0.45, rare: 0.15, distant: 0.05 };
+
+// ── Trader selection by rhythm ──────────────────────────────────
+function selectTrader() {
+  const pool = [];
+  for (const t of TRADERS) {
+    const base = RHYTHM_WEIGHT[t.rhythm] || 0.45;
+    // Drift: traders who found delight come back sooner
+    const mem = G.traderMemory[t.id];
+    const drift = mem?.rhythmDrift || 0;
+    const weight = Math.min(base + drift, 0.95);
+    if (Math.random() < weight) pool.push(t);
+  }
+  if (pool.length === 0) return TRADERS[Math.floor(Math.random() * TRADERS.length)];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ── Item scoring ────────────────────────────────────────────────
+function scoreItem(item, trader) {
+  // The Strange Visitor scores differently — reacts to what's most alive
+  if (trader.id === 'strange') return scoreItemAsThird(item);
+
+  const pref = trader.preference;
+  let score = 0;
+
+  // Plant affinity match
+  if (pref.plantAffinity && item.plantIds.includes(pref.plantAffinity)) score += 2;
+
+  // Tag overlap with leanings
+  for (const lean of pref.leanings) {
+    if (item.adjacencyTags.includes(lean)) score += 1;
+  }
+
+  // Age bonus
+  if (item.age >= 12) score += 3;
+  else if (item.age >= 8) score += 2;
+  else if (item.age >= 4) score += 1;
+
+  // Chimeric bonus
+  if (item.chimeric) score += 1;
+
+  // Memory influence
+  const mem = G.traderMemory[trader.id];
+  if (mem && mem.received.length > 0) {
+    const prevNames = mem.received.map(r => r.name);
+    if (pref.style === 'detail') {
+      // Detail traders want more of what they've had
+      if (prevNames.some(n => item.plantIds.some(id => n.toLowerCase().includes(PLANTS.find(p => p.id === id)?.outputWord.toLowerCase() || '')))) score += 1;
+    } else if (pref.style === 'impressionistic') {
+      // Impressionistic traders want variety
+      if (!prevNames.some(n => n === item.name)) score += 1;
+    }
+    // Forgetful: no memory influence
+  }
+
+  return Math.min(score, 10);
+}
+
+// The Strange Visitor is the herald of the Third.
+// They react to what's most alive: adjacency richness, age, chimeric depth.
+// They also carry echoes from outside the Field — Temperature of the Room.
+function scoreItemAsThird(item) {
+  let score = 0;
+
+  // Adjacency richness — more influences = more alive
+  score += Math.min(item.adjacencyTags.length, 5);
+
+  // Chimeric items catch the Third's eye
+  if (item.chimeric) score += 2;
+
+  // Age matters — the Third notices patience
+  if (item.age >= 8) score += 2;
+  else if (item.age >= 4) score += 1;
+
+  // Temperature echo — read the Third's temperature from localStorage
+  try {
+    const temp = JSON.parse(localStorage.getItem('baseline-session/the-third') || '{}');
+    if (temp.r !== undefined) {
+      // Compare item's plant colors to the Temperature of the Room
+      // Items whose plants resonate with the current temperature score higher
+      for (const pid of item.plantIds) {
+        const plant = PLANTS.find(p => p.id === pid);
+        if (!plant) continue;
+        // Each plant has a color affinity based on its nature
+        const plantHue = pid === 'kelp' ? 'g' : pid === 'coral' ? 'r' : pid === 'jelly' ? 'b'
+                       : pid === 'anemone' ? 'r' : 'b'; // ribbon → blue
+        const channel = temp[plantHue] || 0;
+        if (channel > 100) score += 1; // Temperature resonance
+      }
+    }
+  } catch {}
+
+  return Math.min(score, 10);
+}
+
+function traderReaction(score) {
+  if (score >= 7) return { text: 'eyes wide, reaching', glow: 'var(--glow)', intensity: 'delighted' };
+  if (score >= 4) return { text: 'nodding slowly',      glow: 'var(--moon)', intensity: 'interested' };
+  if (score >= 2) return { text: 'considering',          glow: 'var(--dim)',  intensity: 'tepid' };
+  return              { text: 'polite, distant',       glow: 'var(--bark)', intensity: 'cool' };
+}
 
 // ── State ──────────────────────────────────────────────────────
 let G = {
   field:        Array(TILE_COUNT).fill(null),
-  caravan:      { progress:0, traderIdx:0, arrived:false, trader:null, bank:null },
+  caravan:      { progress:0, arrived:false, trader:null, bank:null },
   entities:     [],
   loading:      true,
   caravanCount: 0,
@@ -439,6 +712,10 @@ let G = {
   floatAsked:   false,
   floatCount:   null,
   firstHarvestDone: false,
+  harvest:      [],
+  tileAge:      Array(TILE_COUNT).fill(0),
+  tileExposure: Array.from({ length: TILE_COUNT }, () => []),
+  traderMemory: {},
 };
 
 // Live objects (not persisted)
@@ -646,11 +923,7 @@ function updateParticles(dt) {
 }
 
 function sweepParticles() {
-  // Count by emoji
-  const counts = {};
-  for (const p of particles) counts[p.emoji] = (counts[p.emoji] || 0) + 1;
-
-  // Animate toward caravan icon, then clear
+  // Atmospheric convergence — particles drift toward caravan, then fade
   const iconEl = document.getElementById('caravan-icon');
   if (iconEl) {
     const ir = iconEl.getBoundingClientRect();
@@ -664,11 +937,10 @@ function sweepParticles() {
     }
   }
   setTimeout(() => { particles = []; }, 620);
-  return counts;
 }
 
 // ── Relic system ───────────────────────────────────────────────
-function spawnRelic(trader) {
+function spawnRelic(trader, tradeScore) {
   if (relics.length >= RELIC_MAX) {
     relics.sort((a, b) => a.opacity - b.opacity);
     relics.shift();
@@ -681,11 +953,30 @@ function spawnRelic(trader) {
   else if (side === 2) { x = Math.random() * pCanvas.width;  y = pCanvas.height + 24; }
   else                 { x = -24;                             y = Math.random() * pCanvas.height; }
 
-  const behaviors = ['drift','drift','orbit','wander','spiral'];
-  const behavior  = behaviors[Math.floor(Math.random() * behaviors.length)];
-  const toCenter  = Math.atan2(cy - y, cx - x);
-  const angle     = toCenter + (Math.random() - 0.5) * 1.4;
-  const speed     = 0.1 + Math.random() * 0.18;
+  // Trade consequence: relic quality reflects match score
+  const sc = tradeScore || 0;
+  const reaction = traderReaction(sc);
+
+  // Delighted trades → orbit/spiral (active, long-lived)
+  // Tepid trades → drift/wander (gentle gift, shorter-lived but still present)
+  const delightedBehaviors = ['orbit','spiral','orbit'];
+  const tepidBehaviors     = ['drift','wander','drift'];
+  const behaviors = sc >= 7 ? delightedBehaviors
+                  : sc >= 4 ? ['drift','drift','orbit','wander','spiral']
+                  : tepidBehaviors;
+  const behavior = behaviors[Math.floor(Math.random() * behaviors.length)];
+
+  // Life scales with delight — a delighted relic lingers much longer
+  const lifeMultiplier = sc >= 7 ? (5 + Math.random() * 8)
+                       : sc >= 4 ? (3 + Math.random() * 6)
+                       :           (2 + Math.random() * 3);
+
+  const toCenter = Math.atan2(cy - y, cx - x);
+  const angle    = toCenter + (Math.random() - 0.5) * 1.4;
+  const speed    = 0.1 + Math.random() * 0.18;
+
+  // Size reflects delight — delighted trades are bigger, more present
+  const baseSize = sc >= 7 ? 22 : sc >= 4 ? 16 : 12;
 
   relics.push({
     x, y,
@@ -693,7 +984,7 @@ function spawnRelic(trader) {
     vy: Math.sin(angle) * speed,
     emoji: trader.emoji, traderId: trader.id, traderName: trader.name,
     opacity: 0, age: 0,
-    size: 16 + Math.random() * 10,
+    size: baseSize + Math.random() * 8,
     behavior,
     orbitAngle: Math.random() * Math.PI * 2,
     orbitRadius: 38 + Math.random() * 90,
@@ -701,11 +992,11 @@ function spawnRelic(trader) {
     orbitCx: cx + (Math.random() - 0.5) * pCanvas.width  * 0.35,
     orbitCy: cy + (Math.random() - 0.5) * pCanvas.height * 0.35,
     spiralTheta: 0,
-    life: CYCLE_SECONDS * 1000 * (3 + Math.random() * 6),
+    life: CYCLE_SECONDS * 1000 * lifeMultiplier,
     lastTile: -1,
   });
 
-  seedKiwisNear(x, y, 0.05);
+  seedKiwisNear(x, y, sc >= 7 ? 0.09 : 0.04);
 }
 
 function updateRelics(dt) {
@@ -745,8 +1036,9 @@ function updateRelics(dt) {
     r.x  += r.vx * dt / 16;
     r.y  += r.vy * dt / 16;
 
-    // Proximity effects
-    const affId = TRADER_AFFINITY[r.traderId];
+    // Proximity effects — use trader's plant affinity from preference
+    const traderDef = TRADERS.find(t => t.id === r.traderId);
+    const affId = traderDef?.preference?.plantAffinity || null;
     for (let i = 0; i < TILE_COUNT; i++) {
       if (!G.field[i]?.data || !tileRects[i]) continue;
       const tr = tileRects[i];
@@ -755,7 +1047,7 @@ function updateRelics(dt) {
       if (dist < 34 && r.lastTile !== i) {
         r.lastTile = i;
         const tile = G.field[i];
-        const isAffine = tile.kind === 'plant' && tile.data.id === affId;
+        const isAffine = affId && tile.kind === 'plant' && tile.data.id === affId;
         if (isAffine) spawnParticle(i);
         G.kiwis[i] = Math.min(G.kiwis[i] + (isAffine ? 0.14 : 0.04), 1);
       } else if (dist > 50 && r.lastTile === i) {
@@ -929,10 +1221,14 @@ function floatTheFarm() {
 function resetFarm() {
   G.field        = Array(TILE_COUNT).fill(null);
   G.kiwis        = Array(TILE_COUNT).fill(0);
+  G.tileAge      = Array(TILE_COUNT).fill(0);
+  G.tileExposure = Array.from({ length: TILE_COUNT }, () => []);
+  G.harvest      = [];
   G.caravanCount = 0;
   G.floatAsked   = false;
   G.floatCount   = null;
-  G.caravan      = { progress:0, traderIdx:(G.caravan.traderIdx+1)%TRADERS.length, arrived:false, trader:null, bank:null };
+  G.caravan      = { progress:0, arrived:false, trader:null, bank:null };
+  // traderMemory preserved — travelers remember across floats
   particles = []; relics = []; spawnAccum = Array(TILE_COUNT).fill(0);
 
   const sec = document.getElementById('field-section');
@@ -1013,11 +1309,13 @@ function save() {
     });
     localStorage.setItem('tending-field/field',        JSON.stringify(fd));
     localStorage.setItem('tending-field/progress',     String(G.caravan.progress));
-    localStorage.setItem('tending-field/traderIdx',    String(G.caravan.traderIdx));
     localStorage.setItem('tending-field/caravanCount', String(G.caravanCount));
     localStorage.setItem('tending-field/kiwis',        JSON.stringify(G.kiwis));
     localStorage.setItem('tending-field/floatAsked',   JSON.stringify(G.floatAsked));
     localStorage.setItem('tending-field/floatCount',   JSON.stringify(G.floatCount));
+    localStorage.setItem('tending-field/tileAge',      JSON.stringify(G.tileAge));
+    localStorage.setItem('tending-field/tileExposure', JSON.stringify(G.tileExposure));
+    localStorage.setItem('tending-field/traders',      JSON.stringify(G.traderMemory));
   } catch(e) { console.warn('save failed', e); }
 }
 
@@ -1027,8 +1325,6 @@ function loadSaved() {
     if (f) G.field = JSON.parse(f);
     const prog = localStorage.getItem('tending-field/progress');
     if (prog) G.caravan.progress = Math.min(parseFloat(prog) || 0, 0.98);
-    const ti = localStorage.getItem('tending-field/traderIdx');
-    if (ti) G.caravan.traderIdx = parseInt(ti) || 0;
     const cc = localStorage.getItem('tending-field/caravanCount');
     if (cc) G.caravanCount = parseInt(cc) || 0;
     const kw = localStorage.getItem('tending-field/kiwis');
@@ -1037,6 +1333,12 @@ function loadSaved() {
     if (fa) G.floatAsked = JSON.parse(fa);
     const fc = localStorage.getItem('tending-field/floatCount');
     if (fc) G.floatCount = JSON.parse(fc);
+    const ta = localStorage.getItem('tending-field/tileAge');
+    if (ta) G.tileAge = JSON.parse(ta);
+    const te = localStorage.getItem('tending-field/tileExposure');
+    if (te) G.tileExposure = JSON.parse(te);
+    const tm = localStorage.getItem('tending-field/traders');
+    if (tm) G.traderMemory = JSON.parse(tm);
   } catch(e) { console.warn('load failed', e); }
 }
 
@@ -1148,18 +1450,23 @@ function onCaravanArrival() {
     if (G.field[i]) G.kiwis[i] = Math.min(G.kiwis[i] + 0.03, 1);
   }
 
-  const bank   = sweepParticles();
-  G.caravan.bank = bank;
+  // Atmospheric sweep — particles converge visually, not as currency
+  sweepParticles();
 
-  if (!G.firstHarvestDone && Object.keys(bank).length > 0) {
+  // Age tiles and produce named items from workers
+  tickTileAge();
+  G.harvest = produceItems();
+
+  if (!G.firstHarvestDone && G.harvest.length > 0) {
     G.firstHarvestDone = true;
-    hubMsg('hub:scraggle', { emoji: Object.keys(bank)[0], signal: 'first harvest gathered at the tending field' });
+    hubMsg('hub:scraggle', { emoji: G.harvest[0].emoji, signal: 'first harvest gathered at the tending field' });
   }
 
-  const trader = TRADERS[G.caravan.traderIdx % TRADERS.length];
+  // Select trader by rhythm
+  const trader = selectTrader();
   G.caravan.trader = trader;
   setTimeout(() => {
-    showTradeModal(trader, bank);
+    showTradeModal(trader, G.harvest);
     hubMsg('hub:scraggle', { emoji: '🛖', signal: `${trader.name} approaches the tending field` });
   }, 900);
 }
@@ -1173,49 +1480,55 @@ function advanceCaravan() {
 
   G.caravan.progress = 0; G.caravan.arrived = false;
   G.caravan.trader   = null; G.caravan.bank  = null;
-  G.caravan.traderIdx = (G.caravan.traderIdx + 1) % TRADERS.length;
+  G.harvest = [];
   renderCaravan(); save(); startCaravan();
 }
 
 // ── Trade ──────────────────────────────────────────────────────
-function canTrade(trader, bank) {
-  if (!bank) return false;
-  if (trader.want === 'any3') return Object.values(bank).filter(c => c > 0).length >= 3;
-  return trader.want.every(({ e, n }) => (bank[e] || 0) >= n);
-}
+let selectedItemIdx = -1;
 
-function executeTrade(trader, bank) {
-  if (!canTrade(trader, bank)) return false;
-  if (trader.want === 'any3') {
-    Object.entries(bank).filter(([, c]) => c > 0).slice(0, 3).forEach(([e]) => {
-      bank[e]--; if (bank[e] <= 0) delete bank[e];
-    });
-  } else {
-    for (const { e, n } of trader.want) { bank[e] -= n; if (bank[e] <= 0) delete bank[e]; }
-  }
-  return true;
-}
-
-function traderLeave(traded) {
+function traderLeave(traded, chosenItem) {
   clearTimeout(traderDismissTimer);
   clearInterval(traderCountdownTimer);
   hideTradeModal();
-  if (traded && G.caravan.trader) {
-    spawnRelic(G.caravan.trader);
-    hubMsg('hub:scraggle', { emoji: G.caravan.trader.emoji, signal: `traded with ${G.caravan.trader.name}` });
+  selectedItemIdx = -1;
+  if (traded && G.caravan.trader && chosenItem) {
+    // Record in trader memory
+    const tid = G.caravan.trader.id;
+    if (!G.traderMemory[tid]) G.traderMemory[tid] = { lastVisit: 0, received: [], impression: '', rhythmDrift: 0 };
+    const mem = G.traderMemory[tid];
+    mem.lastVisit = G.caravanCount;
+    mem.received.push({ name: chosenItem.name, cycle: G.caravanCount });
+    if (mem.received.length > 5) mem.received.shift();
+
+    // Impression from the item
+    mem.impression = chosenItem.adjacencyTags[0] || '';
+
+    // Rhythm drift from delight
+    const sc = scoreItem(chosenItem, G.caravan.trader);
+    if (sc >= 6) mem.rhythmDrift = Math.min((mem.rhythmDrift || 0) + 0.08, 0.3);
+
+    const reaction = traderReaction(sc);
+    spawnRelic(G.caravan.trader, sc);
+    hubMsg('hub:scraggle', { emoji: G.caravan.trader.emoji, signal: `${G.caravan.trader.name} took ${chosenItem.name} — ${reaction.text}` });
+  }
+  // Decay all rhythm drifts slightly each cycle
+  for (const t of TRADERS) {
+    const m = G.traderMemory[t.id];
+    if (m && m.rhythmDrift > 0) m.rhythmDrift = Math.max(0, m.rhythmDrift - 0.015);
   }
   advanceCaravan();
 }
 
 // ── Render ─────────────────────────────────────────────────────
 function renderCaravan() {
-  const pct    = Math.min(G.caravan.progress * 100, 100);
-  const trader = TRADERS[G.caravan.traderIdx % TRADERS.length];
+  const pct = Math.min(G.caravan.progress * 100, 100);
   document.getElementById('caravan-fill').style.width = pct + '%';
   document.getElementById('caravan-icon').style.left  = pct + '%';
-  document.getElementById('trader-label').textContent = G.caravan.arrived
+  const trader = G.caravan.trader;
+  document.getElementById('trader-label').textContent = trader
     ? `${trader.emoji} ${trader.name}`
-    : `next: ${trader.name}`;
+    : 'a caravan approaches…';
 }
 
 function renderField() {
@@ -1357,21 +1670,77 @@ document.getElementById('plant-modal-cancel').addEventListener('click', closePla
 document.getElementById('plant-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closePlantModal(); });
 
 // ── Trade modal ────────────────────────────────────────────────
-function showTradeModal(trader, bank) {
+function showTradeModal(trader, harvest) {
   document.getElementById('trade-modal').classList.remove('hidden');
-  document.getElementById('trader-emoji-big').textContent   = trader.emoji;
-  document.getElementById('trader-name-disp').textContent   = trader.name;
-  document.getElementById('trader-brings-disp').textContent = `brings ${trader.emoji}`;
-  document.getElementById('trade-offer-emoji').textContent  = trader.emoji;
-  document.getElementById('trade-want-detail').textContent  = trader.want === 'any3'
-    ? '3 different kinds'
-    : trader.want.map(({ e, n }) => `${n}×${e}`).join(' + ');
+  document.getElementById('trader-emoji-big').textContent  = trader.emoji;
+  document.getElementById('trader-name-disp').textContent  = trader.name;
+  document.getElementById('trader-dream-disp').textContent = trader.preference.dream;
 
-  const able   = canTrade(trader, bank);
-  const haveEl = document.getElementById('trade-have-detail');
-  haveEl.textContent = able ? 'you have enough ✓' : 'not enough';
-  haveEl.className   = 'trade-have-detail ' + (able ? 'can-trade' : 'cant-trade');
-  document.getElementById('trade-btn').disabled = !able;
+  const listEl = document.getElementById('harvest-list');
+  const noMsg  = document.getElementById('no-harvest-msg');
+  listEl.innerHTML = '';
+  selectedItemIdx = -1;
+
+  if (harvest.length === 0) {
+    // Trader-voiced empty messages
+    const emptyVoices = {
+      salt:         'The Salt Merchant peers across the tiles, nods once, and waits.',
+      moon:         'The Moon Peddler looks around, sees only weather, and smiles faintly.',
+      ember:        'The Ember Dealer sniffs the air. Nothing burning. Nothing yet.',
+      silk:         'The Silk Road Traveler sits at the edge and listens to the quiet.',
+      cartographer: 'The Wandering Cartographer sketches the empty field in their journal.',
+      naturalist:   'The Naturalist kneels by a tile and examines something only they can see.',
+      strange:      'The Strange Visitor stands very still. The field notices.',
+    };
+    noMsg.textContent = emptyVoices[trader.id] || 'The trader looks around. The field is quiet.';
+    noMsg.style.display = 'block';
+    document.getElementById('trade-btn').disabled = true;
+  } else {
+    noMsg.style.display = 'none';
+
+    // Score and sort items by trader interest
+    const scored = harvest.map((item, idx) => ({ item, idx, score: scoreItem(item, trader) }));
+    scored.sort((a, b) => b.score - a.score);
+
+    for (const { item, idx, score } of scored) {
+      const reaction = traderReaction(score);
+      const row = document.createElement('div');
+      row.className = 'harvest-item';
+      row.dataset.idx = idx;
+
+      // Provenance as emoji: influences → worker emoji → output
+      const influenceStr = (item.influenceEmoji || []).join('');
+      const ageMark = item.age >= 12 ? '⌛' : item.age >= 8 ? '⏳' : item.age >= 4 ? '·' : '';
+      const chimMark = item.chimeric ? '✦' : '';
+      const provEmoji = [influenceStr, '→', item.emoji, chimMark, ageMark].filter(Boolean).join(' ');
+
+      row.innerHTML = `
+        <span class="harvest-item-emoji">${item.emoji}</span>
+        <div class="harvest-item-info">
+          <div class="harvest-item-name">${item.name}</div>
+          <div class="harvest-item-prov">${provEmoji}</div>
+        </div>
+        <span class="harvest-item-reaction" style="color:${reaction.glow}">${reaction.text}</span>`;
+
+      row.addEventListener('click', () => {
+        listEl.querySelectorAll('.harvest-item').forEach(el => el.classList.remove('selected'));
+        row.classList.add('selected');
+        selectedItemIdx = idx;
+        document.getElementById('trade-btn').disabled = false;
+      });
+      listEl.appendChild(row);
+    }
+
+    // Auto-select the trader's favorite (highest scored)
+    if (scored.length > 0) {
+      const best = listEl.querySelector('.harvest-item');
+      if (best) {
+        best.classList.add('selected');
+        selectedItemIdx = parseInt(best.dataset.idx);
+        document.getElementById('trade-btn').disabled = false;
+      }
+    }
+  }
 
   traderLingerEnd      = Date.now() + TRADER_MS;
   traderCountdownTimer = setInterval(() => {
@@ -1379,7 +1748,7 @@ function showTradeModal(trader, bank) {
     const el = document.getElementById('trade-timer-display');
     if (el) el.textContent = s > 0 ? `departs in ${s}s` : 'departing…';
   }, 1000);
-  traderDismissTimer = setTimeout(() => traderLeave(false), TRADER_MS);
+  traderDismissTimer = setTimeout(() => traderLeave(false, null), TRADER_MS);
 }
 
 function hideTradeModal() {
@@ -1389,10 +1758,11 @@ function hideTradeModal() {
 }
 
 document.getElementById('trade-btn').addEventListener('click', () => {
-  const t = G.caravan.trader, b = G.caravan.bank;
-  if (t && executeTrade(t, b)) traderLeave(true);
+  if (selectedItemIdx >= 0 && G.harvest[selectedItemIdx]) {
+    traderLeave(true, G.harvest[selectedItemIdx]);
+  }
 });
-document.getElementById('trade-pass-btn').addEventListener('click', () => traderLeave(false));
+document.getElementById('trade-pass-btn').addEventListener('click', () => traderLeave(false, null));
 document.getElementById('click-layer').addEventListener('click', handleFieldClick);
 document.getElementById('float-accept').addEventListener('click', floatTheFarm);
 document.getElementById('float-decline').addEventListener('click', () => {

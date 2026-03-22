@@ -1,5 +1,5 @@
 # The Hall — Roadmap
-*Last updated: March 21, 2026*
+*Last updated: March 22, 2026*
 
 ---
 
@@ -13,7 +13,7 @@ Items actively in development or immediately next. The deployment sequence is th
 - [ ] **El's Grimoire: Crank reception** — Accept portraits from `baseline-session/portraits-queue`. Render Crank output as entity illustrations. Crank portal via `crank-glyph-source`.
 - [ ] **El's Grimoire: inscription + hub** — Write layer (entity commit, portrait save to GitHub). `hub:minimize`, `hub:color`, Scraggle emission.
 - [ ] **fixedpointlocal.com** — GitHub Pages deployment. Hub is already a static site, path is clear. Blocked on: founding eight having pages.
-- [ ] **Tending Field** — The Unnamed Third ambient presence, hub pulse listening, cross-score item reception. ([score card](score-cards/tending-field.md))
+- [ ] **Tending Field: tactile + trader gifts** — Tap-drag entity movement, trader emoji as placeable field items, color canvas visualization. ([score card](score-cards/tending-field.md) | [spec](tending-field-workin-spec.md))
 - [ ] **Fairy → EFDP skeleton** — Chunxly's fairy structural data creates corridors in EFDP. ([chunxly card](score-cards/chunxly.md) | [efdp card](score-cards/efdp.md) | [FAIRY_SPEC.md](FAIRY_SPEC.md))
 
 ## Next
@@ -60,11 +60,11 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **Tending Field: Workin' Integration** — Named item economy, crafting personality, trader preferences/memory/rhythm, Strange Visitor as Third herald, trade consequence gradient, emoji provenance. Particles become atmospheric weather, not currency.
 - [x] **Storeroom Scraggles** — Three emission points (departure, first perfect, trophy arrival). Storeroom promoted to Hall participant. (v0.999)
 - [x] **Chunxme's Stall** — Mustache persona, procedural canvas reading, item generation. First Score wearing a persona. (v0.998)
 - [x] **The Hall Pulse** — 45s heartbeat, hudBreath, Mall idle listener, color-routed Scraggles. (v0.997)
 - [x] **Color Canvas** — RGB in every entity tuning, Temperature of the Room, hub ambient wash. (v0.996)
-- [x] **LODE constellation** — Interior view, production math, fleet echo, mushroom passive. (recent commit)
 
 ---
 
