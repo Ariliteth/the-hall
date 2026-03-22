@@ -760,6 +760,11 @@
   .inscribe-field:focus {
     border-bottom-color: var(--gold-dim);
   }
+  /* Keep the gold spore cursor everywhere — no system cursors breaking the spell */
+  .inscribe-field, .inscribe-select, .inscribe-btn, .token-field,
+  .color-input-row input[type="number"] {
+    cursor: inherit;
+  }
   textarea.inscribe-field {
     resize: none;
     min-height: 44px;
@@ -1634,12 +1639,12 @@ function renderInscribeRight() {
       <input type="number" id="inscB" min="0" max="255" value="128" placeholder="B">
     </div>
     <div class="gold-rule" style="margin-top:10px"></div>
-    <div class="section-head">GitHub Token</div>
+    <div class="section-head">Repository Key</div>
     <div style="font-family:'Caveat',cursive;font-size:10px;color:var(--ink-ghost);margin-bottom:4px">
-      ${hasToken ? 'token saved — paste to replace' : 'required for inscription (contents:write scope)'}
+      ${hasToken ? 'key held — paste to replace' : 'the Hall needs a key to accept new inscriptions'}
     </div>
-    <input type="password" class="token-field" id="inscToken" placeholder="ghp_..." value="">
-    <div class="token-status" id="tokenStatus">${hasToken ? 'token stored locally' : ''}</div>
+    <input type="password" class="token-field" id="inscToken" placeholder="paste key here" value="">
+    <div class="token-status" id="tokenStatus">${hasToken ? 'key held locally' : ''}</div>
     <div class="gold-rule" style="margin-top:10px"></div>
     <button class="inscribe-btn" id="inscribeBtn" onclick="doInscription()">Inscribe</button>
     <div class="inscribe-status" id="inscStatus"></div>
@@ -1671,7 +1676,7 @@ function bindInscriptionEvents() {
           saveToken(tokenInput.value);
           tokenInput.value = '';
           const status = document.getElementById('tokenStatus');
-          if (status) status.textContent = 'token saved';
+          if (status) status.textContent = 'key held';
         }
       });
     }
@@ -1692,7 +1697,7 @@ async function doInscription() {
   const btn = document.getElementById('inscribeBtn');
 
   if (!name) { statusEl.textContent = 'a name is needed'; statusEl.className = 'inscribe-status error'; return; }
-  if (!ghToken) { statusEl.textContent = 'no GitHub token — paste one above'; statusEl.className = 'inscribe-status error'; return; }
+  if (!ghToken) { statusEl.textContent = 'the Hall needs a key — paste one above'; statusEl.className = 'inscribe-status error'; return; }
 
   const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
   const color = [r, g, b];
@@ -1977,8 +1982,15 @@ function prevPage() {
 document.getElementById('turnBtn').addEventListener('click', nextPage);
 document.getElementById('prevBtn').addEventListener('click', prevPage);
 
+// Ignore page-turn gestures when interacting with form elements
+function isFormElement(e) {
+  const tag = e.target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || e.target.closest('.inscribe-btn');
+}
+
 // Click right edge to turn forward
 document.getElementById('pageRight').addEventListener('click', (e) => {
+  if (isFormElement(e)) return;
   if (e.target.closest('.flood-zone') || e.target.closest('.dot-cell') || e.target.closest('.tag-pill') || e.target.closest('.illustration') || e.target.closest('.toc-entry')) return;
   const rect = document.getElementById('bookPages').getBoundingClientRect();
   if (e.clientX > rect.left + rect.width * 0.8) nextPage();
@@ -1986,13 +1998,15 @@ document.getElementById('pageRight').addEventListener('click', (e) => {
 
 // Click left edge to turn back
 document.getElementById('pageLeft').addEventListener('click', (e) => {
+  if (isFormElement(e)) return;
   if (e.target.closest('.open-prompt') || e.target.closest('.toc-entry')) return;
   const rect = document.getElementById('bookPages').getBoundingClientRect();
   if (e.clientX < rect.left + rect.width * 0.2) prevPage();
 });
 
-// Keyboard navigation
+// Keyboard navigation (suppress when typing in form fields)
 document.addEventListener('keydown', (e) => {
+  if (isFormElement(e)) return;
   if (e.key === 'ArrowRight') nextPage();
   else if (e.key === 'ArrowLeft') prevPage();
 });
