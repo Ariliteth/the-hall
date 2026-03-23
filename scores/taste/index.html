@@ -1056,6 +1056,96 @@
     70%  { opacity: 0.7; transform: translateY(-8px); }
     100% { opacity: 0; transform: translateY(-16px); }
   }
+
+  /* Tab bar — hidden on desktop */
+  #shop-tabs { display: none; }
+
+  /* ══════════════════════════════════════════════
+     MOBILE RESPONSIVE
+     ══════════════════════════════════════════════ */
+
+  @media (max-width: 768px) {
+
+    /* ── PHASES — scrollable on mobile ── */
+    .phase { overflow-y: auto; }
+    #lamp-phase { justify-content: flex-start; padding-top: 16px; }
+
+    /* ── LAMP PHASE ── */
+    #lamp-glow { width: 200px; height: 200px; top: 2%; }
+    #trophy-shelf { max-width: 100%; padding: 0 8px; }
+    #magazine-container { width: 100%; }
+    #go-shopping-btn { width: 90%; max-width: 300px; padding: 14px; font-size: 0.75rem; }
+    #wife-list-delivery { max-width: 100%; padding: 0 16px; }
+
+    /* ── STORE PHASE ── */
+    #store-phase { padding: 20px 12px; }
+    #store-cards { width: 100%; }
+    .store-card { width: 100%; max-width: none; }
+
+    /* ── SHOPPING PHASE — TAB TOGGLE ── */
+    #shop-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--card-border);
+      flex-shrink: 0;
+    }
+    .shop-tab {
+      flex: 1;
+      padding: 10px 0;
+      font-family: inherit;
+      font-size: 0.6rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: transparent;
+      color: var(--dim);
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      opacity: 0.5;
+      transition: opacity 0.2s, border-color 0.2s;
+    }
+    .shop-tab.active {
+      opacity: 1;
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    #shop-header { padding: 8px 12px; }
+
+    #shop-body { flex-direction: column; }
+
+    #display-area { padding: 12px; overflow-y: auto; }
+    #display-area.tab-hidden { display: none; }
+
+    #list-sidebar {
+      width: 100%;
+      border-left: none;
+      border-top: 1px solid var(--card-border);
+      padding: 12px;
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+    }
+    #list-sidebar.tab-active { display: flex; }
+
+    /* Tools wrap on narrow screens */
+    #tool-bench { flex-wrap: wrap; }
+    .tool-zone { max-width: none; min-width: 80px; flex: 1 1 80px; }
+
+    /* Bins breathe */
+    .bin { min-width: 64px; }
+    .bin-item { width: 56px; }
+
+    /* ── MAGAZINE — SINGLE PAGE ── */
+    #mag-cover { max-width: 100%; }
+    #magazine-spread { max-width: 100%; }
+    .mag-page { min-height: auto; width: 100%; }
+    .mag-page.mobile-hidden { display: none !important; }
+
+    /* ── GOING HOME ── */
+    #home-phase { padding: 20px 16px; }
+    #return-lamp-btn { width: 80%; max-width: 260px; padding: 12px; }
+  }
 </style>
 </head>
 <body>
@@ -1105,6 +1195,10 @@
         <span class="store-tag" id="shop-store-tag"></span>
       </div>
       <button id="done-btn" onclick="enterGoingHome()">Done Shopping</button>
+    </div>
+    <div id="shop-tabs">
+      <button class="shop-tab active" data-tab="produce" onclick="switchShopTab('produce')">Produce</button>
+      <button class="shop-tab" data-tab="list" onclick="switchShopTab('list')">Her List</button>
     </div>
     <div id="shop-body">
       <div id="display-area">
@@ -1167,6 +1261,27 @@ try { window.parent.postMessage({ type: 'hub:color', r: 140, g: 170, b: 60 }, '*
 
 function hubMsg(type, extra) {
   try { window.parent.postMessage({ type, ...extra }, '*'); } catch(e) {}
+}
+
+// ===== MOBILE HELPERS =====
+function isMobile() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function switchShopTab(tab) {
+  const display = document.getElementById('display-area');
+  const sidebar = document.getElementById('list-sidebar');
+  const tabs = document.querySelectorAll('.shop-tab');
+
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+
+  if (tab === 'produce') {
+    display.classList.remove('tab-hidden');
+    sidebar.classList.remove('tab-active');
+  } else {
+    display.classList.add('tab-hidden');
+    sidebar.classList.add('tab-active');
+  }
 }
 
 // ===== SEEDED RNG =====
@@ -1912,7 +2027,7 @@ function showSpread() {
   document.getElementById('mag-done-btn').style.display = '';
 }
 
-function renderSpread(issueId, spreadIndex) {
+function renderSpread(issueId, spreadIndex, mobileSide) {
   const issue = getIssue(issueId);
   if (!issue) return;
 
@@ -1923,6 +2038,16 @@ function renderSpread(issueId, spreadIndex) {
   const rightEl = document.getElementById('mag-right');
   leftEl.innerHTML = '';
   rightEl.innerHTML = '';
+
+  // On mobile, show only one page at a time
+  if (isMobile()) {
+    const side = mobileSide || 'left';
+    leftEl.classList.toggle('mobile-hidden', side !== 'left');
+    rightEl.classList.toggle('mobile-hidden', side !== 'right');
+  } else {
+    leftEl.classList.remove('mobile-hidden');
+    rightEl.classList.remove('mobile-hidden');
+  }
 
   // Left page — prose
   if (spread.left.prose) {
@@ -1978,7 +2103,7 @@ function renderSpread(issueId, spreadIndex) {
   rightEl.appendChild(rightFooter);
 
   // Update nav
-  updateNav(issue, spreadIndex);
+  updateNav(issue, spreadIndex, mobileSide);
 }
 
 function renderPanel(panel) {
@@ -2016,14 +2141,23 @@ function renderScribbles(scribbles, pageEl) {
   }
 }
 
-function updateNav(issue, spreadIndex) {
+function updateNav(issue, spreadIndex, mobileSide) {
   const prevBtn = document.getElementById('mag-prev');
   const nextBtn = document.getElementById('mag-next');
   const indicator = document.getElementById('mag-page-indicator');
 
-  prevBtn.disabled = spreadIndex <= 0;
-  nextBtn.disabled = spreadIndex >= issue.pages.length - 1;
-  indicator.textContent = `${spreadIndex + 1} / ${issue.pages.length}`;
+  if (isMobile()) {
+    const side = mobileSide || 'left';
+    const totalPages = issue.pages.length * 2;
+    const currentPage = spreadIndex * 2 + (side === 'right' ? 1 : 0);
+    prevBtn.disabled = currentPage <= 0;
+    nextBtn.disabled = currentPage >= totalPages - 1;
+    indicator.textContent = `${currentPage + 1} / ${totalPages}`;
+  } else {
+    prevBtn.disabled = spreadIndex <= 0;
+    nextBtn.disabled = spreadIndex >= issue.pages.length - 1;
+    indicator.textContent = `${spreadIndex + 1} / ${issue.pages.length}`;
+  }
 }
 
 function renderRack() {
@@ -2107,22 +2241,48 @@ function turnPage(direction) {
   const issue = getIssue(S.magazine.currentIssue);
   if (!issue) return;
 
-  const newIndex = S.magazine.currentSpread + direction;
-  if (newIndex < 0 || newIndex >= issue.pages.length) return;
-
-  S.magazine.currentSpread = newIndex;
-  save();
-  renderSpread(issue.id, newIndex);
+  if (isMobile()) {
+    // Step through individual pages: left → right → next spread left → ...
+    const side = S.magazine.mobileSide || 'left';
+    if (direction === 1) {
+      if (side === 'left') {
+        S.magazine.mobileSide = 'right';
+      } else {
+        const next = S.magazine.currentSpread + 1;
+        if (next >= issue.pages.length) return;
+        S.magazine.currentSpread = next;
+        S.magazine.mobileSide = 'left';
+      }
+    } else {
+      if (side === 'right') {
+        S.magazine.mobileSide = 'left';
+      } else {
+        const prev = S.magazine.currentSpread - 1;
+        if (prev < 0) return;
+        S.magazine.currentSpread = prev;
+        S.magazine.mobileSide = 'right';
+      }
+    }
+    save();
+    renderSpread(issue.id, S.magazine.currentSpread, S.magazine.mobileSide);
+  } else {
+    const newIndex = S.magazine.currentSpread + direction;
+    if (newIndex < 0 || newIndex >= issue.pages.length) return;
+    S.magazine.currentSpread = newIndex;
+    save();
+    renderSpread(issue.id, newIndex);
+  }
 }
 
 function openIssue(issueId) {
   S.magazine.currentIssue = issueId;
   S.magazine.currentSpread = 0;
+  S.magazine.mobileSide = 'left';
   save();
 
   hideCover();
   showSpread();
-  renderSpread(issueId, 0);
+  renderSpread(issueId, 0, 'left');
   renderRack();
 }
 
@@ -2739,6 +2899,7 @@ function allocateItem(item, slotIdx) {
   renderBins();
   renderListSlots();
   updateDoneBtn();
+  if (isMobile()) switchShopTab('list');
 }
 
 function allocateGhostItem(item, slotIdx) {
@@ -2747,6 +2908,7 @@ function allocateGhostItem(item, slotIdx) {
   renderBins();
   renderGhostSlots();
   renderListSlots();
+  if (isMobile()) switchShopTab('list');
 }
 
 function returnFromSlot(listType, slotIdx) {
