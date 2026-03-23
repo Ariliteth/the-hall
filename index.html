@@ -930,7 +930,7 @@
           <h2>— Select a Score —</h2>
           <div id="score-rack">
 
-            <div class="score-card selected" data-score="hunter-encounter" data-url="neighborhoods/mucklerbuckler/scores/hunter-encounter/index.html" onclick="selectScore(this)">
+            <div class="score-card" data-score="hunter-encounter" data-url="neighborhoods/mucklerbuckler/scores/hunter-encounter/index.html" onclick="selectScore(this)">
               <div class="score-title">HUNTER ENCOUNTER</div>
               <div class="score-desc">A turn-based encounter. The field crew is already on location. Something from The Hall is waiting.</div>
               <div class="score-meta">
@@ -1463,6 +1463,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('roster-loading').textContent = 'NO SIGNAL';
     renderThemes();
   }
+
+  // Shuffle score order — every visit, a different door is nearest
+  const rack = document.getElementById('score-rack');
+  const cards = [...rack.querySelectorAll('.score-card')];
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    rack.appendChild(cards[j]);
+    cards[j] = cards[i];
+  }
+  // Select a random card as the default
+  document.querySelectorAll('.score-card').forEach(c => c.classList.remove('selected'));
+  const randomCard = rack.querySelector('.score-card');
+  if (randomCard) selectScore(randomCard);
 
   updateLaunchButton();
 
