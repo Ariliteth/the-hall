@@ -894,12 +894,14 @@ function openLabelPanel(target) {
 }
 
 function getCardLayout() {
-  const cardW = Math.min(140, (S.w - 80) / 3.5);
+  const narrow = S.w < 500;
+  const pad = narrow ? 24 : 80;
+  const gap = narrow ? 8 : 12;
+  const cardW = Math.min(140, (S.w - pad) / 3.2);
   const cardH = cardW * 1.35;
-  const gap = 12;
   const totalW = S.cardDraw.cards.length * cardW + (S.cardDraw.cards.length - 1) * gap;
   const startX = (S.w - totalW) / 2;
-  const cardY = S.h - cardH - 60;
+  const cardY = S.h - cardH - (narrow ? 40 : 60);
   return { cardW, cardH, gap, startX, cardY };
 }
 
@@ -1156,7 +1158,7 @@ function enterTinkering() {
   S.zoomTarget = 1.6;
   S.cameraYTarget = S.h * 0.32;
   // move vendor near the rocket so they're visible at close zoom
-  S.vendor.targetX = S.rocket.x - 140;
+  S.vendor.targetX = S.rocket.x - Math.min(140, S.w * 0.3);
   showNote('oh. okay. let\'s see what we\'ve got.');
 }
 
@@ -1219,7 +1221,7 @@ function enterLaunch() {
   S.lunch.options = [];
   S.lunch.alpha = 0.8; // lunch button glows during countdown
   // vendor walks back near the rocket
-  S.vendor.targetX = S.rocket.x - 140;
+  S.vendor.targetX = S.rocket.x - Math.min(140, S.w * 0.3);
   vendorComment("let's see what happens!", 'excited');
 }
 
@@ -1700,9 +1702,6 @@ function render() {
     ctx.fillRect(-S.w, -S.h, S.w * 3, S.h * 3);
   }
 
-  // card draw
-  if (S.cardDraw.visible) renderCardDraw();
-
   // text
   renderText();
 
@@ -1712,6 +1711,9 @@ function render() {
   }
 
   ctx.restore();
+
+  // card draw (outside zoom transform — fixed to screen)
+  if (S.cardDraw.visible) renderCardDraw();
 
   // cut-in overlay (outside zoom transform — fixed to screen)
   renderCutIn();
@@ -2055,7 +2057,7 @@ function getLunchCardLayout() {
 
 function getLunchButtonPos() {
   const bw = 60, bh = 24;
-  const bx = S.rocket.x + 120;
+  const bx = S.rocket.x + Math.min(120, S.w * 0.25);
   const by = S.groundY - 20 - bh/2;
   return { bw, bh, bx, by };
 }
@@ -2262,14 +2264,15 @@ function onPointer(e) {
 
   if (S.phase === 'launching' || S.phase === 'outcome') return;
 
-  // card draw interaction
+  // card draw interaction (cards render in screen space, use raw coords)
   if (S.cardDraw.visible && S.cardDraw.cards.length > 0) {
+    const sx = e.clientX, sy = e.clientY;
     const { cardW, cardH, gap, startX, cardY } = getCardLayout();
 
     // check card clicks
     for (let i = 0; i < S.cardDraw.cards.length; i++) {
       const cx = startX + i * (cardW + gap);
-      if (hitRect(x, y, cx, cardY, cardW, cardH)) {
+      if (hitRect(sx, sy, cx, cardY, cardW, cardH)) {
         applyCard(i);
         return;
       }
@@ -2280,14 +2283,14 @@ function onPointer(e) {
       const sbW = 60, sbH = 20;
       const sbX = S.w/2 - sbW/2;
       const sbY = cardY + cardH + 8;
-      if (hitRect(x, y, sbX, sbY, sbW, sbH)) {
+      if (hitRect(sx, sy, sbX, sbY, sbW, sbH)) {
         shuffleCards();
         return;
       }
     }
 
     // tap outside cards → close
-    if (y < cardY - 30) {
+    if (sy < cardY - 30) {
       closeCardDraw();
       closeLabelPanel();
       return;

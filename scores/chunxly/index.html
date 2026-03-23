@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chunxly's Canvas</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
@@ -16,7 +16,7 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{background:var(--bg);min-height:100dvh;font-family:var(--serif);color:var(--text);
   display:flex;flex-direction:column;align-items:center;overflow-x:hidden;
-  touch-action:none;user-select:none;}
+  user-select:none;}
 body::after{content:'';position:fixed;inset:0;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
   pointer-events:none;z-index:999;opacity:.5;}
@@ -41,7 +41,8 @@ body::after{content:'';position:fixed;inset:0;
 
 /* ── workspace ── */
 .workspace{position:relative;width:calc(100% - 28px);max-width:512px;aspect-ratio:1;
-  border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:var(--surface);flex-shrink:0;}
+  border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:var(--surface);flex-shrink:0;
+  touch-action:none;}
 #mainCanvas{display:block;width:100%;height:100%;cursor:crosshair;}
 
 /* ── drop zone overlay ── */
@@ -4687,6 +4688,7 @@ function showSeedPanel(seed) {
   }
 
   panel.classList.add('show');
+  setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
 
   // copy button
   document.getElementById('seedCopy').onclick = () => {
@@ -5112,6 +5114,7 @@ function revealStallItem(item) {
     </div>
   `;
   $panel.classList.add('show');
+  setTimeout(() => $panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
 
   // store item
   storeStallItem(item);
@@ -5269,6 +5272,7 @@ function revealChunxlyItem(item) {
     </div>
   `;
   $panel.classList.add('show');
+  setTimeout(() => $panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
 
   // update storage with the Chunxly version
   storeStallItem(item);
