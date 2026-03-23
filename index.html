@@ -1164,15 +1164,61 @@ let anteroomActive      = true;
 // ANTEROOM — the place before the rack
 // ============================================================
 
+const ANTEROOM_MOODS = {
+  sparse:    { initial: 2, max: 4,  delay: [6000, 12000], dur: [14, 22], filter: null },
+  gathering: { initial: 4, max: 8,  delay: [3000, 6000],  dur: [10, 16], filter: 'neighborhood', hood: null },
+  flood:     { initial: 8, max: 15, delay: [800, 2000],   dur: [6, 10],  filter: null, thinAfter: 8000 },
+  mixed:     { initial: 3, max: 6,  delay: [3000, 7000],  dur: [10, 18], filter: null },
+};
+
 const anteroomState = {
   walkers: [],       // entities crossing the floor
   scanPhase: 0,      // Third's warm scan sweep (0→1)
   scanDone: false,
   gridPulse: 0,      // gentle breathing after scan
-  entityPool: [],    // shuffled entity names from registry
+  entityPool: [],    // enriched entity objects
   poolIdx: 0,
   animId: null,
+  mood: null,
+  moodConfig: null,
 };
+
+function anteroomPickMood(entities) {
+  const moods = ['sparse', 'gathering', 'flood', 'mixed'];
+  const key = moods[Math.floor(Math.random() * moods.length)];
+  const cfg = { ...ANTEROOM_MOODS[key] };
+
+  if (key === 'gathering') {
+    // Pick a neighborhood that has entities in the pool
+    const hoods = [...new Set(entities.map(e => e.neighborhood))];
+    cfg.hood = hoods[Math.floor(Math.random() * hoods.length)];
+  }
+  return { key, cfg };
+}
+
+function anteroomLoadAssets(entities) {
+  const RAW_BASE = '';  // relative paths work from hub root
+  for (const entity of entities) {
+    // Glyph SVGs (greengarden only — the rest are placeholders)
+    if (entity.glyphUrl) {
+      const img = new Image();
+      img.onload = () => {
+        entity.glyphImg = img;
+        entity.presence = 'glyph';
+      };
+      img.src = entity.glyphUrl;
+    }
+    // Cranked portraits from localStorage data URLs
+    if (entity.portrait) {
+      const img = new Image();
+      img.onload = () => {
+        entity.portraitImg = img;
+        if (entity.presence !== 'glyph') entity.presence = 'portrait';
+      };
+      img.src = entity.portrait;
+    }
+  }
+}
 
 function anteroomInit(entities) {
   const canvas = document.getElementById('anteroom-canvas');
@@ -1187,13 +1233,33 @@ function anteroomInit(entities) {
   resize();
   window.addEventListener('resize', resize);
 
-  // Build entity pool — shuffled names
-  anteroomState.entityPool = entities.slice().sort(() => Math.random() - 0.5);
+  // Pick a mood for this visit
+  const { key, cfg } = anteroomPickMood(entities);
+  anteroomState.mood = key;
+  anteroomState.moodConfig = cfg;
+
+  // Build entity pool — shuffled, filtered by mood
+  let pool = entities.slice();
+  if (cfg.filter === 'neighborhood' && cfg.hood) {
+    pool = pool.filter(e => e.neighborhood === cfg.hood);
+  }
+  anteroomState.entityPool = pool.sort(() => Math.random() - 0.5);
   anteroomState.poolIdx = 0;
 
-  // Spawn initial walkers (staggered)
-  for (let i = 0; i < 3; i++) {
-    setTimeout(() => spawnWalker(), i * 2200);
+  // Kick off async image loading (walkers start as text/color, upgrade as images arrive)
+  anteroomLoadAssets(entities);
+
+  // Spawn initial walkers (staggered by mood)
+  for (let i = 0; i < cfg.initial; i++) {
+    setTimeout(() => spawnWalker(), i * (key === 'flood' ? 600 : 2200));
+  }
+
+  // Flood thinning — burst then calm
+  if (key === 'flood' && cfg.thinAfter) {
+    setTimeout(() => {
+      anteroomState.moodConfig.delay = [6000, 12000];
+      anteroomState.moodConfig.max = 4;
+    }, cfg.thinAfter);
   }
 
   // Start animation
@@ -1230,8 +1296,16 @@ function spawnWalker() {
   if (!anteroomActive) return;
   const pool = anteroomState.entityPool;
   if (pool.length === 0) return;
+  const cfg = anteroomState.moodConfig;
 
-  const name = pool[anteroomState.poolIdx % pool.length];
+  // Respect max walkers for current mood
+  if (cfg && anteroomState.walkers.length >= cfg.max) {
+    // Try again soon
+    setTimeout(() => spawnWalker(), 2000);
+    return;
+  }
+
+  const entity = pool[anteroomState.poolIdx % pool.length];
   anteroomState.poolIdx++;
 
   const W = window.innerWidth;
@@ -1260,9 +1334,27 @@ function spawnWalker() {
   const mx = (start.x + end.x) / 2 + (Math.random() - 0.5) * 200;
   const my = (start.y + end.y) / 2 + (Math.random() - 0.5) * 150;
 
-  const duration = 10 + Math.random() * 8; // 10-18 seconds to cross
+  // Duration from mood config
+  const durRange = cfg ? cfg.dur : [10, 18];
+  const duration = durRange[0] + Math.random() * (durRange[1] - durRange[0]);
+
+  // Determine visual type from current entity presence
+  const type = entity.presence;
+
+  // Size varies by type
+  let size;
+  switch (type) {
+    case 'glyph':    size = 28 + Math.random() * 12; break;  // 28-40px
+    case 'portrait': size = 24 + Math.random() * 8;  break;  // 24-32px
+    case 'color':    size = 4 + Math.random() * 4;   break;  // 4-8px radius
+    default:         size = 9;                                 // text size (unused, kept for reference)
+  }
+
   const walker = {
-    name: formatSlug(name),
+    entity,
+    type,
+    size,
+    rotation: (Math.random() - 0.5) * 0.4,  // subtle tilt, +-0.2 rad (~+-12 deg)
     t: 0,
     duration,
     sx: start.x, sy: start.y,
@@ -1271,8 +1363,9 @@ function spawnWalker() {
   };
   anteroomState.walkers.push(walker);
 
-  // Schedule next spawn
-  const nextDelay = 4000 + Math.random() * 6000;
+  // Schedule next spawn from mood config
+  const delayRange = cfg ? cfg.delay : [4000, 10000];
+  const nextDelay = delayRange[0] + Math.random() * (delayRange[1] - delayRange[0]);
   setTimeout(() => spawnWalker(), nextDelay);
 }
 
@@ -1327,7 +1420,7 @@ function anteroomDraw(ctx, W, H, dt) {
     ctx.fillRect(scanX - 80, 0, 100, H);
   }
 
-  // Walkers
+  // Walkers — entities present in whatever form they have
   ctx.font = '9px "Share Tech Mono", monospace';
   ctx.textAlign = 'center';
 
@@ -1349,9 +1442,53 @@ function anteroomDraw(ctx, W, H, dt) {
     // Fade in/out at edges
     const edgeFade = Math.min(1, t * 5, (1 - t) * 5);
     const alpha = edgeFade * 0.2;
+    const { r, g, b } = w.entity.color;
 
-    ctx.fillStyle = `rgba(212, 200, 168, ${alpha})`;
-    ctx.fillText(w.name, x, y);
+    switch (w.type) {
+      case 'glyph':
+        if (w.entity.glyphImg) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(w.rotation);
+          ctx.globalAlpha = alpha * 0.8;
+          ctx.drawImage(w.entity.glyphImg, -w.size / 2, -w.size / 2, w.size, w.size);
+          ctx.globalAlpha = 1;
+          ctx.restore();
+        }
+        break;
+
+      case 'portrait':
+        if (w.entity.portraitImg) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(w.rotation);
+          ctx.globalAlpha = alpha * 0.7;
+          ctx.drawImage(w.entity.portraitImg, -w.size / 2, -w.size / 2, w.size, w.size);
+          ctx.globalAlpha = 1;
+          ctx.restore();
+        }
+        break;
+
+      case 'color': {
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, w.size * 2.5);
+        grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`);
+        grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - w.size * 2.5, y - w.size * 2.5, w.size * 5, w.size * 5);
+        break;
+      }
+
+      case 'name':
+      default: {
+        // Tint toward neighborhood color: 70% bone, 30% entity
+        const nr = Math.round(212 * 0.7 + r * 0.3);
+        const ng = Math.round(200 * 0.7 + g * 0.3);
+        const nb = Math.round(168 * 0.7 + b * 0.3);
+        ctx.fillStyle = `rgba(${nr}, ${ng}, ${nb}, ${alpha})`;
+        ctx.fillText(w.entity.name, x, y);
+        break;
+      }
+    }
   }
 }
 
@@ -1385,6 +1522,31 @@ function anteroomShow() {
     anteroomState.lastFrame = null;
     document.getElementById('anteroom-enter').classList.remove('visible');
 
+    // Fresh mood for this return visit
+    const { key, cfg } = anteroomPickMood(anteroomState.entityPool);
+    anteroomState.mood = key;
+    anteroomState.moodConfig = cfg;
+
+    // Re-filter pool for gathering mood
+    if (cfg.filter === 'neighborhood' && cfg.hood && registry) {
+      const allPool = [];
+      for (const [hood, data] of Object.entries(registry.neighborhoods)) {
+        const slugs = Array.isArray(data) ? data : (data.entities || []);
+        const color = NEIGHBORHOOD_COLORS[hood] || { r: 150, g: 150, b: 150 };
+        for (const slug of slugs) {
+          // Find existing entity object to preserve loaded images
+          const existing = anteroomState.entityPool.find(e => e.slug === slug);
+          if (existing) allPool.push(existing);
+        }
+      }
+      anteroomState.entityPool = (cfg.filter === 'neighborhood' && cfg.hood)
+        ? allPool.filter(e => e.neighborhood === cfg.hood).sort(() => Math.random() - 0.5)
+        : allPool.sort(() => Math.random() - 0.5);
+    } else {
+      anteroomState.entityPool = anteroomState.entityPool.slice().sort(() => Math.random() - 0.5);
+    }
+    anteroomState.poolIdx = 0;
+
     const startTime = performance.now();
     const canvas = document.getElementById('anteroom-canvas');
     const ctx = canvas.getContext('2d');
@@ -1407,9 +1569,17 @@ function anteroomShow() {
     }
     anteroomState.animId = requestAnimationFrame(frame);
 
-    // Respawn walkers
-    for (let i = 0; i < 2; i++) {
-      setTimeout(() => spawnWalker(), i * 2500 + 1000);
+    // Spawn walkers per mood
+    for (let i = 0; i < cfg.initial; i++) {
+      setTimeout(() => spawnWalker(), i * (key === 'flood' ? 600 : 2500) + 1000);
+    }
+
+    // Flood thinning
+    if (key === 'flood' && cfg.thinAfter) {
+      setTimeout(() => {
+        anteroomState.moodConfig.delay = [6000, 12000];
+        anteroomState.moodConfig.max = 4;
+      }, cfg.thinAfter);
     }
 
     setTimeout(() => {
@@ -1479,11 +1649,44 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   updateLaunchButton();
 
-  // Collect entities for anteroom walkers
-  const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
-  const allEntities = registry
-    ? Object.values(registry.neighborhoods).flatMap(getEntities)
-    : [];
+  // Collect enriched entities for anteroom presence
+  const allEntities = [];
+  if (registry) {
+    // Build portrait lookup from Crank queue
+    const portraitMap = new Map();
+    try {
+      const qRaw = localStorage.getItem('baseline-session/portraits-queue');
+      if (qRaw) {
+        const queue = JSON.parse(qRaw);
+        for (const p of queue) {
+          if (p.slug && p.dataUrl) portraitMap.set(p.slug, p.dataUrl);
+        }
+      }
+    } catch(e) { /* portrait queue unavailable */ }
+
+    for (const [hood, data] of Object.entries(registry.neighborhoods)) {
+      const slugs = Array.isArray(data) ? data : (data.entities || []);
+      const color = NEIGHBORHOOD_COLORS[hood] || { r: 150, g: 150, b: 150 };
+      const hasRealGlyphs = hood === 'greengarden';
+
+      for (const slug of slugs) {
+        const portrait = portraitMap.get(slug) || null;
+        const entity = {
+          slug,
+          neighborhood: hood,
+          name: formatSlug(slug),
+          color,
+          glyphUrl: hasRealGlyphs ? `neighborhoods/${hood}/entities/${slug}/glyph.svg` : null,
+          portrait,
+          glyphImg: null,
+          portraitImg: null,
+          presence: portrait ? 'color' : (hasRealGlyphs ? 'color' : 'color'),
+          // presence starts as 'color' for all; upgrades to 'glyph' or 'portrait' when images load
+        };
+        allEntities.push(entity);
+      }
+    }
+  }
 
   // Transition: loading → anteroom (hub stays hidden underneath)
   document.getElementById('selection-panel').classList.add('collapsed');
