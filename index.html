@@ -144,6 +144,33 @@
     min-height: 0;
   }
 
+  /* Mobile edge zones — thin drag handles at top/bottom of score area */
+  #mobile-edge-top, #mobile-edge-bottom {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 24px;
+    z-index: 5;
+  }
+
+  #mobile-edge-top {
+    top: 0;
+    background: linear-gradient(to bottom, rgba(200, 130, 10, 0.3), transparent);
+    animation: edgeHintFade 0.6s ease 0.3s both;
+  }
+
+  #mobile-edge-bottom {
+    bottom: 0;
+    background: linear-gradient(to top, rgba(200, 130, 10, 0.3), transparent);
+    animation: edgeHintFade 0.6s ease 0.3s both;
+  }
+
+  @keyframes edgeHintFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   /* ── HUD BAR — shown when score is running ── */
   #hud-bar {
     display: none;
@@ -961,6 +988,13 @@
     #hud-bar {
       padding: 6px 10px;
       gap: 8px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    #hud-bar.mobile-hidden {
+      transform: translateY(-100%);
+      opacity: 0;
+      pointer-events: none;
     }
 
     #hud-scraggle-feed {
@@ -975,6 +1009,16 @@
     }
 
     /* ── TICKER ── */
+    #ticker {
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    #ticker.mobile-hidden {
+      transform: translateY(100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
     #ticker-inner {
       font-size: 0.5rem;
     }
@@ -1272,6 +1316,8 @@
   <!-- Score frame — hidden until a score launches -->
   <div id="score-area">
     <iframe id="score-frame" title="Score"></iframe>
+    <div id="mobile-edge-top"></div>
+    <div id="mobile-edge-bottom"></div>
   </div>
 
   <!-- Always present: ticker -->
@@ -1926,6 +1972,107 @@ function handleScoreMessage(e) {
 }
 
 // ============================================================
+// MOBILE HUD AUTO-HIDE
+// ============================================================
+
+let mobileHudTimer = null;
+let mobileHudHidden = false;
+
+function isMobileViewport() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function hideMobileHud() {
+  mobileHudHidden = true;
+  document.getElementById('hud-bar').classList.add('mobile-hidden');
+  document.getElementById('ticker').classList.add('mobile-hidden');
+  // Show edge zones for drag-to-reveal (score stays fully interactive)
+  document.getElementById('mobile-edge-top').style.display = 'block';
+  document.getElementById('mobile-edge-bottom').style.display = 'block';
+}
+
+function showMobileHud() {
+  mobileHudHidden = false;
+  document.getElementById('hud-bar').classList.remove('mobile-hidden');
+  document.getElementById('ticker').classList.remove('mobile-hidden');
+  document.getElementById('mobile-edge-top').style.display = 'none';
+  document.getElementById('mobile-edge-bottom').style.display = 'none';
+  startMobileHudTimer();
+}
+
+function startMobileHudTimer() {
+  clearTimeout(mobileHudTimer);
+  if (!isMobileViewport()) return;
+  mobileHudTimer = setTimeout(hideMobileHud, 3000);
+}
+
+function clearMobileHud() {
+  clearTimeout(mobileHudTimer);
+  mobileHudTimer = null;
+  mobileHudHidden = false;
+  document.getElementById('hud-bar').classList.remove('mobile-hidden');
+  document.getElementById('ticker').classList.remove('mobile-hidden');
+  document.getElementById('mobile-edge-top').style.display = 'none';
+  document.getElementById('mobile-edge-bottom').style.display = 'none';
+}
+
+// Edge-drag detection: pull down from top edge or swipe up from bottom edge
+(function initEdgeDrag() {
+  const DRAG_THRESHOLD = 30; // px of drag needed to trigger reveal
+  let dragStartY = null;
+  let dragSource = null; // 'top' or 'bottom'
+
+  function onStart(e) {
+    const touch = e.touches ? e.touches[0] : e;
+    dragStartY = touch.clientY;
+    dragSource = e.currentTarget.id === 'mobile-edge-top' ? 'top' : 'bottom';
+  }
+
+  function onMove(e) {
+    if (dragStartY === null || !mobileHudHidden) return;
+    const touch = e.touches ? e.touches[0] : e;
+    const dy = touch.clientY - dragStartY;
+
+    // Top edge: drag down. Bottom edge: drag up.
+    const validDrag = (dragSource === 'top' && dy > DRAG_THRESHOLD) ||
+                      (dragSource === 'bottom' && dy < -DRAG_THRESHOLD);
+    if (validDrag) {
+      dragStartY = null;
+      dragSource = null;
+      showMobileHud();
+    }
+  }
+
+  function onEnd() {
+    dragStartY = null;
+    dragSource = null;
+  }
+
+  const topZone = document.getElementById('mobile-edge-top');
+  const bottomZone = document.getElementById('mobile-edge-bottom');
+
+  [topZone, bottomZone].forEach(zone => {
+    zone.addEventListener('touchstart', onStart, { passive: true });
+    zone.addEventListener('touchmove', onMove, { passive: true });
+    zone.addEventListener('touchend', onEnd);
+    // Mouse fallback for testing
+    zone.addEventListener('mousedown', onStart);
+    zone.addEventListener('mousemove', onMove);
+    zone.addEventListener('mouseup', onEnd);
+  });
+
+  // Also allow drag down from signal bar itself (always visible)
+  const signalBar = document.getElementById('signal-bar');
+  signalBar.addEventListener('touchstart', function(e) {
+    if (!mobileHudHidden || !isMobileViewport()) return;
+    dragStartY = e.touches[0].clientY;
+    dragSource = 'top';
+  }, { passive: true });
+  signalBar.addEventListener('touchmove', onMove, { passive: true });
+  signalBar.addEventListener('touchend', onEnd);
+})();
+
+// ============================================================
 // HUB MODES
 // ============================================================
 
@@ -1941,6 +2088,7 @@ function setHubMode(mode) {
       scoreArea.classList.add('active');
       hudBar.classList.add('visible');
       smailSetVisible(true);
+      startMobileHudTimer();
       break;
     case 'listening':
       // Score running, hub invisible (just ticker + signal bar)
@@ -1954,6 +2102,7 @@ function setHubMode(mode) {
       panel.classList.remove('collapsed');
       scoreArea.classList.remove('active');
       hudBar.classList.remove('visible');
+      clearMobileHud();
       scoreRunning = false;
       document.getElementById('score-frame').src = '';
       smailSetVisible(false);
