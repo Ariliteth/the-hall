@@ -616,7 +616,7 @@
   }
 
   @keyframes ticker {
-    0% { transform: translateX(100vw); }
+    0% { transform: translateX(calc(100vw - 1px)); }
     100% { transform: translateX(-100%); }
   }
 
@@ -876,6 +876,172 @@
 
   #smail-message.named {
     color: hsla(170, 30%, 80%, 0.9);
+  }
+
+  /* ══════════════════════════════════════════════
+     MOBILE RESPONSIVE
+     ══════════════════════════════════════════════ */
+
+  @media (max-width: 768px) {
+
+    /* ── GRID → SINGLE COLUMN ── */
+    #columns {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
+    #sidebar {
+      order: -1;          /* sidebar moves above score rack */
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* roster block spans full width below the two filter blocks */
+    #sidebar .sidebar-block:last-child {
+      grid-column: 1 / -1;
+    }
+
+    /* ── STAGE ── */
+    #stage {
+      padding: 0 14px 40px;
+    }
+
+    /* ── MASTHEAD ── */
+    #masthead {
+      padding: 20px 0 16px;
+      margin-bottom: 20px;
+    }
+
+    #title {
+      letter-spacing: 4px;
+    }
+
+    #status-line {
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    /* ── SCORE CARDS ── */
+    .score-card {
+      padding: 12px 14px;
+    }
+
+    .score-desc {
+      font-size: 0.6rem;
+      line-height: 1.5;
+    }
+
+    .score-meta {
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    /* ── LAUNCH ── */
+    #launch-btn {
+      align-self: stretch;    /* full width on mobile */
+      text-align: center;
+      padding: 14px 20px;
+    }
+
+    /* ── CHECKBOXES — larger touch targets ── */
+    .neighborhood-item input[type="checkbox"],
+    .theme-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+    }
+
+    .neighborhood-item,
+    .theme-item {
+      padding: 10px 12px;
+      min-height: 44px;
+    }
+
+    /* ── HUD BAR ── */
+    #hud-bar {
+      padding: 6px 10px;
+      gap: 8px;
+    }
+
+    #hud-scraggle-feed {
+      max-width: 120px;
+    }
+
+    #hud-eject {
+      font-size: 0.55rem;
+      padding: 6px 12px;
+      min-height: 36px;
+      min-width: 60px;
+    }
+
+    /* ── TICKER ── */
+    #ticker-inner {
+      font-size: 0.5rem;
+    }
+
+    /* ── SCRAGGLE TOAST ── */
+    #scraggle-toast {
+      bottom: 60px;
+      right: 10px;
+      left: 10px;
+    }
+
+    .scraggle-toast-item {
+      white-space: normal;
+    }
+
+    /* ── S.MAIL ── */
+    #smail {
+      bottom: 14px;
+      left: 10px;
+    }
+
+    #smail-panel {
+      max-width: calc(100vw - 20px);
+    }
+
+    /* ── SIGNAL BAR ── */
+    #signal-bar {
+      padding: 3px 10px;
+      font-size: 0.45rem;
+      letter-spacing: 2px;
+    }
+  }
+
+  @media (max-width: 480px) {
+
+    /* ── SIDEBAR → SINGLE COLUMN ── */
+    #sidebar {
+      grid-template-columns: 1fr;
+    }
+
+    #sidebar .sidebar-block:last-child {
+      grid-column: auto;
+    }
+
+    /* ── TITLE TIGHTER ── */
+    #title {
+      letter-spacing: 2px;
+    }
+
+    #channel-tag {
+      font-size: 0.5rem;
+      letter-spacing: 2px;
+    }
+
+    /* ── ANTEROOM ── */
+    #anteroom-label {
+      font-size: 0.45rem;
+      letter-spacing: 3px;
+      bottom: 12%;
+      right: 8%;
+    }
+
+    #anteroom-enter {
+      font-size: 0.45rem;
+      letter-spacing: 4px;
+      bottom: 4%;
+    }
   }
 
 </style>
