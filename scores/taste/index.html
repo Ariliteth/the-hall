@@ -1069,6 +1069,7 @@
     /* ── PHASES — scrollable on mobile ── */
     .phase { overflow-y: auto; }
     #lamp-phase { justify-content: flex-start; padding-top: 16px; }
+    #shop-phase { overflow: hidden; }  /* header + tabs stay fixed, body scrolls */
 
     /* ── LAMP PHASE ── */
     #lamp-glow { width: 200px; height: 200px; top: 2%; }
@@ -1112,9 +1113,9 @@
 
     #shop-header { padding: 8px 12px; }
 
-    #shop-body { flex-direction: column; }
+    #shop-body { flex-direction: column; overflow-y: auto; }
 
-    #display-area { padding: 12px; overflow-y: auto; }
+    #display-area { padding: 12px; }
     #display-area.tab-hidden { display: none; }
 
     #list-sidebar {
@@ -1135,6 +1136,19 @@
     /* Bins breathe */
     .bin { min-width: 64px; }
     .bin-item { width: 56px; }
+
+    /* ── TAP-TO-SELECT ── */
+    .bin-item.selected {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      background: rgba(255,255,255,0.2);
+      transform: scale(1.05);
+    }
+
+    .list-slot:not(.filled),
+    .ghost-slot:not(.filled):not(.impossible) {
+      cursor: pointer;
+    }
 
     /* ── MAGAZINE — SINGLE PAGE ── */
     #mag-cover { max-width: 100%; }
@@ -1266,6 +1280,76 @@ function hubMsg(type, extra) {
 // ===== MOBILE HELPERS =====
 function isMobile() {
   return window.matchMedia('(max-width: 768px)').matches;
+}
+
+// ===== MOBILE TAP-TO-SELECT =====
+let mobileSelected = null; // { id, el }
+
+function selectItem(id, el) {
+  clearSelection();
+  mobileSelected = { id, el };
+  el.classList.add('selected');
+}
+
+function clearSelection() {
+  if (mobileSelected) {
+    const prev = document.querySelector('.bin-item.selected');
+    if (prev) prev.classList.remove('selected');
+    mobileSelected = null;
+  }
+}
+
+function onMobileBinTap(e) {
+  const el = e.currentTarget;
+  const id = parseInt(el.dataset.id);
+  const item = findItem(id);
+  if (!item || item.allocated) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (mobileSelected && mobileSelected.id === id) {
+    clearSelection();
+  } else {
+    selectItem(id, el);
+  }
+}
+
+function onMobileSlotTap(e) {
+  if (!mobileSelected) return;
+  const el = e.currentTarget;
+  if (el.classList.contains('filled')) return;
+
+  const item = findItem(mobileSelected.id);
+  if (!item) return;
+
+  clearSelection();
+  allocateItem(item, parseInt(el.dataset.idx));
+}
+
+function onMobileGhostSlotTap(e) {
+  if (!mobileSelected) return;
+  const el = e.currentTarget;
+  if (el.classList.contains('filled') || el.classList.contains('impossible')) return;
+
+  const item = findItem(mobileSelected.id);
+  if (!item) return;
+
+  clearSelection();
+  allocateGhostItem(item, parseInt(el.dataset.idx));
+}
+
+function onMobileToolTap(e) {
+  if (!mobileSelected) return;
+  const el = e.currentTarget;
+  if (el.classList.contains('used')) return;
+
+  const item = findItem(mobileSelected.id);
+  if (!item) return;
+
+  clearSelection();
+  triggerTool(el.dataset.tool, item);
+  renderBins();
 }
 
 function switchShopTab(tab) {
@@ -2437,6 +2521,7 @@ function enterShopping(storeKey) {
 }
 
 function renderBins() {
+  mobileSelected = null; // clear selection since DOM is rebuilt
   const area = document.getElementById('bins-area');
   area.innerHTML = '';
 
@@ -2470,7 +2555,13 @@ function renderBins() {
           <div class="produce-name">${item.name}</div>
           <div class="quality-badges">${renderBadges(item)}</div>
         `;
-        if (!item.allocated) el.addEventListener('pointerdown', onBinItemDown);
+        if (!item.allocated) {
+          if (isMobile()) {
+            el.addEventListener('click', onMobileBinTap);
+          } else {
+            el.addEventListener('pointerdown', onBinItemDown);
+          }
+        }
         itemsDiv.appendChild(el);
       }
     }
@@ -2513,6 +2604,7 @@ function renderListSlots() {
       slot.onclick = () => returnFromSlot('wife', i);
     } else {
       slot.innerHTML = `<div class="slot-desc">${entry.desc}</div><div class="slot-item"></div>`;
+      if (isMobile()) slot.addEventListener('click', onMobileSlotTap);
     }
     container.appendChild(slot);
   });
@@ -2567,6 +2659,7 @@ function renderGhostSlots() {
       slot.onclick = () => returnFromSlot('ghost', i);
     } else {
       slot.innerHTML = `<div class="slot-desc">${renderSmudgedText(entry.desc)}</div><div class="slot-item"></div>`;
+      if (isMobile() && !entry.impossible) slot.addEventListener('click', onMobileGhostSlotTap);
     }
     container.appendChild(slot);
   });
@@ -3152,6 +3245,14 @@ function setPhase(phase) {
 // ===== INIT =====
 load();
 restoreUnlocks();
+
+// Mobile: wire tool zones for tap-to-use
+if (isMobile()) {
+  document.querySelectorAll('.tool-zone').forEach(tz => {
+    tz.addEventListener('click', onMobileToolTap);
+  });
+}
+
 enterLamp();
 </script>
 </body>
