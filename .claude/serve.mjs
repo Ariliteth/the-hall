@@ -2,7 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 
-const ROOT = 'C:/Users/sturm/Documents/the-hall';
+const ROOT = path.resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'));
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3002;
 
 const MIME = {
