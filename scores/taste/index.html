@@ -1278,9 +1278,8 @@ function hubMsg(type, extra) {
 }
 
 // ===== MOBILE HELPERS =====
-function isMobile() {
-  return window.matchMedia('(max-width: 768px)').matches;
-}
+const mobileMQ = window.matchMedia('(max-width: 768px)');
+function isMobile() { return mobileMQ.matches; }
 
 // ===== MOBILE TAP-TO-SELECT =====
 let mobileSelected = null; // { id, el }
@@ -3247,11 +3246,25 @@ load();
 restoreUnlocks();
 
 // Mobile: wire tool zones for tap-to-use
-if (isMobile()) {
+function wireToolZones() {
   document.querySelectorAll('.tool-zone').forEach(tz => {
-    tz.addEventListener('click', onMobileToolTap);
+    tz.removeEventListener('click', onMobileToolTap);
+    if (isMobile()) tz.addEventListener('click', onMobileToolTap);
   });
 }
+wireToolZones();
+
+// Re-bind interaction handlers when viewport crosses the mobile breakpoint
+// (e.g. phone rotation, browser resize). Bins/slots re-render naturally,
+// so they pick up the new isMobile() value — we just need to re-render
+// them and re-wire the tool zones.
+mobileMQ.addEventListener('change', () => {
+  clearSelection();
+  wireToolZones();
+  if (typeof renderBins === 'function') renderBins();
+  if (typeof renderListSlots === 'function') renderListSlots();
+  if (typeof renderGhostSlots === 'function') renderGhostSlots();
+});
 
 enterLamp();
 </script>

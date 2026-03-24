@@ -1944,6 +1944,7 @@ function handleScoreMessage(e) {
       break;
     case 'hub:restore':
       setHubMode('selection');
+      hallClearHistory();
       break;
     case 'hub:title':
       if (msg.name) document.getElementById('hud-score-name').textContent = msg.name;
@@ -2071,6 +2072,44 @@ function clearMobileHud() {
   signalBar.addEventListener('touchmove', onMove, { passive: true });
   signalBar.addEventListener('touchend', onEnd);
 })();
+
+// ============================================================
+// MOBILE BACK BUTTON NAVIGATION
+// ============================================================
+// Back flow on mobile: score → show HUD → eject to selection → leave Hall
+// Uses pushState/popstate so the hardware back button feels native.
+
+let hallHistoryDepth = 0; // how many states we've pushed
+
+function hallPushState(label) {
+  history.pushState({ hall: label }, '');
+  hallHistoryDepth++;
+}
+
+function hallClearHistory() {
+  // Nothing to pop — just reset our counter so we stop intercepting
+  hallHistoryDepth = 0;
+}
+
+window.addEventListener('popstate', function(e) {
+  if (hallHistoryDepth > 0) hallHistoryDepth--;
+
+  if (!scoreRunning) {
+    // At selection/anteroom — let the browser leave naturally
+    return;
+  }
+
+  // Score is running — intercept
+  if (mobileHudHidden) {
+    // HUD is hidden → reveal it, stay in score
+    showMobileHud();
+    hallPushState('hud-visible');
+  } else {
+    // HUD is visible (or listening mode) → eject to selection
+    ejectScore();
+    hallPushState('selection');
+  }
+});
 
 // ============================================================
 // HUB MODES
@@ -2394,12 +2433,16 @@ function launchScore() {
   // The score can override this via postMessage once it loads
   setHubMode('hud');
 
+  // Push history state so mobile back button returns to selection
+  hallPushState('score-active');
+
   // Give the iframe focus so keyboard-only scores (e.g. LODE) receive input
   frame.addEventListener('load', () => frame.contentWindow.focus(), { once: true });
 }
 
 function ejectScore() {
   setHubMode('selection');
+  hallClearHistory();
   // Return to the anteroom — the place before the rack
   document.getElementById('selection-panel').classList.add('collapsed');
   anteroomShow();
