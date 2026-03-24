@@ -74,7 +74,7 @@ concessions/
   storeroom/             ← design doc (score lives at scores/storeroom/)
   [design docs, lore, held ideas, tools]
 scores/
-  grimoire/              ← built Grimoire, served from hub (Vite build)
+  grimoire/              ← El's Grimoire, vanilla JS (naturalist's field catalog)
   critter-crank/         ← vanilla JS, no build step
   efdp/                  ← Color Pin Maze (EFDP), vanilla JS
   sunset-ridge-mall/     ← vanilla JS
@@ -84,7 +84,6 @@ scores/
   bao/                   ← 報 · GENERALS, vanilla JS, canvas-based
   chunxly/               ← Chunxly's Canvas, vanilla JS
   shoot-the-moon/        ← vanilla JS
-the-grimoire/            ← Vite source (build → scores/grimoire/)
 registry.json
 index.html               ← hub (selection panel, ticker, score frame host)
 ```
@@ -106,7 +105,7 @@ Scores on the rack: Hunter Encounter, The Grimoire, Color Pin Maze, Critter Cran
 
 One origin is what made this work. Previously the Crank ran on `localhost:5174` and the Grimoire on `localhost:5173` — different origins, isolated localStorage. Now both are built artifacts served from `localhost:3000` via `npx serve .` in the repo root. Same origin, shared storage, no cross-port anything.
 
-**The Living Grimoire** lives at `the-grimoire/` (source) and `scores/grimoire/` (built). Vite base path set to `/scores/grimoire/`. Registry-native. All three neighborhoods. Portrait gallery, portrait return, direct commit, portal to Crank, affinity engine, divination, journal. Rebuild workflow: `cd the-grimoire && npm run build && cp -r dist/* ../scores/grimoire/`.
+**El's Grimoire** lives at `scores/grimoire/index.html` — vanilla HTML/JS, no build step. A naturalist's field grimoire: registry-driven entity pages, dual-format tuning parser, portrait gallery with Crank reception, color floods where illustration is absent, book metaphor with page-turn animation. Supersedes the previous Vite/React Grimoire. See score card: `concessions/score-cards/els-grimoire.md`.
 
 **Critter Crank** lives at `scores/critter-crank/index.html` — vanilla JS, no build step. Ported from React/Vite to self-contained vanilla HTML/JS in March 2026. The React source tree (`critter-crank/`) has been removed; the vanilla file is now the canonical source. Receives entity context from Grimoire portal. Tags whisper into shape pool. Portrait queue writes to `baseline-session/portraits-queue`. Scraggle deposited on every keep. Six worlds, ten palettes, six recipes, four cohesion modes. CRT bezel aesthetic with scanlines, bounce-in reveal animation, breathing canvas thumbnails in collection view.
 
@@ -324,9 +323,9 @@ Proven in play. Chunxly was the first entity encountered — Spirit, tagged *cur
 
 ### The Grimoire
 
-*Lives at `scores/grimoire/`. The Hall's memory made browsable.*
+*Lives at `scores/grimoire/`. The Hall's memory made browsable. Vanilla HTML/JS.*
 
-The living catalog. Residents from all active neighborhoods, visitors waiting to be committed, portrait galleries, affinity engine, divination, journal. Direct commit to The Hall via GitHub API. Portal to Critter Crank — tap a resident's glyph to open the Crank carrying entity context. Portrait return pathway proven — kept critters arrive back in the entity's detail view within three seconds. The only Score with a Vite build step. Source at `the-grimoire/`.
+El's Grimoire — a naturalist's field catalog. Residents from all active neighborhoods rendered as book pages with color as irreducible minimum self. Portrait gallery with Crank reception, color floods where illustration is absent, TOC with Roman numeral paging, neighborhood divider spreads. Portal to Critter Crank. Direct commit to The Hall via GitHub API (Phase 3: inscription). See score card: `concessions/score-cards/els-grimoire.md`.
 
 ### Critter Crank
 

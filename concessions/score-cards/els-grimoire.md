@@ -39,7 +39,7 @@ The end-to-end entity creation pipeline through the Grimoire:
 
 - **Observe/Inscribe flow:** Open Grimoire → Inscribe button → define entity (name, category, description, tags, color, neighborhood) → draw on Chunxly canvas → Crank a shape you like → finalize → new page appears in Grimoire
 - **GitHub commit:** Write `tuning.md` to `neighborhoods/{hood}/entities/{slug}/`, add slug to `registry.json`
-- **Auth:** PAT input stored in localStorage (reference: old Vite Grimoire write layer in `the-grimoire/src/App.jsx`)
+- **Auth:** PAT input stored in localStorage
 - **Exploration handoff:** Inscription writes `baseline-session/exploration-entity` to localStorage; Chunxly pre-fills the creature name from it. This connects the round-trip: Inscribe → Chunxly → Crank → portrait lands on the entity page.
 - **Post-inscription:** New entity appears immediately without full reload
 - **Portrait save to GitHub:** `neighborhoods/{neighborhood}/entities/{slug}/portraits/`
@@ -81,12 +81,11 @@ Inscription pipeline in Grimoire
 
 ## Specs & References
 - Prototype: `concessions/els-grimoire.html`
-- Superseded Grimoire: `the-grimoire/` (Vite/React source), `scores/grimoire/` (built output)
-- Superseded score card: `concessions/score-cards/grimoire.md`
+- Superseded Grimoire score card: `concessions/archive/grimoire-vite-scorecard.md`
 - Crank handoff: `concessions/archive/MAZE_TO_CRANK_HANDOFF.md`
 - Fairy spec: `concessions/FAIRY_SPEC.md`
 - Design doc: `concessions/Fixed_Point_Local_Design_Document_v0_999.md`
-- Old write layer reference: `the-grimoire/src/App.jsx`
+
 
 ## Hub Integration
 - **Sends:** `hub:minimize`, `hub:color`, `hub:scraggle`
