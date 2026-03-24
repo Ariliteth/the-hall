@@ -1830,6 +1830,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   // The Hall Pulse — 45s heartbeat, same cadence family as S.Mail
   setInterval(emitPulse, PULSE_INTERVAL);
 
+  // Mycorrhizal Layer — 90s cycle, slower than everything
+  setInterval(soilCycle, 90000);
+
   // The Third — was already here. Just needed a home.
   thirdBoot();
 
@@ -2218,6 +2221,10 @@ function receiveScraggle(emoji, signal, writeToStorage = true, source = 'hub', e
   // microGPT's own emissions don't re-witness: plucked glyphs stay gone
   // until the world shows them again through another source
   if (source !== 'microgpt') witnessGlyph(emoji);
+
+  // Feed the soil — scraggles that surfaced FROM the soil don't re-deposit
+  // (that would be a feedback loop, not composting)
+  if (source !== 'soil') Soil.deposit(emoji);
 }
 
 function showScraggleToast(emoji, signal) {
@@ -2827,6 +2834,134 @@ function senderCompose(scraggles) {
   }
 
   return strip.join('');
+}
+
+// ============================================================
+// MYCORRHIZAL LAYER — THE SOIL
+// ============================================================
+//
+// Beneath the string, beneath the scraggles, beneath everything.
+// Accumulates glyphs from Hall activity — not all of them, just
+// the ones that happen to land. Decays slowly. Surfaces rarely.
+// Each visitor grows their own soil from their own passage.
+
+const Soil = (() => {
+  const KEY = 'mycorrhizal-layer/soil';
+  const CAPACITY = 64;
+  const CATCH_CHANCE = 0.6;       // probability a passing glyph lands in soil
+  const DECAY_FACTOR = 0.97;      // per-touch weight decay
+  const COMPOST_AT = 0.04;        // below this, composted away
+  const SURFACE_CHANCE = 0.12;    // chance per cycle of something surfacing
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+
+  function save(bed) {
+    try { localStorage.setItem(KEY, JSON.stringify(bed)); } catch {}
+  }
+
+  // A glyph passes through the Hall. The soil may or may not catch it.
+  function deposit(glyph) {
+    if (!glyph || Math.random() > CATCH_CHANCE) return false;
+
+    const bed = load();
+    const existing = bed.find(e => e.g === glyph);
+
+    if (existing) {
+      // Reinforce — weight drifts up, timestamp refreshes
+      existing.w = Math.min(1, existing.w + 0.15);
+      existing.at = Date.now();
+    } else {
+      // New arrival
+      bed.unshift({ g: glyph, w: 1, at: Date.now() });
+      // Over capacity — weakest composted
+      if (bed.length > CAPACITY) {
+        bed.sort((a, b) => b.w - a.w);
+        bed.length = CAPACITY;
+      }
+    }
+
+    save(bed);
+    return true;
+  }
+
+  // Everything ages. Called on each cycle.
+  function decay() {
+    const bed = load();
+    if (bed.length === 0) return bed;
+    for (let i = bed.length - 1; i >= 0; i--) {
+      bed[i].w *= DECAY_FACTOR;
+      if (bed[i].w < COMPOST_AT) {
+        bed.splice(i, 1);
+      }
+    }
+    save(bed);
+    return bed;
+  }
+
+  // Something surfaces. Weighted toward what's accumulated most,
+  // but the draw consumes it — the glyph must be re-earned.
+  function draw() {
+    const bed = load();
+    if (bed.length === 0) return null;
+
+    const total = bed.reduce((sum, e) => sum + e.w, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < bed.length; i++) {
+      r -= bed[i].w;
+      if (r <= 0) {
+        const drawn = bed[i].g;
+        bed.splice(i, 1);
+        save(bed);
+        return drawn;
+      }
+    }
+    // Fallback
+    const drawn = bed[bed.length - 1].g;
+    bed.pop();
+    save(bed);
+    return drawn;
+  }
+
+  // Peek without consuming — for ambient awareness
+  function peek(n = 3) {
+    const bed = load();
+    return [...bed].sort((a, b) => b.w - a.w).slice(0, n).map(e => e.g);
+  }
+
+  // How much is in the soil
+  function depth() { return load().length; }
+
+  // Should something surface this cycle?
+  function shouldSurface() { return Math.random() < SURFACE_CHANCE; }
+
+  return { deposit, decay, draw, peek, depth, shouldSurface };
+})();
+
+// ── Soil cycle — slower than everything else ──
+// 90s: twice as slow as Sender's 45s, three-halves of microGPT's 60s.
+// The soil is patient.
+
+function soilCycle() {
+  // Decay everything
+  const bed = Soil.decay();
+  if (bed.length === 0) return;
+
+  // Maybe something surfaces
+  if (Soil.shouldSurface()) {
+    const glyph = Soil.draw();
+    if (glyph) {
+      // Surface as a quiet scraggle — from the soil, not from any score
+      receiveScraggle(glyph, '', true, 'soil', {
+        origin: 'mycorrhizal-layer',
+        weight: 0.3,
+      });
+    }
+  }
 }
 
 // ============================================================
