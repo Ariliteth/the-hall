@@ -60,6 +60,79 @@
       background: rgba(155,188,15,0.08);
     }
 
+    /* ── Critter binder (haul world detail) ───────────────── */
+    @keyframes binderPageIn { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:none} }
+    .critter-binder {
+      display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+      gap: 5px; height: 164px; animation: binderPageIn 0.25s ease;
+    }
+    .binder-slot-empty {
+      border: 1px dashed #1a3000; border-radius: 4px; opacity: 0.25;
+    }
+    .binder-nav {
+      display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 3px;
+    }
+    .binder-nav-btn {
+      background: none; border: 1px solid #1a3000; color: #3a5a00; font-size: 6px;
+      padding: 1px 5px; cursor: pointer; border-radius: 2px; font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .binder-nav-btn:hover { border-color: #4a7a00; color: #9bbc0f; }
+    .binder-nav-btn:disabled { opacity: 0.2; cursor: default; }
+    .binder-page-indicator { font-size: 3.5px; color: #2a4a00; letter-spacing: 0.08em; }
+
+    /* ── Card flip 3D ─────────────────────────────────────── */
+    .card-flip-container { perspective: 400px; }
+    .card-flip-inner {
+      position: relative; width: 100%; height: 100%;
+      transition: transform 0.5s ease; transform-style: preserve-3d;
+    }
+    .card-flip-inner.flipped { transform: rotateY(180deg); }
+    .card-flip-front, .card-flip-back {
+      position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    }
+    .card-flip-back { transform: rotateY(180deg); }
+
+    /* ── Critter card faces ───────────────────────────────── */
+    .critter-card {
+      width: 100%; height: 100%; background: #0a1400; border: 1px solid #1a3000; border-radius: 4px;
+      overflow: hidden;
+    }
+    .critter-card-front { cursor: pointer; }
+    .critter-card-front:hover { border-color: #4a7a00; box-shadow: 0 2px 8px rgba(155,188,15,0.1); }
+    .critter-card-art {
+      display: flex; justify-content: center; align-items: center;
+      padding: 4px 0 2px; background: rgba(0,0,0,0.2);
+      box-shadow: inset 0 -1px 0 #1a3000;
+    }
+    .critter-card-art canvas { image-rendering: pixelated; display: block; }
+    .critter-card-body { padding: 2px 5px 4px; text-align: center; }
+    .critter-card-name {
+      font-size: 4.5px; color: #9bbc0f; letter-spacing: 0.06em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 1px;
+    }
+    .critter-card-badges { display: flex; justify-content: center; gap: 3px; }
+    .critter-card-badge {
+      font-size: 5px; opacity: 0.5; line-height: 1;
+    }
+    /* Card back */
+    /* Card back: diorama */
+    .critter-card-back-inner {
+      display: flex; flex-direction: column; align-items: center;
+      height: 100%; padding: 2px;
+    }
+    .diorama-canvas {
+      image-rendering: pixelated; display: block; border-radius: 3px;
+      width: 100%; flex: 1; min-height: 0;
+    }
+    .card-back-desc {
+      font-size: 3px; color: #5a7a10; line-height: 1.5; text-align: center;
+      padding: 2px 3px 0; letter-spacing: 0.03em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      width: 100%;
+    }
+
     /* ── Scrollbar ─────────────────────────────────────────── */
     .coll-grid::-webkit-scrollbar { width: 4px; }
     .coll-grid::-webkit-scrollbar-track { background: #0a1400; }
@@ -1744,6 +1817,166 @@ function drawCritterToCanvas(canvas, grid, size) {
     }
 }
 
+// ── Diorama Rendering ────────────────────────────────────────────────────────
+
+// Draw a 48×48 grid at an offset on an existing canvas context
+function drawGridAt(ctx, grid, pixelSize, offsetX, offsetY) {
+  var ps = pixelSize;
+  for (var y = 0; y < GRID; y++)
+    for (var x = 0; x < GRID; x++) {
+      var c = grid[y * GRID + x];
+      if (c) { ctx.fillStyle = c; ctx.fillRect(offsetX + x * ps, offsetY + y * ps, Math.ceil(ps), Math.ceil(ps)); }
+    }
+}
+
+// Compute 5 companion positions around a 128×128 diorama canvas
+function computeDioramaPositions(seed) {
+  var rng = seededRng(seed + 55555);
+  var positions = [];
+  // Place companions roughly in a ring around center, avoiding the main creature zone
+  var angles = [];
+  var baseAngle = rng() * Math.PI * 2;
+  for (var i = 0; i < 5; i++) {
+    angles.push(baseAngle + (i / 5) * Math.PI * 2 + (rng() - 0.5) * 0.8);
+  }
+  for (var j = 0; j < 5; j++) {
+    var r = 38 + rng() * 16; // radius from center: 38-54px
+    var cx = 64 + Math.cos(angles[j]) * r - 12; // center at 64, offset by half companion size
+    var cy = 64 + Math.sin(angles[j]) * r - 12;
+    // Clamp to canvas bounds
+    cx = Math.max(0, Math.min(104, cx));
+    cy = Math.max(0, Math.min(104, cy));
+    positions.push({ x: Math.round(cx), y: Math.round(cy) });
+  }
+  return positions;
+}
+
+// Draw a single diorama frame: bg + companions (static) + main creature (current frame)
+function drawDioramaFrame(canvas, mainGrid, companionGrids, positions, bgColor) {
+  var ctx = canvas.getContext("2d");
+  canvas.width = 128; canvas.height = 128;
+  // Background
+  ctx.fillStyle = bgColor || '#080f00';
+  ctx.fillRect(0, 0, 128, 128);
+  // Subtle ground texture dots
+  var groundRng = seededRng(mainGrid ? mainGrid.length : 42);
+  ctx.fillStyle = 'rgba(155,188,15,0.04)';
+  for (var d = 0; d < 20; d++) {
+    ctx.fillRect(Math.floor(groundRng() * 126), Math.floor(groundRng() * 126), 2, 2);
+  }
+  // Draw companions (small: 0.5px per cell = 24px)
+  for (var i = 0; i < companionGrids.length; i++) {
+    if (companionGrids[i] && positions[i]) {
+      drawGridAt(ctx, companionGrids[i], 0.5, positions[i].x, positions[i].y);
+    }
+  }
+  // Draw main creature centered (larger: 1.3px per cell ≈ 62px, centered at 64,64)
+  if (mainGrid) {
+    drawGridAt(ctx, mainGrid, 1.3, 64 - 31, 64 - 31);
+  }
+}
+
+// Animate a diorama: main creature breathes, companions static
+function startDioramaAnimating(canvas, mainFrames, companionGrids, positions, bgColor, fps) {
+  if (!mainFrames || mainFrames.length === 0) return;
+  var frameIndex = 0;
+  var direction = 1;
+  var lastFrameTime = 0;
+  var interval = 1000 / (fps || 3);
+
+  drawDioramaFrame(canvas, mainFrames[0], companionGrids, positions, bgColor);
+
+  if (mainFrames.length <= 1) return;
+
+  function tick(now) {
+    if (now - lastFrameTime >= interval) {
+      lastFrameTime = now;
+      drawDioramaFrame(canvas, mainFrames[frameIndex], companionGrids, positions, bgColor);
+      frameIndex += direction;
+      if (frameIndex >= mainFrames.length) { direction = -1; frameIndex = mainFrames.length - 2; }
+      if (frameIndex < 0) { direction = 1; frameIndex = 1; }
+    }
+    var id = requestAnimationFrame(tick);
+    activeAnimations.push(id);
+  }
+  var id = requestAnimationFrame(tick);
+  activeAnimations.push(id);
+}
+
+// Full-screen diorama for packet detail (larger, companions animate too)
+function computeFullDioramaPositions(seed) {
+  var rng = seededRng(seed + 55555);
+  var positions = [];
+  var baseAngle = rng() * Math.PI * 2;
+  for (var i = 0; i < 5; i++) {
+    var angle = baseAngle + (i / 5) * Math.PI * 2 + (rng() - 0.5) * 0.7;
+    var r = 72 + rng() * 24;
+    var cx = 120 + Math.cos(angle) * r - 18;
+    var cy = 110 + Math.sin(angle) * r - 18;
+    cx = Math.max(0, Math.min(204, cx));
+    cy = Math.max(0, Math.min(184, cy));
+    positions.push({ x: Math.round(cx), y: Math.round(cy) });
+  }
+  return positions;
+}
+
+function drawFullDioramaFrame(canvas, mainGrid, companionGrids, positions, bgColor) {
+  var ctx = canvas.getContext("2d");
+  canvas.width = 240; canvas.height = 220;
+  ctx.fillStyle = bgColor || '#080f00';
+  ctx.fillRect(0, 0, 240, 220);
+  // Ground texture
+  var groundRng = seededRng(mainGrid ? mainGrid.length : 42);
+  ctx.fillStyle = 'rgba(155,188,15,0.04)';
+  for (var d = 0; d < 40; d++) {
+    ctx.fillRect(Math.floor(groundRng() * 238), Math.floor(groundRng() * 218), 2, 2);
+  }
+  // Companions (0.75px per cell = 36px each)
+  for (var i = 0; i < companionGrids.length; i++) {
+    if (companionGrids[i] && positions[i]) {
+      drawGridAt(ctx, companionGrids[i], 0.75, positions[i].x, positions[i].y);
+    }
+  }
+  // Main creature centered (2px per cell = 96px)
+  if (mainGrid) {
+    drawGridAt(ctx, mainGrid, 2, 120 - 48, 110 - 48);
+  }
+}
+
+function startFullDioramaAnimating(canvas, mainFrames, companionFrameSets, positions, bgColor, fps) {
+  if (!mainFrames || mainFrames.length === 0) return;
+  var frameIndex = 0;
+  var direction = 1;
+  var lastFrameTime = 0;
+  var interval = 1000 / (fps || 3);
+
+  // Companions: use frame 0 for initial draw
+  var compGrids = companionFrameSets.map(function(fs) { return fs ? fs[0] : null; });
+  drawFullDioramaFrame(canvas, mainFrames[0], compGrids, positions, bgColor);
+
+  if (mainFrames.length <= 1) return;
+
+  function tick(now) {
+    if (now - lastFrameTime >= interval) {
+      lastFrameTime = now;
+      // Companions also animate (use same frame index, clamped)
+      var cGrids = companionFrameSets.map(function(fs) {
+        if (!fs || fs.length <= 1) return fs ? fs[0] : null;
+        var ci = Math.min(frameIndex, fs.length - 1);
+        return fs[ci];
+      });
+      drawFullDioramaFrame(canvas, mainFrames[frameIndex], cGrids, positions, bgColor);
+      frameIndex += direction;
+      if (frameIndex >= mainFrames.length) { direction = -1; frameIndex = mainFrames.length - 2; }
+      if (frameIndex < 0) { direction = 1; frameIndex = 1; }
+    }
+    var id = requestAnimationFrame(tick);
+    activeAnimations.push(id);
+  }
+  var id = requestAnimationFrame(tick);
+  activeAnimations.push(id);
+}
+
 // ── Animation Sequencer ──────────────────────────────────────────────────────
 var activeAnimations = [];
 
@@ -1857,6 +2090,10 @@ var S = {
   // Quiet squatters
   pendingSquatters: [], // delayed squatters waiting to manifest
   _cranksSinceSquatter: 0, // cranks since last delayed squatter drain
+  // Binder
+  binderPage: 0,        // current 0-indexed page in world detail binder
+  cardsFlipped: false,   // whether cards show back face
+  packetDiorama: false,  // whether packet detail shows diorama view
 };
 
 // Grid cache: stores rendered grids to avoid re-rendering on every frame
@@ -2408,11 +2645,15 @@ function computeWorldPools(packets) {
 function enterWorld(compoundKey) {
   S.activeWorld = compoundKey;
   S.activePacket = null;
+  S.binderPage = 0;
+  S.cardsFlipped = false;
   render();
 }
 
 function exitWorld() {
   S.activeWorld = null;
+  S.binderPage = 0;
+  S.cardsFlipped = false;
   render();
 }
 
@@ -2535,6 +2776,12 @@ function pressDpad(idx) {
 }
 
 function holdShoulder(side) {
+  // In binder: shoulder taps page instead of voice-hold
+  if (isInWorldDetail()) {
+    if (side === 'L') binderPagePrev();
+    else binderPageNext();
+    return;
+  }
   S['shoulderHeld' + side] = true;
   S._shoulderCleanTap = true;
   // First press: reveal the shoulder button via in-place DOM patch (no full re-render)
@@ -2663,6 +2910,56 @@ function cycleLens() {
       el.style.opacity = "1";
       setTimeout(function() { if (el) el.style.opacity = "0"; }, 800);
     }
+  }
+}
+
+// ── Binder: Constants, Paging, Flip ─────────────────────────────────────────
+var STAT_COLORS = { hp: '#cc5555', atk: '#cc8844', def: '#5588bb', spd: '#55aa55' };
+var CARDS_PER_PAGE = 4;
+
+function isInWorldDetail() {
+  return S.view === 'collection' && !!S.activeWorld && !S.activePacket;
+}
+
+function binderPagePrev() {
+  if (S.binderPage > 0) {
+    S.binderPage--;
+    S.cardsFlipped = false;
+    render();
+  }
+}
+
+function binderPageNext() {
+  var pools = computeWorldPools(S.packets);
+  var pool = null;
+  for (var i = 0; i < pools.length; i++) {
+    if (pools[i].compoundKey === S.activeWorld) { pool = pools[i]; break; }
+  }
+  if (!pool) return;
+  var totalPages = Math.ceil(pool.residents.length / CARDS_PER_PAGE);
+  if (S.binderPage < totalPages - 1) {
+    S.binderPage++;
+    S.cardsFlipped = false;
+    render();
+  }
+}
+
+function toggleCardFlip() {
+  S.cardsFlipped = !S.cardsFlipped;
+  document.querySelectorAll('.card-flip-inner').forEach(function(el) {
+    el.classList.toggle('flipped', S.cardsFlipped);
+  });
+  // Draw back-face canvases after CSS transition completes
+  if (S.cardsFlipped) {
+    setTimeout(function() { postRender(); }, 550);
+  }
+}
+
+function handleFlipButton() {
+  if (isInWorldDetail()) {
+    toggleCardFlip();
+  } else {
+    cycleLens();
   }
 }
 
@@ -3056,6 +3353,10 @@ function renderScreenOnly() {
   var crankLabel = document.getElementById("crank-label");
   if (crankLabel) crankLabel.textContent = S.cranking ? "..." : (hasCreature ? "CATCH" : "\u00B7");
 
+  // Update flip button icon (contextual: 🔄 in binder, lens icon elsewhere)
+  var flipBtn = document.getElementById("flip-btn");
+  if (flipBtn) flipBtn.textContent = isInWorldDetail() ? '\uD83D\uDD04' : LENS_ICONS[S.lensMode];
+
   // Swap screen content
   screenDiv.innerHTML = S.view === "crank" ? renderScreen() : renderCollectionView();
 
@@ -3366,7 +3667,7 @@ function renderMachine() {
     + '<button id="tab-crank" onclick="setView(\'crank\')" style="' + tabCrank + ';font-size:5px;padding:3px 7px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">CRANK</button>'
     + '<button id="tab-coll" onclick="setView(\'collection\')" style="' + tabColl + ';font-size:5px;padding:3px 7px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">HAUL (' + packetCount + ')</button>'
     + '<div style="flex:1"></div>'
-    + '<button onclick="cycleLens()" style="background:#0a1000;border:1px solid #1a2a00;color:#2a4a00;font-size:10px;padding:1px 4px;cursor:pointer;border-radius:2px;font-family:inherit" title="Cycle lens">' + LENS_ICONS[S.lensMode] + '</button>'
+    + '<button id="flip-btn" onclick="handleFlipButton()" style="background:#0a1000;border:1px solid #1a2a00;color:#2a4a00;font-size:10px;padding:1px 4px;cursor:pointer;border-radius:2px;font-family:inherit" title="Flip">' + (isInWorldDetail() ? '\uD83D\uDD04' : LENS_ICONS[S.lensMode]) + '</button>'
     + '</div>'
 
     + '<div id="screen-content">' + screenContent + '</div>'
@@ -3565,29 +3866,70 @@ function renderWorldDetailView(compoundKey) {
     + '<span style="font-size:4px;color:#2a4a00;margin-left:4px">' + pool.residents.length + ' resident' + (pool.residents.length !== 1 ? 's' : '') + '</span>'
     + '</div>';
 
-  // Resident list
-  var resCards = pool.residents.map(function(r) {
+  // ── Binder: paginated 2×2 card grid with flip ──────────────────────────────
+  var totalPages = Math.ceil(pool.residents.length / CARDS_PER_PAGE);
+  if (S.binderPage >= totalPages) S.binderPage = Math.max(0, totalPages - 1);
+  var pageStart = S.binderPage * CARDS_PER_PAGE;
+  var pageResidents = pool.residents.slice(pageStart, pageStart + CARDS_PER_PAGE);
+
+  var slots = pageResidents.map(function(r) {
     var pkt = r.packet;
     var name = pkt.main ? pkt.main.name : '?';
-    var dateStr = new Date(pkt.sealed).toLocaleDateString(undefined, {month:'short', day:'numeric'});
-    var traits = '';
-    if (pkt.stats && pkt.stats.traits && pkt.stats.traits.length > 0) {
-      traits = '<div style="font-size:3.5px;color:#3a5a00;font-style:italic;margin-top:1px">' + pkt.stats.traits.join(' \u00B7 ') + '</div>';
-    }
-    return '<div style="display:flex;align-items:center;justify-content:space-between;'
-      + 'background:rgba(155,188,15,0.03);border:1px solid #1a3000;border-radius:4px;'
-      + 'padding:6px 8px;margin-bottom:3px">'
-      + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:5px;color:#9bbc0f;letter-spacing:0.04em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + esc(name) + '</div>'
-      + '<div style="font-size:3.5px;color:#2a4000;margin-top:1px">' + esc(pkt.worldIcon || '') + ' ' + esc(pkt.worldLabel || '') + ' \u00B7 ' + dateStr + '</div>'
-      + traits
+    var recipe = pkt.main ? RECIPES[pkt.main.recipeKey] : null;
+    var recipeIcon = recipe ? recipe.icon : '';
+    var worldIcon = pkt.worldIcon || '';
+
+    // ── Front face: art + name + badges ──
+    var badges = '<div class="critter-card-badges">';
+    if (recipeIcon) badges += '<span class="critter-card-badge">' + recipeIcon + '</span>';
+    if (worldIcon) badges += '<span class="critter-card-badge">' + worldIcon + '</span>';
+    badges += '</div>';
+
+    var frontFace = '<div class="critter-card critter-card-front" onclick="enterPacket(' + r.index + ')">'
+      + '<div class="critter-card-art">'
+      + '<canvas class="critter" data-card-idx="' + r.index + '" width="64" height="64" style="width:64px;height:64px"></canvas>'
       + '</div>'
-      + '<button onclick="enterPacket(' + r.index + ')" class="btn-3d" style="flex:0 0 auto;background:#0a1800;border:2px solid #2a4a00;color:#9bbc0f;font-size:4px;padding:4px 8px;cursor:pointer;border-radius:2px;font-family:inherit;letter-spacing:0.06em">VIEW</button>'
+      + '<div class="critter-card-body">'
+      + '<div class="critter-card-name">' + esc(name) + '</div>'
+      + badges
+      + '</div>'
       + '</div>';
-  }).join('');
+
+    // ── Back face: diorama + description ──
+    var desc = (pkt.main && pkt.main.description) ? esc(pkt.main.description) : '';
+
+    var backFace = '<div class="critter-card card-flip-back-face">'
+      + '<div class="critter-card-back-inner">'
+      + '<canvas class="diorama-canvas" data-diorama-idx="' + r.index + '" width="128" height="128"></canvas>'
+      + (desc ? '<div class="card-back-desc">' + desc + '</div>' : '')
+      + '</div></div>';
+
+    return '<div class="card-flip-container">'
+      + '<div class="card-flip-inner' + (S.cardsFlipped ? ' flipped' : '') + '">'
+      + '<div class="card-flip-front">' + frontFace + '</div>'
+      + '<div class="card-flip-back">' + backFace + '</div>'
+      + '</div></div>';
+  });
+
+  // Pad to 4 slots
+  while (slots.length < CARDS_PER_PAGE) {
+    slots.push('<div class="binder-slot-empty"></div>');
+  }
+
+  // Page navigation
+  var pageNav = '';
+  if (totalPages > 1) {
+    pageNav = '<div class="binder-nav">'
+      + '<button class="binder-nav-btn" onclick="binderPagePrev()"' + (S.binderPage <= 0 ? ' disabled' : '') + '>\u2039</button>'
+      + '<span class="binder-page-indicator">' + (S.binderPage + 1) + ' / ' + totalPages + '</span>'
+      + '<button class="binder-nav-btn" onclick="binderPageNext()"' + (S.binderPage >= totalPages - 1 ? ' disabled' : '') + '>\u203A</button>'
+      + '</div>';
+  }
 
   return '<div style="position:relative;z-index:1;width:100%">'
-    + header + tagLine + resCards
+    + header + tagLine
+    + '<div class="critter-binder">' + slots.join('') + '</div>'
+    + pageNav
     + '</div>';
 }
 
@@ -3658,12 +4000,19 @@ function renderCollectionView() {
 function enterPacket(idx) {
   S.activePacket = S.packets[idx];
   S.packets[idx].lastLens = S.lensMode;
+  S.packetDiorama = false;
   render();
 }
 
 function exitPacket() {
   S.activePacket = null;
+  S.packetDiorama = false;
   // If viewing from a world, return to world detail, not flat list
+  render();
+}
+
+function togglePacketDiorama() {
+  S.packetDiorama = !S.packetDiorama;
   render();
 }
 
@@ -3674,11 +4023,23 @@ function renderPacketView(pkt) {
 
   var headerRow = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
     + '<button onclick="exitPacket()" style="background:none;border:none;color:#4a7a00;font-size:5px;cursor:pointer;font-family:inherit">\u2190 ' + (S.activeWorld ? 'world' : 'haul') + '</button>'
-    + '<div style="font-size:5px;color:#9bbc0f;letter-spacing:0.08em">' + lensLabel + '</div>'
-    + '<button onclick="cycleLens()" style="background:#0a1400;border:1px solid #2a4000;color:#4a7a00;font-size:4px;padding:2px 5px;cursor:pointer;border-radius:2px;font-family:inherit">FLIP</button>'
-    + '</div>'
-    + '<div style="font-size:5px;color:#4a6a00;margin-bottom:4px">' + esc(pkt.worldIcon || '') + ' ' + esc(pkt.worldLabel || '') + ' \u00B7 ' + new Date(pkt.sealed).toLocaleDateString() + '</div>';
+    + '<div style="font-size:5px;color:#9bbc0f;letter-spacing:0.08em">' + (S.packetDiorama ? esc(pkt.main ? pkt.main.name : '') : lensLabel) + '</div>'
+    + '<button onclick="togglePacketDiorama()" style="background:#0a1400;border:1px solid #2a4000;color:' + (S.packetDiorama ? '#9bbc0f' : '#4a7a00') + ';font-size:4px;padding:2px 5px;cursor:pointer;border-radius:2px;font-family:inherit">' + (S.packetDiorama ? 'INFO' : 'WORLD') + '</button>'
+    + '</div>';
 
+  // ── Diorama view ──
+  if (S.packetDiorama && isEncounter) {
+    var detailContent = '<div style="text-align:center">'
+      + '<canvas class="diorama-canvas" data-full-diorama="1" width="240" height="220" style="width:100%;image-rendering:pixelated;border-radius:4px"></canvas>'
+      + '</div>';
+
+    return '<div style="position:relative;z-index:1;animation:critterIn 0.2s ease">'
+      + headerRow + detailContent
+      + '</div>';
+  }
+
+  // ── Info view (existing) ──
+  var infoLine = '<div style="font-size:5px;color:#4a6a00;margin-bottom:4px">' + esc(pkt.worldIcon || '') + ' ' + esc(pkt.worldLabel || '') + ' \u00B7 ' + new Date(pkt.sealed).toLocaleDateString() + '</div>';
   var detailContent = '';
 
   if (isEncounter) {
@@ -3745,6 +4106,7 @@ function renderPacketView(pkt) {
 
   return '<div style="position:relative;z-index:1;animation:critterIn 0.2s ease">'
     + headerRow
+    + infoLine
     + detailContent
     + '</div>';
 }
@@ -3827,6 +4189,58 @@ function postRender() {
       var fps = creatureIdleFps(critter);
       var frames = generateFrames(critter, "idle", 2);
       startAnimating(canvas, frames, 54, fps, "pingpong");
+    }
+  });
+
+  // Critter card canvases (haul world detail — idle breathing at 64px)
+  document.querySelectorAll("canvas[data-card-idx]").forEach(function(canvas) {
+    var idx = parseInt(canvas.getAttribute("data-card-idx"));
+    var pkt = S.packets[idx];
+    if (pkt && pkt.main) {
+      var fps = creatureIdleFps(pkt.main);
+      var frames = generateFrames(pkt.main, "idle", 2);
+      startAnimating(canvas, frames, 64, fps, "pingpong");
+    }
+  });
+
+  // Card back-face: diorama canvases (main creature + 5 companions composited)
+  document.querySelectorAll("canvas[data-diorama-idx]").forEach(function(canvas) {
+    var pktIdx = parseInt(canvas.getAttribute("data-diorama-idx"));
+    var pkt = S.packets[pktIdx];
+    if (pkt && pkt.main) {
+      var fps = creatureIdleFps(pkt.main);
+      var mainFrames = generateFrames(pkt.main, "idle", 2);
+      var companionGrids = [];
+      WORLD_INV_CATS.forEach(function(cat) {
+        if (pkt.world && pkt.world[cat.key]) {
+          companionGrids.push(getCachedGrid(pkt.world[cat.key]));
+        } else {
+          companionGrids.push(null);
+        }
+      });
+      var positions = computeDioramaPositions(pkt.main.seed);
+      var bgColor = pkt.palette || '#080f00';
+      startDioramaAnimating(canvas, mainFrames, companionGrids, positions, bgColor, fps);
+    }
+  });
+
+  // Full-screen packet diorama (larger, companions animate)
+  document.querySelectorAll("canvas[data-full-diorama]").forEach(function(canvas) {
+    if (S.activePacket && S.activePacket.main) {
+      var pkt = S.activePacket;
+      var fps = creatureIdleFps(pkt.main);
+      var mainFrames = generateFrames(pkt.main, "idle", 2);
+      var companionFrameSets = [];
+      WORLD_INV_CATS.forEach(function(cat) {
+        if (pkt.world && pkt.world[cat.key]) {
+          companionFrameSets.push(generateFrames(pkt.world[cat.key], "idle", 2));
+        } else {
+          companionFrameSets.push(null);
+        }
+      });
+      var positions = computeFullDioramaPositions(pkt.main.seed);
+      var bgColor = pkt.palette || '#080f00';
+      startFullDioramaAnimating(canvas, mainFrames, companionFrameSets, positions, bgColor, fps);
     }
   });
 }

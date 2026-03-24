@@ -1,5 +1,5 @@
 # The Hall — Roadmap
-*Last updated: March 23, 2026*
+*Last updated: March 24, 2026*
 
 ---
 
@@ -58,6 +58,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **Critter Crank: binder + diorama** — Caught critters shown as trading cards in paginated 2×2 binder pages. Clean front face (pixel art + name + badges), living diorama back face (creature + 5 world companions placed spatially, animated). Full-screen diorama in packet detail view with all companions breathing. Shoulder buttons page in binder, FLIP button contextual. Stat-specific bar colors.
 - [x] **Mycorrhizal Layer** — Persistent glyph accumulator beneath all Hall systems. 60% deposit catch, 90s decay cycle, 12% surface chance. localStorage-backed, each visitor grows their own soil. Soil-sourced scraggles don't re-deposit (no feedback loops).
 - [x] **Entity journals** — First words for 14 entities: 3 Locals, 7 Kitchendom, 1 Mucklerbuckler, 3 Greengarden. Each speaks from their own nature.
 - [x] **Locals: Fixed Point Local** — Hall-level entity section in Grimoire. Sender, microGPT, Mycorrhizal Layer inscribed with tunings, journals, registry. Fourth TOC section with "On This Place" divider.

@@ -1,6 +1,6 @@
 # Critter Crank
 **Location:** `scores/critter-crank/` | **Status:** Active
-**Neighborhood:** All | **Stack:** Vanilla JS (~3,860 lines)
+**Neighborhood:** All | **Stack:** Vanilla JS (~4,365 lines)
 
 ## Current State
 Procedural creature generator. Turn the handle, something arrives. Shaped by world and entity context. Receives CrankSeed context from EFDP/Chunxly via localStorage. Portrait returns to Grimoire automatically. Ported from React to vanilla JS — one file, no dependencies. **Chunxly-direct mode:** when a Chunxly PNG seed arrives with color clusters, builds a custom palette from the creature's actual colors and generates rolls that trust the seed completely — no world palette blending, no voice shapes, no recipe randomization. Produces anchor shapes that carry the creature's visual identity.
@@ -23,11 +23,16 @@ Procedural creature generator. Turn the handle, something arrives. Shaped by wor
 - **Entity identity from Chunxly:** reads slug + entityName from CrankSeed, enabling portrait export for PNG-sourced creatures
 - Kitchendom world with 5 affinity palettes (umamian, salterran, sourvren, bitterish, sweetese)
 - CRT bezel aesthetic with scanlines
+- **Critter binder:** Haul world detail shows caught critters as trading cards in a paginated 2×2 binder (4 per page). Shoulder buttons and ‹/› arrows page through. Card front: pixel art (64px, breathing idle animation), name, recipe + world icon badges. Card back: living diorama — creature centered with 5 world inventory companions placed spatially via seeded RNG, world background color, subtle ground texture. CSS 3D flip via 🔄 button.
+- **Packet diorama:** WORLD/INFO toggle in packet detail view. WORLD shows full-screen 240×220 diorama with creature large (96px) and all 5 companions animated at their own tempos. INFO shows the existing stat sheet.
+- **Diorama rendering:** `drawGridAt()` compositing primitive, `computeDioramaPositions()` / `computeFullDioramaPositions()` for seeded spatial placement, `startDioramaAnimating()` / `startFullDioramaAnimating()` for composite canvas animation loops
+- **Stat-specific colors:** HP coral, ATK amber, DEF steel blue, SPD green (used in encounter screen)
 
 ## What's Next
+- World pool summary cards in Haul are still text-only — visual peek with tiny creature art would complete the binder feel
+- Card identity layer: world icon badges/emblems, border embellishments, shiny/foil variants for special catches
+- Card battle mechanic: one-choice showdown using existing stats + biome affinity
 - `playPose()` comment references "future battle system" — poses are wired to catch/click but no battle mode exists
-- Shoulder buttons (`S.shoulderL`, `S.shoulderR`) initialized to null, partially surfaced
-- Compound world keys generated from biome tags but downstream consumption unclear
 - Grimoire reception of caught Chunxly-direct creatures (portrait queue → entity page)
 - Context label refinement (how long DIRECT/CANVAS labels persist, dismissal)
 
