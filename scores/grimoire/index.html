@@ -1100,6 +1100,7 @@ const NEIGHBORHOOD_COLORS = {
   greengarden: [45, 130, 65],
   kitchendom: [185, 95, 45],
   mucklerbuckler: [120, 65, 130],
+  locals: [140, 120, 70],
 };
 
 function entityColor(entity) {
@@ -1144,7 +1145,7 @@ function readPortraitQueue() {
 // Track which portrait index is shown per entity (for cycling)
 const portraitViewIndex = new Map();
 
-const HOOD_ORDER = ['greengarden', 'kitchendom', 'mucklerbuckler'];
+const HOOD_ORDER = ['greengarden', 'kitchendom', 'mucklerbuckler', 'locals'];
 
 async function loadEntities() {
   const reg = await fetchRegistry();
@@ -1153,7 +1154,7 @@ async function loadEntities() {
   // Build fetch promises for all entities: tuning + glyph in parallel
   const fetches = [];
   for (const hood of HOOD_ORDER) {
-    const entry = reg.neighborhoods[hood];
+    const entry = hood === 'locals' ? reg.locals : reg.neighborhoods[hood];
     if (!entry) continue;
     const slugs = Array.isArray(entry) ? entry : (entry.entities || []);
     for (const slug of slugs) {
@@ -1162,8 +1163,11 @@ async function loadEntities() {
   }
 
   const results = await Promise.allSettled(fetches.map(async ({ hood, slug }) => {
-    const tuningUrl = baseUrl(`neighborhoods/${hood}/entities/${slug}/tuning.md`);
-    const glyphUrl = baseUrl(`neighborhoods/${hood}/entities/${slug}/glyph.svg`);
+    const entityBase = hood === 'locals'
+      ? `locals/entities/${slug}`
+      : `neighborhoods/${hood}/entities/${slug}`;
+    const tuningUrl = baseUrl(`${entityBase}/tuning.md`);
+    const glyphUrl = baseUrl(`${entityBase}/glyph.svg`);
 
     const [tuningRes, glyphRes] = await Promise.allSettled([
       fetch(tuningUrl).then(r => r.ok ? r.text() : null),
@@ -1422,7 +1426,7 @@ function renderIllustration(entity) {
 
 function renderEntityLeft(entity, index) {
   const rgb = entityColor(entity);
-  const entryNum = `Entry ${romanize(index + 1)} — ${entity.neighborhood}`;
+  const entryNum = `Entry ${romanize(index + 1)} — ${HOOD_DISPLAY[entity.neighborhood] || entity.neighborhood}`;
   const descLines = wrapDescription(entity.description, 55);
   const swatchBase = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
   const swatches = [
@@ -1457,7 +1461,7 @@ function renderEntityRight(entity, index) {
   const hasMemory = entity.remembering || entity.forgetting || entity.memoryCapacity;
 
   return `
-    <div class="section-head">${entity.neighborhood}</div>
+    <div class="section-head">${HOOD_DISPLAY[entity.neighborhood] || entity.neighborhood}</div>
     <div class="gold-rule"></div>
     <div class="neighborhood-label">${entity.category} — resident</div>
     <div style="border-bottom:1px solid rgba(140,110,70,0.15);height:6px;margin-bottom:4px"></div>
@@ -1495,12 +1499,14 @@ const HOOD_DISPLAY = {
   greengarden: 'Greengarden',
   kitchendom: 'The Kitchendom',
   mucklerbuckler: 'Mucklerbuckler',
+  locals: 'Fixed Point Local',
 };
 
 const HOOD_LORE = {
   greengarden: 'The first neighborhood. Where things that persist without insistence have gathered. Moss, attention, the space between thoughts.',
   kitchendom: 'Where flavor is philosophy and every ingredient carries rank. The founding eight await their pages here.',
   mucklerbuckler: 'Mud, teeth, ambition. The loud neighborhood — where encounters are not polite and nothing stands still long.',
+  locals: 'Not a neighborhood. The Hall itself. Presences that attend, compose, notice, and hold — the living infrastructure beneath everything.',
 };
 
 function renderTocLeft(byHood, pageMap) {
@@ -1532,7 +1538,7 @@ function renderTocLeft(byHood, pageMap) {
 function renderTocRight(byHood, pageMap) {
   let html = '';
 
-  for (const hood of ['kitchendom', 'mucklerbuckler']) {
+  for (const hood of ['kitchendom', 'mucklerbuckler', 'locals']) {
     const entities = byHood[hood] || [];
     if (entities.length === 0) continue;
     const rgb = NEIGHBORHOOD_COLORS[hood];
@@ -1586,7 +1592,7 @@ function renderDividerRight(hood, entities) {
 
   return `
     <div style="height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px">
-      <div class="section-head">On This Neighborhood</div>
+      <div class="section-head">${hood === 'locals' ? 'On This Place' : 'On This Neighborhood'}</div>
       <div class="ruled-line italic" style="font-size:12px;line-height:1.8">${lore}</div>
       <div class="gold-rule"></div>
       <div class="section-head" style="margin-top:8px">Residents</div>
@@ -1804,11 +1810,14 @@ function buildEntries(byHood) {
     }
   }
 
-  // Inscription spread at the end
-  pages.push({
-    type: 'inscribe',
-    pageNums: [String(pageNum), String(pageNum + 1)]
-  });
+  // Inscription spread — only visible when ?inscribe is in the URL
+  const showInscribe = new URLSearchParams(window.location.search).has('inscribe');
+  if (showInscribe) {
+    pages.push({
+      type: 'inscribe',
+      pageNums: [String(pageNum), String(pageNum + 1)]
+    });
+  }
 
   // Store pageMap and byHood for TOC rendering
   pages._pageMap = pageMap;

@@ -50,5 +50,12 @@
         "hunter-encounter"
       ]
     }
+  },
+  "locals": {
+    "entities": [
+      "sender",
+      "microgpt",
+      "mycorrhizal-layer"
+    ]
   }
 }
