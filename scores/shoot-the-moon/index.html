@@ -1149,14 +1149,17 @@ function triggerStall() {
   S.stall.peakY = S.rocket.y - S.h * 0.18 - Math.random() * S.h * 0.08;
 }
 
+function tinkeringZoom() { return S.w < 500 ? 1.25 : 1.6; }
+function tinkeringCameraY() { return S.w < 500 ? S.h * 0.22 : S.h * 0.32; }
+
 function enterTinkering() {
   if (S.phase !== 'pristine') return;
   S.phase = 'tinkering';
   S.text.targetAlpha = 0;
   S.tinkerT = 0;
   // zoom in to ground level — moon disappears above
-  S.zoomTarget = 1.6;
-  S.cameraYTarget = S.h * 0.32;
+  S.zoomTarget = tinkeringZoom();
+  S.cameraYTarget = tinkeringCameraY();
   // move vendor near the rocket so they're visible at close zoom
   S.vendor.targetX = S.rocket.x - Math.min(140, S.w * 0.3);
   showNote('oh. okay. let\'s see what we\'ve got.');
@@ -1589,8 +1592,8 @@ function update(dt) {
         S.flights = [];
         S.inputLocked = false;
         // zoom back into tinkering
-        S.zoomTarget = 1.6;
-        S.cameraYTarget = S.h * 0.32;
+        S.zoomTarget = tinkeringZoom();
+        S.cameraYTarget = tinkeringCameraY();
       } else {
         S.phase = 'pristine';
         S.inputLocked = false;
@@ -2057,8 +2060,15 @@ function getLunchCardLayout() {
 
 function getLunchButtonPos() {
   const bw = 60, bh = 24;
-  const bx = S.rocket.x + Math.min(120, S.w * 0.25);
-  const by = S.groundY - 20 - bh/2;
+  let bx, by;
+  if (S.w < 500) {
+    // Narrow: center below the rocket, above the ground line
+    bx = S.rocket.x - bw / 2;
+    by = S.groundY + 8;
+  } else {
+    bx = S.rocket.x + Math.min(120, S.w * 0.25);
+    by = S.groundY - 20 - bh / 2;
+  }
   return { bw, bh, bx, by };
 }
 
@@ -2164,7 +2174,7 @@ function renderText() {
     ctx.font = '12px "Courier New", monospace';
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.textAlign = 'center';
-    ctx.fillText(S.note.content, S.w/2, S.groundY + 30);
+    ctx.fillText(S.note.content, S.w/2, S.groundY + 30, S.w - 20);
     ctx.globalAlpha = 1;
   }
 }
