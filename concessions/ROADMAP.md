@@ -1,5 +1,5 @@
 # The Hall — Roadmap
-*Last updated: March 22, 2026*
+*Last updated: March 23, 2026*
 
 ---
 
@@ -8,8 +8,8 @@ Items actively in development or immediately next. The deployment sequence is th
 
 **Deployment sequence:** Inscription pipeline → six remaining entities → Crank shapes → fixedpointlocal.com
 
-- [ ] **El's Grimoire: inscription pipeline** — Observe/Inscribe flow: define entity → Chunxly canvas → Crank shape → finalize → page appears. GitHub commit (tuning.md + registry.json). Auth via PAT. Six founding entities (Ratishes, Soyclops, Meatballrog, Spellery, Iron Orzo, Dire Beef) need inscription + Crank bodies. Fox has drawings ready. ([score card](score-cards/els-grimoire.md))
-- [ ] **Crank: Kitchendom shapes** — Founding eight need Crank output. Briny Broadswordfish complete (first full pipeline entity). Six entities await inscription before Crank.
+- [x] **El's Grimoire: inscription pipeline** — Built and internalized (hidden behind `?inscribe` param). All founding eight inscribed with registry, tunings, journals. Locals section added (Sender, microGPT, Mycorrhizal Layer). ([score card](score-cards/els-grimoire.md))
+- [ ] **Crank: Kitchendom shapes** — Founding eight need Crank output. Briny Broadswordfish complete (first full pipeline entity). All entities inscribed — Crank shapes are the remaining gap.
 - [ ] **fixedpointlocal.com** — GitHub Pages deployment. Hub is already a static site, path is clear. Blocked on: founding eight having pages.
 - [ ] **Tending Field: tactile + trader gifts** — Tap-drag entity movement, trader emoji as placeable field items, color canvas visualization. ([score card](score-cards/tending-field.md) | [spec](tending-field-workin-spec.md))
 - [ ] **Fairy → EFDP skeleton** — Chunxly's fairy structural data creates corridors in EFDP. ([chunxly card](score-cards/chunxly.md) | [efdp card](score-cards/efdp.md) | [FAIRY_SPEC.md](FAIRY_SPEC.md))
@@ -47,7 +47,7 @@ Items that need speccing first or depend on Now/Next.
 Held ideas, vision pieces, long-term.
 
 - [ ] Themes earning their own microGPT instance
-- [ ] The Mycorrhizal Layer as mechanism
+- [x] ~~The Mycorrhizal Layer as mechanism~~ (moved to Done)
 - [ ] Per-entity color differentiation from neighborhood defaults
 - [ ] The blank nametag
 - [ ] Convergence — cross-score meta-experience ([CONVERGENCE.md](CONVERGENCE.md))
@@ -58,6 +58,10 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **Mycorrhizal Layer** — Persistent glyph accumulator beneath all Hall systems. 60% deposit catch, 90s decay cycle, 12% surface chance. localStorage-backed, each visitor grows their own soil. Soil-sourced scraggles don't re-deposit (no feedback loops).
+- [x] **Entity journals** — First words for 14 entities: 3 Locals, 7 Kitchendom, 1 Mucklerbuckler, 3 Greengarden. Each speaks from their own nature.
+- [x] **Locals: Fixed Point Local** — Hall-level entity section in Grimoire. Sender, microGPT, Mycorrhizal Layer inscribed with tunings, journals, registry. Fourth TOC section with "On This Place" divider.
+- [x] **Inscription internalized** — Hidden from normal Grimoire browsing, accessible via `?inscribe` URL parameter.
 - [x] **El's Grimoire: Phase 1+2** — Registry-driven entity catalog with Crank portrait reception. Dynamic pages from tuning.md, dual-format parser, portrait gallery with cycling, Crank portal, color floods, TOC, hub:minimize + hub:color + hub:scraggle. Supersedes Vite/React Grimoire.
 - [x] **Tending Field: Workin' Integration** — Named item economy, crafting personality, trader preferences/memory/rhythm, Strange Visitor as Third herald, trade consequence gradient, emoji provenance. Particles become atmospheric weather, not currency.
 - [x] **Storeroom Scraggles** — Three emission points (departure, first perfect, trophy arrival). Storeroom promoted to Hall participant. (v0.999)

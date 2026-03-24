@@ -34,17 +34,12 @@ Portraits arrive from the Crank pipeline and display on entity pages:
 - **Live refresh:** Re-reads portrait queue on tab visibility change (returning from Crank updates immediately)
 - **Color fallback:** Procedural flood zone SVG when both portrait and glyph are absent
 
-### Phase 3: Inscription (Not Built) ← NEXT
-The end-to-end entity creation pipeline through the Grimoire:
+### Phase 3: Inscription (Internalized)
+The inscription pipeline is built and functional but hidden from normal browsing (accessible via `?inscribe` URL parameter). Used internally for entity creation.
 
-- **Observe/Inscribe flow:** Open Grimoire → Inscribe button → define entity (name, category, description, tags, color, neighborhood) → draw on Chunxly canvas → Crank a shape you like → finalize → new page appears in Grimoire
-- **GitHub commit:** Write `tuning.md` to `neighborhoods/{hood}/entities/{slug}/`, add slug to `registry.json`
-- **Auth:** PAT input stored in localStorage
-- **Exploration handoff:** Inscription writes `baseline-session/exploration-entity` to localStorage; Chunxly pre-fills the creature name from it. This connects the round-trip: Inscribe → Chunxly → Crank → portrait lands on the entity page.
-- **Post-inscription:** New entity appears immediately without full reload
-- **Portrait save to GitHub:** `neighborhoods/{neighborhood}/entities/{slug}/portraits/`
-- **Visitor → Resident promotion**
-- **Import/export**
+- **Built:** Observe/Inscribe flow, GitHub commit (tuning.md + registry.json), PAT auth, exploration handoff to Chunxly, post-inscription live refresh
+- **Internalized (2026-03-23):** Inscription page hidden from TOC and page sequence unless `?inscribe` is in the URL. Decision: populate the catalog first, then consider opening to visitors.
+- **Not built:** Portrait save to GitHub, visitor → resident promotion, import/export
 
 ### Phase 4: Hub Integration (Partial)
 - **Done:** `hub:minimize` on load, `hub:color` with Grimoire RGB [90,110,60]
@@ -55,20 +50,31 @@ The end-to-end entity creation pipeline through the Grimoire:
 ## Founding Eight (Kitchendom Launch Roster)
 The reason to launch. These entities having pages means the neighborhood has residents when the door opens.
 
-| Entity | Registry | Tuning | Crank Shape | Page |
-|--------|----------|--------|-------------|------|
-| Briny Broadswordfish | Yes | Yes | Yes | Yes |
-| Noble Knightshade | Yes | Yes | Needed | Yes |
-| Ratishes | No | No | Needed | — |
-| Soyclops | No | No | Needed | — |
-| Meatballrog | No | No | Needed | — |
-| Spellery | No | No | Needed | — |
-| Iron Orzo | No | No | Needed | — |
-| Dire Beef | No | No | Needed | — |
-| Salterran | Yes | Yes | — | Yes |
-| The Kitchendom | Yes | Yes | — | Yes |
+| Entity | Registry | Tuning | Journal | Crank Shape | Page |
+|--------|----------|--------|---------|-------------|------|
+| Briny Broadswordfish | Yes | Yes | Yes | Yes | Yes |
+| Noble Knightshade | Yes | Yes | — | Needed | Yes |
+| Ratishes | Yes | Yes | Yes | Needed | Yes |
+| Soyclops | Yes | Yes | Yes | Needed | Yes |
+| Meatballrog | Yes | Yes | Yes | Needed | Yes |
+| Spellery | Yes | Yes | Yes | Needed | Yes |
+| Iron Orzo | Yes | Yes | Yes | Needed | Yes |
+| Dire Beef | Yes | Yes | Yes | Needed | Yes |
+| Salterran | Yes | Yes | Yes | — | Yes |
+| The Kitchendom | Yes | Yes | — | — | Yes |
 
-*Salterran and The Kitchendom are location/tendency — they have registry presence but may not need Crank shapes.*
+*All founding eight now have registry entries, tunings, journals, and pages. Crank shapes remain the gap.*
+
+## Locals (Fixed Point Local)
+Hall-level entities added 2026-03-23. Not a neighborhood — the living infrastructure. Rendered as a fourth section in the Grimoire with "On This Place" divider.
+
+| Entity | Registry | Tuning | Journal | Page |
+|--------|----------|--------|---------|------|
+| Sender | Yes | Yes | Yes | Yes |
+| microGPT | Yes | Yes | Yes | Yes |
+| Mycorrhizal Layer | Yes | Yes | Yes | Yes |
+
+*Locals live in `locals/entities/` (parallel to `neighborhoods/`). Registry key is `locals` (separate from `neighborhoods`). Hub resident count does not include Locals — they are infrastructure, not residents.*
 
 ## Deployment Sequence
 ```
