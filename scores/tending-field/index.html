@@ -497,6 +497,7 @@ function produceItems() {
     const neighbors = getNeighbors(i);
     const adjPlants = [];
     const adjEntities = [];
+    const adjGifts = [];
     const adjTags = new Set();
 
     for (const ni of neighbors) {
@@ -512,6 +513,10 @@ function produceItems() {
       if (n.kind === 'entity') {
         adjEntities.push(n.data);
         for (const t of (n.data.tags || [])) adjTags.add(t);
+      }
+      if (n.kind === 'gift') {
+        adjGifts.push(n.data);
+        for (const l of (n.data.leanings || [])) adjTags.add(l);
       }
     }
 
@@ -553,6 +558,7 @@ function produceItems() {
     const influenceEmoji = [
       ...adjPlants.map(p => p.emoji),
       ...adjEntities.map(e => e.derivedEmoji || entityEmoji(e)),
+      ...adjGifts.map(g => g.emoji),
     ];
 
     items.push({
@@ -941,6 +947,30 @@ function sweepParticles() {
   setTimeout(() => { particles = []; }, 620);
 }
 
+// ── Trader gifts ──────────────────────────────────────────────
+function placeTraderGift(trader) {
+  // Find nearest empty tile to canvas center (where relics drift toward)
+  const cx = (pCanvas.width || 400) / 2, cy = (pCanvas.height || 300) / 2;
+  let bestIdx = -1, bestD = Infinity;
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (G.field[i]) continue;
+    const tr = tileRects[i];
+    if (!tr) continue;
+    const dx = tr.x - cx, dy = tr.y - cy;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; bestIdx = i; }
+  }
+  if (bestIdx < 0) return; // field full
+  G.field[bestIdx] = {
+    kind: 'gift',
+    data: { id: trader.id, name: trader.name, emoji: trader.emoji, leanings: trader.preference.leanings },
+  };
+  G.tileAge[bestIdx] = 0;
+  G.tileExposure[bestIdx] = [];
+  spawnAccum[bestIdx] = 0;
+  save(); renderField();
+}
+
 // ── Relic system ───────────────────────────────────────────────
 function spawnRelic(trader, tradeScore) {
   if (relics.length >= RELIC_MAX) {
@@ -1115,7 +1145,7 @@ function drawAll() {
   const now = Date.now();
   for (const r of residents) {
     const isDragged = drag?.active && drag.resident === r;
-    const sz = r.kind === 'plant' ? 23 : 19;
+    const sz = r.kind === 'plant' ? 23 : r.kind === 'gift' ? 17 : 19;
 
     if (isDragged) {
       // Ghost at original position
@@ -1143,6 +1173,16 @@ function drawAll() {
       pCtx.lineWidth = 1.5;
       pCtx.beginPath();
       pCtx.arc(r.x, r.y, sz + 5 + pulse * 5, 0, Math.PI * 2);
+      pCtx.stroke();
+    }
+
+    // Gift amber tint ring
+    if (r.kind === 'gift') {
+      pCtx.globalAlpha = 0.22;
+      pCtx.strokeStyle = '#c8920a';
+      pCtx.lineWidth = 1;
+      pCtx.beginPath();
+      pCtx.arc(r.x, r.y, sz * 0.9, 0, Math.PI * 2);
       pCtx.stroke();
     }
 
@@ -1295,7 +1335,7 @@ function syncResidents() {
     const tile = G.field[i];
     if (!tile?.data || !tileRects[i]) continue;
 
-    const emoji = tile.kind === 'plant'
+    const emoji = tile.kind === 'plant' || tile.kind === 'gift'
       ? tile.data.emoji
       : (tile.data.derivedEmoji || entityEmoji(tile.data));
     const label = (tile.data.name || '').slice(0, 11).toUpperCase();
@@ -1351,6 +1391,7 @@ function save() {
       if (!t) return null;
       if (t.kind === 'plant')  return { kind:'plant',  plantId: t.data?.id };
       if (t.kind === 'entity') return { kind:'entity', slug: t.data?.slug, neighborhood: t.data?.neighborhood };
+      if (t.kind === 'gift')   return { kind:'gift',   traderId: t.data?.id };
       return null;
     });
     localStorage.setItem('tending-field/field',        JSON.stringify(fd));
@@ -1447,10 +1488,18 @@ function getNeighbors(idx) {
 
 function hasBonusAdjacency(i) {
   const tile = G.field[i];
-  if (!tile || tile.kind !== 'plant' || !tile.data) return false;
-  for (const ni of getNeighbors(i)) {
-    const n = G.field[ni];
-    if (n?.kind === 'entity' && n.data && tile.data.affinity.some(a => n.data.tags.includes(a))) return true;
+  if (!tile?.data) return false;
+  if (tile.kind === 'plant') {
+    for (const ni of getNeighbors(i)) {
+      const n = G.field[ni];
+      if (n?.kind === 'entity' && n.data && tile.data.affinity.some(a => n.data.tags.includes(a))) return true;
+    }
+  }
+  if (tile.kind === 'gift') {
+    for (const ni of getNeighbors(i)) {
+      const n = G.field[ni];
+      if (n?.kind === 'entity' && n.data && tile.data.leanings.some(l => (n.data.tags || []).includes(l))) return true;
+    }
   }
   return false;
 }
@@ -1556,6 +1605,7 @@ function traderLeave(traded, chosenItem) {
 
     const reaction = traderReaction(sc);
     spawnRelic(G.caravan.trader, sc);
+    if (sc >= 4) placeTraderGift(G.caravan.trader);
     hubMsg('hub:scraggle', { emoji: G.caravan.trader.emoji, signal: `${G.caravan.trader.name} took ${chosenItem.name} — ${reaction.text}` });
   }
   // Decay all rhythm drifts slightly each cycle
@@ -1951,6 +2001,7 @@ async function init() {
   G.field = G.field.map(t => {
     if (!t) return null;
     if (t.kind === 'plant') { const p = PLANTS.find(p => p.id === t.plantId); return p ? { kind:'plant', data:p } : null; }
+    if (t.kind === 'gift')  { const tr = TRADERS.find(r => r.id === t.traderId); return tr ? { kind:'gift', data:{ id:tr.id, name:tr.name, emoji:tr.emoji, leanings:tr.preference.leanings } } : null; }
     return t;
   });
 

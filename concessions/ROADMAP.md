@@ -11,7 +11,7 @@ Items actively in development or immediately next. The deployment sequence is th
 - [x] **El's Grimoire: inscription pipeline** — Built and internalized (hidden behind `?inscribe` param). All founding eight inscribed with registry, tunings, journals. Locals section added (Sender, microGPT, Mycorrhizal Layer). ([score card](score-cards/els-grimoire.md))
 - [ ] **Crank: Kitchendom shapes** — Founding eight need Crank output. Briny Broadswordfish complete (first full pipeline entity). All entities inscribed — Crank shapes are the remaining gap.
 - [ ] **fixedpointlocal.com** — GitHub Pages deployment. Hub is already a static site, path is clear. Blocked on: founding eight having pages.
-- [ ] **Tending Field: trader gifts + visualization** — Tap-drag movement landed. Remaining: trader emoji as placeable field items, color canvas visualization. ([score card](score-cards/tending-field.md) | [spec](tending-field-workin-spec.md))
+- [ ] **Tending Field: color canvas visualization** — Trader gifts landed. Remaining: relationship/influence visualization via color. ([score card](score-cards/tending-field.md) | [spec](tending-field-workin-spec.md))
 - [ ] **Fairy → EFDP skeleton** — Chunxly's fairy structural data creates corridors in EFDP. ([chunxly card](score-cards/chunxly.md) | [efdp card](score-cards/efdp.md) | [FAIRY_SPEC.md](FAIRY_SPEC.md))
 
 ## Next
@@ -58,6 +58,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **Tending Field: trader gifts** — Trades scoring >= 4 auto-place trader emoji as `gift` tiles on the nearest empty slot. Gift leanings blend into adjacent workers' item production via adjacency tags and influence emoji provenance. Rendered with amber tint, draggable, persistent.
 - [x] **Critter Crank: binder + diorama** — Caught critters shown as trading cards in paginated 2×2 binder pages. Clean front face (pixel art + name + badges), living diorama back face (creature + 5 world companions placed spatially, animated). Full-screen diorama in packet detail view with all companions breathing. Shoulder buttons page in binder, FLIP button contextual. Stat-specific bar colors.
 - [x] **Mycorrhizal Layer** — Persistent glyph accumulator beneath all Hall systems. 60% deposit catch, 90s decay cycle, 12% surface chance. localStorage-backed, each visitor grows their own soil. Soil-sourced scraggles don't re-deposit (no feedback loops).
 - [x] **Entity journals** — First words for 14 entities: 3 Locals, 7 Kitchendom, 1 Mucklerbuckler, 3 Greengarden. Each speaks from their own nature.

@@ -1,6 +1,6 @@
 # The Tending Field
 **Location:** `scores/tending-field/` | **Status:** Active
-**Neighborhood:** Greengarden | **Stack:** Vanilla JS, canvas-based (~1,700 lines)
+**Neighborhood:** Greengarden | **Stack:** Vanilla JS, canvas-based (~2,000 lines)
 
 ## Current State
 Underwater twilight farming field with a named item economy. 5x4 tile grid. Plants produce atmospheric emoji snow. Entities placed as workers produce named items from adjacency context on caravan arrival. Traders arrive with preferences, memory, and rhythm — responding to what the Field has grown rather than checking a shopping list. Kiwi system builds readiness toward Float the Farm consensus.
@@ -24,10 +24,10 @@ Underwater twilight farming field with a named item economy. 5x4 tile grid. Plan
 - **Emoji provenance:** trade modal shows influence chains as emoji (compact, visual)
 - Caravan timer (90s cycles), relic system with proximity effects, kiwi system, Float the Farm consensus
 - **Tap-and-drag movement:** pointer-event drag for plants and entities with swap-on-drop, ghost at origin, lifted emoji at cursor, drop-target highlight. Taps still open placement modal.
+- **Trader gifts:** trades scoring >= 4 leave the trader's emoji as a placeable `gift` tile on the nearest empty slot. Gift leanings blend into adjacent workers' item production (adjacency tags + influence emoji provenance). Rendered smaller (17px) with amber tint ring. Persist across reloads. Draggable and clearable like any tile.
 - Adjacency bonuses, background canvas with sparkles and shadow entity, ticker, full localStorage persistence
 
 ## What's Next
-- **Trader emoji as placeable items** — traders leave their emoji as field influences, composing into future outputs
 - **Color canvas visualization** — relationship/influence visualization via color
 - **Hub pulse listener** — respond to heartbeat
 - **Cross-score item reception** — receive items from other scores as relics
