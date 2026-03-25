@@ -23,10 +23,10 @@ Underwater twilight farming field with a named item economy. 5x4 tile grid. Plan
 - **Trader-voiced empty harvest:** each trader has a unique idle line when the Field produces nothing
 - **Emoji provenance:** trade modal shows influence chains as emoji (compact, visual)
 - Caravan timer (90s cycles), relic system with proximity effects, kiwi system, Float the Farm consensus
+- **Tap-and-drag movement:** pointer-event drag for plants and entities with swap-on-drop, ghost at origin, lifted emoji at cursor, drop-target highlight. Taps still open placement modal.
 - Adjacency bonuses, background canvas with sparkles and shadow entity, ticker, full localStorage persistence
 
 ## What's Next
-- **Tap-and-drag entity movement** — tactile rearrangement instead of menu-only placement
 - **Trader emoji as placeable items** — traders leave their emoji as field influences, composing into future outputs
 - **Color canvas visualization** — relationship/influence visualization via color
 - **Hub pulse listener** — respond to heartbeat

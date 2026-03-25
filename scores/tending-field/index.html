@@ -115,6 +115,7 @@
     #click-layer {
       position: absolute; inset: 0;
       z-index: 4; cursor: pointer;
+      touch-action: none;
     }
 
     /* ── Tiles (invisible layout nodes — content rendered on canvas) */
@@ -723,6 +724,7 @@ let particles  = [];
 let residents  = [];
 let relics     = [];
 let sparkles   = [];
+let drag       = null; // { tileIdx, startX, startY, curX, curY, active, resident }
 let shadow     = { x:-300, y:200, vx:0.1, vy:0.04, opacity:0, phase:'dormant', timer:0 };
 
 // Canvas
@@ -1095,10 +1097,33 @@ function drawAll() {
     pCtx.fillText(p.emoji, p.x, p.y);
   }
 
+  // Drag: highlight drop target
+  if (drag?.active) {
+    const target = findTileNear(drag.curX, drag.curY);
+    if (target >= 0 && target !== drag.tileIdx && tileRects[target]) {
+      const tt = tileRects[target];
+      pCtx.globalAlpha = 0.35;
+      pCtx.strokeStyle = '#7aaec8';
+      pCtx.lineWidth = 2;
+      pCtx.beginPath();
+      pCtx.arc(tt.x, tt.y, 22, 0, Math.PI * 2);
+      pCtx.stroke();
+    }
+  }
+
   // Residents — floating on their home nodes
   const now = Date.now();
   for (const r of residents) {
+    const isDragged = drag?.active && drag.resident === r;
     const sz = r.kind === 'plant' ? 23 : 19;
+
+    if (isDragged) {
+      // Ghost at original position
+      pCtx.globalAlpha = 0.18;
+      pCtx.font = `${sz}px serif`;
+      pCtx.fillText(r.emoji, r.x, r.y);
+      continue; // skip normal render — drawn lifted below
+    }
 
     // Bonus adjacency ring
     if (r.bonus) {
@@ -1131,6 +1156,27 @@ function drawAll() {
     pCtx.font = '6px "Courier New", monospace';
     pCtx.fillStyle = '#b8c4cc';
     pCtx.fillText(r.label, r.x, r.y + sz * 0.74);
+  }
+
+  // Drag: lifted resident follows pointer
+  if (drag?.active && drag.resident) {
+    const r  = drag.resident;
+    const sz = (r.kind === 'plant' ? 23 : 19) * 1.3;
+    // Glow circle behind
+    pCtx.globalAlpha = 0.2;
+    pCtx.fillStyle = '#3a9a7a';
+    pCtx.beginPath();
+    pCtx.arc(drag.curX, drag.curY, sz * 0.9, 0, Math.PI * 2);
+    pCtx.fill();
+    // Emoji
+    pCtx.globalAlpha = 0.95;
+    pCtx.font = `${sz}px serif`;
+    pCtx.fillText(r.emoji, drag.curX, drag.curY);
+    // Name label
+    pCtx.globalAlpha = 0.5;
+    pCtx.font = '7px "Courier New", monospace';
+    pCtx.fillStyle = '#b8c4cc';
+    pCtx.fillText(r.label, drag.curX, drag.curY + sz * 0.65);
   }
 
   // Relics (above everything)
@@ -1763,7 +1809,116 @@ document.getElementById('trade-btn').addEventListener('click', () => {
   }
 });
 document.getElementById('trade-pass-btn').addEventListener('click', () => traderLeave(false, null));
-document.getElementById('click-layer').addEventListener('click', handleFieldClick);
+// ── Drag-and-drop ───────────────────────────────────────────────
+const DRAG_THRESHOLD = 8;
+
+function pointerToField(e) {
+  const sec  = document.getElementById('field-section');
+  const rect = sec.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function findResidentNear(fx, fy, radius) {
+  let best = null, bestD = radius;
+  for (const r of residents) {
+    const d = Math.sqrt((r.x - fx) ** 2 + (r.y - fy) ** 2);
+    if (d < bestD) { bestD = d; best = r; }
+  }
+  return best;
+}
+
+function findTileNear(fx, fy) {
+  let best = -1, bestD = 9999;
+  for (let i = 0; i < tileRects.length; i++) {
+    const t = tileRects[i];
+    if (!t) continue;
+    const dx = fx - t.x, dy = fy - t.y;
+    if (Math.abs(dx) < t.w / 2 + 5 && Math.abs(dy) < t.h / 2 + 5) {
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+  }
+  return best;
+}
+
+function performDrop(fromIdx, toIdx) {
+  if (fromIdx === toIdx) return;
+  // Swap field contents
+  const tmp = G.field[fromIdx];
+  G.field[fromIdx] = G.field[toIdx];
+  G.field[toIdx] = tmp;
+  // Swap tile age
+  const tmpAge = G.tileAge[fromIdx];
+  G.tileAge[fromIdx] = G.tileAge[toIdx];
+  G.tileAge[toIdx] = tmpAge;
+  // Swap tile exposure
+  const tmpExp = G.tileExposure[fromIdx];
+  G.tileExposure[fromIdx] = G.tileExposure[toIdx];
+  G.tileExposure[toIdx] = tmpExp;
+  // Reset spawn accumulators
+  spawnAccum[fromIdx] = 0;
+  spawnAccum[toIdx] = 0;
+  save();
+  syncResidents();
+}
+
+const clickLayer = document.getElementById('click-layer');
+
+clickLayer.addEventListener('pointerdown', e => {
+  if (G.loading || G.caravan.arrived) return;
+  e.preventDefault();
+  try { clickLayer.setPointerCapture(e.pointerId); } catch {}
+
+  const pt  = pointerToField(e);
+  const res = findResidentNear(pt.x, pt.y, 30);
+  if (res && G.field[res.tileIdx]) {
+    drag = {
+      tileIdx:  res.tileIdx,
+      startX:   pt.x,
+      startY:   pt.y,
+      curX:     pt.x,
+      curY:     pt.y,
+      active:   false,
+      resident: res,
+    };
+  } else {
+    drag = { tileIdx: -1, startX: pt.x, startY: pt.y, curX: pt.x, curY: pt.y, active: false, resident: null };
+  }
+});
+
+clickLayer.addEventListener('pointermove', e => {
+  if (!drag || !drag.resident) return;
+  const pt = pointerToField(e);
+  drag.curX = pt.x;
+  drag.curY = pt.y;
+  if (!drag.active) {
+    const dx = pt.x - drag.startX, dy = pt.y - drag.startY;
+    if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+      drag.active = true;
+    }
+  }
+});
+
+clickLayer.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const pt = pointerToField(e);
+
+  if (drag.active && drag.resident) {
+    // Drop — find target tile
+    const target = findTileNear(pt.x, pt.y);
+    if (target >= 0 && target !== drag.tileIdx) {
+      performDrop(drag.tileIdx, target);
+    }
+    drag = null;
+    return;
+  }
+
+  // Not a drag — treat as tap (existing click behavior)
+  drag = null;
+  handleFieldClick(e);
+});
+
+clickLayer.addEventListener('pointercancel', () => { drag = null; });
 document.getElementById('float-accept').addEventListener('click', floatTheFarm);
 document.getElementById('float-decline').addEventListener('click', () => {
   document.getElementById('float-prompt').classList.remove('visible');

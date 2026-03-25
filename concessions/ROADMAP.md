@@ -1,5 +1,5 @@
 # The Hall — Roadmap
-*Last updated: March 24, 2026*
+*Last updated: March 25, 2026*
 
 ---
 
@@ -11,7 +11,7 @@ Items actively in development or immediately next. The deployment sequence is th
 - [x] **El's Grimoire: inscription pipeline** — Built and internalized (hidden behind `?inscribe` param). All founding eight inscribed with registry, tunings, journals. Locals section added (Sender, microGPT, Mycorrhizal Layer). ([score card](score-cards/els-grimoire.md))
 - [ ] **Crank: Kitchendom shapes** — Founding eight need Crank output. Briny Broadswordfish complete (first full pipeline entity). All entities inscribed — Crank shapes are the remaining gap.
 - [ ] **fixedpointlocal.com** — GitHub Pages deployment. Hub is already a static site, path is clear. Blocked on: founding eight having pages.
-- [ ] **Tending Field: tactile + trader gifts** — Tap-drag entity movement, trader emoji as placeable field items, color canvas visualization. ([score card](score-cards/tending-field.md) | [spec](tending-field-workin-spec.md))
+- [ ] **Tending Field: trader gifts + visualization** — Tap-drag movement landed. Remaining: trader emoji as placeable field items, color canvas visualization. ([score card](score-cards/tending-field.md) | [spec](tending-field-workin-spec.md))
 - [ ] **Fairy → EFDP skeleton** — Chunxly's fairy structural data creates corridors in EFDP. ([chunxly card](score-cards/chunxly.md) | [efdp card](score-cards/efdp.md) | [FAIRY_SPEC.md](FAIRY_SPEC.md))
 
 ## Next
