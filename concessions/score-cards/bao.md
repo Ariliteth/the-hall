@@ -21,9 +21,9 @@ Dispatch strategy game. Five generals with persistent records. Five animal armie
 - Resource economy (troops/grain/coin), kingdom-fall bonuses
 - 2 continents × 3 kingdoms with vendetta carryover
 - Canvas board with territory washes, formation rendering
+- GAB (voice) system for all 5 generals with mood-driven lines, kingdom-specific taunts, and emblem animations — distinct personalities (Frostveil: sly/watchful, Whitefall: commanding/sweeping, Permafrost: patient/ancient, Crystalis: precise/sharp)
 
 ## What's Next
-- GAB (voice) system only populated for Glacius (1 of 5 generals) — other 4 generals are silent
 - Snow particle system defined but never called (`spawnSnow()` dead code, no `#snow` element)
 - After 2 continents, static "The World Falls" modal — no endgame content
 - Build Order: "specialist unlock, correspondence front, council scene"

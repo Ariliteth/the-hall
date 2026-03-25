@@ -6,11 +6,6 @@
 ## Now
 Items actively in development or immediately next. The deployment sequence is the through-line.
 
-**Deployment sequence:** Inscription pipeline → six remaining entities → Crank shapes → fixedpointlocal.com
-
-- [x] **El's Grimoire: inscription pipeline** — Built and internalized (hidden behind `?inscribe` param). All founding eight inscribed with registry, tunings, journals. Locals section added (Sender, microGPT, Mycorrhizal Layer). ([score card](score-cards/els-grimoire.md))
-- [ ] **Crank: Kitchendom shapes** — Founding eight need Crank output. Briny Broadswordfish complete (first full pipeline entity). All entities inscribed — Crank shapes are the remaining gap.
-- [ ] **fixedpointlocal.com** — GitHub Pages deployment. Hub is already a static site, path is clear. Blocked on: founding eight having pages.
 - [ ] **Tending Field: color canvas visualization** — Trader gifts landed. Remaining: relationship/influence visualization via color. ([score card](score-cards/tending-field.md) | [spec](tending-field-workin-spec.md))
 - [ ] **Fairy → EFDP skeleton** — Chunxly's fairy structural data creates corridors in EFDP. ([chunxly card](score-cards/chunxly.md) | [efdp card](score-cards/efdp.md) | [FAIRY_SPEC.md](FAIRY_SPEC.md))
 
@@ -23,7 +18,7 @@ Items with clear specs or obvious next steps, ready to build.
 - [ ] **Bao: specialist unlock** — Expand general capabilities. ([score card](score-cards/bao.md))
 - [ ] **Bao: correspondence front** — Diplomatic layer.
 - [ ] **Bao: council scene** — Multi-general deliberation.
-- [ ] **Bao: GAB voices** — Only Glacius (1/5) has voice lines. Other 4 generals are silent.
+- [x] **Bao: GAB voices** — All 5 generals now have full voice lines (select, kingdom, assign, deny, order, selectedForOrder).
 - [x] **Mall: Scraggle response** — Three behaviors: themed item stock (emoji→prefix, color→stat), immediate PA announcement, ambient shiver. ([score card](score-cards/sunset-ridge-mall.md))
 - [ ] **Mall: ambient audio** — Elevator chime, muzak shift, footsteps. (Muzak system exists, effects partially built.)
 - [ ] **Storeroom: persistence** — No save across reloads. Also: new objects after departures. ([score card](score-cards/storeroom.md))
@@ -58,19 +53,12 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
-- [x] **Mall: Scraggle response** — `mallRespondsToScraggle()` brings the Mall into the Hall conversation. Three behaviors: themed item stock with emoji→prefix and color→stat mapping (40%), immediate PA announcement (35%), ambient light shiver (25%). Scraggle items are at least uncommon, placed in stores, scene rebuilt live.
-- [x] **Tending Field: trader gifts** — Trades scoring >= 4 auto-place trader emoji as `gift` tiles on the nearest empty slot. Gift leanings blend into adjacent workers' item production via adjacency tags and influence emoji provenance. Rendered with amber tint, draggable, persistent.
-- [x] **Critter Crank: binder + diorama** — Caught critters shown as trading cards in paginated 2×2 binder pages. Clean front face (pixel art + name + badges), living diorama back face (creature + 5 world companions placed spatially, animated). Full-screen diorama in packet detail view with all companions breathing. Shoulder buttons page in binder, FLIP button contextual. Stat-specific bar colors.
-- [x] **Mycorrhizal Layer** — Persistent glyph accumulator beneath all Hall systems. 60% deposit catch, 90s decay cycle, 12% surface chance. localStorage-backed, each visitor grows their own soil. Soil-sourced scraggles don't re-deposit (no feedback loops).
-- [x] **Entity journals** — First words for 14 entities: 3 Locals, 7 Kitchendom, 1 Mucklerbuckler, 3 Greengarden. Each speaks from their own nature.
-- [x] **Locals: Fixed Point Local** — Hall-level entity section in Grimoire. Sender, microGPT, Mycorrhizal Layer inscribed with tunings, journals, registry. Fourth TOC section with "On This Place" divider.
-- [x] **Inscription internalized** — Hidden from normal Grimoire browsing, accessible via `?inscribe` URL parameter.
-- [x] **El's Grimoire: Phase 1+2** — Registry-driven entity catalog with Crank portrait reception. Dynamic pages from tuning.md, dual-format parser, portrait gallery with cycling, Crank portal, color floods, TOC, hub:minimize + hub:color + hub:scraggle. Supersedes Vite/React Grimoire.
-- [x] **Tending Field: Workin' Integration** — Named item economy, crafting personality, trader preferences/memory/rhythm, Strange Visitor as Third herald, trade consequence gradient, emoji provenance. Particles become atmospheric weather, not currency.
-- [x] **Storeroom Scraggles** — Three emission points (departure, first perfect, trophy arrival). Storeroom promoted to Hall participant. (v0.999)
-- [x] **Chunxme's Stall** — Mustache persona, procedural canvas reading, item generation. First Score wearing a persona. (v0.998)
-- [x] **The Hall Pulse** — 45s heartbeat, hudBreath, Mall idle listener, color-routed Scraggles. (v0.997)
-- [x] **Color Canvas** — RGB in every entity tuning, Temperature of the Room, hub ambient wash. (v0.996)
+- [x] **Bao: GAB voices** — All 5 generals speaking: Frostveil (sly/watchful), Whitefall (commanding/sweeping), Permafrost (patient/ancient), Crystalis (precise/sharp).
+- [x] **Mall: Scraggle response** — Three behaviors: themed item stock (emoji→prefix, color→stat), PA announcement, ambient shiver.
+- [x] **Tending Field: trader gifts** — Trades scoring >= 4 auto-place trader emoji as gift tiles. Leanings blend into adjacent workers' item production.
+- [x] **Critter Crank: binder + diorama** — Trading cards in paginated 2×2 binder, living diorama back face, full-screen diorama in packet detail.
+- [x] **Mycorrhizal Layer** — Persistent glyph accumulator. 60% deposit catch, 90s decay, 12% surface chance. localStorage-backed.
+- [x] **El's Grimoire: Phase 1+2** — Registry-driven entity catalog with Crank portrait reception, dynamic pages, dual-format parser, color floods, TOC.
 
 ---
 

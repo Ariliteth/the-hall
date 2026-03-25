@@ -704,6 +704,378 @@ const GAB = {
       "{e} Say the word.",
     ],
   },
+
+  // ── Frostveil — sly, implied, watchful ──────────────
+  g1: {
+    emoji:'❄️',
+    defaultMood:'eager',
+    moodAnim:{ eager:'steady', comfort:'steady', discontented:'jitter', vendetta:'plant' },
+    select: {
+      eager: [
+        "...{e} You noticed.",
+        "{e} I was beginning to wonder.",
+        "Mm. {e} Interesting choice.",
+        "{e} Let's see what's hiding out there.",
+      ],
+      comfort: [
+        "The Wolves know where to look. {e}",
+        "{e} We've been watching.",
+        "{e} ...we already know the way in.",
+      ],
+      discontented: [
+        "{e} ...if you insist.",
+        "Still here. {e} Barely.",
+        "{e} Hm.",
+      ],
+      vendetta: [
+        "They think they covered their tracks. {e}",
+        "{e} I've been watching them longer than they know.",
+        "Old debts. {e} I collect quietly.",
+      ],
+    },
+    selectKingdom: [
+      { match:'Ember', lines:[
+        "Fire leaves a trail. {e} So do we.",
+        "{e} The Ember Throne glows. Easy to find.",
+      ]},
+      { match:'Storm', lines:[
+        "Storm fronts announce themselves. {e} We don't.",
+        "{e} Lightning shows you everything for one second. That's enough.",
+      ]},
+      { match:'Green', lines:[
+        "Overgrowth. {e} Things hide well in there.",
+        "{e} The Green Veil. We know about veils.",
+      ]},
+      { match:'Dune', lines:[
+        "Sand shifts. {e} Tracks vanish. Not ours.",
+        "{e} The Dune Pact thinks distance protects them.",
+      ]},
+      { match:'Night', lines:[
+        "The Night Compact. {e} Finally, someone who understands cover.",
+        "{e} Dark against dark. This will be close.",
+      ]},
+      { match:'Carnival', lines:[
+        "Masks. {e} Interesting.",
+        "{e} The Carnival Court hides in plain sight. So do I.",
+      ]},
+    ],
+    assignPreferred: [
+      "Wolves. {e} They already know.",
+      "{e} Good. We move the same way.",
+      "The pack. {e} ...naturally.",
+    ],
+    assignOther: [
+      "Not mine. {e} But useful.",
+      "{e} Different approach. I'll adapt.",
+      "New angles. {e} I can work with that.",
+    ],
+    denied: [
+      "Someone else has my Wolves. {e} ...interesting.",
+      "{e} ...noted.",
+      "The pack follows another. {e} I'm watching.",
+    ],
+    ordered: {
+      near: [
+        "Close. {e} Good sightlines.",
+        "{e} Right here. I see everything.",
+        "Short leash. {e} Fine.",
+      ],
+      far: [
+        "Far. {e} That's where secrets live.",
+        "{e} Long road. More to learn on the way.",
+        "Distance. {e} Good. I work better unseen.",
+      ],
+      againstInformed: [
+        "They've heard of me. {e} Only what I wanted them to hear.",
+        "{e} Let them think they know.",
+        "Informed? {e} Then they're already wrong about something.",
+      ],
+    },
+    selectedForOrder: [
+      "{e} Show me.",
+      "Where? {e}",
+      "{e} ...I'm listening.",
+    ],
+  },
+
+  // ── Whitefall — commanding, sweeping, declarative ───
+  g2: {
+    emoji:'🌨️',
+    defaultMood:'eager',
+    moodAnim:{ eager:'bounce', comfort:'steady', discontented:'jitter', vendetta:'plant' },
+    select: {
+      eager: [
+        "{e} The field is wide. I see all of it.",
+        "This is the moment. {e} Everything from here.",
+        "{e} I'm ready. The whole board is ready.",
+        "Call me. {e} I was made for scope.",
+      ],
+      comfort: [
+        "Eagles know altitude. {e} I know campaigns.",
+        "{e} The broad view. Always.",
+        "{e} From here, everything connects.",
+      ],
+      discontented: [
+        "Another war. {e} Another narrowing.",
+        "{e} This scope deserves better.",
+        "Fine. {e} Smaller than it should be.",
+      ],
+      vendetta: [
+        "They made this personal. {e} I'll make it historic.",
+        "{e} The whole campaign turns on what comes next.",
+        "I don't carry grudges. {e} I carry momentum.",
+      ],
+    },
+    selectKingdom: [
+      { match:'Ember', lines:[
+        "The Ember Throne burns bright. {e} Easy target from above.",
+        "{e} Fire rises. So do we.",
+      ]},
+      { match:'Storm', lines:[
+        "Two fronts meeting. {e} The sky will be crowded.",
+        "{e} The Storm Court knows altitude. So do we.",
+      ]},
+      { match:'Green', lines:[
+        "Canopy. {e} A ceiling is not a sky.",
+        "{e} The Green Veil hides from above. Not well enough.",
+      ]},
+      { match:'Dune', lines:[
+        "Open terrain. {e} Our kind of war.",
+        "{e} The Dune Pact spreads thin. We strike the whole line.",
+      ]},
+      { match:'Night', lines:[
+        "Night falls. {e} We fly above it.",
+        "{e} The Night Compact forgets — the sky is never dark.",
+      ]},
+      { match:'Carnival', lines:[
+        "{e} Spectacle. A wide target.",
+        "The Carnival Court performs. {e} We conduct.",
+      ]},
+    ],
+    assignPreferred: [
+      "Eagles. {e} The overview is ours.",
+      "{e} Wings. The broadest reach.",
+      "My flock. {e} We own the sky.",
+    ],
+    assignOther: [
+      "Not Eagles, but the campaign is what matters. {e}",
+      "{e} Ground forces. I'll give them altitude thinking.",
+      "Different wings. {e} Same sky.",
+    ],
+    denied: [
+      "My Eagles fly for another. {e} The sky narrows.",
+      "{e} ...the overview shifts.",
+      "Someone else commands the air. {e} I'll manage.",
+    ],
+    ordered: {
+      near: [
+        "Close. {e} I can see both sides from here.",
+        "{e} Short range. Full vision.",
+        "Here. {e} The center holds.",
+      ],
+      far: [
+        "Far reach. {e} The whole map opens.",
+        "{e} This is the sweep I wanted.",
+        "Send me wide. {e} I'll carry the entire flank.",
+      ],
+      againstInformed: [
+        "They see me coming. {e} Good. Let them prepare for everything.",
+        "{e} Informed enemies overcommit. That's the opening.",
+        "They know my name. {e} Not my plan.",
+      ],
+    },
+    selectedForOrder: [
+      "{e} The board is mine. Where?",
+      "Show me the whole picture. {e}",
+      "{e} Point, and I'll draw the line.",
+    ],
+  },
+
+  // ── Permafrost — ancient patience, unhurried ────────
+  g3: {
+    emoji:'🏔️',
+    defaultMood:'eager',
+    moodAnim:{ eager:'steady', comfort:'steady', discontented:'steady', vendetta:'plant' },
+    select: {
+      eager: [
+        "{e} ...yes. In time.",
+        "I've been here. {e} I'll still be here.",
+        "{e} No rush. I'm ready.",
+        "Whenever you're ready. {e} I already am.",
+      ],
+      comfort: [
+        "The Deer understand patience. {e} So do I.",
+        "{e} We've waited longer than this.",
+        "{e} Comfort is knowing you'll outlast them.",
+      ],
+      discontented: [
+        "{e} ...this again.",
+        "Wearing. {e} But I endure.",
+        "{e} Even mountains erode. Slowly.",
+      ],
+      vendetta: [
+        "I remember. {e} Mountains always remember.",
+        "{e} They thought I'd forget. I don't forget.",
+        "Old wounds in old stone. {e} Still sharp.",
+      ],
+    },
+    selectKingdom: [
+      { match:'Ember', lines:[
+        "Fire burns out. {e} I don't.",
+        "{e} The Ember Throne will cool. We'll still be here.",
+      ]},
+      { match:'Storm', lines:[
+        "Storms pass over mountains. {e} Always have.",
+        "{e} The Storm Court rages. We wait.",
+      ]},
+      { match:'Green', lines:[
+        "Roots grow around stone. {e} Never through it.",
+        "{e} The Green Veil is patient. Not as patient as I am.",
+      ]},
+      { match:'Dune', lines:[
+        "Sand piles against the mountain. {e} Never buries it.",
+        "{e} The Dune Pact shifts. We remain.",
+      ]},
+      { match:'Night', lines:[
+        "Night covers the mountain. {e} Morning finds it unchanged.",
+        "{e} The Night Compact passes. We endure.",
+      ]},
+      { match:'Carnival', lines:[
+        "Festivals end. {e} The mountain doesn't.",
+        "{e} The Carnival Court celebrates. We wait for what follows.",
+      ]},
+    ],
+    assignPreferred: [
+      "The Deer. {e} They know the long way.",
+      "{e} Good. We understand stillness.",
+      "My herd. {e} Patient as stone.",
+    ],
+    assignOther: [
+      "Not the Deer. {e} But endurance is mine to teach.",
+      "{e} Any army can learn to wait.",
+      "Different pace. {e} Same patience.",
+    ],
+    denied: [
+      "The Deer follow another. {e} ...they'll be back.",
+      "{e} Time sorts these things.",
+      "Someone else leads them. {e} For now.",
+    ],
+    ordered: {
+      near: [
+        "Close. {e} I'll hold this.",
+        "{e} Right here. Unmoved.",
+        "This ground. {e} It's mine now.",
+      ],
+      far: [
+        "Far. {e} I have time.",
+        "{e} Long march. I don't mind.",
+        "Send me. {e} I arrive when I arrive.",
+      ],
+      againstInformed: [
+        "They know I'm coming. {e} It won't help.",
+        "{e} Let them prepare. Preparation assumes enough time.",
+        "Known? {e} Good. Let them watch me approach.",
+      ],
+    },
+    selectedForOrder: [
+      "{e} ...where, then?",
+      "Point. {e} I'll hold it.",
+      "{e} Show me.",
+    ],
+  },
+
+  // ── Crystalis — precise, quick, sharp ───────────────
+  g4: {
+    emoji:'💎',
+    defaultMood:'eager',
+    moodAnim:{ eager:'bounce', comfort:'steady', discontented:'jitter', vendetta:'plant' },
+    select: {
+      eager: [
+        "{e} Ready. Go.",
+        "Now. {e}",
+        "{e} Calculated. Let's move.",
+        "Three options. {e} I've picked the best one.",
+      ],
+      comfort: [
+        "The Fish read currents. {e} I read lanes.",
+        "{e} Optimal. Let's keep it there.",
+        "{e} Clean assignments. Clean wins.",
+      ],
+      discontented: [
+        "Suboptimal. {e}",
+        "{e} This could be better.",
+        "Inefficient. {e} But noted.",
+      ],
+      vendetta: [
+        "They made an error. {e} I don't make errors.",
+        "{e} Debt logged. Payment incoming.",
+        "Precision grudge. {e} The worst kind for them.",
+      ],
+    },
+    selectKingdom: [
+      { match:'Ember', lines:[
+        "The Ember Throne. {e} Heat makes things brittle.",
+        "{e} Fire. Predictable trajectory.",
+      ]},
+      { match:'Storm', lines:[
+        "The Storm Court. {e} Chaos. Exploitable.",
+        "{e} Storms have patterns. I've found theirs.",
+      ]},
+      { match:'Green', lines:[
+        "The Green Veil. {e} Organic. Slow.",
+        "{e} Growth has limits. I don't.",
+      ]},
+      { match:'Dune', lines:[
+        "Sand. {e} Erosion is just patience with a vector.",
+        "{e} The Dune Pact scatters. One strike each.",
+      ]},
+      { match:'Night', lines:[
+        "The Night Compact. {e} Poor visibility cuts both ways.",
+        "{e} Darkness. Advantage: neither side. Edge: preparation.",
+      ]},
+      { match:'Carnival', lines:[
+        "The Carnival Court. {e} Disorder is opportunity.",
+        "{e} Performers. Timing is everything. Mine is better.",
+      ]},
+    ],
+    assignPreferred: [
+      "Fish. {e} Fast. Clean.",
+      "{e} The current's with us.",
+      "My school. {e} We move as one.",
+    ],
+    assignOther: [
+      "Noted. {e} Adjusting.",
+      "{e} Suboptimal. Workable.",
+      "Different unit. {e} Same math.",
+    ],
+    denied: [
+      "My Fish swim elsewhere. {e} Recalculating.",
+      "{e} ...adjustment required.",
+      "Denied. {e} The numbers still work.",
+    ],
+    ordered: {
+      near: [
+        "Close. {e} Quick resolution.",
+        "{e} Short. Clean.",
+        "Adjacent. {e} Done before they notice.",
+      ],
+      far: [
+        "Long vector. {e} I'll find the efficient path.",
+        "{e} Far. More variables. I like variables.",
+        "Distance. {e} Arrival time: calculated.",
+      ],
+      againstInformed: [
+        "They have data on me. {e} Outdated.",
+        "{e} Known quantities still win when the math is right.",
+        "They think they're prepared. {e} They prepared for last time.",
+      ],
+    },
+    selectedForOrder: [
+      "{e} Coordinates.",
+      "Target. {e}",
+      "{e} Vector?",
+    ],
+  },
 };
 
 // Mood → emblem animation class
