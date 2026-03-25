@@ -3226,10 +3226,166 @@ function mallFlickerLight() {
 // What it does with that information is its own business.
 // This is the door — what walks through it will grow over time.
 
+// Emoji → evocative prefix for scraggle-stocked items
+const SCRAGGLE_PREFIXES = {
+  '✦': { name: 'Resonant',  stat: 'VIBES', val: 3 },
+  '📦': { name: 'Delivered', stat: 'BULK',  val: 2 },
+  '🔑': { name: 'Unlocked',  stat: 'LUCK',  val: 3 },
+  '🌱': { name: 'Grown',     stat: 'CHILL', val: 2 },
+  '🎵': { name: 'Melodic',   stat: 'VIBES', val: 3 },
+  '🌊': { name: 'Tidal',     stat: 'VIBES', val: 2 },
+  '🔥': { name: 'Blazing',   stat: 'CLOUT', val: 3 },
+  '⭐': { name: 'Stellar',   stat: 'LUCK',  val: 3 },
+  '🧪': { name: 'Distilled', stat: 'STYLE', val: 2 },
+  '🎲': { name: 'Lucky',     stat: 'LUCK',  val: 3 },
+  '🌀': { name: 'Spiraling', stat: 'VIBES', val: 2 },
+  '📢': { name: 'Announced', stat: 'CLOUT', val: 2 },
+  '🍳': { name: 'Sizzling',  stat: 'BULK',  val: 2 },
+  '🌿': { name: 'Verdant',   stat: 'CHILL', val: 3 },
+};
+const SCRAGGLE_PREFIX_DEFAULT = { name: 'Distant', stat: 'VIBES', val: 2 };
+
+// Representative RGB for each stat — used to map scraggle color → stat boost
+const STAT_COLORS = {
+  VIBES: [100, 80, 200],   // purple-blue
+  BULK:  [200, 60, 60],    // red
+  STYLE: [220, 180, 50],   // gold
+  LUCK:  [50, 180, 80],    // green
+  CLOUT: [200, 160, 40],   // amber
+  CHILL: [60, 160, 220],   // ice blue
+};
+
+function nearestStatByColor(rgb) {
+  if (!rgb || rgb.length < 3) return BASE_STATS[Math.floor(Math.random() * BASE_STATS.length)];
+  let best = null, bestDist = Infinity;
+  for (const [stat, c] of Object.entries(STAT_COLORS)) {
+    const d = Math.sqrt((rgb[0]-c[0])**2 + (rgb[1]-c[1])**2 + (rgb[2]-c[2])**2);
+    if (d < bestDist) { bestDist = d; best = stat; }
+  }
+  return best;
+}
+
 function mallRespondsToScraggle(s) {
-  // For now: the Mall notices, but does not act.
-  // Future: create a store, stock a themed item, shift ambient music,
-  // name a back room after whatever arrived. The Mall decides.
+  if (!G.fd) return;
+  const roll = Math.random();
+
+  if (roll < 0.40) {
+    mallScraggleStock(s);
+  } else if (roll < 0.75) {
+    mallScragglePA(s);
+  } else {
+    // Ambient shiver — the Mall felt it
+    mallFlickerLight();
+    window.parent.postMessage({
+      type: 'scraggle',
+      emoji: '🌀',
+      text: `something stirred in the walls of ${G.mallName}`
+    }, '*');
+  }
+}
+
+// ── Scraggle stock: the Mall translates a signal into merchandise ──
+
+function mallScraggleStock(s) {
+  // Find a store with an empty tile
+  if (!G.fd.stores || G.fd.stores.length === 0) { mallScragglePA(s); return; }
+
+  let candidates = null, palette = null;
+  const order = [...G.fd.stores.keys()].sort(() => Math.random() - 0.5);
+  for (const si of order) {
+    const store = G.fd.stores[si];
+    const spots = [];
+    for (let y = store.y; y < store.y + store.h; y++) {
+      for (let x = store.x; x < store.x + store.w; x++) {
+        if (x < 0 || x >= G.fd.W || y < 0 || y >= G.fd.H) continue;
+        if (G.fd.grid[y]?.[x] !== T.STORE) continue;
+        if (G.fd.looseItems.some(li => li.tileX === x && li.tileY === y)) continue;
+        spots.push({ x, y });
+      }
+    }
+    if (spots.length > 0) { candidates = spots; palette = store.palette; break; }
+  }
+
+  if (!candidates) { mallScragglePA(s); return; }
+
+  // Generate the item, seeded from the scraggle
+  const hash = (s.id || s.text || '').split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
+  const seed = Math.abs(hash) ^ Date.now();
+  const item = generateItem(seed);
+
+  // Apply scraggle-themed prefix
+  const pfx = SCRAGGLE_PREFIXES[s.emoji] || SCRAGGLE_PREFIX_DEFAULT;
+  item.prefix = { name: pfx.name, stat: pfx.stat, val: pfx.val };
+
+  // Boost a stat based on scraggle color
+  const boostStat = s.color ? nearestStatByColor(s.color) : pfx.stat;
+  item.stats[boostStat] = (item.stats[boostStat] || 0) + 1 + Math.floor(Math.random() * 2);
+
+  // Bump rarity — scraggle items are at least uncommon
+  if (item.rarity === 'common') item.rarity = 'uncommon';
+
+  // Place it
+  const spot = candidates[Math.floor(Math.random() * candidates.length)];
+  const ox = (Math.random() - 0.5) * 2;
+  const oz = (Math.random() - 0.5) * 2;
+  const requiredFace = Math.abs(ox) > Math.abs(oz) ? (ox > 0 ? 'E' : 'W') : (oz > 0 ? 'S' : 'N');
+  G.fd.looseItems.push({
+    tileX: spot.x, tileY: spot.y,
+    item, offsetX: ox, offsetZ: oz,
+    requiredFace, id: `scraggle_${spot.x}_${spot.y}_${Date.now()}`
+  });
+
+  if (scene && G.fd) buildScene(scene, G.fd);
+
+  const storeName = palette.name || 'a store';
+  window.parent.postMessage({
+    type: 'scraggle',
+    emoji: '📦',
+    text: `${storeName} stocked something that arrived from beyond ${G.mallName}`
+  }, '*');
+}
+
+// ── Scraggle PA: the Mall announces what it heard ──
+
+function mallScragglePA(s) {
+  const pa = document.getElementById('hud-phone-msg');
+  if (!pa) return;
+
+  // Don't interrupt active payphone conversations
+  if (G.bumpMode?.target?.kind === 'payphone') return;
+
+  const text = s.text || 'something unnamed';
+  const emoji = s.emoji || '✦';
+  const templates = [
+    `Attention shoppers — the network reports: ${emoji} "${text}"`,
+    `A signal from beyond the Mall: ${emoji} "${text}"`,
+    `${G.mallName} received a transmission: ${emoji} "${text}"`,
+    `Something reached us from the neighborhood: ${emoji} "${text}"`,
+  ];
+  const msg = templates[Math.floor(Math.random() * templates.length)];
+
+  pa.innerHTML = `<div style="
+    background:rgba(0,0,0,0.72);
+    color:#FFE8B0;
+    font-size:0.78rem;
+    font-family:'Courier New',monospace;
+    padding:7px 14px;
+    border-left:3px solid #FFCC44;
+    max-width:420px;
+    letter-spacing:0.04em;
+    line-height:1.5;
+  ">📢 ${msg}</div>`;
+  pa.style.display = 'flex';
+  pa.style.alignItems = 'flex-end';
+  pa.style.justifyContent = 'center';
+  pa.style.pointerEvents = 'none';
+
+  setTimeout(() => {
+    if (!G.bumpMode?.target?.kind?.includes?.('phone')) {
+      pa.style.display = 'none';
+      pa.innerHTML = '';
+    }
+  }, 6200);
 }
 
 init();

@@ -24,7 +24,7 @@ Items with clear specs or obvious next steps, ready to build.
 - [ ] **Bao: correspondence front** — Diplomatic layer.
 - [ ] **Bao: council scene** — Multi-general deliberation.
 - [ ] **Bao: GAB voices** — Only Glacius (1/5) has voice lines. Other 4 generals are silent.
-- [ ] **Mall: Scraggle response** — `mallRespondsToScraggle()` is empty. Ideas: themed stock, ambient shift, named back rooms. ([score card](score-cards/sunset-ridge-mall.md))
+- [x] **Mall: Scraggle response** — Three behaviors: themed item stock (emoji→prefix, color→stat), immediate PA announcement, ambient shiver. ([score card](score-cards/sunset-ridge-mall.md))
 - [ ] **Mall: ambient audio** — Elevator chime, muzak shift, footsteps. (Muzak system exists, effects partially built.)
 - [ ] **Storeroom: persistence** — No save across reloads. Also: new objects after departures. ([score card](score-cards/storeroom.md))
 - [ ] **Taste: next magazine issue** — Potato issue teased in Citrus Issue. ([score card](score-cards/taste.md))
@@ -58,6 +58,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **Mall: Scraggle response** — `mallRespondsToScraggle()` brings the Mall into the Hall conversation. Three behaviors: themed item stock with emoji→prefix and color→stat mapping (40%), immediate PA announcement (35%), ambient light shiver (25%). Scraggle items are at least uncommon, placed in stores, scene rebuilt live.
 - [x] **Tending Field: trader gifts** — Trades scoring >= 4 auto-place trader emoji as `gift` tiles on the nearest empty slot. Gift leanings blend into adjacent workers' item production via adjacency tags and influence emoji provenance. Rendered with amber tint, draggable, persistent.
 - [x] **Critter Crank: binder + diorama** — Caught critters shown as trading cards in paginated 2×2 binder pages. Clean front face (pixel art + name + badges), living diorama back face (creature + 5 world companions placed spatially, animated). Full-screen diorama in packet detail view with all companions breathing. Shoulder buttons page in binder, FLIP button contextual. Stat-specific bar colors.
 - [x] **Mycorrhizal Layer** — Persistent glyph accumulator beneath all Hall systems. 60% deposit catch, 90s decay cycle, 12% surface chance. localStorage-backed, each visitor grows their own soil. Soil-sourced scraggles don't re-deposit (no feedback loops).

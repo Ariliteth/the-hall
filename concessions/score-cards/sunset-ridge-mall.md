@@ -20,11 +20,12 @@ First-person 3D grid-based mall crawler. Procedurally generated seeded floors wi
 - Bench sitting with deepening messages, fountain coin toss (+1 LUCK)
 - Mall Pulse idle listener: restock stores, ambient events
 - Color-routed Scraggle listener
+- **Scraggle response:** themed item stock (emoji→prefix, color→stat, 40%), PA announcement (35%), ambient shiver (25%)
 - Personal glow light (color shifts by held item rarity)
 - Touch controls (d-pad)
 
 ## What's Next
-- `mallRespondsToScraggle()` is empty — comments list future ideas: create a store, stock themed items, shift ambient music, name a back room
+- ~~`mallRespondsToScraggle()` is empty~~ — **Done.** Three responses: themed stock (40%), PA announcement (35%), ambient shiver (25%). Emoji→prefix mapping, color→stat boost, at-least-uncommon rarity.
 - Uses legacy `scraggle` postMessage type (not `hub:scraggle`) — could modernize
 - Build Order: "Mall ambient audio actions (elevator chime, muzak shift, footsteps)"
 - Build Order: "Cross-Score item pipeline (Mall → Field via color-routed Scraggles)"
