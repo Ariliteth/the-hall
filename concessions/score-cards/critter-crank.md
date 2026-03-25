@@ -1,9 +1,9 @@
 # Critter Crank
 **Location:** `scores/critter-crank/` | **Status:** Active
-**Neighborhood:** All | **Stack:** Vanilla JS (~4,365 lines)
+**Neighborhood:** All | **Stack:** Vanilla JS (5 files, ~4,365 lines total)
 
 ## Current State
-Procedural creature generator. Turn the handle, something arrives. Shaped by world and entity context. Receives CrankSeed context from EFDP/Chunxly via localStorage. Portrait returns to Grimoire automatically. Ported from React to vanilla JS — one file, no dependencies. **Chunxly-direct mode:** when a Chunxly PNG seed arrives with color clusters, builds a custom palette from the creature's actual colors and generates rolls that trust the seed completely — no world palette blending, no voice shapes, no recipe randomization. Produces anchor shapes that carry the creature's visual identity.
+Procedural creature generator. Turn the handle, something arrives. Shaped by world and entity context. Receives CrankSeed context from EFDP/Chunxly via localStorage. Portrait returns to Grimoire automatically. Ported from React to vanilla JS — split into 5 files by concern: `crank-data.js` (RNG, worlds, palettes, recipes, voices), `crank-renderer.js` (pixel generation for all 6 entity types), `crank-canvas.js` (canvas drawing, diorama compositing, animation), `crank-engine.js` (state, persistence, generation pipeline, navigation), `index.html` (CSS + UI rendering + init). No build step, no dependencies. **Chunxly-direct mode:** when a Chunxly PNG seed arrives with color clusters, builds a custom palette from the creature's actual colors and generates rolls that trust the seed completely — no world palette blending, no voice shapes, no recipe randomization. Produces anchor shapes that carry the creature's visual identity.
 
 ## What's Built
 - Recipe-based generation (creature, spirit, flora, item, terrain, relic)
