@@ -19,6 +19,22 @@ const MIME = {
 
 http.createServer((req, res) => {
   let url = req.url.split('?')[0];
+
+  // ── Café file listing ──
+  if (url === '/api/cafe') {
+    const cafeDir = path.join(ROOT, 'concessions', 'cafe');
+    try {
+      const files = fs.readdirSync(cafeDir)
+        .filter(f => f.endsWith('.md') && f !== 'CAFE.md');
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(JSON.stringify({ files }));
+    } catch(e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ files: [] }));
+    }
+    return;
+  }
+
   if (url === '/') url = '/index.html';
   let fp = path.join(ROOT, url);
   if (fs.existsSync(fp) && fs.statSync(fp).isDirectory()) {

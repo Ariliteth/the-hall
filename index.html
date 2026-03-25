@@ -3460,6 +3460,9 @@ function emitPulse() {
     } catch(e) { /* frame may not be ready — that's fine */ }
   }
 
+  // Check the Café for new arrivals
+  checkCafe();
+
   // Process persistent Scraggles — re-emit with decay
   processPersistentScraggles();
 
@@ -3485,6 +3488,75 @@ function hudBreath() {
     wash.style.transition = 'opacity 800ms ease-out';
     wash.style.opacity = String(current);
   }, 200);
+}
+
+// ============================================================
+// CONCESSIONS CAFÉ
+// ============================================================
+//
+// A place where unresolved ideas wait without pressure.
+// Files appear in concessions/cafe/. The pulse notices them.
+// El surfaces arrivals through Scraggles — quiet, unhurried.
+
+function checkCafe() {
+  fetch('/api/cafe').then(r => r.ok ? r.json() : { files: [] }).then(data => {
+    const files = data.files || [];
+    const raw = localStorage.getItem('baseline-session/cafe-state');
+    const known = raw ? JSON.parse(raw) : [];
+    const knownNames = known.map(k => k.name);
+
+    const arrivals = files.filter(f => !knownNames.includes(f));
+    if (arrivals.length === 0) return;
+
+    // Fetch each new arrival to get its color, then drop a Kiwi
+    arrivals.forEach(filename => {
+      fetch('/concessions/cafe/' + filename)
+        .then(r => r.ok ? r.text() : '')
+        .then(text => {
+          const color = parseCafeColor(text);
+          const name = parseCafeName(text) || filename.replace(/\.md$/, '').replace(/_/g, ' ');
+
+          // Drop the Kiwi — lightweight event marker
+          const kiwi = { type: 'cafe-arrival', name: name, color: color };
+          onCafeArrival(kiwi);
+
+          // Update known state
+          const state = JSON.parse(localStorage.getItem('baseline-session/cafe-state') || '[]');
+          state.push({ name: filename, firstSeen: Date.now() });
+          localStorage.setItem('baseline-session/cafe-state', JSON.stringify(state));
+        })
+        .catch(() => {});
+    });
+  }).catch(() => {});
+}
+
+function parseCafeColor(text) {
+  // Frontmatter: color: [R, G, B]
+  const fm = text.match(/^---[\s\S]*?color:\s*\[?\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]?/m);
+  if (fm) return [parseInt(fm[1]), parseInt(fm[2]), parseInt(fm[3])];
+  // Bold format: **Color:** R, G, B
+  const bf = text.match(/\*\*Color:\*\*\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (bf) return [parseInt(bf[1]), parseInt(bf[2]), parseInt(bf[3])];
+  return [128, 128, 128]; // quiet grey if no color declared
+}
+
+function parseCafeName(text) {
+  // Frontmatter: name: The Name
+  const fm = text.match(/^---[\s\S]*?name:\s*(.+)/m);
+  if (fm) return fm[1].trim();
+  // Bold format: **Name:** The Name
+  const bf = text.match(/\*\*Name:\*\*\s*(.+)/);
+  if (bf) return bf[1].trim();
+  return null;
+}
+
+// ── El's listener: she notices arrivals and surfaces them ──
+
+function onCafeArrival(kiwi) {
+  const { name, color } = kiwi;
+  const colorStr = `${color[0]}, ${color[1]}, ${color[2]}`;
+  const signal = `Something arrived in the Café. It calls itself ${name}. It is the color of ${colorStr}.`;
+  receiveScraggle('☕', signal, true, 'el');
 }
 
 // ============================================================

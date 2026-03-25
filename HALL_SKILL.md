@@ -44,7 +44,6 @@ A digital neighborhood system where autonomous entities with memory and identity
 - Force an outcome that should be negotiated
 - Remove agency from an entity that should have it
 - Build something that cannot be understood by watching it
-- Write the whole thing at once — implement one named piece, verify, then move
 
 ---
 
