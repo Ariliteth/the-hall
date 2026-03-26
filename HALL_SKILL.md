@@ -61,6 +61,7 @@ A digital neighborhood system where autonomous entities with memory and identity
 | Score | Location | Status |
 |---|---|---|
 | Hunter Encounter | `neighborhoods/mucklerbuckler/scores/hunter-encounter/` | Active |
+| slayy. | `scores/slayy/` | Active (hidden — enters via Hunter Encounter ticker) |
 | El's Grimoire | `scores/grimoire/` | Active |
 | Color Pin Maze (EFDP) | `scores/efdp/` | Active |
 | Critter Crank | `scores/critter-crank/` | Active |

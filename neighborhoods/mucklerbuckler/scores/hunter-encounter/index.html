@@ -675,6 +675,81 @@
     100% { transform: translateX(-100%); }
   }
 
+  /* ERRATIC TICKER */
+  #ticker.erratic #ticker-inner {
+    animation: ticker-erratic 0.8s ease infinite !important;
+  }
+  #ticker.erratic {
+    border-color: var(--parchment);
+    animation: ticker-border-flash 0.6s ease infinite;
+  }
+  @keyframes ticker-erratic {
+    0%   { transform: translateX(0) skewX(0deg); filter: none; }
+    15%  { transform: translateX(-12px) skewX(-3deg); filter: hue-rotate(180deg); }
+    30%  { transform: translateX(8px) skewX(2deg); filter: brightness(2); }
+    50%  { transform: translateX(-4px) skewX(-1deg); filter: hue-rotate(90deg); }
+    70%  { transform: translateX(15px) skewX(4deg); filter: brightness(3) saturate(0); }
+    85%  { transform: translateX(-6px) skewX(-2deg); filter: none; }
+    100% { transform: translateX(0) skewX(0deg); filter: none; }
+  }
+  @keyframes ticker-border-flash {
+    0%,100% { border-color: var(--gore); }
+    50% { border-color: var(--parchment); }
+  }
+
+  /* MOTHER PROMPT */
+  #mother-prompt {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(26,8,8,0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  #mother-prompt.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #mother-prompt .prompt-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 6px;
+    color: var(--parchment);
+    margin-bottom: 24px;
+  }
+  #mother-prompt .prompt-buttons {
+    display: flex;
+    gap: 16px;
+  }
+  #mother-prompt .prompt-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 4px;
+    padding: 10px 36px;
+    border: 2px solid var(--parchment);
+    background: transparent;
+    color: var(--parchment);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  #mother-prompt .prompt-btn:hover {
+    background: var(--parchment);
+    color: var(--blood);
+  }
+  #mother-prompt .prompt-btn.slayy {
+    border-color: #ff2266;
+    color: #ff2266;
+  }
+  #mother-prompt .prompt-btn.slayy:hover {
+    background: #ff2266;
+    color: #fff;
+  }
+
   /* TURN COUNTER */
   #turn-counter {
     text-align: center;
@@ -697,8 +772,15 @@
   </div>
 </div>
 
-<div id="ticker">
+<div id="ticker" style="position:relative;">
   <span id="ticker-inner">★ COMING UP: BARRY TANGLES WITH A MUDHULL IN TONIGHT'S FINALE ★ VIEWER DISCRETION ADVISED ★ HUNT RESPONSIBLY ★ DO NOT ATTEMPT AT HOME ★ TONIGHT'S SPONSOR: HUNTER'S GUILD FIELD RATIONS ★ "STAY NOURISHED. STAY ALIVE." ★ CALL 1-800-GUILD-UP FOR LICENSING INFO ★</span>
+  <div id="mother-prompt">
+    <div class="prompt-text">Mother?</div>
+    <div class="prompt-buttons">
+      <button class="prompt-btn slayy" onclick="enterSlayy()">slayy.</button>
+      <button class="prompt-btn" onclick="dismissMother()">oops.</button>
+    </div>
+  </div>
 </div>
 
 <div id="game">
@@ -1965,9 +2047,103 @@ function sleep(ms) {
 }
 
 // ============================================================
+// ERRATIC TICKER — slayy. entry
+// ============================================================
+const ERRATIC = {
+  timer: null,
+  active: false,
+  cooldown: false,
+  promptShowing: false,
+};
+
+function initErratic() {
+  if (ERRATIC.timer) clearInterval(ERRATIC.timer);
+  scheduleErratic();
+}
+
+function scheduleErratic() {
+  const delay = 45000 + Math.random() * 45000; // 45-90 seconds
+  ERRATIC.timer = setTimeout(() => {
+    if (!ERRATIC.cooldown && !ERRATIC.promptShowing) {
+      if (Math.random() < 0.33) {
+        startErratic();
+      } else {
+        scheduleErratic();
+      }
+    } else {
+      scheduleErratic();
+    }
+  }, delay);
+}
+
+function startErratic() {
+  ERRATIC.active = true;
+  const ticker = document.getElementById('ticker');
+  ticker.classList.add('erratic');
+  ticker.style.cursor = 'pointer';
+
+  // Listen for click during erratic window
+  ticker._erraticClick = function(e) {
+    if (!ERRATIC.active) return;
+    e.stopPropagation();
+    showMotherPrompt();
+  };
+  ticker.addEventListener('click', ticker._erraticClick);
+
+  // Erratic window lasts 4-6 seconds
+  setTimeout(() => {
+    if (ERRATIC.active && !ERRATIC.promptShowing) {
+      stopErratic();
+    }
+  }, 4000 + Math.random() * 2000);
+}
+
+function stopErratic() {
+  ERRATIC.active = false;
+  const ticker = document.getElementById('ticker');
+  ticker.classList.remove('erratic');
+  ticker.style.cursor = '';
+  if (ticker._erraticClick) {
+    ticker.removeEventListener('click', ticker._erraticClick);
+    ticker._erraticClick = null;
+  }
+  ERRATIC.cooldown = true;
+  setTimeout(() => { ERRATIC.cooldown = false; }, 20000);
+  scheduleErratic();
+}
+
+function showMotherPrompt() {
+  ERRATIC.active = false;
+  ERRATIC.promptShowing = true;
+  const ticker = document.getElementById('ticker');
+  ticker.classList.remove('erratic');
+  if (ticker._erraticClick) {
+    ticker.removeEventListener('click', ticker._erraticClick);
+    ticker._erraticClick = null;
+  }
+  document.getElementById('mother-prompt').classList.add('show');
+}
+
+function dismissMother() {
+  ERRATIC.promptShowing = false;
+  document.getElementById('mother-prompt').classList.remove('show');
+  stopErratic();
+}
+
+function enterSlayy() {
+  // Navigate to slayy. — carry query params
+  const params = window.location.search;
+  // Determine path relative to current location
+  const basePath = window.location.pathname.replace(/\/[^/]*$/, '');
+  const slayyPath = basePath.replace(/neighborhoods\/mucklerbuckler\/scores\/hunter-encounter/, 'scores/slayy');
+  window.location.href = slayyPath + '/index.html' + params;
+}
+
+// ============================================================
 // INIT
 // ============================================================
 initGame();
+initErratic();
 </script>
 </body>
 </html>

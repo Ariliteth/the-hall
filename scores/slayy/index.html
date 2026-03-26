@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>slayy.</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Permanent+Marker&display=swap');
+
+  :root {
+    --stage-bg: #1a0a0a;
+    --dust: #3d2b0f;
+    --glow: #ff2266;
+    --core-shimmer: #ff44aa;
+    --point-color: #ffcc00;
+    --point-active: #ffffff;
+    --connection: rgba(255,204,0,0.4);
+    --connection-bold: rgba(255,100,50,0.8);
+    --connection-catastrophe: rgba(255,0,0,0.9);
+    --mudhull-color: #8b5e3c;
+    --mudhull-dark: #5a3a20;
+    --camera-lens: #44aaff;
+    --camera-flash: #ffffff;
+    --crowd-base: #2a1a1a;
+    --mother-glow: #ff88cc;
+    --beat-fill: #ff2266;
+    --bone: #d4c5a0;
+    --parchment: #e8d5a3;
+    --bark: #5c3d1a;
+    --blood: #8b1a1a;
+    --vhs-line: rgba(255,255,255,0.03);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--stage-bg);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--bone);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+    position: relative;
+    touch-action: none;
+  }
+
+  /* VHS overlays — match Hunter Encounter */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px),
+      repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.02) 3px, rgba(0,0,0,0.02) 6px);
+    pointer-events: none; z-index: 100;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: linear-gradient(transparent 50%, rgba(0,0,0,0.04) 50%);
+    background-size: 100% 4px;
+    pointer-events: none; z-index: 100;
+    animation: scanlines 8s linear infinite;
+  }
+  @keyframes scanlines {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100px; }
+  }
+
+  /* STAGE */
+  #stage {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* TITLE BAR */
+  #title-bar {
+    position: relative;
+    padding: 14px 20px 10px;
+    border-bottom: 3px solid var(--bark);
+    overflow: hidden;
+  }
+  #title-under {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 4px;
+    color: var(--dust);
+    opacity: 0.45;
+    text-transform: uppercase;
+  }
+  #title-over {
+    position: absolute;
+    top: 50%; left: 16px;
+    transform: translateY(-50%) rotate(-2deg);
+    font-family: 'Permanent Marker', cursive;
+    font-size: 2.8rem;
+    color: var(--glow);
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.8), 0 0 20px rgba(255,34,102,0.4);
+    letter-spacing: 2px;
+    background: rgba(255,34,102,0.08);
+    padding: 0 16px;
+    border: 1px solid rgba(255,34,102,0.15);
+    line-height: 1.1;
+  }
+  #show-phase {
+    position: absolute;
+    top: 8px; right: 16px;
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--bark);
+  }
+
+  /* CAMERA STRIP */
+  #camera-strip {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(0,0,0,0.4);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .camera {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.6s ease;
+    position: relative;
+  }
+  .cam-body {
+    font-size: 1.4rem;
+    filter: grayscale(0.5);
+    transition: filter 0.3s;
+  }
+  .camera[data-target="player"] .cam-body { filter: grayscale(0) drop-shadow(0 0 6px var(--camera-lens)); }
+  .camera[data-target="mudhull"] .cam-body { filter: grayscale(0) drop-shadow(0 0 6px var(--mudhull-color)); }
+  .cam-label {
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--bark);
+    margin-top: 2px;
+    transition: color 0.3s;
+  }
+  .camera[data-target="player"] .cam-label { color: var(--camera-lens); }
+  .camera[data-target="mudhull"] .cam-label { color: var(--mudhull-color); }
+  .cam-flash {
+    position: absolute; top: -4px; left: 50%;
+    transform: translateX(-50%);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--camera-flash);
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .camera.repositioning .cam-flash {
+    animation: cam-flash 0.4s ease;
+  }
+  @keyframes cam-flash {
+    0% { opacity: 1; transform: translateX(-50%) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) scale(3); }
+  }
+
+  /* ARENA */
+  #arena {
+    display: flex;
+    flex: 1;
+    min-height: 340px;
+    position: relative;
+  }
+
+  /* MUDHULL SIDE */
+  #mudhull-side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border-right: 1px solid rgba(255,255,255,0.04);
+  }
+  #mudhull-visual {
+    position: relative;
+    width: 120px;
+    height: 140px;
+  }
+  .mudhull-body {
+    width: 100px; height: 80px;
+    background: var(--mudhull-color);
+    border-radius: 50% 50% 40% 40%;
+    position: absolute;
+    bottom: 20px; left: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 -8px 16px var(--mudhull-dark);
+    transition: transform 0.3s;
+  }
+  .mudhull-eye {
+    width: 12px; height: 4px;
+    background: #111;
+    border-radius: 50%;
+    position: absolute;
+    transition: height 0.3s, background 0.3s;
+  }
+  .mudhull-eye.left { top: 25px; left: 28px; }
+  .mudhull-eye.right { top: 25px; right: 28px; }
+  .mudhull-eye.open {
+    height: 12px;
+    background: #ffcc00;
+    box-shadow: 0 0 8px #ffcc00;
+  }
+  .mudhull-grin {
+    width: 30px; height: 8px;
+    border-bottom: 3px solid #111;
+    border-radius: 0 0 50% 50%;
+    position: absolute;
+    bottom: 50px; left: 35px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .mudhull-grin.visible { opacity: 1; }
+  #mudhull-tell {
+    font-size: 0.7rem;
+    color: var(--dust);
+    letter-spacing: 4px;
+    height: 20px;
+    margin-top: 8px;
+    text-align: center;
+  }
+  #mudhull-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 3px;
+    color: var(--mudhull-color);
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+  .dust {
+    position: absolute;
+    width: 6px; height: 6px;
+    background: var(--dust);
+    border-radius: 50%;
+    opacity: 0.6;
+    bottom: 10px;
+    animation: dust-rise var(--dur) ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes dust-rise {
+    0% { transform: translateY(0) scale(1); opacity: 0.6; }
+    100% { transform: translateY(-80px) translateX(var(--drift)) scale(0.3); opacity: 0; }
+  }
+
+  /* Mudhull animations */
+  .mudhull-body.rolling {
+    animation: mudhull-roll 0.8s ease;
+  }
+  @keyframes mudhull-roll {
+    0% { transform: rotate(0deg) translateX(0); }
+    25% { transform: rotate(15deg) translateX(8px); }
+    50% { transform: rotate(-10deg) translateX(-5px); }
+    75% { transform: rotate(8deg) translateX(3px); }
+    100% { transform: rotate(0deg) translateX(0); }
+  }
+  .mudhull-body.dropping {
+    animation: mudhull-drop 0.5s ease;
+  }
+  @keyframes mudhull-drop {
+    0% { transform: translateY(0) scale(1,1); }
+    40% { transform: translateY(-20px) scale(0.9,1.1); }
+    70% { transform: translateY(8px) scale(1.15,0.85); }
+    100% { transform: translateY(0) scale(1,1); }
+  }
+  .mudhull-body.celebrating {
+    animation: mudhull-celebrate 1s ease;
+  }
+  @keyframes mudhull-celebrate {
+    0%,100% { transform: translateY(0) rotate(0); }
+    25% { transform: translateY(-8px) rotate(5deg); }
+    50% { transform: translateY(-4px) rotate(-3deg); }
+    75% { transform: translateY(-6px) rotate(2deg); }
+  }
+
+  /* PENTAGRAM SIDE */
+  #pentagram-side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  #pentagram-container {
+    position: relative;
+    width: 300px; height: 300px;
+  }
+  #pentagram {
+    width: 100%; height: 100%;
+    touch-action: none;
+  }
+  .spoke {
+    stroke: rgba(255,204,0,0.15);
+    stroke-width: 1;
+  }
+  .connection-line {
+    stroke: var(--connection);
+    stroke-width: 2;
+    stroke-linecap: round;
+    transition: stroke 0.3s;
+  }
+  .connection-line.bold { stroke: var(--connection-bold); stroke-width: 3; }
+  .connection-line.catastrophe { stroke: var(--connection-catastrophe); stroke-width: 3; stroke-dasharray: 4 2; }
+  .connection-preview {
+    stroke: var(--point-color);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+    opacity: 0.5;
+  }
+  .point {
+    fill: var(--point-color);
+    stroke: rgba(255,204,0,0.3);
+    stroke-width: 2;
+    cursor: grab;
+    filter: drop-shadow(0 0 6px rgba(255,204,0,0.6));
+    transition: r 0.15s, fill 0.15s;
+  }
+  .point:hover, .point.dragging {
+    fill: var(--point-active);
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.8));
+  }
+  .point-hitarea {
+    fill: transparent;
+    cursor: grab;
+  }
+  .core {
+    fill: url(#core-gradient);
+    filter: drop-shadow(0 0 12px var(--core-shimmer));
+  }
+  .core.warning {
+    filter: drop-shadow(0 0 16px #ff0000);
+    animation: core-warn 0.5s ease infinite;
+  }
+  @keyframes core-warn {
+    0%,100% { filter: drop-shadow(0 0 16px #ff0000); }
+    50% { filter: drop-shadow(0 0 24px #ff4400); }
+  }
+
+  /* PENTAGRAM SHAKE */
+  #pentagram-container.shaking {
+    animation: penta-shake 0.5s ease;
+  }
+  @keyframes penta-shake {
+    0%,100% { transform: translate(0,0); }
+    10% { transform: translate(-6px, 4px); }
+    20% { transform: translate(5px, -3px); }
+    30% { transform: translate(-4px, 6px); }
+    40% { transform: translate(6px, -2px); }
+    50% { transform: translate(-3px, 5px); }
+    60% { transform: translate(4px, -4px); }
+    70% { transform: translate(-5px, 3px); }
+    80% { transform: translate(3px, -5px); }
+    90% { transform: translate(-2px, 4px); }
+  }
+
+  /* Ambient tremor */
+  #pentagram-container.tremor-1 { animation: tremor 2s ease infinite; }
+  #pentagram-container.tremor-2 { animation: tremor 1.2s ease infinite; }
+  #pentagram-container.tremor-3 { animation: tremor 0.8s ease infinite; }
+  @keyframes tremor {
+    0%,100% { transform: translate(0,0); }
+    25% { transform: translate(-1px, 1px); }
+    50% { transform: translate(1px, -1px); }
+    75% { transform: translate(-1px, 0); }
+  }
+
+  /* CROWD STRIP */
+  #crowd-strip {
+    position: relative;
+    height: 50px;
+    background: var(--crowd-base);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 8px;
+  }
+  .crowd-member {
+    width: 14px; height: 22px;
+    border-radius: 50% 50% 30% 30%;
+    position: relative;
+    margin: 0 1px;
+    bottom: 0;
+    transition: transform 0.4s ease;
+    flex-shrink: 0;
+  }
+  .crowd-member.mother {
+    background: var(--mother-glow) !important;
+    box-shadow: 0 0 10px var(--mother-glow);
+    z-index: 2;
+    transition: transform 0.4s ease, opacity 0.4s ease, box-shadow 0.4s ease;
+  }
+  .crowd-member.surge-left { transform: translateX(-4px) scale(1.05); }
+  .crowd-member.surge-right { transform: translateX(4px) scale(1.05); }
+
+  /* BEAT BAR */
+  #beat-bar-container {
+    height: 6px;
+    background: rgba(0,0,0,0.5);
+    position: relative;
+  }
+  #beat-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--beat-fill);
+    transition: width 0.2s ease;
+  }
+  #beat-bar.flash {
+    background: var(--camera-flash);
+    transition: none;
+  }
+
+  /* POSE LOG */
+  #pose-log {
+    padding: 6px 12px;
+    font-size: 0.6rem;
+    color: var(--bark);
+    max-height: 80px;
+    overflow-y: auto;
+    line-height: 1.6;
+    letter-spacing: 1px;
+  }
+  .pose-entry {
+    opacity: 0;
+    animation: pose-in 0.3s ease forwards;
+  }
+  @keyframes pose-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .pose-entry .stars { color: var(--point-color); }
+  .pose-entry .tag { color: var(--glow); margin-left: 6px; }
+
+  /* SHOW END OVERLAY */
+  #show-end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s;
+  }
+  #show-end-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #end-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 6px;
+    margin-bottom: 12px;
+  }
+  #end-sub {
+    font-size: 0.75rem;
+    color: var(--bark);
+    text-align: center;
+    max-width: 400px;
+    line-height: 1.8;
+    margin-bottom: 24px;
+  }
+  #end-stats {
+    font-size: 0.6rem;
+    color: var(--dust);
+    letter-spacing: 2px;
+    text-align: center;
+    line-height: 2;
+    margin-bottom: 24px;
+  }
+  #restart-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    background: var(--blood);
+    color: var(--parchment);
+    border: none;
+    border-bottom: 4px solid #5a1010;
+    letter-spacing: 4px;
+    padding: 10px 32px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  #restart-btn:hover {
+    background: var(--glow);
+    transform: translateY(-2px);
+  }
+
+  /* MOVE INDICATOR */
+  #move-indicator {
+    position: absolute;
+    bottom: 8px; right: 8px;
+    font-size: 0.55rem;
+    color: var(--bark);
+    letter-spacing: 2px;
+  }
+
+  /* BEAT PULSE — visible rhythm */
+  #beat-pulse {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--glow);
+    opacity: 0;
+    z-index: 40;
+    pointer-events: none;
+  }
+  #beat-pulse.kick {
+    animation: beat-kick 0.2s ease-out;
+  }
+  @keyframes beat-kick {
+    0% { opacity: 0.8; height: 6px; }
+    100% { opacity: 0; height: 3px; }
+  }
+  /* Stage edge glow on beat */
+  #stage-glow {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 39;
+    border: 2px solid transparent;
+    border-radius: 0;
+    transition: border-color 0.05s;
+  }
+  #stage-glow.pulse {
+    animation: stage-pulse 0.25s ease-out;
+  }
+  @keyframes stage-pulse {
+    0% { border-color: rgba(255,34,102,0.25); }
+    100% { border-color: transparent; }
+  }
+  /* Hi-hat visual — subtle tick in camera strip */
+  .cam-tick {
+    position: absolute;
+    bottom: -2px; left: 50%;
+    width: 2px; height: 2px;
+    background: rgba(255,255,255,0.4);
+    border-radius: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+  }
+  .cam-tick.tick {
+    animation: cam-tick-flash 0.15s ease-out;
+  }
+  @keyframes cam-tick-flash {
+    0% { opacity: 0.6; transform: translateX(-50%) scale(2); }
+    100% { opacity: 0; transform: translateX(-50%) scale(1); }
+  }
+
+  /* AUDIO TOGGLE */
+  #audio-toggle {
+    position: fixed;
+    top: 8px; right: 8px;
+    z-index: 45;
+    background: none;
+    border: 1px solid var(--bark);
+    color: var(--bark);
+    font-size: 1rem;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  #audio-toggle:hover { border-color: var(--bone); color: var(--bone); }
+  #audio-toggle.muted { opacity: 0.4; }
+
+  /* Mobile */
+  @media (max-width: 520px) {
+    #arena { flex-direction: column-reverse; min-height: 420px; }
+    #mudhull-side {
+      flex: 0 0 120px;
+      flex-direction: row;
+      border-right: none;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    #pentagram-container { width: 260px; height: 260px; }
+    #title-over { font-size: 2.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="beat-pulse"></div>
+<div id="stage-glow"></div>
+<button id="audio-toggle" class="muted" onclick="toggleAudio()">🔇</button>
+
+<div id="stage">
+  <div id="title-bar">
+    <div id="title-under">HUNTER ENCOUNTER</div>
+    <div id="title-over">slayy.</div>
+    <div id="show-phase">THE SHOW</div>
+  </div>
+
+  <div id="camera-strip">
+    <div class="camera" data-cam="0" data-target="wide">
+      <div class="cam-flash"></div>
+      <div class="cam-body">📹</div>
+      <div class="cam-label">wide</div>
+      <div class="cam-tick"></div>
+    </div>
+    <div class="camera" data-cam="1" data-target="wide">
+      <div class="cam-flash"></div>
+      <div class="cam-body">📹</div>
+      <div class="cam-label">wide</div>
+      <div class="cam-tick"></div>
+    </div>
+    <div class="camera" data-cam="2" data-target="wide">
+      <div class="cam-flash"></div>
+      <div class="cam-body">📹</div>
+      <div class="cam-label">wide</div>
+      <div class="cam-tick"></div>
+    </div>
+  </div>
+
+  <div id="arena">
+    <div id="mudhull-side">
+      <div id="mudhull-visual">
+        <div class="mudhull-body">
+          <div class="mudhull-eye left"></div>
+          <div class="mudhull-eye right"></div>
+          <div class="mudhull-grin"></div>
+        </div>
+      </div>
+      <div id="mudhull-tell"></div>
+      <div id="mudhull-label">MUDHULL</div>
+    </div>
+
+    <div id="pentagram-side">
+      <div id="pentagram-container">
+        <svg id="pentagram" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="core-gradient" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="var(--core-shimmer)" stop-opacity="0.9">
+                <animate attributeName="stop-color" values="#ff44aa;#ff66cc;#ff2266;#ff44aa" dur="3s" repeatCount="indefinite"/>
+              </stop>
+              <stop offset="100%" stop-color="var(--core-shimmer)" stop-opacity="0.1">
+                <animate attributeName="stop-color" values="#ff44aa;#ff2266;#ff66cc;#ff44aa" dur="3s" repeatCount="indefinite"/>
+              </stop>
+            </radialGradient>
+          </defs>
+          <g id="spokes-group"></g>
+          <g id="connections-group"></g>
+          <g id="points-group"></g>
+          <circle id="core" class="core" cx="150" cy="150" r="16">
+            <animate attributeName="r" values="14;18;14" dur="2s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+      </div>
+      <div id="move-indicator">MOVES: 0 / 3</div>
+    </div>
+  </div>
+
+  <div id="crowd-strip"></div>
+
+  <div id="beat-bar-container">
+    <div id="beat-bar"></div>
+  </div>
+
+  <div id="pose-log"></div>
+</div>
+
+<div id="show-end-overlay">
+  <div id="end-title"></div>
+  <div id="end-sub"></div>
+  <div id="end-stats"></div>
+  <button id="restart-btn" onclick="initShow()">DANCE AGAIN</button>
+</div>
+
+<script>
+// ============================================================
+// HUB MESSAGING
+// ============================================================
+function hubMsg(type, extra = {}) {
+  if (window.parent !== window) {
+    window.parent.postMessage({ type, ...extra }, '*');
+  }
+}
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+const PENTA_R = 110;
+const PENTA_CX = 150, PENTA_CY = 150;
+const BUMP_RADIUS = 30;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// ============================================================
+// STATE
+// ============================================================
+let STATE = {};
+let BEAT = {};
+let MUDHULL = {};
+let CAMERAS = {};
+let MOTHER = {};
+let SHOW = {};
+let CONNECTIONS = [];
+let MOVE_BUFFER = [];
+let PENDING_DROP = null;
+let DRAG = { active: false, pointIdx: -1, startX: 0, startY: 0, minDists: [] };
+
+// Scraggle tracking
+let firstRepositionSent = false;
+let firstEyeSent = false;
+
+// ============================================================
+// SVG HELPERS
+// ============================================================
+const svgEl = document.getElementById('pentagram');
+
+function screenToSVG(screenX, screenY) {
+  const pt = svgEl.createSVGPoint();
+  pt.x = screenX;
+  pt.y = screenY;
+  return pt.matrixTransform(svgEl.getScreenCTM().inverse());
+}
+
+function createSVGLine(x1, y1, x2, y2, cls) {
+  const line = document.createElementNS(SVG_NS, 'line');
+  line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+  if (cls) line.setAttribute('class', cls);
+  return line;
+}
+
+function createSVGCircle(cx, cy, r, cls) {
+  const circle = document.createElementNS(SVG_NS, 'circle');
+  circle.setAttribute('cx', cx); circle.setAttribute('cy', cy);
+  circle.setAttribute('r', r);
+  if (cls) circle.setAttribute('class', cls);
+  return circle;
+}
+
+// ============================================================
+// PENTAGRAM SETUP
+// ============================================================
+function defaultPoints() {
+  return [0,1,2,3,4].map(i => {
+    const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+    return {
+      id: i,
+      x: PENTA_CX + PENTA_R * Math.cos(angle),
+      y: PENTA_CY + PENTA_R * Math.sin(angle),
+      homeX: PENTA_CX + PENTA_R * Math.cos(angle),
+      homeY: PENTA_CY + PENTA_R * Math.sin(angle),
+    };
+  });
+}
+
+function buildPentagram() {
+  const spokesG = document.getElementById('spokes-group');
+  const pointsG = document.getElementById('points-group');
+  const connectionsG = document.getElementById('connections-group');
+  spokesG.innerHTML = '';
+  pointsG.innerHTML = '';
+  connectionsG.innerHTML = '';
+
+  STATE.spokeEls = [];
+  STATE.pointEls = [];
+
+  STATE.points.forEach((p, i) => {
+    // Spoke from core to point
+    const spoke = createSVGLine(PENTA_CX, PENTA_CY, p.x, p.y, 'spoke');
+    spokesG.appendChild(spoke);
+    STATE.spokeEls.push(spoke);
+
+    // Hit area (larger, invisible)
+    const hitarea = createSVGCircle(p.x, p.y, 28, 'point-hitarea');
+    hitarea.dataset.idx = i;
+    pointsG.appendChild(hitarea);
+
+    // Visible point
+    const circle = createSVGCircle(p.x, p.y, 12, 'point');
+    circle.dataset.idx = i;
+    pointsG.appendChild(circle);
+    STATE.pointEls.push(circle);
+  });
+}
+
+function updatePointVisuals() {
+  STATE.points.forEach((p, i) => {
+    STATE.pointEls[i].setAttribute('cx', p.x);
+    STATE.pointEls[i].setAttribute('cy', p.y);
+    // Update hitarea too (it's the element before the point)
+    const hitarea = STATE.pointEls[i].previousElementSibling;
+    if (hitarea) { hitarea.setAttribute('cx', p.x); hitarea.setAttribute('cy', p.y); }
+    // Update spoke
+    STATE.spokeEls[i].setAttribute('x2', p.x);
+    STATE.spokeEls[i].setAttribute('y2', p.y);
+  });
+  // Update connection lines
+  CONNECTIONS.forEach(c => {
+    if (c.svgLine) {
+      const pFrom = STATE.points[c.from];
+      const pTo = STATE.points[c.to];
+      c.svgLine.setAttribute('x1', pFrom.x); c.svgLine.setAttribute('y1', pFrom.y);
+      c.svgLine.setAttribute('x2', pTo.x); c.svgLine.setAttribute('y2', pTo.y);
+    }
+  });
+}
+
+// ============================================================
+// DRAG SYSTEM
+// ============================================================
+function onPointerDown(e) {
+  if (SHOW.ended) return;
+  const target = e.target;
+  const idx = target.dataset?.idx;
+  if (idx === undefined) return;
+
+  const i = parseInt(idx);
+  const p = STATE.points[i];
+  const svgPt = screenToSVG(e.clientX, e.clientY);
+
+  DRAG.active = true;
+  DRAG.pointIdx = i;
+  DRAG.startX = p.x;
+  DRAG.startY = p.y;
+  DRAG.minDists = STATE.points.map(() => Infinity);
+
+  STATE.pointEls[i].classList.add('dragging');
+  STATE.pointEls[i].setAttribute('r', 16);
+  svgEl.setPointerCapture(e.pointerId);
+  e.preventDefault();
+}
+
+function onPointerMove(e) {
+  if (!DRAG.active) return;
+  const svgPt = screenToSVG(e.clientX, e.clientY);
+  const p = STATE.points[DRAG.pointIdx];
+
+  // Clamp to SVG bounds with margin
+  p.x = Math.max(15, Math.min(285, svgPt.x));
+  p.y = Math.max(15, Math.min(285, svgPt.y));
+
+  // Track min distance to other points (for connection detection)
+  STATE.points.forEach((other, j) => {
+    if (j === DRAG.pointIdx) return;
+    const dist = Math.sqrt((p.x - other.x)**2 + (p.y - other.y)**2);
+    DRAG.minDists[j] = Math.min(DRAG.minDists[j], dist);
+  });
+
+  updatePointVisuals();
+
+  // Connection preview
+  removeConnectionPreview();
+  STATE.points.forEach((other, j) => {
+    if (j === DRAG.pointIdx) return;
+    const dist = Math.sqrt((p.x - other.x)**2 + (p.y - other.y)**2);
+    if (dist < BUMP_RADIUS) {
+      showConnectionPreview(DRAG.pointIdx, j);
+    }
+  });
+
+  e.preventDefault();
+}
+
+function onPointerUp(e) {
+  if (!DRAG.active) return;
+  DRAG.active = false;
+
+  const i = DRAG.pointIdx;
+  const p = STATE.points[i];
+  STATE.pointEls[i].classList.remove('dragging');
+  STATE.pointEls[i].setAttribute('r', 12);
+  removeConnectionPreview();
+
+  // Calculate delta
+  const dx = p.x - DRAG.startX;
+  const dy = p.y - DRAG.startY;
+  const magnitude = Math.sqrt(dx*dx + dy*dy);
+
+  // Ignore tiny drags
+  if (magnitude < 5) return;
+
+  // Check for connection bumping
+  let connectionTarget = null;
+  STATE.points.forEach((other, j) => {
+    if (j === i) return;
+    const releaseDist = Math.sqrt((p.x - other.x)**2 + (p.y - other.y)**2);
+    // Passed through proximity and pulled back
+    if (DRAG.minDists[j] < BUMP_RADIUS && releaseDist > BUMP_RADIUS * 1.3) {
+      connectionTarget = j;
+    }
+  });
+
+  if (connectionTarget !== null) {
+    createConnection(i, connectionTarget);
+  }
+
+  registerMove(i, { dx, dy, magnitude }, connectionTarget);
+  e.preventDefault();
+}
+
+// Wire pointer events on SVG
+svgEl.addEventListener('pointerdown', onPointerDown);
+svgEl.addEventListener('pointermove', onPointerMove);
+svgEl.addEventListener('pointerup', onPointerUp);
+svgEl.addEventListener('pointercancel', onPointerUp);
+
+// ============================================================
+// CONNECTION SYSTEM
+// ============================================================
+let previewLine = null;
+
+function showConnectionPreview(fromIdx, toIdx) {
+  const pFrom = STATE.points[fromIdx];
+  const pTo = STATE.points[toIdx];
+  previewLine = createSVGLine(pFrom.x, pFrom.y, pTo.x, pTo.y, 'connection-preview');
+  document.getElementById('connections-group').appendChild(previewLine);
+}
+
+function removeConnectionPreview() {
+  if (previewLine) { previewLine.remove(); previewLine = null; }
+}
+
+function createConnection(fromIdx, toIdx) {
+  // Don't duplicate
+  if (CONNECTIONS.some(c =>
+    (c.from === fromIdx && c.to === toIdx) || (c.from === toIdx && c.to === fromIdx)
+  )) return;
+
+  const pFrom = STATE.points[fromIdx];
+  const pTo = STATE.points[toIdx];
+  const line = createSVGLine(pFrom.x, pFrom.y, pTo.x, pTo.y, 'connection-line');
+
+  // Check for crossings with existing connections
+  const crossings = checkCrossings(fromIdx, toIdx);
+  if (crossings.catastrophe) {
+    line.classList.add('catastrophe');
+  } else if (crossings.bold) {
+    line.classList.add('bold');
+  }
+
+  document.getElementById('connections-group').appendChild(line);
+  CONNECTIONS.push({
+    from: fromIdx, to: toIdx,
+    age: 0,
+    svgLine: line,
+    isBold: crossings.bold,
+    isCatastrophe: crossings.catastrophe,
+  });
+}
+
+function checkCrossings(newFrom, newTo) {
+  const a1 = STATE.points[newFrom];
+  const a2 = STATE.points[newTo];
+  let bold = false, catastrophe = false;
+
+  CONNECTIONS.forEach(c => {
+    const b1 = STATE.points[c.from];
+    const b2 = STATE.points[c.to];
+    if (segmentsIntersect(a1, a2, b1, b2)) {
+      // Check angle of intersection
+      const angleA = Math.atan2(a2.y - a1.y, a2.x - a1.x);
+      const angleB = Math.atan2(b2.y - b1.y, b2.x - b1.x);
+      let angleDiff = Math.abs(angleA - angleB);
+      if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+      // Near-perpendicular (>45deg) = bold, near-parallel (<20deg) = catastrophe
+      if (angleDiff < 0.35) catastrophe = true;
+      else bold = true;
+    }
+  });
+
+  return { bold, catastrophe };
+}
+
+function segmentsIntersect(a1, a2, b1, b2) {
+  const d1x = a2.x - a1.x, d1y = a2.y - a1.y;
+  const d2x = b2.x - b1.x, d2y = b2.y - b1.y;
+  const cross = d1x * d2y - d1y * d2x;
+  if (Math.abs(cross) < 0.001) return false;
+  const t = ((b1.x - a1.x) * d2y - (b1.y - a1.y) * d2x) / cross;
+  const u = ((b1.x - a1.x) * d1y - (b1.y - a1.y) * d1x) / cross;
+  return t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99;
+}
+
+// ============================================================
+// MOVE REGISTRATION + BEAT
+// ============================================================
+function registerMove(pointIdx, delta, connectionTarget) {
+  MOVE_BUFFER.push({
+    pointIdx,
+    dx: delta.dx, dy: delta.dy,
+    magnitude: delta.magnitude,
+    angle: Math.atan2(delta.dy, delta.dx),
+    timestamp: Date.now(),
+    connection: connectionTarget,
+  });
+
+  BEAT.movesSinceLastBeat++;
+  updateBeatBar();
+  updateMoveIndicator();
+
+  if (BEAT.movesSinceLastBeat >= BEAT.movesPerBeat) {
+    capturePose();
+  }
+}
+
+function updateBeatBar() {
+  const pct = (BEAT.movesSinceLastBeat / BEAT.movesPerBeat) * 100;
+  document.getElementById('beat-bar').style.width = Math.min(100, pct) + '%';
+}
+
+function updateMoveIndicator() {
+  document.getElementById('move-indicator').textContent =
+    `MOVES: ${BEAT.movesSinceLastBeat} / ${BEAT.movesPerBeat}`;
+}
+
+// ============================================================
+// POSE CAPTURE
+// ============================================================
+function capturePose() {
+  BEAT.beatNumber++;
+
+  // Resolve pending Mudhull drop
+  if (PENDING_DROP) resolvePendingDrop();
+
+  const pose = {
+    number: BEAT.beatNumber,
+    points: STATE.points.map(p => ({ x: p.x / 300, y: p.y / 300 })),
+    connections: CONNECTIONS.map(c => ({ from: c.from, to: c.to, age: c.age, bold: c.isBold, catastrophe: c.isCatastrophe })),
+    moves: [...MOVE_BUFFER],
+    spread: calculateSpread(),
+    symmetry: calculateSymmetry(),
+    density: CONNECTIONS.length,
+    boldCrossings: CONNECTIONS.filter(c => c.isBold).length,
+    catastropheCrossings: CONNECTIONS.filter(c => c.isCatastrophe).length,
+    callbackScore: detectCallbacks(),
+    wasShaken: STATE.recentShake,
+    recovery: STATE.recentShake && !STATE.improvisedFromShake,
+    improv: STATE.recentShake && STATE.improvisedFromShake,
+  };
+
+  BEAT.poses.push(pose);
+  MOVE_BUFFER.length = 0;
+  BEAT.movesSinceLastBeat = 0;
+
+  // Advance escalation
+  const thresholds = [3,3,3,4,4,5,5,6,6,7];
+  BEAT.movesPerBeat = thresholds[Math.min(BEAT.beatNumber, thresholds.length - 1)];
+
+  // Age connections
+  CONNECTIONS.forEach(c => c.age++);
+
+  // Reset shake tracking
+  STATE.recentShake = false;
+  STATE.improvisedFromShake = false;
+
+  // Score this pose
+  const score = evaluatePose(pose);
+  pose.score = score;
+
+  // Visual feedback
+  flashBeatBar();
+  appendPoseToLog(pose);
+  updateMoveIndicator();
+
+  // Advance Show
+  advanceShow();
+
+  // Check end conditions
+  checkShowEnd();
+}
+
+function calculateSpread() {
+  let totalDist = 0;
+  STATE.points.forEach(p => {
+    totalDist += Math.sqrt((p.x - PENTA_CX)**2 + (p.y - PENTA_CY)**2);
+  });
+  return totalDist / (5 * PENTA_R); // normalized ~0-1
+}
+
+function calculateSymmetry() {
+  // Check bilateral symmetry across vertical axis through center
+  let symmetryScore = 0;
+  for (let i = 0; i < 5; i++) {
+    const p = STATE.points[i];
+    const mirrorX = 2 * PENTA_CX - p.x;
+    // Find closest point to mirror position
+    let minDist = Infinity;
+    STATE.points.forEach((other, j) => {
+      if (j === i) return;
+      const dist = Math.sqrt((other.x - mirrorX)**2 + (other.y - p.y)**2);
+      minDist = Math.min(minDist, dist);
+    });
+    symmetryScore += Math.max(0, 1 - minDist / 100);
+  }
+  return symmetryScore / 5;
+}
+
+function detectCallbacks() {
+  if (BEAT.poses.length < 2) return 0;
+  const current = STATE.points.map(p => ({ x: p.x / 300, y: p.y / 300 }));
+  let bestScore = 0;
+
+  for (const past of BEAT.poses) {
+    let totalDist = 0;
+    for (let i = 0; i < 5; i++) {
+      const dx = current[i].x - past.points[i].x;
+      const dy = current[i].y - past.points[i].y;
+      totalDist += Math.sqrt(dx*dx + dy*dy);
+    }
+    const similarity = 1 - (totalDist / 3.5);
+    if (similarity > 0.75) bestScore = Math.max(bestScore, similarity);
+  }
+  return bestScore;
+}
+
+function flashBeatBar() {
+  const bar = document.getElementById('beat-bar');
+  bar.classList.add('flash');
+  bar.style.width = '100%';
+  setTimeout(() => {
+    bar.classList.remove('flash');
+    bar.style.width = '0%';
+  }, 300);
+}
+
+function appendPoseToLog(pose) {
+  const log = document.getElementById('pose-log');
+  const entry = document.createElement('div');
+  entry.className = 'pose-entry';
+
+  const starCount = pose.score > 0.7 ? 3 : pose.score > 0.4 ? 2 : 1;
+  const stars = '<span class="stars">' + '★'.repeat(starCount) + '☆'.repeat(3 - starCount) + '</span>';
+
+  let tags = '';
+  if (pose.callbackScore > 0.75) tags += '<span class="tag">callback!</span>';
+  if (pose.improv) tags += '<span class="tag">improv</span>';
+  if (pose.recovery) tags += '<span class="tag">recovery</span>';
+  if (pose.catastropheCrossings > 0) tags += '<span class="tag">risky</span>';
+
+  entry.innerHTML = `POSE ${pose.number}  ${stars}  spread:${pose.spread.toFixed(1)}  links:${pose.density}${tags}`;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ============================================================
+// CAMERA SYSTEM
+// ============================================================
+function initCameras() {
+  CAMERAS = {
+    positions: [
+      { id: 0, target: 'wide', interest: 0 },
+      { id: 1, target: 'wide', interest: 0 },
+      { id: 2, target: 'wide', interest: 0 },
+    ],
+    totalPlayerAttention: 0,
+    totalMudhullAttention: 0,
+    boredomAccumulator: 0,
+    fixationAccumulator: 0,
+  };
+}
+
+function evaluatePose(pose) {
+  let playerScore = 0;
+
+  // Spread: big shapes impress
+  playerScore += pose.spread * 0.25;
+
+  // Connections: intentionality
+  playerScore += Math.min(pose.density * 0.12, 0.5);
+
+  // Bold crossings: risky and impressive
+  playerScore += pose.boldCrossings * 0.2;
+
+  // Catastrophe crossings: deduction
+  playerScore -= pose.catastropheCrossings * 0.25;
+
+  // Symmetry: elegance
+  playerScore += pose.symmetry * 0.15;
+
+  // Callbacks: Cameras love this
+  playerScore += pose.callbackScore * 0.4;
+
+  // Improv after shake: Phoenix moment
+  if (pose.improv) playerScore += 0.35;
+
+  // Recovery: composure
+  if (pose.recovery) playerScore += 0.12;
+
+  // Clamp
+  playerScore = Math.max(0, Math.min(1, playerScore));
+
+  // Mudhull score this Beat
+  const mudhullScore = evaluateMudhullPose();
+
+  updateCameras(playerScore, mudhullScore);
+  updateMother(playerScore);
+
+  return playerScore;
+}
+
+function evaluateMudhullPose() {
+  // Mudhull is a real performer. He's always doing something the Cameras can see.
+  let score = 0.4; // base — he's a behemoth, he has presence just standing there
+
+  // His ongoing performance (rolling, tumbling, dust)
+  score += (MUDHULL.performScore || 0) * 0.25;
+
+  // Recent drop quality
+  if (MUDHULL.dropHistory.length > 0) {
+    const lastDrop = MUDHULL.dropHistory[MUDHULL.dropHistory.length - 1];
+    score += lastDrop.perfection * 0.3;
+  }
+
+  // Mudhull gets stronger as Show escalates — he stomps harder
+  if (SHOW.phase === 'building') score += 0.08;
+  if (SHOW.phase === 'peak') score += 0.15;
+  if (SHOW.phase === 'ending') score += 0.2;
+
+  // Decay his perform score slowly so he needs to keep performing
+  MUDHULL.performScore = Math.max(0, (MUDHULL.performScore || 0) - 0.03);
+
+  return Math.min(1, score);
+}
+
+function updateCameras(playerScore, mudhullScore) {
+  const diff = playerScore - mudhullScore;
+  const camEls = document.querySelectorAll('.camera');
+
+  CAMERAS.positions.forEach((cam, idx) => {
+    const prevTarget = cam.target;
+
+    // Each Camera shifts based on score difference + slight randomness
+    cam.interest += diff * 0.35 + (Math.random() - 0.5) * 0.1;
+    cam.interest = Math.max(-1, Math.min(1, cam.interest));
+
+    if (cam.interest > 0.25) cam.target = 'player';
+    else if (cam.interest < -0.25) cam.target = 'mudhull';
+    else cam.target = 'wide';
+
+    // Update DOM
+    camEls[idx].setAttribute('data-target', cam.target);
+    camEls[idx].querySelector('.cam-label').textContent = cam.target;
+
+    // Camera repositioned?
+    if (cam.target !== prevTarget) {
+      camEls[idx].classList.add('repositioning');
+      setTimeout(() => camEls[idx].classList.remove('repositioning'), 500);
+
+      // Crowd surge
+      surgeCrowd(cam.target === 'player' ? 'right' : 'left');
+
+      if (!firstRepositionSent) {
+        firstRepositionSent = true;
+        hubMsg('hub:scraggle', { emoji: '📷', signal: 'Camera repositioned. The crowd felt it before anything happened.' });
+      }
+    }
+  });
+
+  CAMERAS.totalPlayerAttention = CAMERAS.positions.filter(c => c.target === 'player').length;
+  CAMERAS.totalMudhullAttention = CAMERAS.positions.filter(c => c.target === 'mudhull').length;
+
+  // Boredom
+  if (Math.abs(playerScore - mudhullScore) < 0.12) {
+    CAMERAS.boredomAccumulator += 0.12;
+  } else {
+    CAMERAS.boredomAccumulator = Math.max(0, CAMERAS.boredomAccumulator - 0.04);
+  }
+
+  // Fixation
+  if (CAMERAS.totalPlayerAttention === 3 || CAMERAS.totalMudhullAttention === 3) {
+    CAMERAS.fixationAccumulator += 0.2;
+  } else {
+    CAMERAS.fixationAccumulator = Math.max(0, CAMERAS.fixationAccumulator - 0.08);
+  }
+}
+
+// ============================================================
+// MOTHER
+// ============================================================
+function initMother() {
+  MOTHER = { visibility: 0.5, crowdPressure: 0 };
+}
+
+function updateMother(poseScore) {
+  if (poseScore > 0.65) {
+    MOTHER.crowdPressure += 0.18;
+  } else if (poseScore > 0.35) {
+    MOTHER.crowdPressure -= 0.04;
+  } else {
+    MOTHER.crowdPressure -= 0.12;
+  }
+  MOTHER.crowdPressure = Math.max(0, Math.min(1, MOTHER.crowdPressure));
+  MOTHER.visibility = 1 - MOTHER.crowdPressure;
+  renderMother();
+}
+
+function renderMother() {
+  const motherEl = document.querySelector('.crowd-member.mother');
+  if (!motherEl) return;
+
+  // Mother's opacity and glow reflect visibility
+  motherEl.style.opacity = 0.3 + MOTHER.visibility * 0.7;
+  motherEl.style.boxShadow = MOTHER.visibility > 0.6
+    ? `0 0 ${8 + MOTHER.visibility * 10}px var(--mother-glow)`
+    : `0 0 4px var(--mother-glow)`;
+
+  // Crowd around her grows when she's being buried
+  const idx = parseInt(motherEl.dataset.idx);
+  const members = document.querySelectorAll('.crowd-member');
+  members.forEach((m, i) => {
+    const dist = Math.abs(i - idx);
+    if (dist > 0 && dist <= 3) {
+      const scale = 1 + (1 - MOTHER.visibility) * 0.3 * (1 - dist * 0.25);
+      const shift = (i < idx ? 1 : -1) * (1 - MOTHER.visibility) * 4;
+      m.style.transform = `scale(${scale}) translateX(${shift}px)`;
+    }
+  });
+}
+
+function buildCrowd() {
+  const strip = document.getElementById('crowd-strip');
+  strip.innerHTML = '';
+  const count = 25;
+  const motherIdx = 12;
+
+  for (let i = 0; i < count; i++) {
+    const m = document.createElement('div');
+    m.className = 'crowd-member';
+    m.dataset.idx = i;
+    const hue = 10 + Math.random() * 30;
+    const light = 15 + Math.random() * 20;
+    m.style.background = `hsl(${hue}, 30%, ${light}%)`;
+    m.style.height = (18 + Math.random() * 8) + 'px';
+    // Gentle jostle
+    m.style.animation = `crowd-jostle ${2 + Math.random() * 2}s ease-in-out ${Math.random() * 2}s infinite alternate`;
+    if (i === motherIdx) m.classList.add('mother');
+    strip.appendChild(m);
+  }
+
+  // Add jostle keyframes if not already added
+  if (!document.getElementById('crowd-jostle-style')) {
+    const style = document.createElement('style');
+    style.id = 'crowd-jostle-style';
+    style.textContent = `
+      @keyframes crowd-jostle {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(-2px); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+function surgeCrowd(direction) {
+  const members = document.querySelectorAll('.crowd-member:not(.mother)');
+  const cls = direction === 'left' ? 'surge-left' : 'surge-right';
+  members.forEach(m => {
+    m.classList.add(cls);
+    setTimeout(() => m.classList.remove(cls), 600);
+  });
+}
+
+// ============================================================
+// MUDHULL AI
+// ============================================================
+function initMudhull() {
+  MUDHULL = {
+    phase: 'idle',
+    dropPower: 0,
+    eyeOpen: false,
+    eyeOpenCount: 0,
+    grinning: false,
+    dustLevel: 1,
+    dropHistory: [],
+    timer: null,
+    dustTimer: null,
+    performTimer: null,
+    performScore: 0,
+    tellStep: 0,
+    tellTarget: 0,
+    beatsSinceLastDrop: 0,
+    waitTicks: 0,
+  };
+}
+
+function startMudhull() {
+  MUDHULL.timer = setInterval(mudhullTick, 600 + Math.random() * 300);
+  MUDHULL.dustTimer = setInterval(spawnDust, 400);
+  // Mudhull performs on his own schedule — rolls and tumbles between drops
+  MUDHULL.performTimer = setInterval(mudhullPerform, 1800 + Math.random() * 1200);
+}
+
+// Mudhull's own performance — he does his thing regardless of the player
+function mudhullPerform() {
+  if (SHOW.ended || MUDHULL.phase === 'celebrating' || MUDHULL.phase === 'reconsidering') return;
+  const body = document.querySelector('.mudhull-body');
+
+  // Mudhull rolls, tumbles, kicks up dust — this IS his performance
+  MUDHULL.performScore = Math.min(1, (MUDHULL.performScore || 0) + 0.08 + Math.random() * 0.12);
+
+  // Roll animation
+  body.classList.remove('rolling');
+  void body.offsetWidth;
+  body.classList.add('rolling');
+  setTimeout(() => body.classList.remove('rolling'), 800);
+
+  // Extra dust burst when he performs
+  for (let i = 0; i < 3; i++) spawnDust();
+
+  // Cameras pay attention to Mudhull performing
+  if (Math.random() < 0.3 + SHOW.tremor * 0.3) {
+    CAMERAS.positions.forEach(cam => {
+      cam.interest -= 0.06 + Math.random() * 0.08;
+    });
+  }
+}
+
+function mudhullTick() {
+  if (SHOW.ended) return;
+
+  MUDHULL.beatsSinceLastDrop++;
+
+  switch (MUDHULL.phase) {
+    case 'idle':
+      MUDHULL.dustLevel = 1 + SHOW.tremor * 3;
+      // Tell chance — much more aggressive. Mudhull is always ready to drop.
+      const tellChance = 0.2 + MUDHULL.beatsSinceLastDrop * 0.1 + SHOW.tremor * 0.2;
+      if (Math.random() < tellChance) {
+        MUDHULL.phase = 'tell';
+        MUDHULL.tellStep = 0;
+        MUDHULL.tellTarget = 1 + Math.floor(Math.random() * 2); // 1-2 steps (faster tells)
+        showTell();
+      }
+      break;
+
+    case 'tell':
+      MUDHULL.tellStep++;
+      showTell();
+      if (MUDHULL.tellStep >= MUDHULL.tellTarget) {
+        MUDHULL.phase = 'winding';
+        MUDHULL.grinning = true;
+        document.querySelector('.mudhull-grin').classList.add('visible');
+      }
+      break;
+
+    case 'winding':
+      // Queue the drop
+      PENDING_DROP = {
+        power: 0.4 + Math.random() * 0.4 + SHOW.tremor * 0.3,
+        perfection: 0.4 + Math.random() * 0.6,
+      };
+      PENDING_DROP.power = Math.min(1, PENDING_DROP.power);
+      MUDHULL.phase = 'dropping';
+      // Animate
+      document.querySelector('.mudhull-body').classList.add('dropping');
+      setTimeout(() => document.querySelector('.mudhull-body').classList.remove('dropping'), 500);
+      break;
+
+    case 'dropping':
+      // Drop queued — if player hasn't Beaten, auto-resolve after a short delay
+      MUDHULL.phase = 'waiting';
+      MUDHULL.waitTicks = 0;
+      break;
+
+    case 'waiting':
+      // Don't wait forever — auto-resolve the drop if player is slow
+      MUDHULL.waitTicks = (MUDHULL.waitTicks || 0) + 1;
+      if (MUDHULL.waitTicks > 3) {
+        // Force-resolve: the drop lands regardless
+        if (PENDING_DROP) forceResolveDrop();
+      }
+      break;
+
+    case 'celebrating':
+      document.querySelector('.mudhull-body').classList.add('celebrating');
+      setTimeout(() => {
+        document.querySelector('.mudhull-body').classList.remove('celebrating');
+        // Check if player survived — the Eye
+        if (STATE.balance > 0.3) {
+          MUDHULL.eyeOpen = true;
+          MUDHULL.eyeOpenCount++;
+          document.querySelector('.mudhull-eye.left').classList.add('open');
+          MUDHULL.phase = 'reconsidering';
+
+          if (!firstEyeSent) {
+            firstEyeSent = true;
+            hubMsg('hub:scraggle', { emoji: '👁', signal: 'Mudhull opened one eye. He expected you to be gone.' });
+          }
+
+          // Cameras REALLY notice — Mudhull reconsidering is a big Camera moment
+          CAMERAS.positions.forEach(cam => { cam.interest -= 0.2; });
+
+          setTimeout(() => {
+            document.querySelector('.mudhull-eye.left').classList.remove('open');
+            MUDHULL.eyeOpen = false;
+            MUDHULL.phase = 'idle';
+            MUDHULL.grinning = false;
+            document.querySelector('.mudhull-grin').classList.remove('visible');
+            MUDHULL.beatsSinceLastDrop = 0;
+          }, 1500);
+        } else {
+          // Player is wobbling — Cameras swing hard to Mudhull
+          CAMERAS.positions.forEach(cam => { cam.interest -= 0.35; });
+          MUDHULL.phase = 'idle';
+          MUDHULL.grinning = false;
+          document.querySelector('.mudhull-grin').classList.remove('visible');
+          MUDHULL.beatsSinceLastDrop = 0;
+        }
+      }, 1000);
+      break;
+
+    case 'reconsidering':
+      // Wait, handled by setTimeout above
+      break;
+  }
+}
+
+// Force-resolve a pending drop even if the player hasn't Beaten
+function forceResolveDrop() {
+  if (!PENDING_DROP) return;
+  const drop = PENDING_DROP;
+  PENDING_DROP = null;
+
+  // Shake pentagram
+  const container = document.getElementById('pentagram-container');
+  container.classList.add('shaking');
+  setTimeout(() => container.classList.remove('shaking'), 500);
+
+  // Displace points
+  STATE.points.forEach(p => {
+    const shakeX = (Math.random() - 0.5) * drop.power * 40;
+    const shakeY = (Math.random() - 0.5) * drop.power * 40;
+    p.x = Math.max(15, Math.min(285, p.x + shakeX));
+    p.y = Math.max(15, Math.min(285, p.y + shakeY));
+  });
+  updatePointVisuals();
+
+  STATE.recentShake = true;
+  STATE.shakeSnapshot = STATE.points.map(p => ({ x: p.x, y: p.y }));
+
+  MUDHULL.dropHistory.push(drop);
+  MUDHULL.phase = 'celebrating';
+
+  document.getElementById('mudhull-tell').textContent = '';
+  checkBalance();
+}
+
+function showTell() {
+  const tellEl = document.getElementById('mudhull-tell');
+  const clicks = 'click'.repeat(MUDHULL.tellStep + 1).split('click').filter(Boolean).map(() => 'click').join('-');
+  tellEl.textContent = clicks || '';
+  tellEl.style.color = MUDHULL.tellStep > 1 ? 'var(--mudhull-color)' : 'var(--dust)';
+}
+
+function spawnDust() {
+  if (SHOW.ended) return;
+  const container = document.getElementById('mudhull-visual');
+  const count = Math.ceil(MUDHULL.dustLevel);
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'dust';
+    el.style.left = (Math.random() * 100) + '%';
+    el.style.setProperty('--dur', (1.2 + Math.random() * 1.5) + 's');
+    el.style.setProperty('--drift', ((Math.random() - 0.5) * 30) + 'px');
+    el.style.width = (3 + Math.random() * 5 * MUDHULL.dustLevel) + 'px';
+    el.style.height = el.style.width;
+    container.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
+
+function resolvePendingDrop() {
+  const drop = PENDING_DROP;
+  PENDING_DROP = null;
+
+  // Shake pentagram container
+  const container = document.getElementById('pentagram-container');
+  container.classList.add('shaking');
+  setTimeout(() => container.classList.remove('shaking'), 500);
+
+  // Displace points
+  STATE.points.forEach(p => {
+    const shakeX = (Math.random() - 0.5) * drop.power * 35;
+    const shakeY = (Math.random() - 0.5) * drop.power * 35;
+    p.x = Math.max(15, Math.min(285, p.x + shakeX));
+    p.y = Math.max(15, Math.min(285, p.y + shakeY));
+  });
+  updatePointVisuals();
+
+  STATE.recentShake = true;
+  STATE.shakeSnapshot = STATE.points.map(p => ({ x: p.x, y: p.y }));
+
+  MUDHULL.dropHistory.push(drop);
+  MUDHULL.phase = 'celebrating';
+
+  // Clear tell
+  document.getElementById('mudhull-tell').textContent = '';
+
+  checkBalance();
+}
+
+// ============================================================
+// BALANCE
+// ============================================================
+function checkBalance() {
+  const cx = STATE.points.reduce((sum, p) => sum + p.x, 0) / 5;
+  const cy = STATE.points.reduce((sum, p) => sum + p.y, 0) / 5;
+  const dist = Math.sqrt((cx - PENTA_CX)**2 + (cy - PENTA_CY)**2);
+  const outOfBounds = STATE.points.filter(p =>
+    p.x < 12 || p.x > 288 || p.y < 12 || p.y > 288
+  ).length;
+
+  STATE.balance = 1 - (dist / 140) - (outOfBounds * 0.2);
+  STATE.balance = Math.max(0, Math.min(1, STATE.balance));
+
+  const core = document.getElementById('core');
+  if (STATE.balance < 0.4) {
+    core.classList.add('warning');
+  } else {
+    core.classList.remove('warning');
+  }
+
+  if (STATE.balance <= 0) {
+    endShow('fell', 'mudhull');
+  }
+}
+
+// ============================================================
+// IMPROV DETECTION
+// ============================================================
+// After a shake, if the player's next moves create a significantly different
+// configuration from the pre-shake state, that's improv. If they restore
+// close to pre-shake, that's recovery.
+function checkImprov() {
+  if (!STATE.recentShake || !STATE.shakeSnapshot) return;
+  const current = STATE.points;
+  const snapshot = STATE.shakeSnapshot;
+  let totalDist = 0;
+  for (let i = 0; i < 5; i++) {
+    const dx = current[i].x - snapshot[i].x;
+    const dy = current[i].y - snapshot[i].y;
+    totalDist += Math.sqrt(dx*dx + dy*dy);
+  }
+  // If they've moved significantly from the shake position, they're improvising
+  STATE.improvisedFromShake = totalDist > 80;
+}
+
+// Check improv status whenever a move is registered
+const _origRegisterMove = registerMove;
+// We override to also check improv (since registerMove is called before capturePose)
+
+// ============================================================
+// SHOW STRUCTURE
+// ============================================================
+function advanceShow() {
+  SHOW.beatCount = BEAT.beatNumber;
+  SHOW.tremor = Math.min(1, SHOW.beatCount * 0.06);
+
+  if (SHOW.beatCount >= 3) SHOW.phase = 'building';
+  if (SHOW.beatCount >= 8) SHOW.phase = 'peak';
+  if (SHOW.beatCount >= 14) SHOW.phase = 'ending';
+
+  document.getElementById('show-phase').textContent =
+    SHOW.phase === 'opening' ? 'THE SHOW' :
+    SHOW.phase === 'building' ? 'BUILDING' :
+    SHOW.phase === 'peak' ? 'PEAK' :
+    'FINALE';
+
+  // Apply ambient tremor class
+  const container = document.getElementById('pentagram-container');
+  container.classList.remove('tremor-1', 'tremor-2', 'tremor-3');
+  if (SHOW.tremor > 0.6) container.classList.add('tremor-3');
+  else if (SHOW.tremor > 0.3) container.classList.add('tremor-2');
+  else if (SHOW.tremor > 0.1) container.classList.add('tremor-1');
+}
+
+function checkShowEnd() {
+  if (SHOW.ended) return;
+
+  // Cameras bored
+  if (CAMERAS.boredomAccumulator >= 1.0) {
+    endShow('bored', null);
+    return;
+  }
+
+  // Cameras fixated
+  if (CAMERAS.fixationAccumulator >= 1.0) {
+    const winner = CAMERAS.totalPlayerAttention === 3 ? 'player' : 'mudhull';
+    endShow('fixated', winner);
+    return;
+  }
+}
+
+function endShow(reason, winner) {
+  SHOW.ended = true;
+  SHOW.endReason = reason;
+  SHOW.winner = winner;
+
+  clearInterval(MUDHULL.timer);
+  clearInterval(MUDHULL.dustTimer);
+  clearInterval(MUDHULL.performTimer);
+  stopBeat();
+
+  const overlay = document.getElementById('show-end-overlay');
+  const title = document.getElementById('end-title');
+  const sub = document.getElementById('end-sub');
+  const stats = document.getElementById('end-stats');
+
+  if (winner === 'player') {
+    title.textContent = 'CONFESSION';
+    title.style.color = 'var(--glow)';
+    sub.textContent = 'Mudhull\'s celebration died in his throat. One eye opened. You were still there. Still posing. Unphased. The Cameras could not look away. He tells you what he did.';
+  } else if (winner === 'mudhull') {
+    if (reason === 'fell') {
+      title.textContent = 'OFF STAGE';
+      title.style.color = 'var(--mudhull-color)';
+      sub.textContent = 'You tumbled. Everyone saw it happen. The crowd goes quiet. Mudhull keeps rolling.';
+    } else {
+      title.textContent = 'OUTPERFORMED';
+      title.style.color = 'var(--mudhull-color)';
+      sub.textContent = 'The Cameras turned. All of them. Mudhull had the stage and he didn\'t even know you were there. The Show is his.';
+    }
+  } else {
+    title.textContent = 'CUT TO COMMERCIAL';
+    title.style.color = 'var(--bark)';
+    sub.textContent = 'The Cameras lost interest. Nobody won. The crowd disperses. Mother finds you afterwards. She doesn\'t say anything.';
+  }
+
+  const totalPoses = BEAT.poses.length;
+  const avgScore = totalPoses > 0
+    ? (BEAT.poses.reduce((s, p) => s + (p.score || 0), 0) / totalPoses).toFixed(2)
+    : '0.00';
+  const eyeOpens = MUDHULL.eyeOpenCount;
+
+  stats.textContent = `${totalPoses} POSES · AVG SCORE ${avgScore} · ${eyeOpens} EYE OPEN${eyeOpens !== 1 ? 'S' : ''} · ${CONNECTIONS.length} LINKS`;
+
+  overlay.classList.add('show');
+
+  // Hub scraggles
+  if (winner === 'player') {
+    hubMsg('hub:scraggle', { emoji: '💃', signal: `out-posed Mudhull in ${totalPoses} Poses. The confession is coming.` });
+  } else if (winner === 'mudhull') {
+    hubMsg('hub:scraggle', { emoji: '🌊', signal: reason === 'fell'
+      ? `tumbled off stage after ${totalPoses} Poses. Everyone saw it.`
+      : `Mudhull took the Show in ${totalPoses} Poses.` });
+  } else {
+    hubMsg('hub:scraggle', { emoji: '📺', signal: `Cameras lost interest after ${totalPoses} Poses. The crowd dispersed.` });
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function initShow() {
+  // Reset all state
+  STATE = {
+    points: defaultPoints(),
+    spokeEls: [],
+    pointEls: [],
+    balance: 1,
+    recentShake: false,
+    improvisedFromShake: false,
+    shakeSnapshot: null,
+  };
+
+  BEAT = {
+    movesPerBeat: 3,
+    movesSinceLastBeat: 0,
+    beatNumber: 0,
+    poses: [],
+  };
+
+  CONNECTIONS = [];
+  MOVE_BUFFER = [];
+  PENDING_DROP = null;
+  firstRepositionSent = false;
+  firstEyeSent = false;
+
+  SHOW = {
+    phase: 'opening',
+    beatCount: 0,
+    tremor: 0,
+    ended: false,
+    endReason: null,
+    winner: null,
+  };
+
+  initCameras();
+  initMother();
+  initMudhull();
+
+  // Build visuals
+  buildPentagram();
+  buildCrowd();
+  updatePointVisuals();
+  updateBeatBar();
+  updateMoveIndicator();
+
+  // Reset UI
+  document.getElementById('show-end-overlay').classList.remove('show');
+  document.getElementById('pose-log').innerHTML = '';
+  document.getElementById('show-phase').textContent = 'THE SHOW';
+  document.getElementById('mudhull-tell').textContent = '';
+  document.querySelector('.mudhull-grin').classList.remove('visible');
+  document.querySelector('.mudhull-eye.left').classList.remove('open');
+  document.getElementById('core').classList.remove('warning');
+  const container = document.getElementById('pentagram-container');
+  container.classList.remove('tremor-1', 'tremor-2', 'tremor-3', 'shaking');
+
+  // Reset camera visuals
+  document.querySelectorAll('.camera').forEach(el => {
+    el.setAttribute('data-target', 'wide');
+    el.querySelector('.cam-label').textContent = 'wide';
+  });
+
+  // Start Mudhull
+  startMudhull();
+
+  // Start the beat
+  startBeat();
+}
+
+// Hook improv check into move registration
+const originalRegisterMove = registerMove;
+// Can't easily override, so patch capturePose to check improv before capturing
+const originalCapturePose = capturePose;
+
+// We call checkImprov before pose capture by hooking into the move count check
+// Already handled: registerMove calls checkBeatReady -> capturePose
+// We need improv check to run between last move and pose capture.
+// Simplest: check it inside capturePose before snapshot.
+// Let's modify the flow: in the capturePose itself we check improv based on
+// how much the points have moved since the shake.
+
+// ============================================================
+// BEAT ENGINE — audible + visible rhythm
+// ============================================================
+let audioCtx = null, beatMaster = null, audioReady = false, audioMuted = true; // starts muted
+let beatTimer = null;
+
+function noteToFreq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+
+function initAudio() {
+  if (audioReady) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    beatMaster = audioCtx.createGain();
+    beatMaster.gain.value = 0; // starts muted, user clicks speaker to enable
+    beatMaster.connect(audioCtx.destination);
+    audioReady = true;
+  } catch(e) {}
+}
+
+function toggleAudio() {
+  if (!audioReady) initAudio();
+  audioMuted = !audioMuted;
+  const btn = document.getElementById('audio-toggle');
+  btn.textContent = audioMuted ? '🔇' : '🔊';
+  btn.classList.toggle('muted', audioMuted);
+  if (beatMaster && audioCtx) {
+    beatMaster.gain.setTargetAtTime(audioMuted ? 0 : 0.25, audioCtx.currentTime, 0.2);
+  }
+}
+
+// The Show's beat — starts minimal, escalates
+// BPM increases with Show phase: opening 85 → building 100 → peak 120 → finale 138
+function getBPM() {
+  if (!SHOW) return 85;
+  switch (SHOW.phase) {
+    case 'opening': return 85;
+    case 'building': return 100;
+    case 'peak': return 120;
+    case 'ending': return 138;
+    default: return 85;
+  }
+}
+
+// Beat pattern: [kick, hat, hat, kick, hat, hat, hat, hat] — 8 subdivisions per bar
+// Opening: just kick on 1 and 4
+// Building: kick + hats
+// Peak: kick + hats + snare on 3, 7
+// Ending: double-time feel
+let beatStep = 0;
+
+function scheduleBeat() {
+  if (SHOW.ended) return;
+  const bpm = getBPM();
+  const stepMs = (60000 / bpm) / 2; // 8th note subdivision
+
+  playBeatStep(beatStep);
+  beatStep = (beatStep + 1) % 8;
+
+  beatTimer = setTimeout(scheduleBeat, stepMs);
+}
+
+function playBeatStep(step) {
+  const phase = SHOW ? SHOW.phase : 'opening';
+
+  // Visual pulse on kick beats (0, 3 for opening; 0, 4 for others)
+  const isKick = step === 0 || step === 4;
+  const isSnare = (phase === 'peak' || phase === 'ending') && (step === 2 || step === 6);
+  const isHat = !isKick && !isSnare;
+
+  // Visual
+  if (isKick) {
+    pulseElement('beat-pulse', 'kick');
+    pulseElement('stage-glow', 'pulse');
+  }
+  if (isHat && phase !== 'opening') {
+    // Tick on a random camera
+    const ticks = document.querySelectorAll('.cam-tick');
+    const tick = ticks[Math.floor(Math.random() * ticks.length)];
+    if (tick) { tick.classList.remove('tick'); void tick.offsetWidth; tick.classList.add('tick'); }
+  }
+
+  // Audio
+  if (!audioReady || audioMuted) return;
+  const now = audioCtx.currentTime;
+
+  if (isKick) {
+    playKick(now, phase);
+  }
+  if (isSnare) {
+    playSnare(now);
+  }
+  if (isHat && phase !== 'opening') {
+    playHat(now, phase);
+  }
+
+  // Sub-bass drone — gentle pulse on beat 0 only
+  if (step === 0) {
+    playSubPulse(now, phase);
+  }
+}
+
+function playKick(time, phase) {
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(phase === 'peak' || phase === 'ending' ? 65 : 55, time);
+  osc.frequency.exponentialRampToValueAtTime(28, time + 0.12);
+  g.gain.setValueAtTime(0.5, time);
+  g.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+  osc.connect(g);
+  g.connect(beatMaster);
+  osc.start(time);
+  osc.stop(time + 0.25);
+}
+
+function playSnare(time) {
+  // Noise burst — filtered
+  const bufSize = audioCtx.sampleRate * 0.08;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const g = audioCtx.createGain();
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 2000;
+  g.gain.setValueAtTime(0.15, time);
+  g.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+  src.connect(hp);
+  hp.connect(g);
+  g.connect(beatMaster);
+  src.start(time);
+  src.stop(time + 0.12);
+
+  // Body — short tone
+  const osc = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = 180;
+  g2.gain.setValueAtTime(0.12, time);
+  g2.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+  osc.connect(g2);
+  g2.connect(beatMaster);
+  osc.start(time);
+  osc.stop(time + 0.1);
+}
+
+function playHat(time, phase) {
+  const bufSize = audioCtx.sampleRate * 0.03;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.15;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 6000;
+  const g = audioCtx.createGain();
+  const vol = phase === 'peak' || phase === 'ending' ? 0.06 : 0.035;
+  g.gain.setValueAtTime(vol, time);
+  g.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+  src.connect(hp);
+  hp.connect(g);
+  g.connect(beatMaster);
+  src.start(time);
+  src.stop(time + 0.05);
+}
+
+function playSubPulse(time, phase) {
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  // Root note rises with phase: C1 → D1 → E1 → F#1
+  const roots = { opening: 32.7, building: 36.7, peak: 41.2, ending: 46.2 };
+  osc.frequency.value = roots[phase] || 32.7;
+  g.gain.setValueAtTime(0.08, time);
+  g.gain.setTargetAtTime(0, time + 0.3, 0.15);
+  osc.connect(g);
+  g.connect(beatMaster);
+  osc.start(time);
+  osc.stop(time + 0.6);
+}
+
+function pulseElement(id, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
+function startBeat() {
+  beatStep = 0;
+  if (beatTimer) clearTimeout(beatTimer);
+  scheduleBeat();
+}
+
+function stopBeat() {
+  if (beatTimer) { clearTimeout(beatTimer); beatTimer = null; }
+}
+
+// Lazy-init audio on first interaction (autoplay policy)
+document.addEventListener('pointerdown', function audioInit() {
+  initAudio();
+  document.removeEventListener('pointerdown', audioInit);
+}, { once: true });
+
+// Boot
+hubMsg('hub:minimize');
+hubMsg('hub:color', { r: 255, g: 34, b: 102 });
+initShow();
+</script>
+</body>
+</html>
