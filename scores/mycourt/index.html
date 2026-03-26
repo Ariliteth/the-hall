@@ -79,36 +79,43 @@
   #decision {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    z-index: 30; pointer-events: all;
-    background: rgba(5,3,2,0.75);
+    z-index: 30; pointer-events: none;
+    background: rgba(5,3,2,0.6);
     font-family: 'Courier New', monospace;
     transition: opacity 0.5s;
   }
-  #decision.hidden { opacity: 0; pointer-events: none; }
+  #decision.hidden { opacity: 0; }
   #decision-text {
     color: rgba(200,180,140,0.9); font-size: 13px; letter-spacing: 2px;
-    text-align: center; padding: 0 20px; margin-bottom: 24px;
+    text-align: center; padding: 0 20px; margin-bottom: 20px;
     max-width: 400px; line-height: 1.6;
   }
-  #decision-options { display: flex; gap: 24px; }
-  .decision-btn {
-    padding: 14px 20px; cursor: pointer;
-    border: 1px solid rgba(200,180,140,0.2); border-radius: 4px;
-    background: rgba(20,16,10,0.8); min-width: 140px; text-align: center;
-    transition: border-color 0.3s, background 0.3s;
+  #decision-lean-bar {
+    width: 240px; height: 24px; position: relative;
+    display: flex; border-radius: 12px; overflow: hidden;
+    margin-bottom: 10px;
   }
-  .decision-btn:hover {
-    border-color: rgba(200,180,140,0.5);
-    background: rgba(30,24,16,0.9);
+  #lean-bright {
+    flex: 1;
+    background: linear-gradient(90deg, rgba(220,200,120,0.4), rgba(220,200,120,0.1));
   }
-  .decision-label {
-    color: rgba(200,180,140,0.9); font-size: 12px; letter-spacing: 2px;
-    margin-bottom: 6px; font-weight: bold;
+  #lean-dark {
+    flex: 1;
+    background: linear-gradient(270deg, rgba(100,70,140,0.4), rgba(100,70,140,0.1));
   }
-  .decision-desc {
-    color: rgba(180,160,140,0.5); font-size: 10px; letter-spacing: 1px;
-    line-height: 1.4;
+  #lean-pip {
+    position: absolute; top: 2px; width: 6px; height: 20px;
+    background: rgba(200,180,140,0.9); border-radius: 3px;
+    left: 50%; transform: translateX(-50%);
+    transition: left 0.3s;
+    pointer-events: none;
   }
+  #decision-labels {
+    display: flex; justify-content: space-between; width: 240px;
+    font-size: 9px; letter-spacing: 1.5px; margin-bottom: 6px;
+  }
+  #label-bright { color: rgba(220,200,120,0.6); }
+  #label-dark { color: rgba(100,70,140,0.6); }
 </style>
 </head>
 <body>
@@ -127,15 +134,14 @@
 
 <div id="decision" class="hidden">
   <div id="decision-text"></div>
-  <div id="decision-options">
-    <div id="decision-a" class="decision-btn" onclick="resolveDecision('A')">
-      <div class="decision-label"></div>
-      <div class="decision-desc"></div>
-    </div>
-    <div id="decision-b" class="decision-btn" onclick="resolveDecision('B')">
-      <div class="decision-label"></div>
-      <div class="decision-desc"></div>
-    </div>
+  <div id="decision-lean-bar">
+    <div id="lean-bright"></div>
+    <div id="lean-pip"></div>
+    <div id="lean-dark"></div>
+  </div>
+  <div id="decision-labels">
+    <span id="label-bright"></span>
+    <span id="label-dark"></span>
   </div>
 </div>
 
@@ -171,11 +177,11 @@ const BIOME_COLORS = {
   coast:  { fill: '#222e38', accent: '#58a8c8', icon: '#3888b8', light: '#283848' },
 };
 const SYNDICATE_TYPES = [
-  { name: 'Finespun', pref: 'fineness', color: [180, 140, 220], hues: [270, 340] },  // amethyst, rose
-  { name: 'Massroot', pref: 'mass', color: [170, 120, 60], hues: [30] },              // amber
-  { name: 'Chromaveil', pref: 'color', color: [80, 200, 150], hues: [120] },          // emerald
-  { name: 'Dustweaver', pref: 'fineness', color: [220, 180, 80], hues: [0, 30] },     // ruby, amber
-  { name: 'Deephold', pref: 'mass', color: [140, 100, 160], hues: [200, 270] },       // sapphire, amethyst
+  { name: 'Finespun', pref: 'bright', color: [180, 140, 220], hues: [270, 340] },  // amethyst, rose
+  { name: 'Massroot', pref: 'dark', color: [170, 120, 60], hues: [30] },             // amber
+  { name: 'Chromaveil', pref: 'both', color: [80, 200, 150], hues: [120] },          // emerald
+  { name: 'Dustweaver', pref: 'bright', color: [220, 180, 80], hues: [0, 30] },      // ruby, amber
+  { name: 'Deephold', pref: 'dark', color: [140, 100, 160], hues: [200, 270] },      // sapphire, amethyst
 ];
 // Shape = development stance, computed from dust held
 // circle (dormant) → diamond (gathering) → square (established) → star (flourishing)
@@ -198,7 +204,7 @@ const S = {
   slug: { disturbance: 0, state: 'sleep', breathPhase: 0, eyeOpen: 0, mouthOpen: 0, offsetX: 0 },
   totalInfluence: 0,
   totalCollection: 0,
-  dust: { fineness: 0, mass: 0 },
+  dust: { bright: 0, dark: 0 },
   phase: 'observe',
   drag: null,
   placementMode: null,
@@ -347,7 +353,7 @@ function gameTick(silent) {
     // Syndicates gather dust — proximity to the Spoire matters
     const spoireA = sl.spoire.pos?.a || 0.5;
     sl.syndicates.forEach(syn => {
-      const rate = syn.pref === 'fineness' ? 0.3 : syn.pref === 'mass' ? 0.5 : 0.4;
+      const rate = syn.pref === 'bright' ? 0.3 : syn.pref === 'dark' ? 0.5 : 0.4;
       // Closer to spoire = stronger influence = more dust
       const dist = Math.abs(syn.pos.a - spoireA);
       const proximity = 1 - dist * 0.6; // 1.0 when overlapping, ~0.7 at far edge
@@ -367,10 +373,21 @@ function gameTick(silent) {
       const age = Date.now() - bm.placedAt;
       bm.efficiency = Math.min(1, age / (300000)); // 5 min to max
       if (sl.connectors[bm.routeIdx] && sl.connectors[bm.routeIdx].cooldown <= 0) {
+        const conn = sl.connectors[bm.routeIdx];
+        const syn = sl.syndicates[conn.synIdx];
         const collected = bm.efficiency * 0.4;
         S.totalCollection += collected;
-        S.dust.mass += collected * 0.6;
-        S.dust.fineness += collected * 0.4;
+        // Dust type depends on the syndicate feeding the route
+        if (syn && syn.pref === 'bright') {
+          S.dust.bright += collected * 0.8;
+          S.dust.dark += collected * 0.2;
+        } else if (syn && syn.pref === 'dark') {
+          S.dust.dark += collected * 0.8;
+          S.dust.bright += collected * 0.2;
+        } else {
+          S.dust.bright += collected * 0.5;
+          S.dust.dark += collected * 0.5;
+        }
       }
     });
 
@@ -387,11 +404,15 @@ function gameTick(silent) {
   checkInvestigations();
 
   // Slice-scale decisions
-  if (!silent && !S.decision) {
-    checkSnoreThreat();
-    checkExodus();
-    checkClaim();
-    checkDecree();
+  if (!silent) {
+    if (S.decision) {
+      tickDecision(); // drift toward natural resolution
+    } else {
+      checkSnoreThreat();
+      checkExodus();
+      checkClaim();
+      checkDecree();
+    }
   }
 
   // Spawn dust particles
@@ -482,10 +503,68 @@ function checkInvestigations() {
   });
 }
 
-// ===== DECISIONS — binary choices, this or not =====
+// ===== DECISIONS — resolved through Bright/Dark dust balance =====
+// Decisions are not interactive. They drift based on your dust balance
+// and the loyalty of Mycourt members (syndicates). The player's influence
+// is upstream: which syndicates you feed determines your dust, which
+// determines how decisions resolve.
+
 function presentDecision(decision) {
-  if (S.decision) return; // one at a time
+  if (S.decision) return;
+  // Initial lean from dust balance
+  const total = S.dust.bright + S.dust.dark;
+  let lean = 0;
+  if (total > 0.1) {
+    lean = (S.dust.dark - S.dust.bright) / total * 0.4;
+  }
+  decision.lean = lean;
+  decision.age = 0; // ticks since presented
   S.decision = decision;
+}
+
+function tickDecision() {
+  const d = S.decision;
+  if (!d) return;
+  d.age++;
+
+  // Dust balance drives the base drift
+  const total = S.dust.bright + S.dust.dark;
+  let drift = 0;
+  if (total > 0.1) {
+    drift = (S.dust.dark - S.dust.bright) / total * 0.04;
+  } else {
+    drift = 0.02; // entropy favors dark
+  }
+
+  // Mycourt loyalty noise — syndicates on planted slices vote with their dust
+  // but their loyalty (trust) determines if they vote honestly
+  const planted = S.slices.filter(sl => sl.spoire && !S.claimedSlices.includes(sl.id));
+  let loyaltyNoise = 0;
+  let voters = 0;
+  planted.forEach(sl => {
+    sl.syndicates.forEach(syn => {
+      voters++;
+      const honest = Math.random() < syn.trust; // high trust = votes honestly
+      if (honest) {
+        // Votes according to their preference
+        loyaltyNoise += syn.pref === 'bright' ? -0.005 : syn.pref === 'dark' ? 0.005 : 0;
+      } else {
+        // Dishonest — votes opposite, or random
+        loyaltyNoise += (Math.random() - 0.5) * 0.02;
+      }
+    });
+  });
+
+  d.lean = Math.max(-1, Math.min(1, d.lean + drift + loyaltyNoise));
+
+  // Resolve after enough drift or after ~20 ticks (forced resolution)
+  if (d.lean <= -1 || d.lean >= 1 || d.age >= 20) {
+    if (d.age >= 20 && d.lean > -1 && d.lean < 1) {
+      // Time's up — resolve based on current lean direction
+      // Could go either way if close to center
+    }
+    resolveDecision(d.lean <= 0 ? 'A' : 'B');
+  }
 }
 
 function resolveDecision(choice) {
@@ -496,7 +575,15 @@ function resolveDecision(choice) {
   if (d.type === 'snore-threat') {
     const targetIdx = d.data.targetIdx;
     if (choice === 'A') {
-      // Let it happen — syndicates scatter, connections break
+      // Bright: sacrifice dust to calm
+      const sacrificeIdx = d.data.sacrificeIdx;
+      const sl = S.slices[sacrificeIdx];
+      sl.syndicates.forEach(syn => { syn.dustHeld = Math.max(0, syn.dustHeld * 0.4); });
+      sl.drain = { startTime: performance.now(), duration: 2000, claimed: 0 };
+      S.slug.disturbance = Math.max(0, S.slug.disturbance - 30);
+      showToast('CALMED');
+    } else {
+      // Dark: let it happen — syndicates scatter
       const sl = S.slices[targetIdx];
       sl.syndicates.forEach(syn => {
         syn.pos.a = Math.random();
@@ -506,15 +593,7 @@ function resolveDecision(choice) {
       sl.connectors = [];
       sl.buttermoths = [];
       sl.drain = { startTime: performance.now(), duration: 1500, claimed: 0 };
-      showToast('REARRANGED — connections lost');
-    } else {
-      // Sacrifice dust from another slice to calm the slug
-      const sacrificeIdx = d.data.sacrificeIdx;
-      const sl = S.slices[sacrificeIdx];
-      sl.syndicates.forEach(syn => { syn.dustHeld = Math.max(0, syn.dustHeld * 0.4); });
-      sl.drain = { startTime: performance.now(), duration: 2000, claimed: 0 };
-      S.slug.disturbance = Math.max(0, S.slug.disturbance - 30);
-      showToast('SACRIFICED — the slug settles');
+      showToast('SCATTERED');
     }
   }
 
@@ -523,10 +602,14 @@ function resolveDecision(choice) {
     const fromIdx = d.data.fromIdx;
     const toIdx = d.data.toIdx;
     if (choice === 'A') {
-      // Let them go — they colonize the new slice
+      // Bright: keep them — trust frays
+      const syn = S.slices[fromIdx].syndicates[synIdx];
+      syn.trust = Math.max(0.1, syn.trust - 0.3);
+      showToast('HELD');
+    } else {
+      // Dark: let them go — colonize
       const syn = S.slices[fromIdx].syndicates[synIdx];
       S.slices[fromIdx].syndicates.splice(synIdx, 1);
-      // Plant the new slice via exodus
       const sl = S.slices[toIdx];
       sl.spoire = { plantedAt: Date.now(), dustAccum: 0, pos: { a: 0.5, r: 0.75 } };
       sl.underground.bloomed = true;
@@ -535,19 +618,18 @@ function resolveDecision(choice) {
         dustHeld: syn.dustHeld * 0.5, trust: syn.trust,
         pos: { r: 0.4, a: 0.5 },
       });
-      showToast(syn.name.toUpperCase() + ' DEPARTS — new ground');
-    } else {
-      // Keep them — but they resent it
-      const syn = S.slices[fromIdx].syndicates[synIdx];
-      syn.trust = Math.max(0.1, syn.trust - 0.3);
-      showToast(syn.name.toUpperCase() + ' STAYS — trust frays');
+      showToast('DEPARTED');
     }
   }
 
   else if (d.type === 'claim') {
     const sliceIdx = d.data.sliceIdx;
     if (choice === 'A') {
-      // Let them claim it — massive enrichment but you lose the slice
+      // Bright: refuse — slug stirs
+      S.slug.disturbance = Math.min(100, S.slug.disturbance + 25);
+      showToast('REFUSED');
+    } else {
+      // Dark: yield — they claim it
       const sl = S.slices[sliceIdx];
       S.claimedSlices.push(sliceIdx);
       sl.enrichment += 1.0;
@@ -556,18 +638,20 @@ function resolveDecision(choice) {
       sl.connectors = [];
       sl.buttermoths = [];
       sl.drain = { startTime: performance.now(), duration: 3000, claimed: 0 };
-      showToast('CLAIMED — no longer yours');
-    } else {
-      // Refuse — you keep it but disturbance spikes
-      S.slug.disturbance = Math.min(100, S.slug.disturbance + 25);
-      showToast('REFUSED — the slug stirs');
+      showToast('YIELDED');
     }
   }
 
   else if (d.type === 'decree') {
     const sliceIdx = d.data.sliceIdx;
     if (choice === 'A') {
-      // Comply — abandon the slice, slug calms deeply
+      // Bright: defy — the slug remembers
+      S.slug.disturbance = 100;
+      S.slug.state = 'speak';
+      updateSlugLabel();
+      showToast('DEFIED');
+    } else {
+      // Dark: comply — abandon
       const sl = S.slices[sliceIdx];
       sl.spoire = null;
       sl.syndicates = [];
@@ -577,13 +661,7 @@ function resolveDecision(choice) {
       sl.underground.bloomed = false;
       sl.drain = { startTime: performance.now(), duration: 3000, claimed: 0 };
       S.slug.disturbance = Math.max(0, S.slug.disturbance - 50);
-      showToast('ABANDONED — the slug rests');
-    } else {
-      // Defy — disturbance locks at peak
-      S.slug.disturbance = 100;
-      S.slug.state = 'speak';
-      updateSlugLabel();
-      showToast('DEFIED — the slug will not forget');
+      showToast('ABANDONED');
     }
   }
 
@@ -606,8 +684,8 @@ function checkSnoreThreat() {
   presentDecision({
     type: 'snore-threat',
     text: `THE SLUG SNORES TOWARD SLICE ${target.i + 1}`,
-    optA: { label: 'LET IT', desc: 'syndicates scatter, connections break' },
-    optB: { label: 'SACRIFICE ' + (sacrifice.i + 1), desc: 'drain dust to calm' },
+    optA: { label: 'CALM' },
+    optB: { label: 'SCATTER' },
     data: { targetIdx: target.i, sacrificeIdx: sacrifice.i },
   });
 }
@@ -633,8 +711,8 @@ function checkExodus() {
       presentDecision({
         type: 'exodus',
         text: syn.name.toUpperCase() + ' WANTS TO LEAVE SLICE ' + (i + 1),
-        optA: { label: 'LET THEM', desc: 'they colonize slice ' + (target.idx + 1) },
-        optB: { label: 'KEEP THEM', desc: 'trust frays' },
+        optA: { label: 'HOLD' },
+        optB: { label: 'RELEASE' },
         data: { synIdx: si, fromIdx: i, toIdx: target.idx },
       });
       return;
@@ -657,8 +735,8 @@ function checkClaim() {
     presentDecision({
       type: 'claim',
       text: 'SLICE ' + (i + 1) + ' HAS BEEN NOTICED',
-      optA: { label: 'YIELD', desc: 'they claim it — massive enrichment, no longer yours' },
-      optB: { label: 'REFUSE', desc: 'the slug stirs' },
+      optA: { label: 'REFUSE' },
+      optB: { label: 'YIELD' },
       data: { sliceIdx: i },
     });
     return;
@@ -685,8 +763,8 @@ function checkDecree() {
   presentDecision({
     type: 'decree',
     text: 'THE MYCOURT DECREES: ABANDON SLICE ' + (target.i + 1),
-    optA: { label: 'COMPLY', desc: 'abandon — the slug rests' },
-    optB: { label: 'DEFY', desc: 'the slug will not forget' },
+    optA: { label: 'DEFY' },
+    optB: { label: 'COMPLY' },
     data: { sliceIdx: target.i },
   });
 }
@@ -1637,7 +1715,7 @@ let lastDustTotal = 0;
 let dustPulse = 0; // 0-1, fades after production tick
 
 function renderHud() {
-  const dustTotal = S.dust.mass + S.dust.fineness;
+  const dustTotal = S.dust.dark + S.dust.bright;
   const el = document.getElementById('dust-readout');
 
   // Detect production
@@ -1647,11 +1725,11 @@ function renderHud() {
   lastDustTotal = dustTotal;
   dustPulse = Math.max(0, dustPulse - 0.02);
 
-  // Show dust only when there IS dust — and keep it simple
+  // Show dust only when there IS dust
   if (dustTotal < 0.1) {
     el.textContent = '';
   } else {
-    el.textContent = `SPOREDUST: ${dustTotal.toFixed(1)}`;
+    el.textContent = `BRIGHT ${S.dust.bright.toFixed(1)}  DARK ${S.dust.dark.toFixed(1)}`;
     el.style.color = dustPulse > 0
       ? `rgba(220,200,120,${0.5 + dustPulse * 0.4})`
       : 'rgba(180,160,140,0.7)';
@@ -1672,10 +1750,12 @@ function renderHud() {
   if (S.decision) {
     dEl.classList.remove('hidden');
     document.getElementById('decision-text').textContent = S.decision.text;
-    dEl.querySelector('#decision-a .decision-label').textContent = S.decision.optA.label;
-    dEl.querySelector('#decision-a .decision-desc').textContent = S.decision.optA.desc;
-    dEl.querySelector('#decision-b .decision-label').textContent = S.decision.optB.label;
-    dEl.querySelector('#decision-b .decision-desc').textContent = S.decision.optB.desc;
+    // Lean pip position: lean -1 = far left, 0 = center, +1 = far right
+    const leanPct = 10 + (S.decision.lean + 1) * 40; // 10% to 90%
+    document.getElementById('lean-pip').style.left = leanPct + '%';
+    // Labels
+    document.getElementById('label-bright').textContent = S.decision.optA.label;
+    document.getElementById('label-dark').textContent = S.decision.optB.label;
   } else {
     dEl.classList.add('hidden');
   }
