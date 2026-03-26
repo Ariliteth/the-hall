@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>MYCOURT</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0808; touch-action: none; }
+  canvas { display: block; }
+
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    pointer-events: none; z-index: 10;
+    font-family: 'Courier New', monospace;
+    color: rgba(180, 160, 140, 0.7);
+    padding: 12px 16px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    font-size: 12px; letter-spacing: 1px;
+  }
+  #hud > div { background: rgba(10,8,8,0.6); padding: 6px 10px; border-radius: 3px; }
+
+  #balance-bar {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    width: 200px; height: 6px; background: rgba(30,23,16,0.8);
+    border-radius: 3px; z-index: 10; pointer-events: none;
+  }
+  #balance-bar::before, #balance-bar::after {
+    content: ''; position: absolute; top: 0; height: 100%; border-radius: 3px;
+    transition: width 0.3s;
+  }
+  #balance-bar::before { right: 50%; background: rgba(200,130,10,0.6); width: var(--inf-w, 0%); }
+  #balance-bar::after { left: 50%; background: rgba(40,160,120,0.5); width: var(--col-w, 0%); }
+  #balance-pip {
+    position: absolute; top: -3px; left: 50%; width: 4px; height: 12px;
+    background: rgba(200,180,140,0.3); transform: translateX(-50%); border-radius: 2px;
+    transition: background 0.5s;
+  }
+  #balance-pip.balanced { background: rgba(200,180,140,0.9); }
+
+  #slug-label {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    font-family: 'Courier New', monospace; font-size: 10px;
+    color: rgba(120, 80, 200, 0.4); letter-spacing: 2px;
+    pointer-events: none; z-index: 10;
+  }
+
+  #slice-info {
+    position: fixed; bottom: 50px; right: 16px;
+    font-family: 'Courier New', monospace; font-size: 11px;
+    color: rgba(180,160,140,0.6); pointer-events: none; z-index: 10;
+    text-align: right; line-height: 1.6;
+    background: rgba(10,8,8,0.6); padding: 8px 12px; border-radius: 3px;
+    display: none; max-width: 200px;
+  }
+  #slice-info.visible { display: block; }
+
+  #toast {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-family: 'Courier New', monospace; font-size: 14px;
+    color: rgba(200, 180, 140, 0.9); letter-spacing: 2px;
+    pointer-events: none; z-index: 20;
+    opacity: 0; transition: opacity 0.4s;
+    text-align: center; padding: 12px 20px;
+    background: rgba(10,8,8,0.85); border-radius: 4px;
+  }
+  #toast.show { opacity: 1; }
+
+  #prompt-bar {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    font-family: 'Courier New', monospace; font-size: 11px;
+    color: rgba(136, 204, 68, 0.7); letter-spacing: 1px;
+    pointer-events: none; z-index: 10;
+    opacity: 0; transition: opacity 0.3s;
+    text-align: center;
+  }
+  #prompt-bar.show { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="dust-readout">DUST: 0</div>
+  <div id="slug-state">THE SLUG SLEEPS</div>
+</div>
+
+<div id="balance-bar"><div id="balance-pip"></div></div>
+<div id="slug-label">THE SLUG</div>
+<div id="slice-info"></div>
+<div id="toast"></div>
+<div id="prompt-bar"></div>
+
+<script>
+// ===== HUB INTEGRATION =====
+try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
+try { window.parent.postMessage({ type: 'hub:color', r: 25, g: 15, b: 30 }, '*'); } catch(e) {}
+
+// ===== CANVAS SETUP =====
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, CX, CY, RADIUS;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  CX = W / 2;
+  CY = H / 2;
+  RADIUS = Math.min(CX, CY) * 0.82;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ===== CONSTANTS =====
+const SLICE_COUNT = 20;
+const SLICE_ARC = (2 * Math.PI) / SLICE_COUNT;
+const TAU = Math.PI * 2;
+const BIOMES = ['city', 'forest', 'mine', 'coast'];
+const BIOME_COLORS = {
+  city:   { fill: '#332e28', accent: '#d4b060', icon: '#c8a050', light: '#4a4035' },
+  forest: { fill: '#243520', accent: '#70b858', icon: '#58a838', light: '#2e4028' },
+  mine:   { fill: '#2e2a22', accent: '#a89060', icon: '#907838', light: '#3a3428' },
+  coast:  { fill: '#222e38', accent: '#58a8c8', icon: '#3888b8', light: '#283848' },
+};
+const SYNDICATE_TYPES = [
+  { name: 'Finespun', pref: 'fineness', color: [180, 140, 220], shape: 'diamond', hues: [270, 340] },  // amethyst, rose
+  { name: 'Massroot', pref: 'mass', color: [170, 120, 60], shape: 'square', hues: [30] },              // amber
+  { name: 'Chromaveil', pref: 'color', color: [80, 200, 150], shape: 'triangle', hues: [120] },        // emerald
+  { name: 'Dustweaver', pref: 'fineness', color: [220, 180, 80], shape: 'star', hues: [0, 30] },       // ruby, amber
+  { name: 'Deephold', pref: 'mass', color: [140, 100, 160], shape: 'circle', hues: [200, 270] },       // sapphire, amethyst
+];
+const MINERAL_HUES = [0, 30, 120, 200, 270, 340]; // ruby, amber, emerald, sapphire, amethyst, rose
+const SLUG_STATES = ['sleep', 'shift', 'yawn', 'snore', 'peek', 'speak'];
+const SLUG_THRESHOLDS = [0, 30, 50, 70, 85, 95];
+
+// ===== STATE =====
+const S = {
+  dialAngle: 0,
+  dialVelocity: 0,
+  selectedSlice: null,
+  slices: [],
+  slug: { disturbance: 0, state: 'sleep', breathPhase: 0, eyeOpen: 0, mouthOpen: 0, offsetX: 0 },
+  totalInfluence: 0,
+  totalCollection: 0,
+  dust: { fineness: 0, mass: 0 },
+  phase: 'observe',
+  drag: null,
+  placementMode: null,
+  placementStep: null, // for connector: 'pickSyndicate' or 'pickSurface'
+  pendingConnector: null, // { sliceIdx, synIdx }
+  spoireLaunch: null,
+  particles: [],
+  tickAccum: 0,
+  tickCount: 0,
+  tickRate: 1000,
+  confirmPlant: null, // sliceIdx awaiting confirmation
+};
+
+// ===== SLICE GENERATION =====
+function generateSlice(i) {
+  const biome = BIOMES[i % BIOMES.length];
+  const specks = [];
+  for (let j = 0; j < 8 + Math.floor(Math.random() * 8); j++) {
+    specks.push({
+      r: 0.3 + Math.random() * 0.6, // radial position (0=center, 1=rim)
+      a: Math.random(),              // angular position within slice (0-1)
+      hue: MINERAL_HUES[Math.floor(Math.random() * MINERAL_HUES.length)],
+      size: 1 + Math.random() * 2,
+      alpha: 0.15 + Math.random() * 0.2,
+    });
+  }
+  return {
+    id: i, biome,
+    spoire: null,
+    syndicates: [],
+    connectors: [],
+    buttermoths: [],
+    topsiders: [],
+    surfaceBuildings: 0,
+    underground: { mineralSpecks: specks, bloomed: false },
+    enrichment: 0,
+  };
+}
+
+function initSlices() {
+  // Shuffle biomes so they're not perfectly ordered
+  const shuffled = [];
+  for (let i = 0; i < SLICE_COUNT; i++) {
+    shuffled.push(BIOMES[Math.floor(Math.random() * BIOMES.length)]);
+  }
+  S.slices = [];
+  for (let i = 0; i < SLICE_COUNT; i++) {
+    const sl = generateSlice(i);
+    sl.biome = shuffled[i];
+    S.slices.push(sl);
+  }
+}
+
+// ===== SYNDICATE GENERATION =====
+// Syndicates emerge from the minerals already in the soil.
+// Tally the hues present in this slice's mineral specks, then match to syndicate types.
+function generateSyndicates(sliceIdx) {
+  const sl = S.slices[sliceIdx];
+  const specks = sl.underground.mineralSpecks;
+
+  // Count mineral hues
+  const hueCounts = {};
+  specks.forEach(sp => {
+    hueCounts[sp.hue] = (hueCounts[sp.hue] || 0) + 1;
+  });
+
+  // Score each syndicate type by how many matching minerals are present
+  const scored = SYNDICATE_TYPES.map(type => {
+    const score = type.hues.reduce((sum, h) => sum + (hueCounts[h] || 0), 0);
+    return { type, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+
+  // Top 1-3 types emerge (at least 1 mineral match needed, except always spawn at least 1)
+  const emerging = scored.filter(s => s.score > 0).slice(0, 3);
+  if (emerging.length === 0) emerging.push(scored[0]); // fallback: strongest affinity
+
+  emerging.forEach((entry, i) => {
+    const type = entry.type;
+    // Position near the matching minerals
+    const matchingSpecks = specks.filter(sp => type.hues.includes(sp.hue));
+    const avgA = matchingSpecks.length > 0
+      ? matchingSpecks.reduce((s, sp) => s + sp.a, 0) / matchingSpecks.length
+      : (i + 0.5) / emerging.length;
+    const avgR = matchingSpecks.length > 0
+      ? matchingSpecks.reduce((s, sp) => s + sp.r, 0) / matchingSpecks.length
+      : 0.35 + Math.random() * 0.3;
+
+    sl.syndicates.push({
+      name: type.name,
+      pref: type.pref,
+      color: [...type.color],
+      shape: type.shape,
+      dustHeld: 0,
+      trust: 0.5 + Math.random() * 0.3,
+      pos: { r: Math.max(0.25, Math.min(0.65, avgR)), a: Math.max(0.1, Math.min(0.9, avgA)) },
+    });
+  });
+}
+
+// ===== PERSISTENCE =====
+const SAVE_NS = 'mycourt/';
+function saveState() {
+  try {
+    localStorage.setItem(SAVE_NS + 'slices', JSON.stringify(S.slices));
+    localStorage.setItem(SAVE_NS + 'slug', JSON.stringify(S.slug));
+    localStorage.setItem(SAVE_NS + 'dust', JSON.stringify(S.dust));
+    localStorage.setItem(SAVE_NS + 'dialAngle', S.dialAngle);
+    localStorage.setItem(SAVE_NS + 'totalInfluence', S.totalInfluence);
+    localStorage.setItem(SAVE_NS + 'totalCollection', S.totalCollection);
+    localStorage.setItem(SAVE_NS + 'tickCount', S.tickCount);
+    localStorage.setItem(SAVE_NS + 'lastSave', Date.now());
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const slices = localStorage.getItem(SAVE_NS + 'slices');
+    if (!slices) return false;
+    S.slices = JSON.parse(slices);
+    S.slug = JSON.parse(localStorage.getItem(SAVE_NS + 'slug')) || S.slug;
+    S.dust = JSON.parse(localStorage.getItem(SAVE_NS + 'dust')) || S.dust;
+    S.dialAngle = parseFloat(localStorage.getItem(SAVE_NS + 'dialAngle')) || 0;
+    S.totalInfluence = parseFloat(localStorage.getItem(SAVE_NS + 'totalInfluence')) || 0;
+    S.totalCollection = parseFloat(localStorage.getItem(SAVE_NS + 'totalCollection')) || 0;
+    S.tickCount = parseInt(localStorage.getItem(SAVE_NS + 'tickCount')) || 0;
+    // Offline catch-up
+    const lastSave = parseInt(localStorage.getItem(SAVE_NS + 'lastSave')) || 0;
+    if (lastSave > 0) {
+      const elapsed = Math.floor((Date.now() - lastSave) / S.tickRate);
+      const catchUp = Math.min(elapsed, 300); // cap at 5 min of offline ticks
+      for (let i = 0; i < catchUp; i++) gameTick(true);
+    }
+    // Determine phase
+    if (S.slices.some(sl => sl.spoire)) S.phase = 'managing';
+    return true;
+  } catch(e) { return false; }
+}
+
+// ===== GAME TICK =====
+function gameTick(silent) {
+  S.slices.forEach(sl => {
+    if (!sl.spoire) return;
+
+    // Syndicates gather dust — proximity to the Spoire matters
+    const spoireA = sl.spoire.pos?.a || 0.5;
+    sl.syndicates.forEach(syn => {
+      const rate = syn.pref === 'fineness' ? 0.3 : syn.pref === 'mass' ? 0.5 : 0.4;
+      // Closer to spoire = stronger influence = more dust
+      const dist = Math.abs(syn.pos.a - spoireA);
+      const proximity = 1 - dist * 0.6; // 1.0 when overlapping, ~0.7 at far edge
+      syn.dustHeld += rate * syn.trust * proximity * (1 + sl.enrichment * 0.3);
+    });
+
+    // Connectors: cooldown + influence
+    sl.connectors.forEach(conn => {
+      if (conn.cooldown > 0) conn.cooldown--;
+      if (conn.cooldown <= 0) {
+        S.totalInfluence += conn.strength * 0.1;
+      }
+    });
+
+    // Buttermoths: collect
+    sl.buttermoths.forEach(bm => {
+      const age = Date.now() - bm.placedAt;
+      bm.efficiency = Math.min(1, age / (300000)); // 5 min to max
+      if (sl.connectors[bm.routeIdx] && sl.connectors[bm.routeIdx].cooldown <= 0) {
+        const collected = bm.efficiency * 0.4;
+        S.totalCollection += collected;
+        S.dust.mass += collected * 0.6;
+        S.dust.fineness += collected * 0.4;
+      }
+    });
+
+    // Topsider generation
+    const activeConns = sl.connectors.filter(c => c.cooldown <= 0).length;
+    if (activeConns > 0 && sl.topsiders.length < 3 && Math.random() < 0.03 * activeConns) {
+      sl.topsiders.push({ investigating: false, buildProgress: 0, claimedDust: 0 });
+    }
+  });
+
+  // Balance
+  updateBalance();
+  updateSlugState();
+  checkInvestigations();
+
+  // Spawn dust particles
+  if (!silent) spawnDustParticles();
+
+  S.tickCount++;
+  if (S.tickCount % 5 === 0) saveState();
+}
+
+function updateBalance() {
+  const total = S.totalInfluence + S.totalCollection;
+  if (total < 0.5) return; // need meaningful activity before balance matters
+  const ratio = S.totalCollection / Math.max(0.1, S.totalInfluence);
+  const imbalance = Math.abs(1 - ratio);
+  // Slow rise — the slug is patient. Fast decay — balance is self-correcting.
+  S.slug.disturbance = Math.min(100, S.slug.disturbance + imbalance * 0.4);
+  S.slug.disturbance = Math.max(0, S.slug.disturbance - 0.6);
+}
+
+function updateSlugState() {
+  let newState = 'sleep';
+  for (let i = SLUG_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (S.slug.disturbance >= SLUG_THRESHOLDS[i]) { newState = SLUG_STATES[i]; break; }
+  }
+  if (newState !== S.slug.state) {
+    S.slug.state = newState;
+    updateSlugLabel();
+  }
+}
+
+function checkInvestigations() {
+  S.slices.forEach(sl => {
+    if (!sl.spoire) return;
+    sl.topsiders.forEach(t => {
+      if (t.investigating) {
+        t.buildProgress++;
+        if (t.buildProgress >= 30) {
+          // Investigation complete
+          const claimed = sl.syndicates.reduce((sum, syn) => {
+            const take = syn.dustHeld * 0.3;
+            syn.dustHeld -= take;
+            return sum + take;
+          }, 0);
+          t.claimedDust = claimed;
+          sl.surfaceBuildings++;
+          sl.enrichment += 0.2;
+          S.slug.disturbance = Math.max(0, S.slug.disturbance - 15);
+          // Remove investigator, leave enrichment
+          sl.topsiders = sl.topsiders.filter(x => x !== t);
+          showToast('INVESTIGATED — slice enriched');
+        }
+      } else if (S.slug.disturbance > 30 && Math.random() < 0.05) {
+        t.investigating = true;
+      }
+    });
+  });
+}
+
+// ===== PARTICLES =====
+function spawnDustParticles() {
+  S.slices.forEach((sl, si) => {
+    sl.connectors.forEach((conn, ci) => {
+      if (conn.cooldown > 0) return;
+      if (Math.random() > 0.3) return;
+      const syn = sl.syndicates[conn.synIdx];
+      if (!syn) return;
+      // Particle at syndicate position
+      const sliceAngle = S.dialAngle + si * SLICE_ARC + syn.pos.a * SLICE_ARC;
+      const r = RADIUS * syn.pos.r;
+      S.particles.push({
+        x: CX + Math.cos(sliceAngle) * r,
+        y: CY + Math.sin(sliceAngle) * r,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: -0.2 - Math.random() * 0.3,
+        life: 1,
+        decay: 0.003 + Math.random() * 0.004,
+        color: syn.color,
+        size: 1 + Math.random(),
+      });
+    });
+  });
+}
+
+function updateParticles(dt) {
+  for (let i = S.particles.length - 1; i >= 0; i--) {
+    const p = S.particles[i];
+    p.x += p.vx * dt * 0.06;
+    p.y += p.vy * dt * 0.06;
+    p.life -= p.decay * dt * 0.06;
+    if (p.life <= 0) S.particles.splice(i, 1);
+  }
+  // Cap particles
+  if (S.particles.length > 200) S.particles.splice(0, S.particles.length - 200);
+}
+
+// ===== HELPERS =====
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `${r},${g},${b}`;
+}
+
+// ===== GUIDE MOTHS =====
+// Small ambient moths that drift near interactable things — they ARE the UI hints.
+// Each guide moth orbits a target position, gently pulsing. They appear/disappear
+// based on what actions are available.
+function getGuideMoths() {
+  const moths = [];
+  const now = performance.now();
+
+  S.slices.forEach((sl, si) => {
+    const midA = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + SLICE_ARC / 2;
+    const normMid = ((midA % TAU) + TAU) % TAU;
+    const isOWVisible = normMid < Math.PI;
+
+    // Unplanted overworld slices: moth drifts near surface
+    if (!sl.spoire && isOWVisible) {
+      const r = RADIUS * 0.82;
+      moths.push({
+        x: CX + Math.cos(midA) * r,
+        y: CY + Math.sin(midA) * r,
+        color: [136, 204, 68], // spoire green
+        size: 1.2,
+        label: null,
+        type: 'plant',
+        seed: si,
+      });
+    }
+
+    if (!sl.spoire) return;
+
+    // Unconnected syndicates: moth circles the syndicate
+    sl.syndicates.forEach((syn, synI) => {
+      const hasConn = sl.connectors.some(c => c.synIdx === synI);
+      if (hasConn) return;
+      const isUGVisible = !isOWVisible; // underground visible when slice is in bottom half
+      // Show even when not perfectly visible — syndicates want to be found
+      const angle = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + syn.pos.a * SLICE_ARC;
+      const r = RADIUS * syn.pos.r;
+      moths.push({
+        x: CX + Math.cos(angle) * r,
+        y: CY + Math.sin(angle) * r,
+        color: syn.color,
+        size: 1.0,
+        label: null,
+        type: 'connect',
+        seed: si * 10 + synI,
+      });
+    });
+
+    // Connectors without buttermoths: moth drifts along route midpoint
+    sl.connectors.forEach((conn, ci) => {
+      const hasMoth = sl.buttermoths.some(bm => bm.routeIdx === ci);
+      if (hasMoth || conn.cooldown > 0) return;
+      const syn = sl.syndicates[conn.synIdx];
+      if (!syn) return;
+      const synAngle = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + syn.pos.a * SLICE_ARC;
+      const synR = RADIUS * syn.pos.r;
+      const surfAngle = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + conn.surfacePos * SLICE_ARC;
+      const surfR = RADIUS * 0.7;
+      const mx = CX + Math.cos(synAngle) * synR * 0.5 + Math.cos(surfAngle) * surfR * 0.5;
+      const my = CY + Math.sin(synAngle) * synR * 0.5 + Math.sin(surfAngle) * surfR * 0.5;
+      moths.push({
+        x: mx, y: my,
+        color: [200, 180, 140],
+        size: 0.9,
+        label: null,
+        type: 'moth',
+        seed: si * 100 + ci,
+      });
+    });
+  });
+
+  // Pending connector: moth swarm on the overworld side of the target slice
+  if (S.pendingConnector) {
+    const si = S.pendingConnector.sliceIdx;
+    const sl = S.slices[si];
+    const syn = sl.syndicates[S.pendingConnector.synIdx];
+    if (syn) {
+      const midA = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + SLICE_ARC / 2;
+      // Place 2-3 moths along the overworld portion of this slice
+      for (let k = 0; k < 3; k++) {
+        const a = midA + (k - 1) * SLICE_ARC * 0.25;
+        const r = RADIUS * (0.6 + k * 0.1);
+        moths.push({
+          x: CX + Math.cos(a) * r,
+          y: CY + Math.sin(a) * r,
+          color: syn.color,
+          size: 1.3,
+          type: 'target',
+          seed: si * 1000 + k,
+        });
+      }
+    }
+  }
+
+  return moths;
+}
+
+function drawGuideMoths() {
+  const moths = getGuideMoths();
+  const now = performance.now();
+
+  moths.forEach(gm => {
+    // Orbit around target position
+    const orbit = 12;
+    const speed = 0.001 + (gm.seed % 7) * 0.0002;
+    const phase = now * speed + gm.seed * 2.3;
+    const ox = gm.x + Math.cos(phase) * orbit;
+    const oy = gm.y + Math.sin(phase * 0.7) * orbit * 0.6;
+
+    const flap = Math.sin(now * 0.01 + gm.seed) * 3.5;
+    const pulse = 0.5 + 0.3 * Math.sin(now * 0.003 + gm.seed);
+    const c = gm.color;
+    const sz = gm.size;
+
+    // Soft glow beneath
+    ctx.save();
+    const glowR = 15 * sz;
+    const glow = ctx.createRadialGradient(ox, oy, 0, ox, oy, glowR);
+    glow.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},${0.12 * pulse})`);
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(ox, oy, glowR, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    // Wings
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.35 * pulse + 0.15})`;
+    // Left wing
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-4 * sz, -Math.abs(flap) * sz);
+    ctx.lineTo(-1.5 * sz, 1 * sz);
+    ctx.fill();
+    // Right wing
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(4 * sz, -Math.abs(flap) * sz);
+    ctx.lineTo(1.5 * sz, 1 * sz);
+    ctx.fill();
+    // Body dot
+    ctx.beginPath();
+    ctx.arc(0, 0, 1.2 * sz, 0, TAU);
+    ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.6 * pulse + 0.2})`;
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+// ===== RENDERING =====
+function render() {
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+  drawDial();
+  drawConnectors();
+  drawButtermoths();
+  drawParticles();
+  drawSlug();
+  drawSpoires();
+  drawTopsiders();
+  drawGuideMoths();
+  drawSelectionHighlight();
+  renderHud();
+}
+
+function drawBackground() {
+  const grad = ctx.createRadialGradient(CX, CY, 0, CX, CY, Math.max(W, H));
+  grad.addColorStop(0, '#120e0a');
+  grad.addColorStop(1, '#0a0808');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawDial() {
+  // Dial body shadow
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, RADIUS + 4, 0, TAU);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fill();
+
+  // Draw each slice
+  for (let i = 0; i < SLICE_COUNT; i++) {
+    const sl = S.slices[i];
+    const startA = S.dialAngle + i * SLICE_ARC - Math.PI / 2; // -PI/2 so 0=top
+    const endA = startA + SLICE_ARC;
+    const midA = startA + SLICE_ARC / 2;
+
+    // Determine if this slice is in the "overworld" zone (top half) or underground (bottom half)
+    // Normalize midA angle: overworld = roughly top half of circle
+    const normMid = ((midA % TAU) + TAU) % TAU;
+    const isOverworld = normMid < Math.PI; // top half when angle is 0..PI (after -PI/2 offset)
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.arc(CX, CY, RADIUS, startA, endA);
+    ctx.closePath();
+    ctx.clip();
+
+    if (isOverworld) {
+      drawSliceOverworld(sl, startA, endA, midA);
+    } else {
+      drawSliceUnderground(sl, startA, endA, midA);
+    }
+
+    ctx.restore();
+
+    // Slice separator
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.lineTo(CX + Math.cos(startA) * RADIUS, CY + Math.sin(startA) * RADIUS);
+    ctx.strokeStyle = 'rgba(30,23,16,0.6)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Dial rim
+  ctx.beginPath();
+  ctx.arc(CX, CY, RADIUS, 0, TAU);
+  ctx.strokeStyle = 'rgba(60,45,25,0.4)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawSliceOverworld(sl, startA, endA, midA) {
+  const bc = BIOME_COLORS[sl.biome];
+
+  // Base fill — lighter than underground
+  ctx.fillStyle = bc.fill;
+  ctx.fillRect(0, 0, W, H);
+
+  // Ambient light from the surface — radial glow from rim inward
+  const rimX = CX + Math.cos(midA) * RADIUS;
+  const rimY = CY + Math.sin(midA) * RADIUS;
+  const ambGrd = ctx.createRadialGradient(rimX, rimY, 0, rimX, rimY, RADIUS * 0.6);
+  ambGrd.addColorStop(0, bc.light + 'cc');
+  ambGrd.addColorStop(0.5, bc.fill + '80');
+  ambGrd.addColorStop(1, 'transparent');
+  ctx.fillStyle = ambGrd;
+  ctx.fillRect(0, 0, W, H);
+
+  // Enrichment warmth
+  if (sl.enrichment > 0) {
+    const ex = CX + Math.cos(midA) * RADIUS * 0.65;
+    const ey = CY + Math.sin(midA) * RADIUS * 0.65;
+    const grd = ctx.createRadialGradient(ex, ey, 0, ex, ey, RADIUS * 0.35);
+    grd.addColorStop(0, `rgba(220,200,120,${Math.min(0.25, sl.enrichment * 0.15)})`);
+    grd.addColorStop(1, 'transparent');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Biome features at ~70% radius — bold, visible
+  const iconR = RADIUS * 0.7;
+  const ix = CX + Math.cos(midA) * iconR;
+  const iy = CY + Math.sin(midA) * iconR;
+  ctx.save();
+  ctx.translate(ix, iy);
+  ctx.rotate(midA + Math.PI / 2);
+  ctx.fillStyle = bc.icon;
+  ctx.globalAlpha = 0.75;
+
+  if (sl.biome === 'city') {
+    ctx.fillRect(-6, -9, 4, 12);
+    ctx.fillRect(0, -6, 4, 9);
+    ctx.fillRect(-11, -4, 4, 7);
+    // Lit windows
+    ctx.fillStyle = bc.accent;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(-5, -7, 2, 2);
+    ctx.fillRect(-5, -3, 2, 2);
+    ctx.fillRect(1, -4, 2, 2);
+  } else if (sl.biome === 'forest') {
+    // Bigger trees
+    ctx.beginPath();
+    ctx.moveTo(0, -12); ctx.lineTo(-7, 3); ctx.lineTo(7, 3); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-9, -6); ctx.lineTo(-15, 4); ctx.lineTo(-3, 4); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(8, -5); ctx.lineTo(3, 4); ctx.lineTo(13, 4); ctx.fill();
+    // Trunks
+    ctx.fillStyle = bc.fill;
+    ctx.fillRect(-1, 3, 2, 4);
+  } else if (sl.biome === 'mine') {
+    // Entrance arch
+    ctx.beginPath();
+    ctx.moveTo(-8, 4); ctx.lineTo(-8, -2); ctx.lineTo(-4, -6);
+    ctx.lineTo(4, -6); ctx.lineTo(8, -2); ctx.lineTo(8, 4);
+    ctx.strokeStyle = bc.icon; ctx.lineWidth = 2; ctx.stroke();
+    // Ore sparkle
+    ctx.fillStyle = bc.accent;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath(); ctx.arc(-2, -2, 2, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(3, 0, 1.5, 0, TAU); ctx.fill();
+  } else if (sl.biome === 'coast') {
+    // Shoreline waves — bigger, layered
+    for (let row = -4; row <= 4; row += 4) {
+      ctx.beginPath();
+      ctx.moveTo(-12, row);
+      for (let w = -12; w <= 12; w += 3) {
+        ctx.quadraticCurveTo(w + 1.5, row - 4, w + 3, row);
+      }
+      ctx.strokeStyle = bc.icon; ctx.lineWidth = 1.8; ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // Biome label at rim
+  const labelR = RADIUS * 0.92;
+  const lx = CX + Math.cos(midA) * labelR;
+  const ly = CY + Math.sin(midA) * labelR;
+  ctx.save();
+  ctx.translate(lx, ly);
+  ctx.rotate(midA + Math.PI / 2);
+  ctx.font = '7px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = `rgba(${hexToRgb(bc.accent)},0.4)`;
+  ctx.fillText(sl.biome.toUpperCase(), 0, 0);
+  ctx.restore();
+
+  // Surface buildings — warm golden structures
+  if (sl.surfaceBuildings > 0) {
+    const bx = CX + Math.cos(midA) * RADIUS * 0.52;
+    const by = CY + Math.sin(midA) * RADIUS * 0.52;
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(midA + Math.PI / 2);
+    for (let b = 0; b < Math.min(sl.surfaceBuildings, 3); b++) {
+      const ox = (b - 1) * 8;
+      ctx.fillStyle = 'rgba(200,180,100,0.5)';
+      ctx.fillRect(ox - 2, -4, 5, 8);
+      ctx.fillStyle = 'rgba(240,220,140,0.3)';
+      ctx.fillRect(ox - 1, -2, 3, 2);
+    }
+    ctx.restore();
+  }
+}
+
+function drawSliceUnderground(sl, startA, endA, midA) {
+  // Dark soil
+  ctx.fillStyle = '#0e0b08';
+  ctx.fillRect(0, 0, W, H);
+
+  // Mineral specks
+  sl.underground.mineralSpecks.forEach(sp => {
+    const angle = startA + sp.a * SLICE_ARC;
+    const r = RADIUS * sp.r;
+    const sx = CX + Math.cos(angle) * r;
+    const sy = CY + Math.sin(angle) * r;
+    const bloomMul = sl.underground.bloomed ? 2.5 : 1;
+    const alpha = sp.alpha * bloomMul;
+    ctx.beginPath();
+    ctx.arc(sx, sy, sp.size * (sl.underground.bloomed ? 1.5 : 1), 0, TAU);
+    ctx.fillStyle = `hsla(${sp.hue}, 60%, 50%, ${Math.min(0.8, alpha)})`;
+    ctx.fill();
+  });
+
+  // Syndicate posts — proud and distinct
+  if (sl.underground.bloomed) {
+    sl.syndicates.forEach((syn, si) => {
+      const angle = startA + syn.pos.a * SLICE_ARC;
+      const r = RADIUS * syn.pos.r;
+      const sx = CX + Math.cos(angle) * r;
+      const sy = CY + Math.sin(angle) * r;
+      const c = syn.color;
+      const pulse = 0.7 + 0.15 * Math.sin(performance.now() * 0.002 + si * 1.5);
+      const sz = 9; // base size — big enough to see and tap
+
+      // Outer glow — territorial aura
+      ctx.save();
+      const auraR = sz + 8 + Math.min(6, syn.dustHeld * 0.08);
+      const aura = ctx.createRadialGradient(sx, sy, sz * 0.5, sx, sy, auraR);
+      aura.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},${0.25 * pulse})`);
+      aura.addColorStop(1, 'transparent');
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(sx, sy, auraR, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+
+      // Shape — each type shows its sigil
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.shadowColor = `rgba(${c[0]},${c[1]},${c[2]},${0.7 * pulse})`;
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.85 * pulse})`;
+      ctx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.5 * pulse})`;
+      ctx.lineWidth = 1.5;
+
+      const shape = syn.shape || 'circle';
+      if (shape === 'diamond') {
+        ctx.beginPath();
+        ctx.moveTo(0, -sz); ctx.lineTo(sz * 0.7, 0);
+        ctx.lineTo(0, sz); ctx.lineTo(-sz * 0.7, 0);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      } else if (shape === 'square') {
+        const h = sz * 0.75;
+        ctx.fillRect(-h, -h, h * 2, h * 2);
+        ctx.strokeRect(-h, -h, h * 2, h * 2);
+      } else if (shape === 'triangle') {
+        ctx.beginPath();
+        ctx.moveTo(0, -sz); ctx.lineTo(sz * 0.9, sz * 0.7);
+        ctx.lineTo(-sz * 0.9, sz * 0.7);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      } else if (shape === 'star') {
+        ctx.beginPath();
+        for (let p = 0; p < 5; p++) {
+          const a = (p * TAU / 5) - Math.PI / 2;
+          const aInner = a + TAU / 10;
+          ctx.lineTo(Math.cos(a) * sz, Math.sin(a) * sz);
+          ctx.lineTo(Math.cos(aInner) * sz * 0.45, Math.sin(aInner) * sz * 0.45);
+        }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, sz * 0.7, 0, TAU);
+        ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+
+      // Name — displayed proudly below the sigil
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(angle + Math.PI / 2); // orient to slice
+      ctx.font = 'bold 8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.7 * pulse})`;
+      ctx.fillText(syn.name.toUpperCase(), 0, sz + 12);
+      ctx.restore();
+
+      // Dust held — ring that grows with accumulation
+      if (syn.dustHeld > 1) {
+        const ringR = sz + 3 + Math.min(8, syn.dustHeld * 0.06);
+        ctx.beginPath();
+        ctx.arc(sx, sy, ringR, 0, TAU);
+        ctx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.2 + Math.min(0.2, syn.dustHeld * 0.005)})`;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    });
+  }
+}
+
+function drawConnectors() {
+  S.slices.forEach((sl, si) => {
+    sl.connectors.forEach((conn, ci) => {
+      const syn = sl.syndicates[conn.synIdx];
+      if (!syn) return;
+
+      // Source: syndicate position (underground)
+      const synAngle = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + syn.pos.a * SLICE_ARC;
+      const synR = RADIUS * syn.pos.r;
+      const sx = CX + Math.cos(synAngle) * synR;
+      const sy = CY + Math.sin(synAngle) * synR;
+
+      // Target: surface position (overworld — flip to top half)
+      const surfAngle = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + conn.surfacePos * SLICE_ARC;
+      const surfR = RADIUS * 0.7;
+      const tx = CX + Math.cos(surfAngle) * surfR;
+      const ty = CY + Math.sin(surfAngle) * surfR;
+
+      // Bezier control point through center
+      const cpx = CX + (sx + tx - 2 * CX) * 0.3;
+      const cpy = CY + (sy + ty - 2 * CY) * 0.3;
+
+      const cooling = conn.cooldown > 0;
+      const alpha = cooling ? 0.15 + 0.1 * Math.sin(performance.now() * 0.003) : 0.5;
+
+      ctx.save();
+      ctx.shadowColor = `rgba(${syn.color[0]},${syn.color[1]},${syn.color[2]},${alpha * 0.8})`;
+      ctx.shadowBlur = cooling ? 4 : 8;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(cpx, cpy, tx, ty);
+      ctx.strokeStyle = `rgba(${syn.color[0]},${syn.color[1]},${syn.color[2]},${alpha})`;
+      ctx.lineWidth = cooling ? 1 : 2;
+      ctx.stroke();
+      ctx.restore();
+    });
+  });
+}
+
+function drawButtermoths() {
+  const now = performance.now();
+  S.slices.forEach((sl, si) => {
+    sl.buttermoths.forEach(bm => {
+      const conn = sl.connectors[bm.routeIdx];
+      if (!conn) return;
+      const syn = sl.syndicates[conn.synIdx];
+      if (!syn) return;
+
+      // Position along route (oscillate)
+      const t = 0.3 + 0.4 * Math.sin(now * 0.0003 + bm.placedAt * 0.001);
+
+      const synAngle = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + syn.pos.a * SLICE_ARC;
+      const synR = RADIUS * syn.pos.r;
+      const sx = CX + Math.cos(synAngle) * synR;
+      const sy = CY + Math.sin(synAngle) * synR;
+
+      const surfAngle = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + conn.surfacePos * SLICE_ARC;
+      const surfR = RADIUS * 0.7;
+      const tx = CX + Math.cos(surfAngle) * surfR;
+      const ty = CY + Math.sin(surfAngle) * surfR;
+
+      const mx = sx + (tx - sx) * t;
+      const my = sy + (ty - sy) * t;
+
+      // Wings flap
+      const flap = Math.sin(now * 0.008 + bm.placedAt) * 4;
+      const wingAlpha = 0.4 + bm.efficiency * 0.3;
+
+      ctx.save();
+      ctx.translate(mx, my);
+      ctx.fillStyle = `rgba(200,180,140,${wingAlpha})`;
+      // Left wing
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(-5, -Math.abs(flap)); ctx.lineTo(-2, 1); ctx.fill();
+      // Right wing
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(5, -Math.abs(flap)); ctx.lineTo(2, 1); ctx.fill();
+      // Body
+      ctx.beginPath();
+      ctx.arc(0, 0, 1.5, 0, TAU);
+      ctx.fillStyle = `rgba(160,140,100,${wingAlpha + 0.2})`;
+      ctx.fill();
+      ctx.restore();
+    });
+  });
+}
+
+function drawParticles() {
+  S.particles.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, TAU);
+    ctx.fillStyle = `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${p.life * 0.5})`;
+    ctx.fill();
+  });
+}
+
+function drawSlug() {
+  const slug = S.slug;
+  const slugCY = CY + RADIUS * 0.75;
+  const breathScale = 1 + 0.03 * Math.sin(slug.breathPhase);
+  const slugW = RADIUS * 0.35 * breathScale;
+  const slugH = RADIUS * 0.2 * breathScale;
+  const ox = slug.offsetX;
+
+  ctx.save();
+  // Clip to bottom region
+  ctx.beginPath();
+  ctx.rect(CX - RADIUS * 0.5, CY + RADIUS * 0.45, RADIUS, RADIUS * 0.6);
+  ctx.clip();
+
+  // Body
+  ctx.beginPath();
+  ctx.ellipse(CX + ox, slugCY, slugW, slugH, 0, 0, TAU);
+  ctx.fillStyle = '#1a1520';
+  ctx.fill();
+
+  // Bioluminescent spots
+  const spots = [
+    { dx: -0.3, dy: -0.2, s: 0.15, h: 270 },
+    { dx: 0.2, dy: -0.1, s: 0.12, h: 260 },
+    { dx: -0.1, dy: 0.15, s: 0.1, h: 280 },
+    { dx: 0.35, dy: 0.05, s: 0.08, h: 250 },
+    { dx: -0.35, dy: 0.1, s: 0.09, h: 290 },
+  ];
+  const glowIntensity = slug.state === 'sleep' ? 0.2 :
+    slug.state === 'shift' ? 0.3 : slug.state === 'yawn' ? 0.4 :
+    slug.state === 'snore' ? 0.5 : slug.state === 'peek' ? 0.65 : 0.9;
+
+  spots.forEach(sp => {
+    const gx = CX + ox + sp.dx * slugW;
+    const gy = slugCY + sp.dy * slugH;
+    const grd = ctx.createRadialGradient(gx, gy, 0, gx, gy, slugW * sp.s);
+    grd.addColorStop(0, `hsla(${sp.h}, 60%, 60%, ${glowIntensity})`);
+    grd.addColorStop(1, 'transparent');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(gx, gy, slugW * sp.s * 2, 0, TAU);
+    ctx.fill();
+  });
+
+  // Eyes (peek and speak states)
+  if (slug.state === 'peek' || slug.state === 'speak') {
+    const eyeOpen = slug.eyeOpen;
+    [[-0.15, -0.25], [0.15, -0.25]].forEach(([ex, ey]) => {
+      const px = CX + ox + ex * slugW;
+      const py = slugCY + ey * slugH;
+      ctx.beginPath();
+      ctx.ellipse(px, py, 3, 2 * eyeOpen, 0, 0, TAU);
+      ctx.fillStyle = `rgba(200, 160, 255, ${0.8 * eyeOpen})`;
+      ctx.fill();
+    });
+  }
+
+  // Mouth (yawn, snore, speak)
+  if (slug.state === 'yawn' || slug.state === 'snore' || slug.state === 'speak') {
+    const mo = slug.mouthOpen;
+    ctx.beginPath();
+    ctx.ellipse(CX + ox, slugCY + slugH * 0.1, slugW * 0.12 * mo, slugH * 0.15 * mo, 0, 0, TAU);
+    ctx.fillStyle = `rgba(60, 30, 80, ${0.7 * mo})`;
+    ctx.fill();
+    if (slug.state === 'speak') {
+      // Speaking glow
+      const sgrd = ctx.createRadialGradient(CX + ox, slugCY, 0, CX + ox, slugCY, slugW * 0.6);
+      sgrd.addColorStop(0, `rgba(160, 100, 240, ${0.15 * mo})`);
+      sgrd.addColorStop(1, 'transparent');
+      ctx.fillStyle = sgrd;
+      ctx.fillRect(CX - RADIUS * 0.5, CY + RADIUS * 0.45, RADIUS, RADIUS * 0.6);
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawSpoires() {
+  const now = performance.now();
+  S.slices.forEach((sl, si) => {
+    if (!sl.spoire) return;
+    const spoireA = sl.spoire.pos?.a || 0.5;
+    const spoireR = sl.spoire.pos?.r || 0.8;
+    const sliceStart = S.dialAngle + si * SLICE_ARC - Math.PI / 2;
+    const angle = sliceStart + spoireA * SLICE_ARC;
+    const normAngle = ((angle % TAU) + TAU) % TAU;
+
+    // Draw influence radius even when underground — it reaches through
+    const ix = CX + Math.cos(angle) * RADIUS * spoireR;
+    const iy = CY + Math.sin(angle) * RADIUS * spoireR;
+    const influenceR = RADIUS * 0.25 + sl.enrichment * RADIUS * 0.1;
+    const infGrd = ctx.createRadialGradient(ix, iy, 0, ix, iy, influenceR);
+    const pulse = 0.5 + 0.15 * Math.sin(now * 0.001 + si);
+    infGrd.addColorStop(0, `rgba(136,204,68,${0.08 * pulse})`);
+    infGrd.addColorStop(0.6, `rgba(136,204,68,${0.03 * pulse})`);
+    infGrd.addColorStop(1, 'transparent');
+    ctx.fillStyle = infGrd;
+    ctx.beginPath();
+    ctx.arc(ix, iy, influenceR, 0, TAU);
+    ctx.fill();
+
+    // Only draw the spoire body when in overworld half
+    if (normAngle >= Math.PI) return; // skip body render when underground
+
+    const r = RADIUS * spoireR;
+    const sx = CX + Math.cos(angle) * r;
+    const sy = CY + Math.sin(angle) * r;
+
+    // Is this spoire actively producing? (has buttermoths collecting)
+    const producing = sl.buttermoths.some(bm => {
+      const conn = sl.connectors[bm.routeIdx];
+      return conn && conn.cooldown <= 0 && bm.efficiency > 0;
+    });
+    const prodPulse = producing ? 0.3 + 0.2 * Math.sin(now * 0.002 + si) : 0;
+
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(angle + Math.PI / 2);
+
+    // Spoire cap — mushroom shape
+    ctx.shadowColor = `rgba(136, 204, 68, ${0.6 + prodPulse})`;
+    ctx.shadowBlur = producing ? 14 : 10;
+    // Cap
+    ctx.beginPath();
+    ctx.ellipse(0, -3, 5, 3.5, 0, 0, Math.PI, true);
+    ctx.fillStyle = `rgba(136, 204, 68, ${0.7 + 0.1 * pulse + prodPulse * 0.2})`;
+    ctx.fill();
+    // Stem
+    ctx.fillStyle = `rgba(100, 170, 50, ${0.5 + prodPulse * 0.2})`;
+    ctx.fillRect(-1.5, -3, 3, 10);
+    // Root tendrils reaching down (toward underground)
+    ctx.strokeStyle = `rgba(100, 170, 50, ${0.2 + 0.1 * pulse + prodPulse * 0.3})`;
+    ctx.lineWidth = producing ? 1.2 : 0.8;
+    for (let t = -1; t <= 1; t++) {
+      ctx.beginPath();
+      ctx.moveTo(t * 2, 7);
+      ctx.quadraticCurveTo(t * 5, 14, t * 3, 20);
+      ctx.stroke();
+    }
+
+    // Production motes — tiny sparkles rising from the cap when collecting
+    if (producing) {
+      for (let m = 0; m < 3; m++) {
+        const mPhase = (now * 0.001 + m * 2.1 + si * 0.7) % 3;
+        if (mPhase > 1.5) { // only show half the time — intermittent
+          const my = -5 - mPhase * 8;
+          const mx = Math.sin(mPhase * 4 + m) * 4;
+          const mAlpha = (1.5 - (mPhase - 1.5) * 2) * 0.5;
+          ctx.beginPath();
+          ctx.arc(mx, my, 1, 0, TAU);
+          ctx.fillStyle = `rgba(200,180,100,${mAlpha})`;
+          ctx.fill();
+        }
+      }
+    }
+
+    ctx.restore();
+  });
+
+  // Launch animation
+  if (S.spoireLaunch) {
+    const sl = S.spoireLaunch;
+    const sliceStart = S.dialAngle + sl.sliceIdx * SLICE_ARC - Math.PI / 2;
+    const targetAngle = sliceStart + (sl.posA || 0.5) * SLICE_ARC;
+    const startY = CY + RADIUS * 0.7;
+    const endR = RADIUS * (sl.posR || 0.8);
+    const endX = CX + Math.cos(targetAngle) * endR;
+    const endY = CY + Math.sin(targetAngle) * endR;
+
+    const t = sl.progress;
+    const cx = CX + (endX - CX) * t;
+    const cy = startY + (endY - startY) * t;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(136, 204, 68, 0.8)';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3 + (1 - t) * 3, 0, TAU);
+    ctx.fillStyle = 'rgba(136, 204, 68, 0.9)';
+    ctx.fill();
+
+    // Trail
+    for (let i = 1; i <= 5; i++) {
+      const tt = Math.max(0, t - i * 0.05);
+      const trx = CX + (endX - CX) * tt;
+      const trY = startY + (endY - startY) * tt;
+      ctx.beginPath();
+      ctx.arc(trx, trY, 2, 0, TAU);
+      ctx.fillStyle = `rgba(136, 204, 68, ${0.3 - i * 0.05})`;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function drawTopsiders() {
+  const now = performance.now();
+  S.slices.forEach((sl, si) => {
+    if (!sl.spoire || sl.topsiders.length === 0) return;
+    const midA = S.dialAngle + si * SLICE_ARC - Math.PI / 2 + SLICE_ARC / 2;
+    const normMid = ((midA % TAU) + TAU) % TAU;
+    if (normMid >= Math.PI) return;
+
+    sl.topsiders.forEach((t, ti) => {
+      const offset = (ti - sl.topsiders.length / 2) * 0.2;
+      const angle = midA + offset * SLICE_ARC;
+      const r = RADIUS * 0.58;
+      const tx = CX + Math.cos(angle) * r;
+      const ty = CY + Math.sin(angle) * r;
+
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(angle + Math.PI / 2); // orient toward center
+
+      if (t.investigating) {
+        // Investigator: crouched figure peering down with a lens
+        const progress = Math.min(1, t.buildProgress / 30);
+
+        // Progress arc — how deep into investigation
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, -Math.PI / 2, -Math.PI / 2 + progress * TAU);
+        ctx.strokeStyle = `rgba(240,200,80,${0.3 + progress * 0.4})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Body — crouched, leaning forward
+        ctx.fillStyle = `rgba(220,180,60,${0.6 + progress * 0.2})`;
+        // Torso (tilted)
+        ctx.beginPath();
+        ctx.ellipse(2, 0, 3, 5, 0.3, 0, TAU);
+        ctx.fill();
+        // Head — tilted down
+        ctx.beginPath();
+        ctx.arc(4, -5, 3, 0, TAU);
+        ctx.fill();
+        // Lens / monocle — the peering eye
+        ctx.beginPath();
+        ctx.arc(7, -6, 2.5, 0, TAU);
+        ctx.strokeStyle = `rgba(255,240,180,${0.5 + 0.3 * Math.sin(now * 0.003 + ti)})`;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        // Lens glint
+        ctx.beginPath();
+        ctx.arc(7.5, -6.5, 0.8, 0, TAU);
+        ctx.fillStyle = `rgba(255,255,220,${0.4 + 0.3 * Math.sin(now * 0.005 + ti)})`;
+        ctx.fill();
+
+        // Discovery glow — grows with progress
+        if (progress > 0.5) {
+          const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, 18);
+          grd.addColorStop(0, `rgba(240,200,80,${(progress - 0.5) * 0.2})`);
+          grd.addColorStop(1, 'transparent');
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(0, 0, 18, 0, TAU);
+          ctx.fill();
+        }
+      } else {
+        // Regular topsider: upright figure, walking past
+        const bob = Math.sin(now * 0.002 + ti * 3) * 1.5;
+        ctx.fillStyle = 'rgba(180,160,140,0.45)';
+        // Body
+        ctx.fillRect(-2, -2 + bob, 4, 7);
+        // Head
+        ctx.beginPath();
+        ctx.arc(0, -5 + bob, 2.5, 0, TAU);
+        ctx.fill();
+        // Legs stepping
+        const step = Math.sin(now * 0.004 + ti * 2) * 2;
+        ctx.fillRect(-2, 5 + bob, 1.5, 3 + step);
+        ctx.fillRect(1, 5 + bob, 1.5, 3 - step);
+      }
+
+      ctx.restore();
+    });
+  });
+}
+
+function drawSelectionHighlight() {
+  if (S.selectedSlice === null) return;
+  const i = S.selectedSlice;
+  const startA = S.dialAngle + i * SLICE_ARC - Math.PI / 2;
+  const endA = startA + SLICE_ARC;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(CX, CY);
+  ctx.arc(CX, CY, RADIUS + 2, startA, endA);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(200,180,140,0.3)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ===== HUD =====
+let lastDustTotal = 0;
+let dustPulse = 0; // 0-1, fades after production tick
+
+function renderHud() {
+  const dustTotal = S.dust.mass + S.dust.fineness;
+  const el = document.getElementById('dust-readout');
+
+  // Detect production
+  if (dustTotal > lastDustTotal + 0.01) {
+    dustPulse = 1;
+  }
+  lastDustTotal = dustTotal;
+  dustPulse = Math.max(0, dustPulse - 0.02);
+
+  // Show dust only when there IS dust — and keep it simple
+  if (dustTotal < 0.1) {
+    el.textContent = '';
+  } else {
+    el.textContent = `SPOREDUST: ${dustTotal.toFixed(1)}`;
+    el.style.color = dustPulse > 0
+      ? `rgba(220,200,120,${0.5 + dustPulse * 0.4})`
+      : 'rgba(180,160,140,0.7)';
+  }
+
+  // Balance bar
+  const total = S.totalInfluence + S.totalCollection;
+  const infPct = total > 0 ? Math.min(50, (S.totalInfluence / total) * 50) : 0;
+  const colPct = total > 0 ? Math.min(50, (S.totalCollection / total) * 50) : 0;
+  document.getElementById('balance-bar').style.setProperty('--inf-w', infPct + '%');
+  document.getElementById('balance-bar').style.setProperty('--col-w', colPct + '%');
+
+  const balanced = total < 0.1 || Math.abs(infPct - colPct) < 8;
+  document.getElementById('balance-pip').className = balanced ? 'balanced' : '';
+}
+
+function updateSlugLabel() {
+  const labels = {
+    sleep: 'THE SLUG SLEEPS', shift: 'THE SLUG SHIFTS', yawn: 'THE SLUG YAWNS',
+    snore: 'THE SLUG SNORES', peek: 'THE SLUG PEEKS', speak: 'THE SLUG SPEAKS',
+  };
+  document.getElementById('slug-state').textContent = labels[S.slug.state] || 'THE SLUG SLEEPS';
+  document.getElementById('slug-label').style.color =
+    S.slug.state === 'sleep' ? 'rgba(120,80,200,0.3)' :
+    S.slug.state === 'speak' ? 'rgba(200,140,255,0.8)' :
+    `rgba(120,80,200,${0.3 + SLUG_STATES.indexOf(S.slug.state) * 0.1})`;
+}
+
+function updateSliceInfo() {
+  const el = document.getElementById('slice-info');
+  if (S.selectedSlice === null) { el.classList.remove('visible'); return; }
+  const sl = S.slices[S.selectedSlice];
+  let lines = [`SLICE ${sl.id + 1} — ${sl.biome.toUpperCase()}`];
+  if (sl.spoire) {
+    lines.push(`SYNDICATES: ${sl.syndicates.length}`);
+    lines.push(`CONNECTORS: ${sl.connectors.length}`);
+    lines.push(`MOTHS: ${sl.buttermoths.length}`);
+    lines.push(`TOPSIDERS: ${sl.topsiders.length}`);
+    if (sl.enrichment > 0) lines.push(`ENRICHED: +${(sl.enrichment * 100).toFixed(0)}%`);
+  } else {
+    lines.push('UNPLANTED');
+  }
+  el.innerHTML = lines.join('<br>');
+  el.classList.add('visible');
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function showPrompt(msg) {
+  const el = document.getElementById('prompt-bar');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hidePrompt() {
+  document.getElementById('prompt-bar').classList.remove('show');
+}
+
+// ===== INTERACTION =====
+let pointerStart = null;
+let pointerMoved = false;
+
+canvas.addEventListener('pointerdown', e => {
+  const dx = e.clientX - CX, dy = e.clientY - CY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist > RADIUS + 20) return;
+
+  const angle = Math.atan2(dy, dx);
+  pointerStart = { x: e.clientX, y: e.clientY, angle, dialAngle: S.dialAngle, time: Date.now() };
+  pointerMoved = false;
+  S.dialVelocity = 0;
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (!pointerStart) return;
+  const dx = e.clientX - pointerStart.x;
+  const dy = e.clientY - pointerStart.y;
+  if (Math.abs(dx) + Math.abs(dy) > 5) pointerMoved = true;
+
+  const angle = Math.atan2(e.clientY - CY, e.clientX - CX);
+  let delta = angle - pointerStart.angle;
+  // Normalize delta to [-PI, PI]
+  while (delta > Math.PI) delta -= TAU;
+  while (delta < -Math.PI) delta += TAU;
+  S.dialAngle = pointerStart.dialAngle + delta;
+  S.dialVelocity = delta / Math.max(1, (Date.now() - pointerStart.time)) * 1000;
+});
+
+canvas.addEventListener('pointerup', e => {
+  if (!pointerStart) return;
+  if (!pointerMoved) {
+    handleTap(e.clientX, e.clientY);
+  }
+  // Clamp velocity for momentum
+  S.dialVelocity = Math.max(-3, Math.min(3, S.dialVelocity));
+  pointerStart = null;
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  S.dialAngle += (e.deltaY > 0 ? 1 : -1) * SLICE_ARC * 0.3;
+  S.dialVelocity = 0;
+}, { passive: false });
+
+function handleTap(mx, my) {
+  const dx = mx - CX, dy = my - CY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist > RADIUS) {
+    // Tap outside dial — deselect
+    S.selectedSlice = null;
+    S.confirmPlant = null;
+    S.placementMode = null;
+    S.pendingConnector = null;
+    updateSliceInfo();
+    return;
+  }
+
+  // Determine slice
+  let angle = Math.atan2(dy, dx);
+  let relAngle = angle - (S.dialAngle - Math.PI / 2);
+  relAngle = ((relAngle % TAU) + TAU) % TAU;
+  const sliceIdx = Math.floor(relAngle / SLICE_ARC) % SLICE_COUNT;
+  const sl = S.slices[sliceIdx];
+
+  // Determine if overworld or underground hit
+  const midA = S.dialAngle + sliceIdx * SLICE_ARC - Math.PI / 2 + SLICE_ARC / 2;
+  const normMid = ((midA % TAU) + TAU) % TAU;
+  const isOverworld = normMid < Math.PI;
+
+  S.selectedSlice = sliceIdx;
+  updateSliceInfo();
+
+  // === PENDING CONNECTOR: waiting for surface tap ===
+  if (S.pendingConnector) {
+    if (isOverworld && S.pendingConnector.sliceIdx === sliceIdx) {
+      // Route connector toward the spoire's position (with slight variance)
+      const spoireA = sl.spoire?.pos?.a || 0.5;
+      const surfA = spoireA + (Math.random() - 0.5) * 0.2;
+      placeConnector(sliceIdx, S.pendingConnector.synIdx, Math.max(0.1, Math.min(0.9, surfA)));
+      S.pendingConnector = null;
+      return;
+    }
+    // Tapped elsewhere — cancel
+    S.pendingConnector = null;
+    // Fall through to normal handling
+  }
+
+  // === CONFIRM PLANT: second tap on same unplanted slice ===
+  if (S.confirmPlant === sliceIdx && isOverworld && !sl.spoire) {
+    // Compute where within the slice the tap landed
+    const tapAngle = Math.atan2(my - CY, mx - CX);
+    const sliceStart = S.dialAngle + sliceIdx * SLICE_ARC - Math.PI / 2;
+    let posInSlice = tapAngle - sliceStart;
+    posInSlice = ((posInSlice % TAU) + TAU) % TAU;
+    const tapA = Math.max(0.15, Math.min(0.85, posInSlice / SLICE_ARC)); // clamp away from edges
+    const tapR = Math.min(0.9, Math.max(0.6, dist / RADIUS)); // radial depth
+    plantSpoire(sliceIdx, tapA, tapR);
+    S.confirmPlant = null;
+    return;
+  }
+  S.confirmPlant = null;
+
+  // === TAP ON SYNDICATE (underground, planted) → start connector ===
+  if (!isOverworld && sl.spoire && sl.syndicates.length > 0) {
+    const synIdx = findNearestSyndicate(sl, sliceIdx, mx, my);
+    if (synIdx >= 0) {
+      const hasConn = sl.connectors.some(c => c.synIdx === synIdx);
+      if (!hasConn) {
+        // Start connector — guide moths on the overworld side will show where
+        S.pendingConnector = { sliceIdx, synIdx };
+        showToast(sl.syndicates[synIdx].name.toUpperCase() + ' — tap the surface');
+        return;
+      } else {
+        // Already connected — check if this connector needs a moth
+        const connIdx = sl.connectors.findIndex(c => c.synIdx === synIdx);
+        const hasMoth = sl.buttermoths.some(bm => bm.routeIdx === connIdx);
+        if (!hasMoth && sl.connectors[connIdx].cooldown <= 0) {
+          placeButtermoth(sliceIdx, connIdx);
+          return;
+        }
+      }
+    }
+  }
+
+  // === TAP ON CONNECTOR ROUTE (anywhere on planted slice) → deploy moth ===
+  if (sl.spoire && sl.connectors.length > 0) {
+    // Find a connector without a moth
+    const unmothed = sl.connectors.findIndex((c, ci) =>
+      c.cooldown <= 0 && !sl.buttermoths.some(bm => bm.routeIdx === ci));
+    if (unmothed >= 0 && !isOverworld) {
+      // Tapping underground near a route — deploy moth
+      placeButtermoth(sliceIdx, unmothed);
+      return;
+    }
+  }
+
+  // === TAP ON UNPLANTED OVERWORLD → first tap selects, second plants ===
+  if (isOverworld && !sl.spoire) {
+    S.confirmPlant = sliceIdx;
+    // Guide moth is already circling — the second tap commits
+  }
+}
+
+function findNearestSyndicate(sl, sliceIdx, mx, my) {
+  let bestDist = Infinity, bestIdx = -1;
+  sl.syndicates.forEach((syn, si) => {
+    const angle = S.dialAngle + sliceIdx * SLICE_ARC - Math.PI / 2 + syn.pos.a * SLICE_ARC;
+    const r = RADIUS * syn.pos.r;
+    const sx = CX + Math.cos(angle) * r;
+    const sy = CY + Math.sin(angle) * r;
+    const d = Math.sqrt((mx - sx) ** 2 + (my - sy) ** 2);
+    if (d < bestDist && d < 30) { bestDist = d; bestIdx = si; }
+  });
+  return bestIdx;
+}
+
+// ===== ACTIONS =====
+function plantSpoire(sliceIdx, posA, posR) {
+  const sl = S.slices[sliceIdx];
+  if (sl.spoire) return;
+  posA = posA || 0.5;
+  posR = posR || 0.8;
+
+  // Launch animation — includes target position
+  S.spoireLaunch = { sliceIdx, posA, posR, progress: 0, startTime: performance.now() };
+
+  showToast('SPOIRE LAUNCHED');
+}
+
+function completePlant(sliceIdx) {
+  const sl = S.slices[sliceIdx];
+  const launch = S.spoireLaunch || {};
+  sl.spoire = {
+    plantedAt: Date.now(),
+    dustAccum: 0,
+    pos: { a: launch.posA || 0.5, r: launch.posR || 0.8 }, // position within the slice
+  };
+  sl.underground.bloomed = true;
+  generateSyndicates(sliceIdx);
+  S.phase = 'managing';
+  showToast(`${sl.syndicates.length} SYNDICATE${sl.syndicates.length > 1 ? 'S' : ''} EMERGED`);
+  saveState();
+}
+
+function placeConnector(sliceIdx, synIdx, surfacePos) {
+  const sl = S.slices[sliceIdx];
+  sl.connectors.push({
+    synIdx,
+    surfacePos: surfacePos,
+    cooldown: 10, // ticks
+    strength: 0.5 + Math.random() * 0.5,
+  });
+  showToast('CONNECTOR PLACED — cooling down');
+  saveState();
+}
+
+function placeButtermoth(sliceIdx, routeIdx) {
+  const sl = S.slices[sliceIdx];
+  sl.buttermoths.push({
+    routeIdx,
+    placedAt: Date.now(),
+    efficiency: 0,
+  });
+  showToast('BUTTERMOTH DEPLOYED');
+  saveState();
+}
+
+// ===== UPDATE =====
+function update(dt) {
+  // Dial momentum
+  if (Math.abs(S.dialVelocity) > 0.001) {
+    S.dialAngle += S.dialVelocity * dt * 0.001;
+    S.dialVelocity *= Math.pow(0.95, dt / 16);
+    if (Math.abs(S.dialVelocity) < 0.001) S.dialVelocity = 0;
+  }
+
+  // Slug breathing
+  // Deep, slow breathing — 8 second cycle
+  S.slug.breathPhase += dt * 0.0008;
+
+  // Slug visual state transitions
+  const slug = S.slug;
+  // Slug moves like something vast and drowsy — glacial transitions
+  const targetEye = (slug.state === 'peek' || slug.state === 'speak') ? 1 : 0;
+  slug.eyeOpen += (targetEye - slug.eyeOpen) * 0.008 * (dt / 16);
+  const targetMouth = (slug.state === 'yawn') ? 0.6 :
+    (slug.state === 'snore') ? 0.3 + 0.3 * Math.sin(performance.now() * 0.0008) :
+    (slug.state === 'speak') ? 0.8 : 0;
+  slug.mouthOpen += (targetMouth - slug.mouthOpen) * 0.01 * (dt / 16);
+  const targetOx = slug.state === 'shift' ? Math.sin(performance.now() * 0.0004) * 4 :
+    slug.state === 'snore' ? Math.sin(performance.now() * 0.001) * 6 : 0;
+  slug.offsetX += (targetOx - slug.offsetX) * 0.012 * (dt / 16);
+
+  // Spoire launch animation
+  if (S.spoireLaunch) {
+    S.spoireLaunch.progress += dt * 0.001;
+    if (S.spoireLaunch.progress >= 1) {
+      completePlant(S.spoireLaunch.sliceIdx);
+      S.spoireLaunch = null;
+    }
+  }
+
+  // Particles
+  updateParticles(dt);
+
+  // Game ticks
+  S.tickAccum += dt;
+  while (S.tickAccum >= S.tickRate) {
+    S.tickAccum -= S.tickRate;
+    gameTick(false);
+  }
+}
+
+// ===== MAIN LOOP =====
+let lastTime = 0;
+function frame(time) {
+  const dt = Math.min(time - lastTime, 50);
+  lastTime = time;
+  if (dt > 0) {
+    update(dt);
+    render();
+  }
+  requestAnimationFrame(frame);
+}
+
+// ===== INIT =====
+function init() {
+  if (!loadState()) {
+    initSlices();
+  }
+  updateSlugLabel();
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener('beforeunload', saveState);
+init();
+</script>
+</body>
+</html>

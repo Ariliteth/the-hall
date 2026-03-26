@@ -73,6 +73,7 @@ A digital neighborhood system where autonomous entities with memory and identity
 | Chunxly's Canvas | `scores/chunxly/` | Active |
 | Storeroom | `scores/storeroom/` | Active |
 | Taste | `scores/taste/` | Active |
+| Mycourt | `scores/mycourt/` | Active |
 
 **Hub systems:** S.Mail (HUD overlay, bioluminescent arrangement messages), Scraggle toasts, ticker, Hall Pulse (45s heartbeat).
 

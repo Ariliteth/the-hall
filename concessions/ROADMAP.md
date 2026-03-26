@@ -1,5 +1,5 @@
 # The Hall — Roadmap
-*Last updated: March 25, 2026*
+*Last updated: March 26, 2026*
 
 ---
 
@@ -12,6 +12,9 @@ Items actively in development or immediately next. The deployment sequence is th
 ## Next
 Items with clear specs or obvious next steps, ready to build.
 
+- [ ] **Mycourt: syndicate negotiation** — Tap syndicates for offers, trust/suspicion mechanics, syndicate voice. ([score card](score-cards/mycourt.md))
+- [ ] **Mycourt: spoire influence overlap** — Overlapping radii produce richer dust or attract rarer syndicates.
+- [ ] **Mycourt: sporedust color blending** — Third dust axis shaped by active/adjacent syndicates.
 - [ ] **LODE: fleet autonomy** — Companions act independently, declaration influence on trajectory. ([score card](score-cards/lode.md) | [LODE_GDD_v2.md](LODE_GDD_v2.md))
 - [ ] **LODE: d50/d100 (the quiet)** — Post-d20 ascending phase (currently empty `case 'ascending'`).
 - [ ] **LODE: emoji passives** — Only Mushroom exists. `EMOJI_PASSIVES` has room for more.
@@ -53,6 +56,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **Mycourt: first pass** — Rotatable dial, spatial spoire planting, mineral-born syndicates, influence connectors, buttermoths, balance/slug disturbance, investigators, guide moth UI, production flourish, localStorage persistence.
 - [x] **Bao: GAB voices** — All 5 generals speaking: Frostveil (sly/watchful), Whitefall (commanding/sweeping), Permafrost (patient/ancient), Crystalis (precise/sharp).
 - [x] **Mall: Scraggle response** — Three behaviors: themed item stock (emoji→prefix, color→stat), PA announcement, ambient shiver.
 - [x] **Tending Field: trader gifts** — Trades scoring >= 4 auto-place trader emoji as gift tiles. Leanings blend into adjacent workers' item production.
