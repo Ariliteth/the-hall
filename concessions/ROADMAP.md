@@ -57,6 +57,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **slayy.: first pass** — Performance arena Score. Pentagram dance vs Mudhull for Camera attention. SVG drag, delta moves, connections, Beat/Pose capture, hybrid Mudhull AI, Camera system, Mother, beat engine, Show escalation. Hidden entry via Hunter Encounter erratic ticker. ([score card](score-cards/slayy.md))
 - [x] **Mycourt: slice-scale decisions** — Snore threat, syndicate exodus, investigation claim, Mycourt decree. Misdirection mechanic. Stance shapes. Drain visual.
 - [x] **Mycourt: first pass** — Rotatable dial, spatial spoire planting, mineral-born syndicates, influence connectors, buttermoths, balance/slug disturbance, investigators, guide moth UI, production flourish, localStorage persistence.
 - [x] **Bao: GAB voices** — All 5 generals speaking: Frostveil (sly/watchful), Whitefall (commanding/sweeping), Permafrost (patient/ancient), Crystalis (precise/sharp).

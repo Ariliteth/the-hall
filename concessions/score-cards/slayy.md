@@ -93,16 +93,41 @@ We don't need to go into that yet.
 
 ---
 
+### What's Built
+
+- SVG pentagram with 5 draggable points, shimmering core, delta-based moves
+- Connection system: bump points to link, crossing detection (bold vs catastrophic)
+- Beat/Pose capture every N moves (escalating 3→7), with spread, symmetry, callback detection
+- Recovery vs improv detection after Mudhull shakes
+- Mudhull DOM character: body, eyes, grin, dust particles, rolling/dropping/celebrating animations
+- Mudhull hybrid AI: real-time tells (click-click), Beat-synced drops, auto-resolve if player is slow
+- The Eye mechanic: Mudhull opens one eye when player survives a drop
+- Mudhull performs independently (rolls, tumbles, builds Camera score)
+- 3 Cameras with interest tracking, repositioning with crowd energy surges
+- Mother in crowd strip: visibility inversely tracks performance (buried = exceptional)
+- Show escalation: opening → building → peak → finale, increasing tremor
+- Three end conditions: bored (flat scores), fixated (all Cameras on one Dancer), fell off stage
+- Audible + visible beat engine: kick/hat/snare pattern, BPM escalates with Show phase (85→138)
+- Stage edge glow + bottom pulse on kicks, cam-tick dots on hats
+- Audio toggle (starts muted), lazy-init on first interaction
+- Entry via Hunter Encounter erratic ticker: random glitch window, "Mother?" full-screen prompt
+- slayy. label overlays Hunter Encounter label; full name remains beneath
+- Hub integration: hub:minimize, hub:color (255, 34, 102), scraggles on Show end / Camera reposition / Eye open
+
+### What's Next
+
+- Confession mechanic: lore layer, not yet specced — what did Mudhull do?
+- Additional Dancers (slayy.hall, slayy.scream): awaiting design
+- Mother as audience entity: possible future Local status
+- Core color/mood integration with Hall baseline language
+- Mobile responsive pass
+
 ### FPL Notes
 
-- Enters via Hunter Encounter erratic ticker tape — touch to notice, choose to enter
-- slayy. label overlays Hunter Encounter label; full name remains beneath
-- Core color/mood integrates with Hall baseline language
-- Scraggle emission points: TBD — Show end, first Camera repositioning, Mudhull's eye opening
-- Mother as audience entity: possible future Local status
-- Confession mechanic: lore layer, not yet specced
-- Additional Dancers (slayy.hall, slayy.scream): awaiting design
+- Location: `scores/slayy/index.html`
+- Hidden score — no hub selection card, enters only through Hunter Encounter ticker
+- Scraggle emission points: Show end, first Camera repositioning, Mudhull's eye opening
 
 ---
 
-*Score Card produced in conversation. Ready for Code handoff.*
+*Score Card updated March 26, 2026.*
