@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASPECT // Character Sheet</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Unbounded:wght@300;400;700;900&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #2a2a3a;
+    --dim: #3a3a5a;
+    --muted: #6a6a9a;
+    --text: #e0e0f0;
+    --accent1: #c8ff00;
+    --accent2: #ff4466;
+    --accent3: #00e5ff;
+    --gold: #ffcc44;
+    /* aspect colors — set dynamically at forge time */
+    --aspect-primary: #c8ff00;
+    --aspect-secondary: #00e5ff;
+    --aspect-tertiary: #ff4466;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Space Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* noise overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+
+  .container { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* HEADER */
+  header { text-align: center; margin-bottom: 3rem; }
+  .logo {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 900;
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    letter-spacing: -0.03em;
+    color: var(--accent1);
+    line-height: 1;
+    text-shadow: 0 0 60px rgba(200,255,0,0.3);
+  }
+  .logo span { color: var(--muted); }
+  .tagline { font-size: 0.7rem; letter-spacing: 0.3em; color: var(--muted); margin-top: 0.5rem; text-transform: uppercase; }
+
+  /* PHASES */
+  .phase { display: none; animation: fadeIn 0.4s ease; }
+  .phase.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* SECTION LABELS */
+  .section-label {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.4em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  /* ASPECT SELECTION */
+  .aspect-slot { margin-bottom: 2.5rem; }
+  .slot-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .slot-number {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--border);
+    line-height: 1;
+  }
+  .slot-title { font-size: 0.65rem; letter-spacing: 0.3em; color: var(--muted); text-transform: uppercase; }
+  .slot-tier { font-size: 0.6rem; color: var(--accent1); letter-spacing: 0.2em; }
+
+  .aspect-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .aspect-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .aspect-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .aspect-card:hover { border-color: var(--dim); transform: translateY(-2px); }
+  .aspect-card:hover::before { opacity: 1; }
+  .aspect-card.selected { border-color: var(--accent); }
+  .aspect-card.selected::before { opacity: 1; }
+  .aspect-card.disabled { opacity: 0.3; pointer-events: none; }
+
+  .aspect-name {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+  }
+  .aspect-skills { font-size: 0.6rem; color: var(--muted); line-height: 1.8; }
+  .aspect-stats { font-size: 0.55rem; color: var(--dim); margin-top: 0.5rem; letter-spacing: 0.15em; }
+
+  /* SLOT ACCENT COLORS */
+  #slot-1 .aspect-card { --accent: var(--accent1); }
+  #slot-2 .aspect-card { --accent: var(--accent3); }
+  #slot-3 .aspect-card { --accent: var(--accent2); }
+
+  /* CONFIRM BUTTON */
+  .btn {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0.75rem 2rem;
+    border: 2px solid currentColor;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--accent1);
+    margin-top: 2rem;
+  }
+  .btn:hover:not(:disabled) { background: var(--accent1); color: var(--bg); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn.danger { color: var(--accent2); }
+  .btn.danger:hover { background: var(--accent2); color: var(--bg); }
+  .btn.blue { color: var(--accent3); }
+  .btn.blue:hover { background: var(--accent3); color: var(--bg); }
+  .btn.aspect { color: var(--aspect-primary); }
+  .btn.aspect:hover:not(:disabled) { background: var(--aspect-primary); color: var(--bg); }
+
+  /* TILT — quieter than primary skill choices */
+  .tilt-section { margin: 1rem 0 0.5rem; }
+  .tilt-label {
+    font-size: 0.5rem;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .tilt-choices { display: flex; flex-direction: column; gap: 0.35rem; }
+  .tilt-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    padding: 0.4rem 0.75rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .tilt-btn:hover { border-color: var(--dim); color: var(--text); }
+  .tilt-resolve {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 0.35rem;
+  }
+  .tilt-resolve:hover { color: var(--muted); border-color: var(--dim); }
+
+  /* CHARACTER SHEET */
+  .sheet-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .char-name-area { flex: 1; }
+  .char-name {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+    color: var(--aspect-primary);
+  }
+  .char-aspects { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.2em; }
+
+  .stats-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    min-width: 200px;
+  }
+  .stats-row { display: flex; gap: 1.5rem; justify-content: space-between; }
+  .stat-item { text-align: center; }
+  .stat-code {
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    margin-bottom: 0.25rem;
+  }
+  .stat-val {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  /* SKILLS TABLE */
+  .skills-section { margin-bottom: 2rem; }
+  .skills-table { width: 100%; border-collapse: collapse; }
+  .skills-table tr { border-bottom: 1px solid var(--border); }
+  .skills-table tr:last-child { border-bottom: none; }
+  .skills-table td { padding: 0.6rem 0; }
+  .skill-name { font-size: 0.75rem; }
+  .skill-source {
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    padding-left: 0.5rem;
+  }
+  .skill-bar-cell { width: 40%; padding-right: 1rem; }
+  .skill-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .skill-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .skill-num {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: right;
+    width: 3rem;
+    color: var(--gold);
+  }
+
+  /* tier colors — driven by chosen aspects */
+  .tier-primary .skill-bar-fill { background: var(--aspect-primary); }
+  .tier-secondary .skill-bar-fill { background: var(--aspect-secondary); }
+  .tier-tertiary .skill-bar-fill { background: var(--aspect-tertiary); }
+  .tier-primary .skill-name { color: var(--text); }
+  .tier-secondary .skill-name { color: #b0c0d0; }
+  .tier-tertiary .skill-name { color: var(--muted); }
+
+  /* SCENARIO ENGINE */
+  .scenario-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--aspect-primary);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  .scenario-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    color: var(--aspect-primary);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+  .scenario-text { color: var(--text); }
+
+  .check-display {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+    flex-wrap: wrap;
+  }
+  .check-code {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    color: var(--accent2);
+  }
+  .check-label { font-size: 0.6rem; letter-spacing: 0.2em; color: var(--muted); }
+  .check-arrow { color: var(--dim); font-size: 1.5rem; }
+  .matched-stat { font-family: 'Unbounded', sans-serif; font-size: 1.2rem; font-weight: 700; color: var(--gold); }
+
+  .resolution-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+  .resolution-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1.2s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .outcome-box {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+  .outcome-label {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    margin-bottom: 0.5rem;
+  }
+
+  .skill-choices {
+    margin: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .skill-choice-btn {
+    background: transparent;
+    border: 1px solid var(--dim);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.6rem 1rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .skill-choice-btn:hover { border-color: var(--aspect-primary); color: var(--aspect-primary); }
+  .skill-tag {
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    color: var(--aspect-primary);
+    border: 1px solid var(--aspect-primary);
+    padding: 0.1rem 0.3rem;
+    white-space: nowrap;
+  }
+
+  .sheet-actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; }
+
+  /* TAB NAVIGATION */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+    padding-top: 0.5rem;
+  }
+  .tab-btn {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 0.75rem 1.25rem;
+    background: transparent;
+    border: none;
+    color: var(--dim);
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+  }
+  .tab-btn:hover { color: var(--muted); }
+  .tab-btn.active { color: var(--aspect-primary); }
+  .tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0; right: 0;
+    height: 2px;
+    background: var(--aspect-primary);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .tab-btn.active::after { opacity: 1; }
+  .tab-badge {
+    display: inline-block;
+    font-size: 0.45rem;
+    background: var(--accent2);
+    color: var(--bg);
+    padding: 0.1rem 0.35rem;
+    border-radius: 2px;
+    margin-left: 0.4rem;
+    vertical-align: top;
+    line-height: 1.4;
+  }
+
+  .sheet-tab { display: none; animation: fadeIn 0.3s ease; }
+  .sheet-tab.active { display: block; }
+
+  /* ROSTER */
+  .roster-scroll {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding: 0.5rem 0 1.5rem;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .roster-scroll::-webkit-scrollbar { height: 2px; }
+  .roster-scroll::-webkit-scrollbar-track { background: var(--border); }
+  .roster-scroll::-webkit-scrollbar-thumb { background: var(--dim); }
+  .roster-card {
+    flex: 0 0 220px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--dim);
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    scroll-snap-align: start;
+    position: relative;
+  }
+  .roster-card:hover { border-color: var(--muted); transform: translateY(-2px); }
+  .roster-card.active { border-color: var(--text); }
+  .roster-name {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+    line-height: 1.2;
+  }
+  .roster-triad { font-size: 0.5rem; color: var(--muted); letter-spacing: 0.15em; margin-bottom: 0.75rem; }
+  .roster-meta { font-size: 0.5rem; color: var(--dim); letter-spacing: 0.1em; }
+  .roster-gen {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    font-size: 0.45rem;
+    color: var(--dim);
+    letter-spacing: 0.15em;
+  }
+  .roster-actions { display: flex; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap; }
+
+  /* FRACTURE UI in Log */
+  .fracture-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-entry.fracturable { cursor: pointer; transition: background 0.15s; padding-left: 0.5rem; margin-left: -0.5rem; }
+  .history-entry.fracturable:hover { background: var(--surface); }
+  .history-entry.fracture-selected { background: var(--surface); border-left: 2px solid var(--accent2); }
+
+  /* LINGER — delayed reveal */
+  .resolution-area { opacity: 0; transition: opacity 0.6s ease; }
+  .resolution-area.revealed { opacity: 1; }
+
+  /* STILLNESS */
+  .stillness-counter {
+    font-size: 0.5rem;
+    color: var(--dim);
+    letter-spacing: 0.15em;
+    text-align: right;
+    padding: 0.5rem 0;
+    transition: color 0.5s;
+  }
+
+  /* MARGIN NOTE */
+  .margin-note {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    font-style: italic;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--dim);
+    width: 100%;
+    padding: 0.5rem 0;
+    margin-top: 1rem;
+    outline: none;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .margin-note:focus { color: var(--muted); border-color: var(--dim); }
+  .margin-note::placeholder { color: var(--border); font-style: italic; }
+  .history-note { font-size: 0.55rem; font-style: italic; color: var(--dim); margin-top: 0.15rem; }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  .name-input-wrap { margin-bottom: 2rem; }
+  .name-input {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--border);
+    color: var(--text);
+    width: 100%;
+    padding: 0.5rem 0;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .name-input:focus { border-color: var(--accent1); }
+  .name-input::placeholder { color: var(--dim); }
+
+  .loading-dots::after {
+    content: '...';
+    animation: dots 1s infinite;
+  }
+  @keyframes dots {
+    0% { content: '.'; }
+    33% { content: '..'; }
+    66% { content: '...'; }
+  }
+
+  /* score badge */
+  .score-badge {
+    display: inline-block;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.6rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    margin-left: 0.5rem;
+  }
+
+  .history-entry {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.7rem;
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+  }
+  .history-check { color: var(--accent2); font-weight: 700; letter-spacing: 0.1em; min-width: 4rem; }
+  .history-outcome { color: var(--muted); }
+  .history-outcome b { color: var(--text); }
+
+  @media (max-width: 600px) {
+    .sheet-header { flex-direction: column; }
+    .stats-block { width: 100%; }
+    .aspect-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">ASP<span>/</span>ECT</div>
+    <div class="tagline">Three aspects. Infinite situations.</div>
+  </header>
+
+  <!-- PHASE 1: ASPECT SELECTION -->
+  <div class="phase" id="phase-selection">
+    <div id="slot-1" class="aspect-slot">
+      <div class="slot-header">
+        <div class="slot-number">01</div>
+        <div>
+          <div class="slot-title">Primary Aspect</div>
+          <div class="slot-tier">All 5 skills — descending mastery</div>
+        </div>
+      </div>
+      <div class="section-label">Choose your dominant nature</div>
+      <div class="aspect-grid" id="grid-1"></div>
+    </div>
+
+    <div id="slot-2" class="aspect-slot">
+      <div class="slot-header">
+        <div class="slot-number">02</div>
+        <div>
+          <div class="slot-title">Secondary Aspect</div>
+          <div class="slot-tier">Top 2 skills — decent proficiency</div>
+        </div>
+      </div>
+      <div class="section-label">Choose your secondary nature</div>
+      <div class="aspect-grid" id="grid-2"></div>
+    </div>
+
+    <div id="slot-3" class="aspect-slot">
+      <div class="slot-header">
+        <div class="slot-number">03</div>
+        <div>
+          <div class="slot-title">Tertiary Aspect</div>
+          <div class="slot-tier">Bottom 3 skills — minor influence</div>
+        </div>
+      </div>
+      <div class="section-label">Choose your background tint</div>
+      <div class="aspect-grid" id="grid-3"></div>
+    </div>
+
+    <div class="name-input-wrap">
+      <div class="section-label">Character Name</div>
+      <input class="name-input" id="char-name-input" type="text" placeholder="Enter name..." maxlength="40">
+    </div>
+
+    <button class="btn" id="confirm-btn" disabled onclick="confirmSelection()">Forge Character →</button>
+  </div>
+
+  <!-- PHASE: ROSTER -->
+  <div class="phase" id="phase-roster">
+    <div class="section-label">Characters</div>
+    <div class="roster-scroll" id="roster-scroll"></div>
+    <div class="roster-actions">
+      <button class="btn" onclick="enterSelection()">New Character →</button>
+    </div>
+  </div>
+
+  <!-- PHASE 2: CHARACTER SHEET + PLAY -->
+  <div class="phase" id="phase-sheet">
+    <div class="sheet-header">
+      <div class="char-name-area">
+        <div class="char-name" id="display-name"></div>
+        <div class="char-aspects" id="display-aspects"></div>
+      </div>
+      <div class="stats-block">
+        <div class="section-label" style="margin-bottom:0.75rem">Combined Stats</div>
+        <div class="stats-row" id="stats-row"></div>
+      </div>
+    </div>
+
+    <div class="tab-bar" id="tab-bar">
+      <button class="tab-btn active" data-tab="tab-situation" onclick="switchTab('tab-situation')">Situation</button>
+      <button class="tab-btn" data-tab="tab-character" onclick="switchTab('tab-character')">Character</button>
+      <button class="tab-btn" data-tab="tab-log" onclick="switchTab('tab-log')">Log<span class="tab-badge" id="log-badge" style="display:none">0</span></button>
+    </div>
+
+    <!-- TAB: SITUATION -->
+    <div class="sheet-tab active" id="tab-situation">
+      <div id="scenario-area"></div>
+      <div id="situation-empty" style="text-align:center;padding:3rem 1rem;">
+        <div style="font-size:0.7rem;color:var(--dim);letter-spacing:0.2em;margin-bottom:1.5rem">NO ACTIVE SITUATION</div>
+        <button class="btn aspect" onclick="generateScenario()">New Situation →</button>
+      </div>
+      <div class="sheet-actions" id="situation-actions" style="display:none">
+        <button class="btn aspect" onclick="generateScenario()">New Situation →</button>
+      </div>
+    </div>
+
+    <!-- TAB: CHARACTER -->
+    <div class="sheet-tab" id="tab-character">
+      <div class="skills-section">
+        <div class="section-label">Skill Profile</div>
+        <table class="skills-table" id="skills-table"></table>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn" onclick="backToRoster()">← Roster</button>
+      </div>
+    </div>
+
+    <!-- TAB: LOG -->
+    <div class="sheet-tab" id="tab-log">
+      <div id="fracture-controls"></div>
+      <div id="history-area"></div>
+      <div id="log-empty" style="text-align:center;padding:3rem 1rem;">
+        <div style="font-size:0.7rem;color:var(--dim);letter-spacing:0.2em">NO ENCOUNTERS YET</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────
+const ASPECTS = [
+  {
+    id: 'vagrant',
+    name: 'VAGRANT',
+    skills: ['Wayfinding', 'Scavenging', 'Improvisation', 'Streetwise', 'Endurance'],
+    stats: { CHA: 4, WHZ: 6, NRG: 8 },
+    color: '#c8ff00'
+  },
+  {
+    id: 'scholar',
+    name: 'SCHOLAR',
+    skills: ['Research', 'Decoding', 'Memory Recall', 'Pattern Recognition', 'Persuasion'],
+    stats: { CHA: 7, WHZ: 9, NRG: 3 },
+    color: '#00e5ff'
+  },
+  {
+    id: 'soldier',
+    name: 'SOLDIER',
+    skills: ['Marksmanship', 'Close Combat', 'Fortification', 'Logistics', 'Command'],
+    stats: { CHA: 5, WHZ: 4, NRG: 9 },
+    color: '#ff4466'
+  },
+  {
+    id: 'merchant',
+    name: 'MERCHANT',
+    skills: ['Negotiation', 'Appraisal', 'Networking', 'Smuggling', 'Accounting'],
+    stats: { CHA: 9, WHZ: 6, NRG: 5 },
+    color: '#ffcc44'
+  },
+  {
+    id: 'healer',
+    name: 'HEALER',
+    skills: ['Diagnosis', 'Surgery', 'Herbalism', 'Calm Under Pressure', 'Anatomy'],
+    stats: { CHA: 6, WHZ: 8, NRG: 4 },
+    color: '#88ffaa'
+  },
+  {
+    id: 'arcanist',
+    name: 'ARCANIST',
+    skills: ['Spell Weaving', 'Ritual Design', 'Aura Reading', 'Counterspell', 'Inscription'],
+    stats: { CHA: 5, WHZ: 10, NRG: 6 },
+    color: '#bb88ff'
+  },
+  {
+    id: 'trickster',
+    name: 'TRICKSTER',
+    skills: ['Deception', 'Sleight of Hand', 'Disguise', 'Lockpicking', 'Distraction'],
+    stats: { CHA: 8, WHZ: 7, NRG: 6 },
+    color: '#ff9944'
+  },
+  {
+    id: 'sentinel',
+    name: 'SENTINEL',
+    skills: ['Perception', 'Surveillance', 'Threat Assessment', 'Silence', 'Tracking'],
+    stats: { CHA: 3, WHZ: 7, NRG: 7 },
+    color: '#44aaff'
+  },
+  {
+    id: 'artisan',
+    name: 'ARTISAN',
+    skills: ['Crafting', 'Repair', 'Material Knowledge', 'Structural Design', 'Finishing'],
+    stats: { CHA: 5, WHZ: 8, NRG: 7 },
+    color: '#ffaa66'
+  },
+  {
+    id: 'orator',
+    name: 'ORATOR',
+    skills: ['Public Speaking', 'Rhetoric', 'Crowd Reading', 'Intimidation', 'Diplomacy'],
+    stats: { CHA: 10, WHZ: 6, NRG: 7 },
+    color: '#ff66bb'
+  },
+  {
+    id: 'naturalist',
+    name: 'NATURALIST',
+    skills: ['Animal Handling', 'Botany', 'Navigation', 'Weatherreading', 'Camouflage'],
+    stats: { CHA: 4, WHZ: 7, NRG: 6 },
+    color: '#66dd88'
+  },
+  {
+    id: 'inventor',
+    name: 'INVENTOR',
+    skills: ['Tinkering', 'Explosive Theory', 'Circuit Logic', 'Rapid Prototype', 'Systems Thinking'],
+    stats: { CHA: 4, WHZ: 9, NRG: 8 },
+    color: '#ffee44'
+  }
+];
+
+const SCENARIOS = [
+  { text: "Someone you half-recognize is walking toward you in the hallway. They seem to be deciding the same thing you are.", check: "CHA", context: "social warmth and timing" },
+  { text: "The instructions on the back of the packet don't quite match what you're looking at. Something is different about this batch.", check: "WHZ", context: "noticing and reasoning" },
+  { text: "You could carry both bags up the stairs in one trip. It would save a minute. It might cost you the rest of the afternoon.", check: "NRG", context: "physical will and judgement" },
+  { text: "A conversation at the next table has gotten quiet in a specific way. Someone said something they shouldn't have.", check: "CHR", context: "social perception" },
+  { text: "The shortcut is faster but you've never taken it in the dark. The long way is the long way.", check: "NVG", context: "spatial sense and nerve" },
+  { text: "You're holding a door open and the person approaching is still fifteen feet away. The gap is getting awkward.", check: "CHA", context: "composure under minor pressure" },
+  { text: "The receipt is wrong but not in your favor. The cashier is already helping the next person.", check: "CHR", context: "assertion and timing" },
+  { text: "Someone left a note on the counter. The handwriting is terrible. You think it might be important.", check: "WZD", context: "pattern recognition" },
+  { text: "The dog is looking at you like it knows something. You're starting to think it does.", check: "WIT", context: "intuition and observation" },
+  { text: "You promised you'd remember the thing. You did not remember the thing. But you might be able to reconstruct it.", check: "WHZ", context: "working memory and ingenuity" },
+  { text: "The bus is pulling away. You could run. You are not dressed for running.", check: "NRG", context: "commitment and speed" },
+  { text: "A stranger has asked you for directions to a place you've only been to once. Three years ago. In the rain.", check: "NVG", context: "spatial memory" },
+  { text: "The item on the top shelf is just out of reach. There is a chair, but it has wheels.", check: "NRG", context: "improvisation and balance" },
+  { text: "You've been on hold for twenty minutes. A voice just asked if you'd like to continue waiting. You're not sure you would.", check: "GRT", context: "endurance and patience" },
+  { text: "Someone you respect just made a suggestion you think is wrong. The room is waiting for you to agree.", check: "CHA", context: "honesty under social weight" },
+  { text: "The jar won't open. You've tried three techniques. A fourth occurs to you, but it's going to look ridiculous.", check: "WHZ", context: "problem solving and dignity" },
+];
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let selected = [null, null, null];
+let character = null;
+let history = [];
+let currentScenario = null;
+let currentResolution = null;
+let scenarioResolved = false;
+let stillnessStart = null;
+let stillnessTimer = null;
+let currentMarginNote = '';
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+function init() {
+  [1, 2, 3].forEach(slot => {
+    const grid = document.getElementById(`grid-${slot}`);
+    ASPECTS.forEach(aspect => {
+      const card = document.createElement('div');
+      card.className = 'aspect-card';
+      card.dataset.id = aspect.id;
+      card.dataset.slot = slot;
+      card.innerHTML = `
+        <div class="aspect-name">${aspect.name}</div>
+        <div class="aspect-skills">${aspect.skills.map(s => `▸ ${s}`).join('<br>')}</div>
+        <div class="aspect-stats">CHA ${aspect.stats.CHA} · WHZ ${aspect.stats.WHZ} · NRG ${aspect.stats.NRG}</div>
+      `;
+      card.style.setProperty('--accent', aspect.color);
+      card.addEventListener('click', () => selectAspect(slot, aspect.id, card));
+      grid.appendChild(card);
+    });
+  });
+}
+
+function selectAspect(slot, id, card) {
+  const idx = slot - 1;
+  // deselect previous
+  document.querySelectorAll(`#grid-${slot} .aspect-card`).forEach(c => c.classList.remove('selected'));
+  selected[idx] = id;
+  card.classList.add('selected');
+  updateDisabled();
+  checkConfirm();
+}
+
+function updateDisabled() {
+  const chosenIds = selected.filter(Boolean);
+  [1, 2, 3].forEach(slot => {
+    document.querySelectorAll(`#grid-${slot} .aspect-card`).forEach(card => {
+      const id = card.dataset.id;
+      const isSelected = selected[slot - 1] === id;
+      const isUsedElsewhere = chosenIds.includes(id) && !isSelected;
+      card.classList.toggle('disabled', isUsedElsewhere);
+    });
+  });
+}
+
+function checkConfirm() {
+  const btn = document.getElementById('confirm-btn');
+  const name = document.getElementById('char-name-input').value.trim();
+  btn.disabled = !(selected[0] && selected[1] && selected[2] && name.length > 0);
+}
+
+document.getElementById('char-name-input').addEventListener('input', checkConfirm);
+
+// ─────────────────────────────────────────────
+// TAB NAVIGATION
+// ─────────────────────────────────────────────
+const TAB_ORDER = ['tab-situation', 'tab-character', 'tab-log'];
+let activeTab = 'tab-situation';
+
+function switchTab(tabId) {
+  captureMarginNote();
+  activeTab = tabId;
+  document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!character) return;
+  if (e.target.tagName === 'INPUT') return;
+  const idx = TAB_ORDER.indexOf(activeTab);
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    switchTab(TAB_ORDER[(idx + 1) % TAB_ORDER.length]);
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    switchTab(TAB_ORDER[(idx - 1 + TAB_ORDER.length) % TAB_ORDER.length]);
+  }
+});
+
+// ─────────────────────────────────────────────
+// BUILD CHARACTER
+// ─────────────────────────────────────────────
+function getAspect(id) { return ASPECTS.find(a => a.id === id); }
+
+// Skill values: primary descending, secondary top-2, tertiary bottom-3
+function buildSkills(aspects) {
+  const [a1, a2, a3] = aspects;
+  const skills = [];
+
+  // Primary: 95, 82, 68, 54, 40
+  const primaryVals = [95, 82, 68, 54, 40];
+  a1.skills.forEach((s, i) => skills.push({ name: s, val: primaryVals[i], tier: 'primary', source: a1.name }));
+
+  // Secondary: top 2 at 62, 50
+  [0, 1].forEach((i, rank) => {
+    skills.push({ name: a2.skills[i], val: [62, 50][rank], tier: 'secondary', source: a2.name });
+  });
+
+  // Tertiary: last 3 at 28, 20, 14
+  [2, 3, 4].forEach((i, rank) => {
+    skills.push({ name: a3.skills[i], val: [28, 20, 14][rank], tier: 'tertiary', source: a3.name });
+  });
+
+  return skills;
+}
+
+// Stats: combine by most common or random blend
+function buildStats(aspects) {
+  const keys = ['CHA', 'WHZ', 'NRG'];
+  const result = {};
+  keys.forEach(k => {
+    const vals = aspects.map(a => a.stats[k]);
+    // Weighted blend: primary 50%, secondary 30%, tertiary 20%, capped at 10
+    const raw = Math.round(vals[0] * 0.5 + vals[1] * 0.3 + vals[2] * 0.2);
+    result[k] = Math.min(10, Math.max(1, raw));
+  });
+  return result;
+}
+
+// Personal stats: derive 3 trigrams from the character name
+// Each trigram carries a base stat value but matches uniquely per name
+function buildPersonalStats(name, baseStats) {
+  const clean = name.toUpperCase().replace(/[^A-Z]/g, '');
+  if (clean.length === 0) return Object.entries(baseStats).map(([k, v]) => ({ code: k, val: v, base: k }));
+
+  const keys = ['CHA', 'WHZ', 'NRG'];
+  return keys.map((base, i) => {
+    // Spread trigrams across the name: start at 0, 1/3, 2/3 of the way through
+    const start = Math.floor((i / 3) * clean.length);
+    const c0 = clean[start % clean.length];
+    const c1 = clean[(start + 1) % clean.length];
+    const c2 = clean[(start + 2) % clean.length];
+    return { code: c0 + c1 + c2, val: baseStats[base], base };
+  });
+}
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function claimColors(aspects) {
+  const root = document.documentElement.style;
+  root.setProperty('--aspect-primary', aspects[0].color);
+  root.setProperty('--aspect-secondary', aspects[1].color);
+  root.setProperty('--aspect-tertiary', aspects[2].color);
+  // tint the logo
+  const logo = document.querySelector('.logo');
+  if (logo) {
+    logo.style.color = aspects[0].color;
+    logo.style.textShadow = `0 0 60px ${aspects[0].color}44`;
+  }
+  // hub color
+  if (window.parent !== window) {
+    const rgb = hexToRgb(aspects[0].color);
+    window.parent.postMessage({ type: 'hub:color', ...rgb }, '*');
+  }
+}
+
+function confirmSelection() {
+  const name = document.getElementById('char-name-input').value.trim();
+  const aspects = selected.map(getAspect);
+  const skills = buildSkills(aspects);
+  const stats = buildStats(aspects);
+
+  const personalStats = buildPersonalStats(name, stats);
+  character = { name, aspects, skills, stats, personalStats };
+  claimColors(aspects);
+  renderSheet();
+  document.getElementById('phase-selection').classList.remove('active');
+  document.getElementById('phase-sheet').classList.add('active');
+}
+
+// ─────────────────────────────────────────────
+// RENDER SHEET
+// ─────────────────────────────────────────────
+function renderSheet() {
+  document.getElementById('display-name').textContent = character.name;
+  document.getElementById('display-aspects').textContent =
+    character.aspects.map(a => a.name).join(' · ');
+
+  // Stats — show personal codes derived from the name
+  const statsRow = document.getElementById('stats-row');
+  statsRow.innerHTML = '';
+  const pStats = character.personalStats || Object.entries(character.stats).map(([k, v]) => ({ code: k, val: v, base: k }));
+  pStats.forEach(ps => {
+    statsRow.innerHTML += `<div class="stat-item"><div class="stat-code">${ps.code}</div><div class="stat-val">${ps.val}</div></div>`;
+  });
+
+  // Skills
+  const table = document.getElementById('skills-table');
+  table.innerHTML = '';
+  character.skills.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.className = `tier-${s.tier}`;
+    tr.innerHTML = `
+      <td><span class="skill-name">${s.name}</span><span class="skill-source">${s.source}</span></td>
+      <td class="skill-bar-cell"><div class="skill-bar"><div class="skill-bar-fill" style="width:${s.val}%"></div></div></td>
+      <td class="skill-num">${s.val}</td>
+    `;
+    table.appendChild(tr);
+  });
+}
+
+// ─────────────────────────────────────────────
+// LETTER PROXIMITY RESOLUTION
+// ─────────────────────────────────────────────
+function letterDist(a, b) {
+  const A = a.toUpperCase().charCodeAt(0);
+  const B = b.toUpperCase().charCodeAt(0);
+  return Math.abs(A - B);
+}
+
+function trigramDist(check, statCode) {
+  // Average letter distance between the two 3-letter codes
+  let total = 0;
+  for (let i = 0; i < 3; i++) {
+    const ci = check[i] || 'A';
+    const si = statCode[i] || 'A';
+    total += letterDist(ci, si);
+  }
+  return total / 3; // 0 = perfect match, ~12 = very far
+}
+
+function findBestStat(check) {
+  // Use personal stats (name-derived trigrams) instead of fixed CHA/WHZ/NRG
+  const pStats = character.personalStats || [];
+  let best = null, bestScore = -Infinity;
+  pStats.forEach(ps => {
+    const dist = trigramDist(check, ps.code);
+    const score = ps.val * (1 / (1 + dist * 0.5));
+    if (score > bestScore) {
+      bestScore = score;
+      best = { key: ps.code, val: ps.val, base: ps.base, dist, score };
+    }
+  });
+  // Fallback to base stats if no personal stats
+  if (!best) {
+    Object.entries(character.stats).forEach(([key, val]) => {
+      const dist = trigramDist(check, key);
+      const score = val * (1 / (1 + dist * 0.5));
+      if (score > bestScore) {
+        bestScore = score;
+        best = { key, val, base: key, dist, score };
+      }
+    });
+  }
+  return best;
+}
+
+function resolveCheck(check) {
+  const statMatch = findBestStat(check);
+  const proximity = Math.max(0, 1 - statMatch.dist / 12); // 0-1
+  const rawScore = statMatch.val * proximity; // 0-10
+  let pct = (rawScore / 10) * 100;
+
+  // Tolerance window: floor 10%, ceiling 85%
+  // You always have a shot. You can always fall short.
+  // Skills are what push you into the extremes.
+  pct = Math.max(10, Math.min(85, pct));
+
+  // Find if any skill boosts apply
+  const relevantSkills = getRelevantSkills(check);
+
+  return { statMatch, proximity, rawScore, pct, relevantSkills };
+}
+
+function getRelevantSkills(check) {
+  // Skills whose first letter matches check letters provide options
+  const checkLetters = check.toUpperCase().split('');
+  return character.skills.filter(s => {
+    const fl = s.name[0].toUpperCase();
+    return checkLetters.some(l => Math.abs(fl.charCodeAt(0) - l.charCodeAt(0)) <= 3);
+  }).slice(0, 3);
+}
+
+// ─────────────────────────────────────────────
+// OUTCOME TEXT
+// ─────────────────────────────────────────────
+function getOutcome(pct, skillBoost) {
+  const total = Math.min(100, pct + skillBoost);
+  if (total >= 85) return { label: 'Exceptional', color: '#c8ff00', text: getOutcomeText('exceptional') };
+  if (total >= 65) return { label: 'Success', color: '#88ffaa', text: getOutcomeText('success') };
+  if (total >= 40) return { label: 'Partial', color: '#ffcc44', text: getOutcomeText('partial') };
+  if (total >= 20) return { label: 'Failure', color: '#ff9944', text: getOutcomeText('failure') };
+  return { label: 'Disaster', color: '#ff4466', text: getOutcomeText('disaster') };
+}
+
+function getOutcomeText(tier) {
+  const texts = {
+    exceptional: ["That went well. Suspiciously well. You'll take it.", "Something clicked. You weren't expecting that.", "Easier than it should have been. You'll think about why later."],
+    success: ["Fine. That was fine. You move on.", "It worked. Not gracefully. But it worked.", "Handled. Barely thought about it."],
+    partial: ["Close enough. You'll deal with the rest later.", "Half of what you needed. The other half knows where you live.", "Almost. The gap is small but you can feel it."],
+    failure: ["That didn't land. You know it. They might know it.", "Nope. You walk away carrying slightly more than you came with, and none of it good.", "The thing you tried did not do the thing."],
+    disaster: ["Well. That happened.", "Worse than doing nothing. Actively worse.", "You made it worse. Not by much. But measurably."]
+  };
+  const arr = texts[tier];
+  return arr[history.length % arr.length];
+}
+
+// ─────────────────────────────────────────────
+// SCENARIO GENERATION
+// ─────────────────────────────────────────────
+async function generateScenario() {
+  // Capture margin note from previous encounter
+  captureMarginNote();
+
+  // Capture stillness from previous encounter
+  let prevStillness = null;
+  if (stillnessStart && history.length > 0) {
+    prevStillness = Math.round((Date.now() - stillnessStart) / 1000);
+    history[0].stillness = prevStillness;
+  }
+  clearInterval(stillnessTimer);
+
+  switchTab('tab-situation');
+  document.getElementById('situation-empty').style.display = 'none';
+  document.getElementById('situation-actions').style.display = 'flex';
+
+  const area = document.getElementById('scenario-area');
+  area.innerHTML = `<div class="scenario-box"><div class="scenario-title">Situation</div><div class="scenario-text" id="scenario-text-el"></div></div><div class="resolution-area" id="resolution-area"></div><div id="tilt-area"></div><div id="outcome-area"></div>`;
+
+  // Sequential scenario selection — deterministic per character
+  const idx = (character.scenarioIndex || 0) % SCENARIOS.length;
+  character.scenarioIndex = idx + 1;
+  const scen = SCENARIOS[idx];
+  currentScenario = scen;
+  scenarioResolved = false;
+  currentMarginNote = '';
+
+  // Linger — show text first, then reveal resolution after delay
+  const textEl = document.getElementById('scenario-text-el');
+  textEl.textContent = scen.text;
+
+  const result = resolveCheck(scen.check);
+  setTimeout(() => {
+    renderResolution(scen, result);
+    const resArea = document.getElementById('resolution-area');
+    if (resArea) {
+      requestAnimationFrame(() => resArea.classList.add('revealed'));
+    }
+  }, 2500);
+}
+
+function renderResolution(scen, result) {
+  const resArea = document.getElementById('resolution-area');
+  const { statMatch, proximity, rawScore, pct, relevantSkills } = result;
+
+  const proxPct = Math.round(proximity * 100);
+  const tierColorVar = t => t === 'primary' ? '--aspect-primary' : t === 'secondary' ? '--aspect-secondary' : '--aspect-tertiary';
+
+  const skillChoicesHtml = relevantSkills.length > 0 ? `
+    <div class="section-label" style="margin-top:1rem">Applicable Skills</div>
+    <div class="skill-choices">
+      ${relevantSkills.map(s => `
+        <button class="skill-choice-btn" onclick="applyPrimarySkill('${s.name.replace(/'/g,"\\'")}', ${s.val}, ${pct}, '${s.tier}')">
+          <span class="skill-tag" style="color:var(${tierColorVar(s.tier)});border-color:var(${tierColorVar(s.tier)})">${s.tier.toUpperCase()}</span>
+          ${s.name} <span style="color:var(--muted);font-size:0.6rem;margin-left:auto">${s.val}/100</span>
+        </button>
+      `).join('')}
+    </div>
+  ` : '';
+
+  resArea.innerHTML = `
+    <div class="check-display">
+      <div>
+        <div class="check-label">Check</div>
+        <div class="check-code">${scen.check}</div>
+      </div>
+      <div class="check-arrow">→</div>
+      <div>
+        <div class="check-label">Closest Stat${statMatch.base ? ` <span style="color:var(--dim)">(${statMatch.base})</span>` : ''}</div>
+        <div class="matched-stat">${statMatch.key} · ${statMatch.val}</div>
+      </div>
+      <div style="margin-left:auto;text-align:right">
+        <div class="check-label">Letter Proximity</div>
+        <div style="font-family:'Unbounded',sans-serif;font-size:1rem;color:var(--aspect-primary)">${proxPct}%</div>
+      </div>
+    </div>
+    <div class="resolution-bar">
+      <div class="resolution-fill" id="res-fill" style="width:0%;background:var(--aspect-primary)"></div>
+    </div>
+    ${skillChoicesHtml}
+  `;
+
+  // Store current resolution context for tilt system
+  currentResolution = { basePct: pct, relevantSkills };
+
+  setTimeout(() => {
+    const fill = document.getElementById('res-fill');
+    if (fill) fill.style.width = pct + '%';
+  }, 50);
+
+  // Auto-resolve if no relevant skills
+  if (relevantSkills.length === 0) {
+    resolveScenario(pct, 0);
+  }
+}
+
+function applyPrimarySkill(skillName, skillVal, basePct, tier) {
+  if (scenarioResolved) return;
+  const boost = Math.round((skillVal / 100) * 15);
+
+  // Disable all primary skill buttons
+  document.querySelectorAll('.skill-choice-btn').forEach(b => {
+    b.disabled = true;
+    b.style.opacity = '0.3';
+  });
+  // Highlight chosen
+  document.querySelectorAll('.skill-choice-btn').forEach(b => {
+    if (b.textContent.includes(skillName)) {
+      b.style.opacity = '1';
+      b.style.borderColor = 'var(--aspect-primary)';
+    }
+  });
+
+  // Check for tilt options — other applicable skills
+  const remaining = currentResolution.relevantSkills.filter(s => s.name !== skillName);
+  if (remaining.length === 0) {
+    resolveScenario(basePct, boost, skillName);
+    return;
+  }
+
+  // Render tilt options
+  const tiltArea = document.getElementById('tilt-area');
+  const tierColorVar = t => t === 'primary' ? '--aspect-primary' : t === 'secondary' ? '--aspect-secondary' : '--aspect-tertiary';
+  tiltArea.innerHTML = `
+    <div class="tilt-section">
+      <div class="tilt-label">Lean?</div>
+      <div class="tilt-choices">
+        ${remaining.map(s => {
+          const tiltVal = Math.round((s.val / 100) * 5);
+          return `<button class="tilt-btn" onclick="applyTilt('${s.name.replace(/'/g,"\\'")}', ${s.val}, ${basePct}, ${boost}, '${skillName.replace(/'/g,"\\'")}')">
+            <span style="color:var(${tierColorVar(s.tier)});font-size:0.5rem;letter-spacing:0.1em">${s.tier.toUpperCase()}</span>
+            ${s.name}
+            <span style="margin-left:auto;color:var(--dim)">+${tiltVal}%</span>
+          </button>`;
+        }).join('')}
+        <button class="tilt-resolve" onclick="resolveScenario(${basePct}, ${boost}, '${skillName.replace(/'/g,"\\'")}')">Resolve as-is</button>
+      </div>
+    </div>
+  `;
+}
+
+function applyTilt(tiltName, tiltVal, basePct, primaryBoost, primaryName) {
+  if (scenarioResolved) return;
+  const tiltBoost = Math.round((tiltVal / 100) * 5);
+  resolveScenario(basePct, primaryBoost + tiltBoost, primaryName, tiltName, tiltBoost);
+}
+
+function resolveScenario(basePct, boost, usedSkill, tiltSkill, tiltBoost) {
+  if (scenarioResolved) return;
+  scenarioResolved = true;
+
+  const outcome = getOutcome(basePct, boost);
+  const totalPct = Math.min(100, basePct + boost);
+
+  const outArea = document.getElementById('outcome-area');
+  if (!outArea) return;
+
+  // Clear tilt area
+  const tiltArea = document.getElementById('tilt-area');
+  if (tiltArea) tiltArea.innerHTML = '';
+
+  const fill = document.getElementById('res-fill');
+  if (fill) {
+    fill.style.width = totalPct + '%';
+    fill.style.background = outcome.color;
+  }
+
+  let skillNote = '';
+  if (usedSkill && tiltSkill) {
+    skillNote = `<div style="font-size:0.6rem;color:var(--muted);margin-bottom:0.5rem">Used: ${usedSkill} (+${boost - tiltBoost}%) · Leaned: ${tiltSkill} (+${tiltBoost}%)</div>`;
+  } else if (usedSkill) {
+    skillNote = `<div style="font-size:0.6rem;color:var(--muted);margin-bottom:0.5rem">Used: ${usedSkill} (+${boost}%)</div>`;
+  }
+
+  outArea.innerHTML = `
+    <div class="outcome-box" style="border-color:${outcome.color}">
+      <div class="outcome-label" style="color:${outcome.color}">${outcome.label.toUpperCase()} — ${Math.round(totalPct)}%</div>
+      ${skillNote}
+      <div>${outcome.text}</div>
+    </div>
+    <input class="margin-note" id="margin-note-input" type="text" placeholder="anything to note?" maxlength="120">
+  `;
+
+  // Start stillness timer
+  stillnessStart = Date.now();
+  clearInterval(stillnessTimer);
+
+  // Log to history
+  history.unshift({
+    check: currentScenario.check,
+    outcome: outcome.label,
+    pct: Math.round(totalPct),
+    skill: usedSkill || null,
+    tilt: tiltSkill || null,
+    stillness: 0,
+    note: null
+  });
+  renderHistory();
+  saveCharacter();
+
+  // Disable skill buttons
+  document.querySelectorAll('.skill-choice-btn').forEach(b => b.disabled = true);
+}
+
+// ─────────────────────────────────────────────
+// HISTORY / LOG
+// ─────────────────────────────────────────────
+let fractureMode = false;
+let fractureIndex = null;
+
+function captureMarginNote() {
+  try {
+    const input = document.getElementById('margin-note-input');
+    if (input && input.value.trim() && history.length > 0) {
+      history[0].note = input.value.trim();
+      saveCharacter();
+    }
+  } catch(e) {}
+}
+
+function renderHistory() {
+  const area = document.getElementById('history-area');
+  const badge = document.getElementById('log-badge');
+  const empty = document.getElementById('log-empty');
+  const controls = document.getElementById('fracture-controls');
+
+  if (history.length === 0) {
+    area.innerHTML = '';
+    badge.style.display = 'none';
+    empty.style.display = '';
+    if (controls) controls.innerHTML = '';
+    return;
+  }
+
+  empty.style.display = 'none';
+  badge.style.display = 'inline-block';
+  badge.textContent = history.length;
+
+  // Fracture controls
+  if (controls) {
+    if (fractureMode) {
+      controls.innerHTML = `
+        <div class="fracture-bar">
+          <div class="section-label" style="margin-bottom:0;color:var(--accent2)">Select fracture point</div>
+          <div style="display:flex;gap:0.5rem">
+            <button class="tilt-resolve" onclick="executeFracture()" id="fracture-go-btn" ${fractureIndex === null ? 'disabled style="opacity:0.3"' : ''}>Fracture here</button>
+            <button class="tilt-resolve" onclick="toggleFractureMode()">Cancel</button>
+          </div>
+        </div>
+      `;
+    } else {
+      controls.innerHTML = history.length > 0 ? `
+        <div class="fracture-bar">
+          <div class="section-label" style="margin-bottom:0">Run Log</div>
+          <button class="tilt-resolve" onclick="toggleFractureMode()" style="font-size:0.45rem;letter-spacing:0.15em">⫽ Fracture</button>
+        </div>
+      ` : '';
+    }
+  }
+
+  area.innerHTML = `
+    ${history.map((h, i) => {
+      const skillInfo = h.skill ? (h.tilt ? `${h.skill} → ${h.tilt}` : h.skill) : '';
+      const classes = fractureMode ? `history-entry fracturable${fractureIndex === i ? ' fracture-selected' : ''}` : 'history-entry';
+      const click = fractureMode ? `onclick="selectFracturePoint(${i})"` : '';
+      const noteHtml = h.note ? `<div class="history-note">${h.note}</div>` : '';
+      return `<div class="${classes}" ${click}>
+        <div class="history-check">${h.check}</div>
+        <div class="history-outcome"><b>${h.outcome}</b> · ${h.pct}%${skillInfo ? `<span style="color:var(--dim);margin-left:0.5rem;font-size:0.6rem">${skillInfo}</span>` : ''}${h.stillness ? `<span style="color:var(--border);margin-left:0.5rem;font-size:0.5rem">${h.stillness}s</span>` : ''}${noteHtml}</div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function toggleFractureMode() {
+  fractureMode = !fractureMode;
+  fractureIndex = null;
+  renderHistory();
+}
+
+function selectFracturePoint(idx) {
+  fractureIndex = idx;
+  renderHistory();
+}
+
+function executeFracture() {
+  if (fractureIndex === null || !character) return;
+  const gen = (character.lineage?.generation || 1) + 1;
+  const baseName = character.name.replace(/\s*Mk\.\w+$/, '');
+  const newName = `${baseName} Mk.${toRoman(gen)}`;
+
+  // History is newest-first; fracture keeps everything from fractureIndex onward (older entries)
+  const keptHistory = history.slice(fractureIndex);
+
+  const newId = Date.now().toString(36);
+  const aspectIds = character.aspects.map(a => a.id);
+  const aspects = aspectIds.map(getAspect);
+  const skills = buildSkills(aspects);
+  const stats = buildStats(aspects);
+
+  const newChar = {
+    id: newId,
+    name: newName,
+    aspects,
+    skills,
+    stats,
+    history: keptHistory,
+    lineage: { parent: character.id, fracturePoint: fractureIndex, generation: gen },
+    scenarioIndex: keptHistory.length,
+    created: Date.now(),
+    lastPlayed: Date.now()
+  };
+
+  // Save the new character
+  const roster = loadRoster();
+  roster.push({ id: newId, name: newName, aspects: aspectIds, created: newChar.created, lastPlayed: newChar.lastPlayed, generation: gen });
+  saveRoster(roster);
+  localStorage.setItem(`aspect/char-${newId}`, JSON.stringify({ ...newChar, aspects: aspectIds }));
+  localStorage.setItem('aspect/active', newId);
+
+  // Load the fractured character
+  character = newChar;
+  history = [...newChar.history];
+  fractureMode = false;
+  fractureIndex = null;
+  claimColors(aspects);
+  renderSheet();
+  renderHistory();
+}
+
+function toRoman(n) {
+  const vals = [10,9,5,4,1];
+  const syms = ['X','IX','V','IV','I'];
+  let s = '';
+  for (let i = 0; i < vals.length; i++) {
+    while (n >= vals[i]) { s += syms[i]; n -= vals[i]; }
+  }
+  return s;
+}
+
+// ─────────────────────────────────────────────
+// PERSISTENCE
+// ─────────────────────────────────────────────
+function loadRoster() {
+  try { return JSON.parse(localStorage.getItem('aspect/roster')) || []; }
+  catch { return []; }
+}
+
+function saveRoster(roster) {
+  localStorage.setItem('aspect/roster', JSON.stringify(roster));
+}
+
+function saveCharacter() {
+  if (!character) return;
+  if (!character.id) character.id = Date.now().toString(36);
+  if (!character.created) character.created = Date.now();
+  character.lastPlayed = Date.now();
+  character.history = history;
+  if (!character.lineage) character.lineage = { parent: null, fracturePoint: null, generation: 1 };
+  if (character.scenarioIndex === undefined) character.scenarioIndex = history.length;
+
+  const aspectIds = character.aspects.map(a => a.id);
+  localStorage.setItem(`aspect/char-${character.id}`, JSON.stringify({
+    ...character,
+    aspects: aspectIds
+  }));
+  localStorage.setItem('aspect/active', character.id);
+
+  // Update roster
+  const roster = loadRoster();
+  const idx = roster.findIndex(r => r.id === character.id);
+  const entry = {
+    id: character.id,
+    name: character.name,
+    aspects: aspectIds,
+    created: character.created,
+    lastPlayed: character.lastPlayed,
+    generation: character.lineage.generation
+  };
+  if (idx >= 0) roster[idx] = entry;
+  else roster.push(entry);
+  saveRoster(roster);
+}
+
+function loadCharacter(id) {
+  try {
+    const data = JSON.parse(localStorage.getItem(`aspect/char-${id}`));
+    if (!data) return false;
+    const aspects = data.aspects.map(a => typeof a === 'string' ? getAspect(a) : getAspect(a.id));
+    // Rebuild personal stats if missing (backward compat)
+    if (!data.personalStats && data.stats) {
+      data.personalStats = buildPersonalStats(data.name, data.stats);
+    }
+    character = { ...data, aspects };
+    history = data.history || [];
+    claimColors(aspects);
+    renderSheet();
+    renderHistory();
+    fractureMode = false;
+    fractureIndex = null;
+
+    showPhase('phase-sheet');
+    switchTab('tab-situation');
+    localStorage.setItem('aspect/active', id);
+    return true;
+  } catch(e) { console.error('loadCharacter error:', e); return false; }
+}
+
+function deleteCharacter(id) {
+  localStorage.removeItem(`aspect/char-${id}`);
+  const roster = loadRoster().filter(r => r.id !== id);
+  saveRoster(roster);
+  if (character && character.id === id) {
+    character = null;
+    history = [];
+  }
+  if (roster.length > 0) {
+    renderRoster();
+  } else {
+    showPhase('phase-selection');
+  }
+}
+
+// ─────────────────────────────────────────────
+// ROSTER UI
+// ─────────────────────────────────────────────
+function renderRoster() {
+  const roster = loadRoster();
+  const scroll = document.getElementById('roster-scroll');
+  const active = localStorage.getItem('aspect/active');
+
+  scroll.innerHTML = roster.map(r => {
+    const aspect = getAspect(r.aspects[0]);
+    const color = aspect ? aspect.color : '#666';
+    const gen = r.generation > 1 ? `Mk.${toRoman(r.generation)}` : '';
+    const aspects = r.aspects.map(id => { const a = getAspect(id); return a ? a.name : id; }).join(' · ');
+    const count = (() => { try { const d = JSON.parse(localStorage.getItem(`aspect/char-${r.id}`)); return d?.history?.length || 0; } catch { return 0; } })();
+    return `<div class="roster-card${r.id === active ? ' active' : ''}" style="border-left-color:${color}" onclick="loadCharacter('${r.id}')">
+      <div class="roster-name" style="color:${color}">${r.name}</div>
+      ${gen ? `<div class="roster-gen">${gen}</div>` : ''}
+      <div class="roster-triad">${aspects}</div>
+      <div class="roster-meta">${count} encounter${count !== 1 ? 's' : ''}</div>
+    </div>`;
+  }).join('');
+
+  showPhase('phase-roster');
+}
+
+function showPhase(id) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function enterSelection() {
+  selected = [null, null, null];
+  document.getElementById('char-name-input').value = '';
+  [1, 2, 3].forEach(slot => {
+    document.querySelectorAll(`#grid-${slot} .aspect-card`).forEach(c => {
+      c.classList.remove('selected', 'disabled');
+    });
+  });
+  checkConfirm();
+  showPhase('phase-selection');
+}
+
+function backToRoster() {
+  const roster = loadRoster();
+  if (roster.length > 0) {
+    renderRoster();
+  } else {
+    enterSelection();
+  }
+}
+
+// ─────────────────────────────────────────────
+// UPDATED CONFIRM — saves new character
+// ─────────────────────────────────────────────
+const _origConfirm = confirmSelection;
+confirmSelection = function() {
+  _origConfirm();
+  character.id = Date.now().toString(36);
+  character.created = Date.now();
+  character.lineage = { parent: null, fracturePoint: null, generation: 1 };
+  character.scenarioIndex = 0;
+  saveCharacter();
+};
+
+// ─────────────────────────────────────────────
+// HUB INTEGRATION
+// ─────────────────────────────────────────────
+if (window.parent !== window) {
+  window.parent.postMessage({ type: 'hub:minimize' }, '*');
+}
+
+// ─────────────────────────────────────────────
+// INIT — check for roster
+// ─────────────────────────────────────────────
+init();
+try {
+  const _roster = loadRoster();
+  if (_roster.length > 0) {
+    const activeId = localStorage.getItem('aspect/active');
+    let loaded = false;
+    if (activeId) loaded = loadCharacter(activeId);
+    if (!loaded) renderRoster();
+  } else {
+    showPhase('phase-selection');
+  }
+} catch(e) {
+  console.error('Init error:', e);
+  showPhase('phase-selection');
+}
+// Fallback: if nothing is visible, show selection
+if (!document.querySelector('.phase.active')) showPhase('phase-selection');
+</script>
+</body>
+</html>

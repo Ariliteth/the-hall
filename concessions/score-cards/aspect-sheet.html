@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASPECT // Character Sheet</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Unbounded:wght@300;400;700;900&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #2a2a3a;
+    --dim: #3a3a5a;
+    --muted: #6a6a9a;
+    --text: #e0e0f0;
+    --accent1: #c8ff00;
+    --accent2: #ff4466;
+    --accent3: #00e5ff;
+    --gold: #ffcc44;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Space Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* noise overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+
+  .container { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* HEADER */
+  header { text-align: center; margin-bottom: 3rem; }
+  .logo {
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 900;
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    letter-spacing: -0.03em;
+    color: var(--accent1);
+    line-height: 1;
+    text-shadow: 0 0 60px rgba(200,255,0,0.3);
+  }
+  .logo span { color: var(--muted); }
+  .tagline { font-size: 0.7rem; letter-spacing: 0.3em; color: var(--muted); margin-top: 0.5rem; text-transform: uppercase; }
+
+  /* PHASES */
+  .phase { display: none; animation: fadeIn 0.4s ease; }
+  .phase.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* SECTION LABELS */
+  .section-label {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.4em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  /* ASPECT SELECTION */
+  .aspect-slot { margin-bottom: 2.5rem; }
+  .slot-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .slot-number {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--border);
+    line-height: 1;
+  }
+  .slot-title { font-size: 0.65rem; letter-spacing: 0.3em; color: var(--muted); text-transform: uppercase; }
+  .slot-tier { font-size: 0.6rem; color: var(--accent1); letter-spacing: 0.2em; }
+
+  .aspect-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .aspect-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .aspect-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .aspect-card:hover { border-color: var(--dim); transform: translateY(-2px); }
+  .aspect-card:hover::before { opacity: 1; }
+  .aspect-card.selected { border-color: var(--accent); }
+  .aspect-card.selected::before { opacity: 1; }
+  .aspect-card.disabled { opacity: 0.3; pointer-events: none; }
+
+  .aspect-name {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+  }
+  .aspect-skills { font-size: 0.6rem; color: var(--muted); line-height: 1.8; }
+  .aspect-stats { font-size: 0.55rem; color: var(--dim); margin-top: 0.5rem; letter-spacing: 0.15em; }
+
+  /* SLOT ACCENT COLORS */
+  #slot-1 .aspect-card { --accent: var(--accent1); }
+  #slot-2 .aspect-card { --accent: var(--accent3); }
+  #slot-3 .aspect-card { --accent: var(--accent2); }
+
+  /* CONFIRM BUTTON */
+  .btn {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0.75rem 2rem;
+    border: 2px solid currentColor;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--accent1);
+    margin-top: 2rem;
+  }
+  .btn:hover:not(:disabled) { background: var(--accent1); color: var(--bg); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn.danger { color: var(--accent2); }
+  .btn.danger:hover { background: var(--accent2); color: var(--bg); }
+  .btn.blue { color: var(--accent3); }
+  .btn.blue:hover { background: var(--accent3); color: var(--bg); }
+
+  /* CHARACTER SHEET */
+  .sheet-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .char-name-area { flex: 1; }
+  .char-name {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+  }
+  .char-aspects { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.2em; }
+
+  .stats-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    min-width: 200px;
+  }
+  .stats-row { display: flex; gap: 1.5rem; justify-content: space-between; }
+  .stat-item { text-align: center; }
+  .stat-code {
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    margin-bottom: 0.25rem;
+  }
+  .stat-val {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  /* SKILLS TABLE */
+  .skills-section { margin-bottom: 2rem; }
+  .skills-table { width: 100%; border-collapse: collapse; }
+  .skills-table tr { border-bottom: 1px solid var(--border); }
+  .skills-table tr:last-child { border-bottom: none; }
+  .skills-table td { padding: 0.6rem 0; }
+  .skill-name { font-size: 0.75rem; }
+  .skill-source {
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    padding-left: 0.5rem;
+  }
+  .skill-bar-cell { width: 40%; padding-right: 1rem; }
+  .skill-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .skill-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .skill-num {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: right;
+    width: 3rem;
+    color: var(--gold);
+  }
+
+  /* tier colors */
+  .tier-primary .skill-bar-fill { background: var(--accent1); }
+  .tier-secondary .skill-bar-fill { background: var(--accent3); }
+  .tier-tertiary .skill-bar-fill { background: var(--accent2); }
+  .tier-primary .skill-name { color: var(--text); }
+  .tier-secondary .skill-name { color: #b0c0d0; }
+  .tier-tertiary .skill-name { color: var(--muted); }
+
+  /* SCENARIO ENGINE */
+  .scenario-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  .scenario-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    color: var(--accent3);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+  .scenario-text { color: var(--text); }
+
+  .check-display {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+    flex-wrap: wrap;
+  }
+  .check-code {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    color: var(--accent2);
+  }
+  .check-label { font-size: 0.6rem; letter-spacing: 0.2em; color: var(--muted); }
+  .check-arrow { color: var(--dim); font-size: 1.5rem; }
+  .matched-stat { font-family: 'Unbounded', sans-serif; font-size: 1.2rem; font-weight: 700; color: var(--gold); }
+
+  .resolution-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+  .resolution-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1.2s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .outcome-box {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+  .outcome-label {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    margin-bottom: 0.5rem;
+  }
+
+  .skill-choices {
+    margin: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .skill-choice-btn {
+    background: transparent;
+    border: 1px solid var(--dim);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.6rem 1rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .skill-choice-btn:hover { border-color: var(--accent1); color: var(--accent1); }
+  .skill-tag {
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    color: var(--accent1);
+    border: 1px solid var(--accent1);
+    padding: 0.1rem 0.3rem;
+    white-space: nowrap;
+  }
+
+  .sheet-actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  .name-input-wrap { margin-bottom: 2rem; }
+  .name-input {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--border);
+    color: var(--text);
+    width: 100%;
+    padding: 0.5rem 0;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .name-input:focus { border-color: var(--accent1); }
+  .name-input::placeholder { color: var(--dim); }
+
+  .loading-dots::after {
+    content: '...';
+    animation: dots 1s infinite;
+  }
+  @keyframes dots {
+    0% { content: '.'; }
+    33% { content: '..'; }
+    66% { content: '...'; }
+  }
+
+  /* score badge */
+  .score-badge {
+    display: inline-block;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 0.6rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    margin-left: 0.5rem;
+  }
+
+  .history-entry {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.7rem;
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+  }
+  .history-check { color: var(--accent2); font-weight: 700; letter-spacing: 0.1em; min-width: 4rem; }
+  .history-outcome { color: var(--muted); }
+  .history-outcome b { color: var(--text); }
+
+  @media (max-width: 600px) {
+    .sheet-header { flex-direction: column; }
+    .stats-block { width: 100%; }
+    .aspect-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">ASP<span>/</span>ECT</div>
+    <div class="tagline">Three aspects. Infinite situations.</div>
+  </header>
+
+  <!-- PHASE 1: ASPECT SELECTION -->
+  <div class="phase active" id="phase-selection">
+    <div id="slot-1" class="aspect-slot">
+      <div class="slot-header">
+        <div class="slot-number">01</div>
+        <div>
+          <div class="slot-title">Primary Aspect</div>
+          <div class="slot-tier">All 5 skills — descending mastery</div>
+        </div>
+      </div>
+      <div class="section-label">Choose your dominant nature</div>
+      <div class="aspect-grid" id="grid-1"></div>
+    </div>
+
+    <div id="slot-2" class="aspect-slot">
+      <div class="slot-header">
+        <div class="slot-number">02</div>
+        <div>
+          <div class="slot-title">Secondary Aspect</div>
+          <div class="slot-tier">Top 2 skills — decent proficiency</div>
+        </div>
+      </div>
+      <div class="section-label">Choose your secondary nature</div>
+      <div class="aspect-grid" id="grid-2"></div>
+    </div>
+
+    <div id="slot-3" class="aspect-slot">
+      <div class="slot-header">
+        <div class="slot-number">03</div>
+        <div>
+          <div class="slot-title">Tertiary Aspect</div>
+          <div class="slot-tier">Bottom 3 skills — minor influence</div>
+        </div>
+      </div>
+      <div class="section-label">Choose your background tint</div>
+      <div class="aspect-grid" id="grid-3"></div>
+    </div>
+
+    <div class="name-input-wrap">
+      <div class="section-label">Character Name</div>
+      <input class="name-input" id="char-name-input" type="text" placeholder="Enter name..." maxlength="40">
+    </div>
+
+    <button class="btn" id="confirm-btn" disabled onclick="confirmSelection()">Forge Character →</button>
+  </div>
+
+  <!-- PHASE 2: CHARACTER SHEET + PLAY -->
+  <div class="phase" id="phase-sheet">
+    <div class="sheet-header">
+      <div class="char-name-area">
+        <div class="char-name" id="display-name"></div>
+        <div class="char-aspects" id="display-aspects"></div>
+      </div>
+      <div class="stats-block">
+        <div class="section-label" style="margin-bottom:0.75rem">Combined Stats</div>
+        <div class="stats-row" id="stats-row"></div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="skills-section">
+      <div class="section-label">Skill Profile</div>
+      <table class="skills-table" id="skills-table"></table>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">Situation Engine</div>
+    <div id="scenario-area"></div>
+
+    <div class="sheet-actions">
+      <button class="btn blue" onclick="generateScenario()">New Situation →</button>
+      <button class="btn danger" onclick="resetGame()">New Character</button>
+    </div>
+
+    <div id="history-area" style="margin-top:2rem"></div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────
+const ASPECTS = [
+  {
+    id: 'vagrant',
+    name: 'VAGRANT',
+    skills: ['Wayfinding', 'Scavenging', 'Improvisation', 'Streetwise', 'Endurance'],
+    stats: { CHA: 4, WHZ: 6, NRG: 8 },
+    color: '#c8ff00'
+  },
+  {
+    id: 'scholar',
+    name: 'SCHOLAR',
+    skills: ['Research', 'Decoding', 'Memory Recall', 'Pattern Recognition', 'Persuasion'],
+    stats: { CHA: 7, WHZ: 9, NRG: 3 },
+    color: '#00e5ff'
+  },
+  {
+    id: 'soldier',
+    name: 'SOLDIER',
+    skills: ['Marksmanship', 'Close Combat', 'Fortification', 'Logistics', 'Command'],
+    stats: { CHA: 5, WHZ: 4, NRG: 9 },
+    color: '#ff4466'
+  },
+  {
+    id: 'merchant',
+    name: 'MERCHANT',
+    skills: ['Negotiation', 'Appraisal', 'Networking', 'Smuggling', 'Accounting'],
+    stats: { CHA: 9, WHZ: 6, NRG: 5 },
+    color: '#ffcc44'
+  },
+  {
+    id: 'healer',
+    name: 'HEALER',
+    skills: ['Diagnosis', 'Surgery', 'Herbalism', 'Calm Under Pressure', 'Anatomy'],
+    stats: { CHA: 6, WHZ: 8, NRG: 4 },
+    color: '#88ffaa'
+  },
+  {
+    id: 'arcanist',
+    name: 'ARCANIST',
+    skills: ['Spell Weaving', 'Ritual Design', 'Aura Reading', 'Counterspell', 'Inscription'],
+    stats: { CHA: 5, WHZ: 10, NRG: 6 },
+    color: '#bb88ff'
+  },
+  {
+    id: 'trickster',
+    name: 'TRICKSTER',
+    skills: ['Deception', 'Sleight of Hand', 'Disguise', 'Lockpicking', 'Distraction'],
+    stats: { CHA: 8, WHZ: 7, NRG: 6 },
+    color: '#ff9944'
+  },
+  {
+    id: 'sentinel',
+    name: 'SENTINEL',
+    skills: ['Perception', 'Surveillance', 'Threat Assessment', 'Silence', 'Tracking'],
+    stats: { CHA: 3, WHZ: 7, NRG: 7 },
+    color: '#44aaff'
+  },
+  {
+    id: 'artisan',
+    name: 'ARTISAN',
+    skills: ['Crafting', 'Repair', 'Material Knowledge', 'Structural Design', 'Finishing'],
+    stats: { CHA: 5, WHZ: 8, NRG: 7 },
+    color: '#ffaa66'
+  },
+  {
+    id: 'orator',
+    name: 'ORATOR',
+    skills: ['Public Speaking', 'Rhetoric', 'Crowd Reading', 'Intimidation', 'Diplomacy'],
+    stats: { CHA: 10, WHZ: 6, NRG: 7 },
+    color: '#ff66bb'
+  },
+  {
+    id: 'naturalist',
+    name: 'NATURALIST',
+    skills: ['Animal Handling', 'Botany', 'Navigation', 'Weatherreading', 'Camouflage'],
+    stats: { CHA: 4, WHZ: 7, NRG: 6 },
+    color: '#66dd88'
+  },
+  {
+    id: 'inventor',
+    name: 'INVENTOR',
+    skills: ['Tinkering', 'Explosive Theory', 'Circuit Logic', 'Rapid Prototype', 'Systems Thinking'],
+    stats: { CHA: 4, WHZ: 9, NRG: 8 },
+    color: '#ffee44'
+  }
+];
+
+const SCENARIOS = [
+  { text: "A locked vault door stands between you and the only exit. Three guards are patrolling outside. You have two minutes.", check: "LCK", context: "luck and physical dexterity" },
+  { text: "The city elder demands you justify your presence here in front of a crowded market square. Every word is being weighed.", check: "CHA", context: "charm and convincing speech" },
+  { text: "A strange machine hums and clicks. It's clearly broken. Someone is watching to see if you know what you're doing.", check: "WHZ", context: "wit and technical cleverness" },
+  { text: "You're being chased across rooftops at dusk. The gap is ten feet. The drop is forty.", check: "NRG", context: "raw energy and nerve" },
+  { text: "An ancient text sits open. It's not in any living language, but the patterns feel almost familiar.", check: "WZD", context: "deep pattern-finding and arcane sense" },
+  { text: "The negotiation has gone sideways. Your counterpart is lying, and everyone can feel it. Now it's your move.", check: "CHR", context: "social authority and pressure" },
+  { text: "There's a fire in the building. People are panicking. Somebody has to organize this.", check: "NRG", context: "drive and decisive action" },
+  { text: "You need to disappear. Right now. Into this crowd.", check: "SLT", context: "stealth and environmental awareness" },
+  { text: "The wound is deep. You don't have much time and fewer supplies. Think.", check: "WIZ", context: "practical knowledge under pressure" },
+  { text: "You've stumbled into a card game where the stakes just became your freedom. The dealer is watching your hands.", check: "WLS", context: "cunning and hand control" },
+  { text: "A dignitary needs to believe you belong here. Your clothes are wrong. Your accent is wrong. Everything is wrong.", check: "DCT", context: "deception and composure" },
+  { text: "The storm came from nowhere. You're on open water with a hull leak and three frightened passengers.", check: "GRT", context: "grit and navigational knowledge" },
+];
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let selected = [null, null, null];
+let character = null;
+let history = [];
+let currentScenario = null;
+let scenarioResolved = false;
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+function init() {
+  [1, 2, 3].forEach(slot => {
+    const grid = document.getElementById(`grid-${slot}`);
+    ASPECTS.forEach(aspect => {
+      const card = document.createElement('div');
+      card.className = 'aspect-card';
+      card.dataset.id = aspect.id;
+      card.dataset.slot = slot;
+      card.innerHTML = `
+        <div class="aspect-name">${aspect.name}</div>
+        <div class="aspect-skills">${aspect.skills.map(s => `▸ ${s}`).join('<br>')}</div>
+        <div class="aspect-stats">CHA ${aspect.stats.CHA} · WHZ ${aspect.stats.WHZ} · NRG ${aspect.stats.NRG}</div>
+      `;
+      card.style.setProperty('--accent', aspect.color);
+      card.addEventListener('click', () => selectAspect(slot, aspect.id, card));
+      grid.appendChild(card);
+    });
+  });
+}
+
+function selectAspect(slot, id, card) {
+  const idx = slot - 1;
+  // deselect previous
+  document.querySelectorAll(`#grid-${slot} .aspect-card`).forEach(c => c.classList.remove('selected'));
+  selected[idx] = id;
+  card.classList.add('selected');
+  updateDisabled();
+  checkConfirm();
+}
+
+function updateDisabled() {
+  const chosenIds = selected.filter(Boolean);
+  [1, 2, 3].forEach(slot => {
+    document.querySelectorAll(`#grid-${slot} .aspect-card`).forEach(card => {
+      const id = card.dataset.id;
+      const isSelected = selected[slot - 1] === id;
+      const isUsedElsewhere = chosenIds.includes(id) && !isSelected;
+      card.classList.toggle('disabled', isUsedElsewhere);
+    });
+  });
+}
+
+function checkConfirm() {
+  const btn = document.getElementById('confirm-btn');
+  const name = document.getElementById('char-name-input').value.trim();
+  btn.disabled = !(selected[0] && selected[1] && selected[2] && name.length > 0);
+}
+
+document.getElementById('char-name-input').addEventListener('input', checkConfirm);
+
+// ─────────────────────────────────────────────
+// BUILD CHARACTER
+// ─────────────────────────────────────────────
+function getAspect(id) { return ASPECTS.find(a => a.id === id); }
+
+// Skill values: primary descending, secondary top-2, tertiary bottom-3
+function buildSkills(aspects) {
+  const [a1, a2, a3] = aspects;
+  const skills = [];
+
+  // Primary: 95, 82, 68, 54, 40
+  const primaryVals = [95, 82, 68, 54, 40];
+  a1.skills.forEach((s, i) => skills.push({ name: s, val: primaryVals[i], tier: 'primary', source: a1.name }));
+
+  // Secondary: top 2 at 62, 50
+  [0, 1].forEach((i, rank) => {
+    skills.push({ name: a2.skills[i], val: [62, 50][rank], tier: 'secondary', source: a2.name });
+  });
+
+  // Tertiary: last 3 at 28, 20, 14
+  [2, 3, 4].forEach((i, rank) => {
+    skills.push({ name: a3.skills[i], val: [28, 20, 14][rank], tier: 'tertiary', source: a3.name });
+  });
+
+  return skills;
+}
+
+// Stats: combine by most common or random blend
+function buildStats(aspects) {
+  const keys = ['CHA', 'WHZ', 'NRG'];
+  const result = {};
+  keys.forEach(k => {
+    const vals = aspects.map(a => a.stats[k]);
+    // Weighted blend: primary 50%, secondary 30%, tertiary 20%, capped at 10
+    const raw = Math.round(vals[0] * 0.5 + vals[1] * 0.3 + vals[2] * 0.2);
+    result[k] = Math.min(10, Math.max(1, raw));
+  });
+  return result;
+}
+
+function confirmSelection() {
+  const name = document.getElementById('char-name-input').value.trim();
+  const aspects = selected.map(getAspect);
+  const skills = buildSkills(aspects);
+  const stats = buildStats(aspects);
+
+  character = { name, aspects, skills, stats };
+  renderSheet();
+  document.getElementById('phase-selection').classList.remove('active');
+  document.getElementById('phase-sheet').classList.add('active');
+}
+
+// ─────────────────────────────────────────────
+// RENDER SHEET
+// ─────────────────────────────────────────────
+function renderSheet() {
+  document.getElementById('display-name').textContent = character.name;
+  document.getElementById('display-aspects').textContent =
+    character.aspects.map(a => a.name).join(' · ');
+
+  // Stats
+  const statsRow = document.getElementById('stats-row');
+  statsRow.innerHTML = '';
+  Object.entries(character.stats).forEach(([k, v]) => {
+    statsRow.innerHTML += `<div class="stat-item"><div class="stat-code">${k}</div><div class="stat-val">${v}</div></div>`;
+  });
+
+  // Skills
+  const table = document.getElementById('skills-table');
+  table.innerHTML = '';
+  character.skills.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.className = `tier-${s.tier}`;
+    tr.innerHTML = `
+      <td><span class="skill-name">${s.name}</span><span class="skill-source">${s.source}</span></td>
+      <td class="skill-bar-cell"><div class="skill-bar"><div class="skill-bar-fill" style="width:${s.val}%"></div></div></td>
+      <td class="skill-num">${s.val}</td>
+    `;
+    table.appendChild(tr);
+  });
+}
+
+// ─────────────────────────────────────────────
+// LETTER PROXIMITY RESOLUTION
+// ─────────────────────────────────────────────
+function letterDist(a, b) {
+  const A = a.toUpperCase().charCodeAt(0);
+  const B = b.toUpperCase().charCodeAt(0);
+  return Math.abs(A - B);
+}
+
+function trigramDist(check, statCode) {
+  // Average letter distance between the two 3-letter codes
+  let total = 0;
+  for (let i = 0; i < 3; i++) {
+    const ci = check[i] || 'A';
+    const si = statCode[i] || 'A';
+    total += letterDist(ci, si);
+  }
+  return total / 3; // 0 = perfect match, ~12 = very far
+}
+
+function findBestStat(check) {
+  const stats = character.stats;
+  let best = null, bestScore = -Infinity, bestDist = Infinity;
+  Object.entries(stats).forEach(([key, val]) => {
+    const dist = trigramDist(check, key);
+    // Score = stat value × (1 / (1 + dist))
+    const score = val * (1 / (1 + dist * 0.5));
+    if (score > bestScore) {
+      bestScore = score;
+      bestDist = dist;
+      best = { key, val, dist, score };
+    }
+  });
+  return best;
+}
+
+function resolveCheck(check) {
+  const statMatch = findBestStat(check);
+  const proximity = Math.max(0, 1 - statMatch.dist / 12); // 0-1
+  const rawScore = statMatch.val * proximity; // 0-10
+  const pct = (rawScore / 10) * 100;
+
+  // Find if any skill boosts apply
+  const relevantSkills = getRelevantSkills(check);
+
+  return { statMatch, proximity, rawScore, pct, relevantSkills };
+}
+
+function getRelevantSkills(check) {
+  // Skills whose first letter matches check letters provide options
+  const checkLetters = check.toUpperCase().split('');
+  return character.skills.filter(s => {
+    const fl = s.name[0].toUpperCase();
+    return checkLetters.some(l => Math.abs(fl.charCodeAt(0) - l.charCodeAt(0)) <= 3);
+  }).slice(0, 3);
+}
+
+// ─────────────────────────────────────────────
+// OUTCOME TEXT
+// ─────────────────────────────────────────────
+function getOutcome(pct, skillBoost) {
+  const total = Math.min(100, pct + skillBoost);
+  if (total >= 85) return { label: 'Exceptional', color: '#c8ff00', text: getOutcomeText('exceptional') };
+  if (total >= 65) return { label: 'Success', color: '#88ffaa', text: getOutcomeText('success') };
+  if (total >= 40) return { label: 'Partial', color: '#ffcc44', text: getOutcomeText('partial') };
+  if (total >= 20) return { label: 'Failure', color: '#ff9944', text: getOutcomeText('failure') };
+  return { label: 'Disaster', color: '#ff4466', text: getOutcomeText('disaster') };
+}
+
+function getOutcomeText(tier) {
+  const texts = {
+    exceptional: ["Things go better than you had any right to expect. The situation resolves cleanly and leaves something behind.", "You handle this with a confidence that surprises even you. The room remembers.", "Not just managed — mastered. Something shifts in your favor that has nothing to do with luck."],
+    success: ["It works. Not perfectly, but it works, and right now that's what matters.", "You pull through with room to spare. Not elegant, but effective.", "The situation yields. You move forward having spent less than you feared."],
+    partial: ["You get some of what you needed. The rest is a problem for later — but later arrives eventually.", "Half a win is still half a win. Something is lost, but something is kept.", "Close. Almost. You'll need to address what slipped through."],
+    failure: ["The situation does not cooperate. You walk away with less than you came in with.", "It falls apart in your hands. Not completely — but enough to matter.", "What you tried didn't land. The gap between attempt and result is visible to everyone."],
+    disaster: ["Everything that could go wrong did, and then one more thing on top of that.", "The situation collapses in a direction you weren't watching. This will take time to undo.", "A clean failure would have been better. This makes things actively worse."]
+  };
+  const arr = texts[tier];
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ─────────────────────────────────────────────
+// SCENARIO GENERATION
+// ─────────────────────────────────────────────
+async function generateScenario() {
+  const area = document.getElementById('scenario-area');
+  area.innerHTML = `<div class="scenario-box"><div class="scenario-title">Situation</div><div class="scenario-text loading-dots">Generating</div></div>`;
+
+  // Pick a random scenario
+  const scen = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
+  currentScenario = scen;
+  scenarioResolved = false;
+
+  const result = resolveCheck(scen.check);
+  renderScenario(scen, result);
+}
+
+function renderScenario(scen, result) {
+  const area = document.getElementById('scenario-area');
+  const { statMatch, proximity, rawScore, pct, relevantSkills } = result;
+
+  const proxPct = Math.round(proximity * 100);
+  const skillChoicesHtml = relevantSkills.length > 0 ? `
+    <div class="section-label" style="margin-top:1rem">Applicable Skills</div>
+    <div class="skill-choices">
+      ${relevantSkills.map(s => `
+        <button class="skill-choice-btn" onclick="applySkill('${s.name.replace(/'/g,"\\'")}', ${s.val}, ${pct})">
+          <span class="skill-tag">${s.tier.toUpperCase()}</span>
+          ${s.name} <span style="color:var(--muted);font-size:0.6rem;margin-left:auto">${s.val}/100</span>
+        </button>
+      `).join('')}
+    </div>
+  ` : '';
+
+  area.innerHTML = `
+    <div class="scenario-box">
+      <div class="scenario-title">Situation</div>
+      <div class="scenario-text">${scen.text}</div>
+    </div>
+    <div class="check-display">
+      <div>
+        <div class="check-label">Check</div>
+        <div class="check-code">${scen.check}</div>
+      </div>
+      <div class="check-arrow">→</div>
+      <div>
+        <div class="check-label">Closest Stat</div>
+        <div class="matched-stat">${statMatch.key} · ${statMatch.val}</div>
+      </div>
+      <div style="margin-left:auto;text-align:right">
+        <div class="check-label">Letter Proximity</div>
+        <div style="font-family:'Unbounded',sans-serif;font-size:1rem;color:var(--accent3)">${proxPct}%</div>
+      </div>
+    </div>
+    <div class="resolution-bar">
+      <div class="resolution-fill" id="res-fill" style="width:0%;background:var(--accent3)"></div>
+    </div>
+    ${skillChoicesHtml}
+    <div id="outcome-area"></div>
+  `;
+
+  setTimeout(() => {
+    const fill = document.getElementById('res-fill');
+    if (fill) fill.style.width = pct + '%';
+  }, 50);
+
+  // Auto-resolve if no relevant skills
+  if (relevantSkills.length === 0) {
+    resolveScenario(pct, 0);
+  }
+}
+
+function applySkill(skillName, skillVal, basePct) {
+  if (scenarioResolved) return;
+  // Skill adds up to 15% based on skill value
+  const boost = Math.round((skillVal / 100) * 15);
+  resolveScenario(basePct, boost, skillName);
+}
+
+function resolveScenario(basePct, boost, usedSkill) {
+  if (scenarioResolved) return;
+  scenarioResolved = true;
+
+  const outcome = getOutcome(basePct, boost);
+  const totalPct = Math.min(100, basePct + boost);
+
+  const outArea = document.getElementById('outcome-area');
+  if (!outArea) return;
+
+  const fill = document.getElementById('res-fill');
+  if (fill) {
+    fill.style.width = totalPct + '%';
+    fill.style.background = outcome.color;
+  }
+
+  const skillNote = usedSkill ? `<div style="font-size:0.6rem;color:var(--muted);margin-bottom:0.5rem">Used: ${usedSkill} (+${boost}%)</div>` : '';
+
+  outArea.innerHTML = `
+    <div class="outcome-box" style="border-color:${outcome.color}">
+      <div class="outcome-label" style="color:${outcome.color}">${outcome.label.toUpperCase()} — ${Math.round(totalPct)}%</div>
+      ${skillNote}
+      <div>${outcome.text}</div>
+    </div>
+  `;
+
+  // Log to history
+  history.unshift({ check: currentScenario.check, outcome: outcome.label, pct: Math.round(totalPct) });
+  renderHistory();
+
+  // Disable skill buttons
+  document.querySelectorAll('.skill-choice-btn').forEach(b => b.disabled = true);
+}
+
+function renderHistory() {
+  const area = document.getElementById('history-area');
+  if (history.length === 0) { area.innerHTML = ''; return; }
+  area.innerHTML = `
+    <div class="section-label">Run Log</div>
+    ${history.slice(0, 8).map(h => `
+      <div class="history-entry">
+        <div class="history-check">${h.check}</div>
+        <div class="history-outcome"><b>${h.outcome}</b> · ${h.pct}%</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function resetGame() {
+  selected = [null, null, null];
+  character = null;
+  history = [];
+  currentScenario = null;
+  document.getElementById('char-name-input').value = '';
+  document.getElementById('scenario-area').innerHTML = '';
+  document.getElementById('history-area').innerHTML = '';
+  [1, 2, 3].forEach(slot => {
+    document.querySelectorAll(`#grid-${slot} .aspect-card`).forEach(c => {
+      c.classList.remove('selected', 'disabled');
+    });
+  });
+  checkConfirm();
+  document.getElementById('phase-sheet').classList.remove('active');
+  document.getElementById('phase-selection').classList.add('active');
+}
+
+// ─────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
