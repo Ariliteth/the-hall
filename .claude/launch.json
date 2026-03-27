@@ -5,8 +5,7 @@
       "name": "the-hall",
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/serve.mjs"],
-      "port": 3002,
-      "autoPort": true
+      "port": 3002
     }
   ]
 }
