@@ -101,12 +101,12 @@
     /* ── Field section ─────────────────────────────────────── */
     #field-section {
       position: relative;
-      width: min(420px, 96vw);
+      width: min(640px, 96vw);
     }
     #field-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 9px; width: 100%; padding: 4px;
+      gap: 12px; width: 100%; padding: 4px;
     }
     #particle-canvas {
       position: absolute; inset: 0;
@@ -123,7 +123,7 @@
       background: transparent;
       border: none;
       border-radius: 8px; aspect-ratio: 1;
-      min-height: 54px;
+      min-height: 64px;
       position: relative;
     }
 
@@ -396,6 +396,7 @@ const HALL_REPO      = 'Ariliteth/the-hall';
 const HALL_BRANCH    = 'main';
 const CYCLE_SECONDS  = 90;
 const COLS = 5, ROWS = 4, TILE_COUNT = COLS * ROWS;
+const BASE_TILE_W = 80;
 const TRADER_MS      = 15000;
 const PARTICLE_MAX   = 90;
 const RELIC_MAX      = 10;
@@ -736,6 +737,7 @@ let shadow     = { x:-300, y:200, vx:0.1, vy:0.04, opacity:0, phase:'dormant', t
 // Canvas
 let bgCanvas, bgCtx, pCanvas, pCtx;
 let tileRects = [];
+let tileScale  = 1;
 let spawnAccum = Array(TILE_COUNT).fill(0);
 
 // Timers
@@ -782,6 +784,7 @@ function updateTileRects() {
       w: r.width, h: r.height,
     };
   });
+  tileScale = tileRects[0] ? tileRects[0].w / BASE_TILE_W : 1;
 }
 
 // ── Background effects ─────────────────────────────────────────
@@ -1104,17 +1107,17 @@ function drawAll() {
 
   // Empty node hints — small dim rings where residents could be invited
   pCtx.strokeStyle = 'rgba(60,154,122,0.16)';
-  pCtx.lineWidth = 1;
+  pCtx.lineWidth = 1 * tileScale;
   for (let i = 0; i < TILE_COUNT; i++) {
     if (G.field[i] || !tileRects[i]) continue;
     const t = tileRects[i];
     pCtx.globalAlpha = 1;
     pCtx.beginPath();
-    pCtx.arc(t.x, t.y, 7, 0, Math.PI * 2);
+    pCtx.arc(t.x, t.y, 7 * tileScale, 0, Math.PI * 2);
     pCtx.stroke();
     // Tiny + hint
     pCtx.globalAlpha = 0.18;
-    pCtx.font = '10px "Courier New", monospace';
+    pCtx.font = `${Math.round(10 * tileScale)}px "Courier New", monospace`;
     pCtx.fillStyle = '#3a9a7a';
     pCtx.fillText('+', t.x, t.y);
   }
@@ -1127,6 +1130,28 @@ function drawAll() {
     pCtx.fillText(p.emoji, p.x, p.y);
   }
 
+  // Affinity lines — soft connections between tiles that share tags
+  if (affinityEdges.length > 0) {
+    const now = Date.now();
+    pCtx.lineCap = 'round';
+    for (const edge of affinityEdges) {
+      const a = tileRects[edge.i], b = tileRects[edge.j];
+      if (!a || !b) continue;
+      const pulse = (Math.sin(now / 2000 + edge.i * 0.7) + 1) / 2;
+      const baseAlpha = 0.08 + edge.strength * 0.06;
+      const alpha = baseAlpha + pulse * 0.06;
+      const lw = (0.8 + edge.strength * 0.4) * tileScale;
+      const [r, g, bb] = edge.color;
+      pCtx.globalAlpha = alpha;
+      pCtx.strokeStyle = `rgb(${r},${g},${bb})`;
+      pCtx.lineWidth = lw;
+      pCtx.beginPath();
+      pCtx.moveTo(a.x, a.y);
+      pCtx.lineTo(b.x, b.y);
+      pCtx.stroke();
+    }
+  }
+
   // Drag: highlight drop target
   if (drag?.active) {
     const target = findTileNear(drag.curX, drag.curY);
@@ -1134,9 +1159,9 @@ function drawAll() {
       const tt = tileRects[target];
       pCtx.globalAlpha = 0.35;
       pCtx.strokeStyle = '#7aaec8';
-      pCtx.lineWidth = 2;
+      pCtx.lineWidth = 2 * tileScale;
       pCtx.beginPath();
-      pCtx.arc(tt.x, tt.y, 22, 0, Math.PI * 2);
+      pCtx.arc(tt.x, tt.y, 22 * tileScale, 0, Math.PI * 2);
       pCtx.stroke();
     }
   }
@@ -1145,7 +1170,7 @@ function drawAll() {
   const now = Date.now();
   for (const r of residents) {
     const isDragged = drag?.active && drag.resident === r;
-    const sz = r.kind === 'plant' ? 23 : r.kind === 'gift' ? 17 : 19;
+    const sz = (r.kind === 'plant' ? 23 : r.kind === 'gift' ? 17 : 19) * tileScale;
 
     if (isDragged) {
       // Ghost at original position
@@ -1159,7 +1184,7 @@ function drawAll() {
     if (r.bonus) {
       pCtx.globalAlpha = 0.2;
       pCtx.strokeStyle = '#3a9a7a';
-      pCtx.lineWidth = 1;
+      pCtx.lineWidth = 1 * tileScale;
       pCtx.beginPath();
       pCtx.arc(r.x, r.y, sz * 0.8, 0, Math.PI * 2);
       pCtx.stroke();
@@ -1170,9 +1195,9 @@ function drawAll() {
       const pulse = (Math.sin(now / 360) + 1) / 2;
       pCtx.globalAlpha = 0.1 + pulse * 0.35;
       pCtx.strokeStyle = '#7aaec8';
-      pCtx.lineWidth = 1.5;
+      pCtx.lineWidth = 1.5 * tileScale;
       pCtx.beginPath();
-      pCtx.arc(r.x, r.y, sz + 5 + pulse * 5, 0, Math.PI * 2);
+      pCtx.arc(r.x, r.y, sz + 5 * tileScale + pulse * 5 * tileScale, 0, Math.PI * 2);
       pCtx.stroke();
     }
 
@@ -1180,7 +1205,7 @@ function drawAll() {
     if (r.kind === 'gift') {
       pCtx.globalAlpha = 0.22;
       pCtx.strokeStyle = '#c8920a';
-      pCtx.lineWidth = 1;
+      pCtx.lineWidth = 1 * tileScale;
       pCtx.beginPath();
       pCtx.arc(r.x, r.y, sz * 0.9, 0, Math.PI * 2);
       pCtx.stroke();
@@ -1193,7 +1218,7 @@ function drawAll() {
 
     // Name label
     pCtx.globalAlpha = 0.38;
-    pCtx.font = '6px "Courier New", monospace';
+    pCtx.font = `${Math.round(6 * tileScale)}px "Courier New", monospace`;
     pCtx.fillStyle = '#b8c4cc';
     pCtx.fillText(r.label, r.x, r.y + sz * 0.74);
   }
@@ -1201,7 +1226,7 @@ function drawAll() {
   // Drag: lifted resident follows pointer
   if (drag?.active && drag.resident) {
     const r  = drag.resident;
-    const sz = (r.kind === 'plant' ? 23 : 19) * 1.3;
+    const sz = (r.kind === 'plant' ? 23 : 19) * 1.3 * tileScale;
     // Glow circle behind
     pCtx.globalAlpha = 0.2;
     pCtx.fillStyle = '#3a9a7a';
@@ -1214,7 +1239,7 @@ function drawAll() {
     pCtx.fillText(r.emoji, drag.curX, drag.curY);
     // Name label
     pCtx.globalAlpha = 0.5;
-    pCtx.font = '7px "Courier New", monospace';
+    pCtx.font = `${Math.round(7 * tileScale)}px "Courier New", monospace`;
     pCtx.fillStyle = '#b8c4cc';
     pCtx.fillText(r.label, drag.curX, drag.curY + sz * 0.65);
   }
@@ -1238,7 +1263,8 @@ function seedKiwisNear(x, y, amount) {
     const t  = tileRects[i];
     const dx = x - t.x, dy = y - t.y;
     const d  = Math.sqrt(dx * dx + dy * dy);
-    if (d < 90) G.kiwis[i] = Math.min(G.kiwis[i] + amount * (1 - d / 90), 1);
+    const radius = 90 * tileScale;
+    if (d < radius) G.kiwis[i] = Math.min(G.kiwis[i] + amount * (1 - d / radius), 1);
   }
 }
 
@@ -1358,6 +1384,7 @@ function syncResidents() {
       });
     }
   }
+  computeAffinityEdges();
 }
 
 function updateResidents(dt) {
@@ -1449,12 +1476,29 @@ function parseTuning(md, slug, neighborhood) {
   const name = nl ? nl.replace('# ', '').trim() : slug;
   const cm   = md.match(/\*\*Category:\*\*\s*(.+)/);
   const tm   = md.match(/\*\*Tags:\*\*\s*(.+)/);
+  let color = null;
+  const yamlColor = md.match(/^color:\s*\[?\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]?/m);
+  if (yamlColor) {
+    color = [parseInt(yamlColor[1]), parseInt(yamlColor[2]), parseInt(yamlColor[3])];
+  } else {
+    const mdColor = md.match(/\*\*Color:\*\*\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (mdColor) color = [parseInt(mdColor[1]), parseInt(mdColor[2]), parseInt(mdColor[3])];
+  }
   return {
     name,
     category: cm ? cm[1].trim().toLowerCase() : 'spirit',
     tags: tm ? tm[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [],
-    slug, neighborhood,
+    color, slug, neighborhood,
   };
+}
+
+const NEIGHBORHOOD_COLORS = {
+  greengarden:    [45, 130, 65],
+  kitchendom:     [185, 95, 45],
+  mucklerbuckler: [120, 65, 130],
+};
+function entityColor(entity) {
+  return entity.color || NEIGHBORHOOD_COLORS[entity.neighborhood] || [120, 110, 90];
 }
 
 async function loadEntities() {
@@ -1502,6 +1546,48 @@ function hasBonusAdjacency(i) {
     }
   }
   return false;
+}
+
+// ── Affinity edges ──────────────────────────────────────────────
+let affinityEdges = [];
+
+function computeAffinityEdges() {
+  const edges = [];
+  const seen = new Set();
+  for (let i = 0; i < TILE_COUNT; i++) {
+    const tileA = G.field[i];
+    if (!tileA?.data) continue;
+    for (const j of getNeighbors(i)) {
+      const key = i < j ? `${i}-${j}` : `${j}-${i}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const tileB = G.field[j];
+      if (!tileB?.data) continue;
+      const tagsA = tileA.kind === 'plant' ? tileA.data.affinity
+                  : tileA.kind === 'gift'  ? (tileA.data.leanings || [])
+                  : (tileA.data.tags || []);
+      const tagsB = tileB.kind === 'plant' ? tileB.data.affinity
+                  : tileB.kind === 'gift'  ? (tileB.data.leanings || [])
+                  : (tileB.data.tags || []);
+      const overlap = tagsA.filter(t => tagsB.includes(t));
+      if (overlap.length === 0) continue;
+      const entA = tileA.kind === 'entity' ? tileA.data : null;
+      const entB = tileB.kind === 'entity' ? tileB.data : null;
+      let color;
+      if (entA && entB) {
+        const cA = entityColor(entA), cB = entityColor(entB);
+        color = [Math.round((cA[0]+cB[0])/2), Math.round((cA[1]+cB[1])/2), Math.round((cA[2]+cB[2])/2)];
+      } else if (entA) {
+        color = entityColor(entA);
+      } else if (entB) {
+        color = entityColor(entB);
+      } else {
+        color = [60, 154, 122];
+      }
+      edges.push({ i, j, strength: overlap.length, color });
+    }
+  }
+  affinityEdges = edges;
 }
 
 // ── Hub ─────────────────────────────────────────────────────────
