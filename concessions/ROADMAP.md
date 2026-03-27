@@ -57,6 +57,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **ASPECT: first pass** — Character engine Score. 12 aspects, name-derived personal stats, deterministic letter-proximity resolution, color claiming, skill tilting, persistence + fracture (Mk.II), 16 mundane scenarios, encounter pacing. Zero randomness. ([score card](score-cards/aspect.md))
 - [x] **slayy.: first pass** — Performance arena Score. Pentagram dance vs Mudhull for Camera attention. SVG drag, delta moves, connections, Beat/Pose capture, hybrid Mudhull AI, Camera system, Mother, beat engine, Show escalation. Hidden entry via Hunter Encounter erratic ticker. ([score card](score-cards/slayy.md))
 - [x] **Mycourt: slice-scale decisions** — Snore threat, syndicate exodus, investigation claim, Mycourt decree. Misdirection mechanic. Stance shapes. Drain visual.
 - [x] **Mycourt: first pass** — Rotatable dial, spatial spoire planting, mineral-born syndicates, influence connectors, buttermoths, balance/slug disturbance, investigators, guide moth UI, production flourish, localStorage persistence.
