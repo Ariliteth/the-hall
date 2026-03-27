@@ -1152,6 +1152,29 @@ function drawAll() {
     }
   }
 
+  // Affinity motes — tiny dots traveling along affinity lines
+  for (const m of affinityMotes) {
+    const t = m.t;
+    // Ease in-out for organic movement
+    const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    const x = m.sx + (m.ex - m.sx) * ease;
+    const y = m.sy + (m.ey - m.sy) * ease;
+    // Perpendicular drift (sine wave offset from the line)
+    const dx = m.ex - m.sx, dy = m.ey - m.sy;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const wave = Math.sin(t * Math.PI * 2) * m.drift;
+    const mx = x + nx * wave, my = y + ny * wave;
+    // Fade in/out
+    const alpha = t < 0.1 ? t / 0.1 : t > 0.85 ? (1 - t) / 0.15 : 1;
+    const [r, g, bb] = m.edge.color;
+    pCtx.globalAlpha = alpha * 0.45;
+    pCtx.fillStyle = `rgb(${r},${g},${bb})`;
+    pCtx.beginPath();
+    pCtx.arc(mx, my, m.size, 0, Math.PI * 2);
+    pCtx.fill();
+  }
+
   // Drag: highlight drop target
   if (drag?.active) {
     const target = findTileNear(drag.curX, drag.curY);
@@ -1563,6 +1586,8 @@ function computeAffinityEdges() {
       seen.add(key);
       const tileB = G.field[j];
       if (!tileB?.data) continue;
+      // Only show edges where at least one entity is involved (matches hasBonusAdjacency)
+      if (tileA.kind !== 'entity' && tileB.kind !== 'entity') continue;
       const tagsA = tileA.kind === 'plant' ? tileA.data.affinity
                   : tileA.kind === 'gift'  ? (tileA.data.leanings || [])
                   : (tileA.data.tags || []);
@@ -1588,6 +1613,40 @@ function computeAffinityEdges() {
     }
   }
   affinityEdges = edges;
+}
+
+// ── Affinity motes ─────────────────────────────────────────────
+let affinityMotes = [];
+const MOTE_MAX = 40;
+
+function spawnAffinityMote() {
+  if (affinityEdges.length === 0 || affinityMotes.length >= MOTE_MAX) return;
+  const edge = affinityEdges[Math.floor(Math.random() * affinityEdges.length)];
+  const a = tileRects[edge.i], b = tileRects[edge.j];
+  if (!a || !b) return;
+  const forward = Math.random() < 0.5;
+  affinityMotes.push({
+    edge,
+    t: 0,
+    speed: 0.00012 + Math.random() * 0.00012,
+    sx: forward ? a.x : b.x, sy: forward ? a.y : b.y,
+    ex: forward ? b.x : a.x, ey: forward ? b.y : a.y,
+    drift: (Math.random() - 0.5) * 6 * tileScale,
+    size: (1.2 + edge.strength * 0.4) * tileScale,
+  });
+}
+
+function updateAffinityMotes(dt) {
+  // Spawn — rate scales with edge count, roughly 1 mote per 800ms per edge
+  if (affinityEdges.length > 0 && Math.random() < affinityEdges.length * 0.0012 * dt / 16) {
+    spawnAffinityMote();
+  }
+  const alive = [];
+  for (const m of affinityMotes) {
+    m.t += m.speed * dt;
+    if (m.t < 1) alive.push(m);
+  }
+  affinityMotes = alive;
 }
 
 // ── Hub ─────────────────────────────────────────────────────────
@@ -2072,6 +2131,7 @@ function loop(ts) {
   tickParticleSpawns(dt);
   updateParticles(dt);
   updateRelics(dt);
+  updateAffinityMotes(dt);
   updateResidents(dt);
   drawAll();
   // Periodic kiwi tick (~every 20s)
