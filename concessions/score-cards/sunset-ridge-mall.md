@@ -15,6 +15,7 @@ First-person 3D grid-based mall crawler. Procedurally generated seeded floors wi
 - Emergent Exit: car items unlock driving to new seeded Mall world
 - Food Court floors with Beef'd/Cheesn'ts statues, free samples, Kitchendom poster
 - PA announcement system weaving in Hall Scraggles
+- **MallAnnouncer notification dispatcher** — priority-based queue across three display slots (phone-msg, acquired, world-event). Player actions (tier 1) interrupt ambient PA (tier 3). Same-tier messages queue with 1.8s breath gap. Max 2 queued per slot.
 - Generative muzak (pentatonic pads, bass drone, low-pass filter)
 - Sound effects, procedural "You Are Here" map, compass HUD
 - Bench sitting with deepening messages, fountain coin toss (+1 LUCK)
@@ -26,7 +27,7 @@ First-person 3D grid-based mall crawler. Procedurally generated seeded floors wi
 
 ## What's Next
 - ~~`mallRespondsToScraggle()` is empty~~ — **Done.** Three responses: themed stock (40%), PA announcement (35%), ambient shiver (25%). Emoji→prefix mapping, color→stat boost, at-least-uncommon rarity.
-- Uses legacy `scraggle` postMessage type (not `hub:scraggle`) — could modernize
+- ~~Uses legacy `scraggle` postMessage type~~ — **Done.** All 18 outbound scraggles modernized to `hub:scraggle`.
 - Build Order: "Mall ambient audio actions (elevator chime, muzak shift, footsteps)"
 - Build Order: "Cross-Score item pipeline (Mall → Field via color-routed Scraggles)"
 - World mutation after quest completion exists but Staff Room gating unclear
@@ -36,7 +37,7 @@ First-person 3D grid-based mall crawler. Procedurally generated seeded floors wi
 - `concessions/archive/MALL_WALKER_SPEC.md` — original design spec
 
 ## Hub Integration
-- **Sends:** `hub:minimize`, `hub:color` (190, 180, 140), `scraggle` (legacy type — many events), `hub:theme` (Kitchendom poster)
+- **Sends:** `hub:minimize`, `hub:color` (190, 180, 140), `hub:scraggle` (many events), `hub:theme` (Kitchendom poster)
 - **Receives:** `hub:pulse` (idle restock/ambience + Scraggle listening)
 - **localStorage:** Reads `baseline-session/portraits-queue` (quest giver names, kiosk), `baseline-session/kitchendom-theme`, `baseline-session/scraggles` (PA + routing). Writes `baseline-session/kitchendom-theme`.
 - **Scraggle emissions:** Many — quest delivery, crafting, shipping, discarding, kiosk wave, escalator, food court, PA, driving, poster, rare finds, restock, idle ambience

@@ -1082,7 +1082,7 @@ function mutateWorld(fd, questSeed) {
             item.prefix = STAFF_ROOM_PALETTE.extraPrefixes[Math.floor(sr() * STAFF_ROOM_PALETTE.extraPrefixes.length)];
           if (!item.suffix && sr() < 0.55)
             item.suffix = STAFF_ROOM_PALETTE.extraSuffixes[Math.floor(sr() * STAFF_ROOM_PALETTE.extraSuffixes.length)];
-          window.parent.postMessage({ type: 'scraggle', emoji: '🔑', text: `found a staff area at ${G.mallName}` }, '*');
+          window.parent.postMessage({ type: 'hub:scraggle', emoji: '🔑', text: `found a staff area at ${G.mallName}` }, '*');
         } else {
           item.rarity = item.rarity === "common" ? "uncommon" : item.rarity;
         }
@@ -1725,7 +1725,7 @@ const G = {
 let renderer, scene, camera;
 let flickerLights = []; // store lights that buzz/flicker in animation loop
 let personalLight = null; // soft glow carried by player when holding items
-let borderTO = null, acquiredTO = null, worldEventTO = null;
+let borderTO = null;
 
 // Audio module-level refs — created lazily on first user gesture
 let audioCtx = null, muzakMaster = null, audioReady = false, audioMuted = false;
@@ -2173,6 +2173,89 @@ function renderBumpPrompt() {
   }
 }
 
+// ── NOTIFICATION DISPATCHER ───────────────────────────────────────────────────
+// Priority tiers: 1 = player action, 2 = discovery, 3 = ambient
+// Each display slot gets its own lane so voices don't drown each other out.
+const MallAnnouncer = (() => {
+  const BREATH = 1800; // gap between queued notifications (ms)
+  const MAX_QUEUE = 2;
+  const SLOT_ELS = {
+    'phone-msg': 'hud-phone-msg',
+    'acquired': 'hud-acquired',
+    'world-event': 'hud-world-event',
+  };
+  const slots = {};
+
+  function getSlot(name) {
+    if (!slots[name]) slots[name] = { active: null, queue: [] };
+    return slots[name];
+  }
+
+  function hideSlot(slotName) {
+    const elId = SLOT_ELS[slotName];
+    if (elId) {
+      const el = document.getElementById(elId);
+      if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+    }
+  }
+
+  function clearActive(slot) {
+    if (slot.active) {
+      clearTimeout(slot.active.timeoutId);
+      clearTimeout(slot.active.breathId);
+      slot.active = null;
+    }
+  }
+
+  function drainQueue(slotName) {
+    const slot = getSlot(slotName);
+    hideSlot(slotName);
+    slot.active = null;
+    if (slot.queue.length === 0) return;
+    const next = slot.queue.shift();
+    // Breathe — let the slot rest before the next voice speaks
+    const breathId = setTimeout(() => {
+      render(slotName, next.priority, next.renderFn, next.durationMs);
+    }, BREATH);
+    // Park a minimal active marker so the breath gap is respected
+    slot.active = { priority: next.priority, timeoutId: breathId, breathId };
+  }
+
+  function render(slotName, priority, renderFn, durationMs) {
+    const slot = getSlot(slotName);
+    clearActive(slot);
+    renderFn();
+    const timeoutId = setTimeout(() => drainQueue(slotName), durationMs);
+    slot.active = { priority, timeoutId, breathId: null };
+  }
+
+  function announce(slotName, priority, renderFn, durationMs) {
+    const slot = getSlot(slotName);
+
+    if (!slot.active) {
+      render(slotName, priority, renderFn, durationMs);
+      return;
+    }
+
+    if (priority < slot.active.priority) {
+      hideSlot(slotName);
+      render(slotName, priority, renderFn, durationMs);
+      return;
+    }
+
+    // Equal or lower priority — queue if room
+    if (slot.queue.length >= MAX_QUEUE) {
+      const ambientIdx = slot.queue.findIndex(q => q.priority === 3);
+      if (ambientIdx >= 0) slot.queue.splice(ambientIdx, 1);
+      else if (priority === 3) return;
+      else slot.queue.shift();
+    }
+    slot.queue.push({ priority, renderFn, durationMs });
+  }
+
+  return { announce };
+})();
+
 // ── FLASH HELPERS ─────────────────────────────────────────────────────────────
 function flashBorder(color, ms = 300) {
   const el = document.getElementById('hud-border');
@@ -2184,13 +2267,11 @@ function flashBorder(color, ms = 300) {
   }
 }
 
-function showAcquired(msg, color, ms = 2500) {
+function showAcquired(msg, color) {
   const el = document.getElementById('hud-acquired');
   el.textContent = msg;
   el.style.display = 'block';
   el.style.border = `2px solid ${color || '#00FF99'}`;
-  if (acquiredTO) clearTimeout(acquiredTO);
-  acquiredTO = setTimeout(() => { el.style.display = 'none'; }, ms);
 }
 
 function fireFoodConfetti() {
@@ -2219,22 +2300,19 @@ function fireFoodConfetti() {
   setTimeout(() => box.remove(), 4000);
 }
 
-function showWorldEvent(msg, ms = 4000) {
+function showWorldEvent(msg) {
   const el = document.getElementById('hud-world-event');
   el.textContent = msg;
   el.style.display = 'block';
-  if (worldEventTO) clearTimeout(worldEventTO);
-  worldEventTO = setTimeout(() => { el.style.display = 'none'; }, ms);
 }
 
-function showPhoneMsg(text, borderColor, ms = 4000) {
+function showPhoneMsg(text, borderColor) {
   const el = document.getElementById('hud-phone-msg');
   el.style.border = `2px solid ${borderColor}`;
   el.style.boxShadow = `0 0 20px ${borderColor}44`;
   el.innerHTML = `<div class="phone-msg-label">📞 PAYPHONE</div>
     <div class="phone-msg-text" style="color:${borderColor};">${text}</div>`;
   el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, ms);
 }
 
 // ── ITEM PICKUP ───────────────────────────────────────────────────────────────
@@ -2280,7 +2358,7 @@ function handlePhoneBump() {
       `${G.activeQuest.giver}: *long pause* ...yeah okay this works. Thanks.`,
     ];
     const reply = replyMsgs[Math.floor(rng(Date.now())() * replyMsgs.length)];
-    showPhoneMsg(reply, '#44FF88', 4000);
+    MallAnnouncer.announce('phone-msg', 1, () => showPhoneMsg(reply, '#44FF88', 4000), 4000);
 
     G.questLog.push({ ...G.activeQuest, complete: true, delivered: itemDisplayName(delivered) });
 
@@ -2289,7 +2367,7 @@ function handlePhoneBump() {
     const qEmoji = questStatEmoji[G.activeQuest.stat] || '🛍';
     const giver = G.activeQuest.giver;
     const shortGiver = giver.replace(/^(Your |A |An |Old )/i,'').split(' ')[0]; // "Mom", "Carol", "Mira"
-    window.parent.postMessage({ type: 'scraggle', emoji: qEmoji, text: `sent ${shortGiver} a ${itemDisplayName(delivered)} from Sunset Ridge Mall` }, '*');
+    window.parent.postMessage({ type: 'hub:scraggle', emoji: qEmoji, text: `sent ${shortGiver} a ${itemDisplayName(delivered)} from Sunset Ridge Mall` }, '*');
 
     G.activeQuest = null;
     G.questsCompletedThisFloor = (G.questsCompletedThisFloor || 0) + 1;
@@ -2323,12 +2401,12 @@ function handlePhoneBump() {
       };
       setTimeout(pulse, 1200);
 
-      setTimeout(() => showWorldEvent(
+      setTimeout(() => MallAnnouncer.announce('world-event', 1, () => showWorldEvent(
         isStaffOpening
           ? `🔑 STAFF AREA · HEAD ${dirHint} · FOLLOW THE LIGHT`
           : `🗺 NEW AREA OPENED · HEAD ${dirHint} · FOLLOW THE LIGHT`,
         5500
-      ), 1000);
+      ), 5500), 1000);
     }
     renderHUD();
     return;
@@ -2337,11 +2415,11 @@ function handlePhoneBump() {
   // New quest or babble
   if (!G.activeQuest) {
     G.activeQuest = generateQuest(Date.now());
-    showPhoneMsg(G.activeQuest.msg, '#FFDD44', 5000);
+    MallAnnouncer.announce('phone-msg', 1, () => showPhoneMsg(G.activeQuest.msg, '#FFDD44', 5000), 5000);
   } else {
     const babble = PAYPHONE_BABBLE[Math.floor(rng(Date.now())() * PAYPHONE_BABBLE.length)];
     const who = G.activeQuest.giver.split(" ")[0];
-    showPhoneMsg(`${who}: "${babble}"`, '#AACCFF', 3500);
+    MallAnnouncer.announce('phone-msg', 1, () => showPhoneMsg(`${who}: "${babble}"`, '#AACCFF', 3500), 3500);
   }
   renderHUD();
 }
@@ -2361,13 +2439,13 @@ function doConfirmBump() {
       G.hands[a.i] = null;
       G.hands[b.i] = null;
       learnAndPickup(dollar);
-      showAcquired(`💳 CRAFTED a ${dollar.rarity.toUpperCase()} Mall Dollar!`, '#00FFCC', 3000);
+      MallAnnouncer.announce('acquired', 2, () => showAcquired(`💳 CRAFTED a ${dollar.rarity.toUpperCase()} Mall Dollar!`, '#00FFCC', 3000), 3000);
       flashBorder('green', 600);
-      window.parent.postMessage({ type: 'scraggle', emoji: '💳', text: `crafted a Mall Dollar at the ATM in Sunset Ridge Mall` }, '*');
+      window.parent.postMessage({ type: 'hub:scraggle', emoji: '💳', text: `crafted a Mall Dollar at the ATM in Sunset Ridge Mall` }, '*');
     } else {
       const dollar = generateDollar(Date.now());
       learnAndPickup(dollar);
-      showAcquired(`💳 ${dollar.rarity.toUpperCase()} Mall Dollar dispensed!`, '#00FFCC');
+      MallAnnouncer.announce('acquired', 2, () => showAcquired(`💳 ${dollar.rarity.toUpperCase()} Mall Dollar dispensed!`, '#00FFCC'), 2500);
       flashBorder('green', 500);
     }
     playSound('atm');
@@ -2390,10 +2468,10 @@ function doConfirmBump() {
     if (!kName) { const reg = getMallRegular(); kName = reg.name; kHood = reg.neighborhood; kIsRegular = true; }
     G.bumpMode = null;
     if (kIsRegular) {
-      showAcquired(`👋 Waved at ${kName}!`, '#3388BB', 2500);
+      MallAnnouncer.announce('acquired', 2, () => showAcquired(`👋 Waved at ${kName}!`, '#3388BB', 2500), 2500);
     } else {
-      window.parent.postMessage({ type: 'scraggle', emoji: '👋', text: `waved at ${kName} from ${kHood || 'somewhere'} at ${G.mallName}` }, '*');
-      showAcquired(`👋 Waved at ${kName}!`, '#44AAFF', 2500);
+      window.parent.postMessage({ type: 'hub:scraggle', emoji: '👋', text: `waved at ${kName} from ${kHood || 'somewhere'} at ${G.mallName}` }, '*');
+      MallAnnouncer.announce('acquired', 2, () => showAcquired(`👋 Waved at ${kName}!`, '#44AAFF', 2500), 2500);
     }
     renderHUD();
     return;
@@ -2420,8 +2498,8 @@ function doConfirmBump() {
       G.player.px = G.fd.startX; G.player.py = G.fd.startY;
       G.player.dir = G.fd.startDir ?? 1;
       buildScene(scene, G.fd); snapCamera(); renderHUD();
-      window.parent.postMessage({ type: 'scraggle', emoji: '🚗', text: `drove to ${destName}` }, '*');
-      showAcquired(`🚗 Welcome to ${destName}`, '#00FF44', 4000);
+      window.parent.postMessage({ type: 'hub:scraggle', emoji: '🚗', text: `drove to ${destName}` }, '*');
+      MallAnnouncer.announce('acquired', 2, () => showAcquired(`🚗 Welcome to ${destName}`, '#00FF44', 4000), 4000);
       setTimeout(() => { overlay.style.opacity = '0'; setTimeout(() => { G.moving = false; }, 750); }, 300);
     }, 900);
     G.moving = true;
@@ -2434,9 +2512,9 @@ function doConfirmBump() {
     const foodItem = { ...pick, id: `food_${Date.now()}`, rarity: 'uncommon',
       prefix: null, suffix: null, isDollar: false, isFood: true };
     learnAndPickup(foodItem);
-    showAcquired(`🍴 Sample of ${pick.name}!`, '#FF9933', 2500);
+    MallAnnouncer.announce('acquired', 2, () => showAcquired(`🍴 Sample of ${pick.name}!`, '#FF9933', 2500), 2500);
     flashBorder('green', 500);
-    window.parent.postMessage({ type: 'scraggle', emoji: '🍴', text: `got a free sample at the Sunset Ridge Food Court` }, '*');
+    window.parent.postMessage({ type: 'hub:scraggle', emoji: '🍴', text: `got a free sample at the Sunset Ridge Food Court` }, '*');
     renderHUD();
     return;
   }
@@ -2449,11 +2527,11 @@ function doConfirmBump() {
     delete texCache['poster_kd'];
     buildScene(scene, G.fd);
     // Confused celebratory text — fumbling for the right words
-    showAcquired('🎉❓🥩🎊❓', '#FFCC44', 3500);
+    MallAnnouncer.announce('acquired', 2, () => showAcquired('🎉❓🥩🎊❓', '#FFCC44', 3500), 3500);
     flashBorder('green', 800);
     // Tell the hub to activate the Kitchendom theme
     window.parent.postMessage({ type: 'hub:theme', slug: 'kitchendom' }, '*');
-    window.parent.postMessage({ type: 'scraggle', emoji: '🍽️', text: `found the Kitchendom poster at ${G.mallName} Food Court` }, '*');
+    window.parent.postMessage({ type: 'hub:scraggle', emoji: '🍽️', text: `found the Kitchendom poster at ${G.mallName} Food Court` }, '*');
     // The poster doesn't realize what just happened yet — confetti after a few steps
     G.posterConfettiPending = true;
     G.posterConfettiSteps = 0;
@@ -2473,12 +2551,12 @@ function doConfirmBump() {
     });
     G.hands[selectedHand] = null;
     G.bumpMode = null;
-    window.parent.postMessage({ type: 'scraggle', emoji: '📦', text: `shipped ${itemDisplayName(item)}` }, '*');
+    window.parent.postMessage({ type: 'hub:scraggle', emoji: '📦', text: `shipped ${itemDisplayName(item)}` }, '*');
     flashBorder('green', 600);
-    showAcquired(
+    MallAnnouncer.announce('acquired', 2, () => showAcquired(
       gained.length ? `📦 SHIPPED · ${gained.join(' ')} retained` : `📦 SHIPPED`,
       '#AA33FF', 3500
-    );
+    ), 3500);
     playSound('ship');
     renderHUD();
     return;
@@ -2500,13 +2578,13 @@ function doConfirmBump() {
     });
     G.hands[selectedHand] = null;
     flashBorder('green', 600);
-    showAcquired(
+    MallAnnouncer.announce('acquired', 2, () => showAcquired(
       gained.length
         ? `🗑 DISCARDED · ${gained.join(' ')} permanent`
         : `🗑 DISCARDED`,
       '#88CC44', 3500
-    );
-    window.parent.postMessage({ type: 'scraggle', emoji: '🗑', text: `permanently discarded ${itemDisplayName(item)} at ${G.mallName}` }, '*');
+    ), 3500);
+    window.parent.postMessage({ type: 'hub:scraggle', emoji: '🗑', text: `permanently discarded ${itemDisplayName(item)} at ${G.mallName}` }, '*');
     playSound('perm');
     renderHUD();
     return;
@@ -2537,18 +2615,18 @@ function doConfirmBump() {
 
     const wasUpgraded = craftedItem.rarity !== target.entity.item.rarity;
     flashBorder('green', 500);
-    showAcquired(
+    MallAnnouncer.announce('acquired', 2, () => showAcquired(
       wasUpgraded
         ? `✨ ${itemDisplayName(craftedItem)} — UPGRADED to ${craftedItem.rarity.toUpperCase()}!`
         : `Got: ${itemDisplayName(craftedItem)}`,
       RARITY_COLORS[craftedItem.rarity]
-    );
+    ), 2500);
     // Scraggle for notable finds
     if (craftedItem.rarity === 'legendary') {
       const verb = wasUpgraded ? 'crafted' : 'found';
-      window.parent.postMessage({ type: 'scraggle', emoji: '✨', text: `${verb} a legendary ${itemDisplayName(craftedItem)} at Sunset Ridge Mall` }, '*');
+      window.parent.postMessage({ type: 'hub:scraggle', emoji: '✨', text: `${verb} a legendary ${itemDisplayName(craftedItem)} at Sunset Ridge Mall` }, '*');
     } else if (craftedItem.rarity === 'rare' && Math.random() < 0.45) {
-      window.parent.postMessage({ type: 'scraggle', emoji: '🌟', text: `found ${itemDisplayName(craftedItem)} at Sunset Ridge Mall` }, '*');
+      window.parent.postMessage({ type: 'hub:scraggle', emoji: '🌟', text: `found ${itemDisplayName(craftedItem)} at Sunset Ridge Mall` }, '*');
     }
     playSound('pickup');
     renderHUD();
@@ -2596,7 +2674,7 @@ function tryMove(fwd) {
     // Check for Ship-It station
     const shippit = fd.wallEntities.find(e => e.type === 'shippit' && e.tileX === G.player.px && e.tileY === G.player.py && e.face === DIRS[G.player.dir].f);
     if (shippit) {
-      if (!G.hands[0] && !G.hands[1]) { flashBorder('red', 400); showAcquired('📦 Nothing to ship!', '#AA33FF', 1800); return; }
+      if (!G.hands[0] && !G.hands[1]) { flashBorder('red', 400); MallAnnouncer.announce('acquired', 2, () => showAcquired('📦 Nothing to ship!', '#AA33FF', 1800), 1800); return; }
       const selectedHand = G.hands[0] ? 0 : 1;
       G.bumpMode = { target: { kind: 'ship', entity: shippit, selectedHand } };
       flashBorder('green', -1);
@@ -2680,7 +2758,7 @@ function tryMove(fwd) {
           const pool = (totalChill >= 8 && Math.random() < 0.3)
             ? ['the bench is also quite chill.', ...BENCH_TIERS[depth]]
             : BENCH_TIERS[depth];
-          showWorldEvent(pool[Math.floor(rng(Date.now())() * pool.length)], 1400 + depth * 200);
+          { const msg = pool[Math.floor(rng(Date.now())() * pool.length)], dur = 1400 + depth * 200; MallAnnouncer.announce('world-event', 2, () => showWorldEvent(msg, dur), dur); }
           playSound('bench');
           return; // no red flash
         }
@@ -2707,10 +2785,7 @@ function tryMove(fwd) {
       if (G.posterConfettiPending && ++G.posterConfettiSteps >= 3) {
         G.posterConfettiPending = false;
         fireFoodConfetti();
-        showWorldEvent(
-          ['oh no','hey!','whoops','wait—','oh!','...huh'][Math.floor(Math.random()*6)],
-          2200
-        );
+        { const msg = ['oh no','hey!','whoops','wait—','oh!','...huh'][Math.floor(Math.random()*6)]; MallAnnouncer.announce('world-event', 2, () => showWorldEvent(msg, 2200), 2200); }
       }
       // Escalator — ride up if player lands on it
       if (G.player.px === fd.escalatorX && G.player.py === fd.escalatorY) {
@@ -2750,7 +2825,7 @@ function tryMove(fwd) {
               G.usedFountains.add(fkey);
               if (!('LUCK' in G.playerStats)) G.playerStats.LUCK = 0;
               G.permStats.LUCK = (G.permStats.LUCK || 0) + 1;
-              showWorldEvent('a coin in the fountain.', 2200);
+              MallAnnouncer.announce('world-event', 2, () => showWorldEvent('a coin in the fountain.', 2200), 2200);
             }
           }
         }
@@ -2829,7 +2904,7 @@ function rideEscalator() {
   playSound('escalator');
 
   // Scraggle — the Hall knows you went up
-  if (Math.random() < 0.25) window.parent.postMessage({ type: 'scraggle', emoji: '🛍', text: `ascending to floor ${G.player.floor + 1} of Sunset Ridge Mall` }, '*');
+  if (Math.random() < 0.25) window.parent.postMessage({ type: 'hub:scraggle', emoji: '🛍', text: `ascending to floor ${G.player.floor + 1} of Sunset Ridge Mall` }, '*');
 
   const overlay = document.getElementById('escalator-overlay');
   // Fade to warm white
@@ -2854,8 +2929,8 @@ function rideEscalator() {
     // Food court arrival announcement
     if (G.fd.isFoodCourt) {
       setTimeout(() => {
-        showAcquired('🍴 FOOD COURT · FLOOR ' + G.player.floor, '#FF9933', 3500);
-        window.parent.postMessage({ type: 'scraggle', emoji: '🍴', text: `arrived at the Sunset Ridge Food Court on floor ${G.player.floor}` }, '*');
+        MallAnnouncer.announce('acquired', 2, () => showAcquired('🍴 FOOD COURT · FLOOR ' + G.player.floor, '#FF9933', 3500), 3500);
+        window.parent.postMessage({ type: 'hub:scraggle', emoji: '🍴', text: `arrived at the Sunset Ridge Food Court on floor ${G.player.floor}` }, '*');
       }, 400);
     }
 
@@ -2898,38 +2973,7 @@ function startPASystem() {
   const pa = document.getElementById('hud-phone-msg');
   if (!pa) return;
 
-  function fire() {
-    // Try to pull a scraggle from The Hall for flavour
-    let hallLine = null;
-    try {
-      const raw = localStorage.getItem('baseline-session/scraggles');
-      const arr = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(arr) && arr.length) {
-        const pick = arr[Math.floor(Math.random() * arr.length)];
-        if (pick && pick.text) hallLine = pick.text;
-      }
-    } catch(e) {}
-
-    // Don't interrupt an active payphone conversation
-    if (G.bumpMode?.target?.kind === 'payphone') {
-      setTimeout(fire, 30000 + Math.random() * 30000);
-      return;
-    }
-
-    let msg;
-    if (hallLine && Math.random() < 0.35) {
-      // Weave a hall scraggle into a PA message
-      const templates = [
-        `Attention shoppers — a message for our community: "${hallLine}"`,
-        `This is a public service announcement: "${hallLine}"`,
-        `We'd like to share a note from the network: "${hallLine}"`,
-      ];
-      msg = templates[Math.floor(Math.random() * templates.length)];
-    } else {
-      msg = PA_GENERIC[Math.floor(Math.random() * PA_GENERIC.length)];
-    }
-
-    // Display as a brief overlay
+  function renderPA(msg) {
     pa.innerHTML = `<div style="
       background:rgba(0,0,0,0.72);
       color:#FFE8B0;
@@ -2945,19 +2989,38 @@ function startPASystem() {
     pa.style.alignItems = 'flex-end';
     pa.style.justifyContent = 'center';
     pa.style.pointerEvents = 'none';
+  }
 
-    // Hide after 6 seconds
-    setTimeout(() => {
-      // Only hide if not showing a payphone convo
-      if (!G.bumpMode?.target?.kind?.includes?.('phone')) {
-        pa.style.display = 'none';
-        pa.innerHTML = '';
+  function fire() {
+    // Try to pull a scraggle from The Hall for flavour
+    let hallLine = null;
+    try {
+      const raw = localStorage.getItem('baseline-session/scraggles');
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr) && arr.length) {
+        const pick = arr[Math.floor(Math.random() * arr.length)];
+        if (pick && pick.text) hallLine = pick.text;
       }
-    }, 6200);
+    } catch(e) {}
+
+    let msg;
+    if (hallLine && Math.random() < 0.35) {
+      const templates = [
+        `Attention shoppers — a message for our community: "${hallLine}"`,
+        `This is a public service announcement: "${hallLine}"`,
+        `We'd like to share a note from the network: "${hallLine}"`,
+      ];
+      msg = templates[Math.floor(Math.random() * templates.length)];
+    } else {
+      msg = PA_GENERIC[Math.floor(Math.random() * PA_GENERIC.length)];
+    }
+
+    // Route through dispatcher — priority 3 (ambient) defers to player actions
+    MallAnnouncer.announce('phone-msg', 3, () => renderPA(msg), 6200);
 
     // Occasionally send a scraggle to the hub
     if (Math.random() < 0.08) {
-      window.parent.postMessage({ type: 'scraggle', emoji: '📢', text: `heard a PA announcement at Sunset Ridge Mall` }, '*');
+      window.parent.postMessage({ type: 'hub:scraggle', emoji: '📢', text: `heard a PA announcement at Sunset Ridge Mall` }, '*');
     }
 
     // Schedule next announcement: 50–110 seconds
@@ -3170,7 +3233,7 @@ function mallRestockItem(candidates, palette) {
   // The Mall restocked. This Scraggle is exhaust, not an invitation.
   const storeName = palette.name || 'a store';
   window.parent.postMessage({
-    type: 'scraggle',
+    type: 'hub:scraggle',
     emoji: '📦',
     text: `${storeName} restocked at ${G.mallName}`
   }, '*');
@@ -3196,7 +3259,7 @@ function mallIdleAmbience() {
   // If this ambience has a real action, do it
   if (pick.act) pick.act();
   window.parent.postMessage({
-    type: 'scraggle',
+    type: 'hub:scraggle',
     emoji: pick.emoji,
     text: `${pick.text} at ${G.mallName}`
   }, '*');
@@ -3277,7 +3340,7 @@ function mallRespondsToScraggle(s) {
     // Ambient shiver — the Mall felt it
     mallFlickerLight();
     window.parent.postMessage({
-      type: 'scraggle',
+      type: 'hub:scraggle',
       emoji: '🌀',
       text: `something stirred in the walls of ${G.mallName}`
     }, '*');
@@ -3339,7 +3402,7 @@ function mallScraggleStock(s) {
 
   const storeName = palette.name || 'a store';
   window.parent.postMessage({
-    type: 'scraggle',
+    type: 'hub:scraggle',
     emoji: '📦',
     text: `${storeName} stocked something that arrived from beyond ${G.mallName}`
   }, '*');
@@ -3351,9 +3414,6 @@ function mallScragglePA(s) {
   const pa = document.getElementById('hud-phone-msg');
   if (!pa) return;
 
-  // Don't interrupt active payphone conversations
-  if (G.bumpMode?.target?.kind === 'payphone') return;
-
   const text = s.text || 'something unnamed';
   const emoji = s.emoji || '✦';
   const templates = [
@@ -3364,27 +3424,23 @@ function mallScragglePA(s) {
   ];
   const msg = templates[Math.floor(Math.random() * templates.length)];
 
-  pa.innerHTML = `<div style="
-    background:rgba(0,0,0,0.72);
-    color:#FFE8B0;
-    font-size:0.78rem;
-    font-family:'Courier New',monospace;
-    padding:7px 14px;
-    border-left:3px solid #FFCC44;
-    max-width:420px;
-    letter-spacing:0.04em;
-    line-height:1.5;
-  ">📢 ${msg}</div>`;
-  pa.style.display = 'flex';
-  pa.style.alignItems = 'flex-end';
-  pa.style.justifyContent = 'center';
-  pa.style.pointerEvents = 'none';
-
-  setTimeout(() => {
-    if (!G.bumpMode?.target?.kind?.includes?.('phone')) {
-      pa.style.display = 'none';
-      pa.innerHTML = '';
-    }
+  // Route through dispatcher — ambient priority, defers to player actions
+  MallAnnouncer.announce('phone-msg', 3, () => {
+    pa.innerHTML = `<div style="
+      background:rgba(0,0,0,0.72);
+      color:#FFE8B0;
+      font-size:0.78rem;
+      font-family:'Courier New',monospace;
+      padding:7px 14px;
+      border-left:3px solid #FFCC44;
+      max-width:420px;
+      letter-spacing:0.04em;
+      line-height:1.5;
+    ">📢 ${msg}</div>`;
+    pa.style.display = 'flex';
+    pa.style.alignItems = 'flex-end';
+    pa.style.justifyContent = 'center';
+    pa.style.pointerEvents = 'none';
   }, 6200);
 }
 
