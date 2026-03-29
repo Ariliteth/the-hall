@@ -1,5 +1,5 @@
 # The Hall — Roadmap
-*Last updated: March 26, 2026*
+*Last updated: March 29, 2026*
 
 ---
 
@@ -12,6 +12,7 @@ Items actively in development or immediately next. The deployment sequence is th
 ## Next
 Items with clear specs or obvious next steps, ready to build.
 
+- [ ] **Taco Science: DAY phase** — Researchers execute recipe cards with personality-driven deviations, sauce-drinking, explosions. ([score card](score-cards/taco-science.md) | [spec](taco-science-spec.md))
 - [ ] **Mycourt: syndicate negotiation** — Tap syndicates for offers, trust/suspicion mechanics, syndicate voice. ([score card](score-cards/mycourt.md))
 - [ ] **Mycourt: spoire influence overlap** — Overlapping radii produce richer dust or attract rarer syndicates.
 - [ ] **Mycourt: sporedust color blending** — Third dust axis shaped by active/adjacent syndicates.
@@ -57,6 +58,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **Taco Science: PREP phase** — Kitchendom research lab. 10 ingredients, 4 vessels, troughs, recipe card authoring, sauce archive with infinite barrels + finite vials (sip/drink/combine), subtractive color mixing, auto-generated sauce names. Bright graph-paper lab aesthetic. ([score card](score-cards/taco-science.md))
 - [x] **ASPECT: first pass** — Character engine Score. 12 aspects, name-derived personal stats, deterministic letter-proximity resolution, color claiming, skill tilting, persistence + fracture (Mk.II), 16 mundane scenarios, encounter pacing. Zero randomness. ([score card](score-cards/aspect.md))
 - [x] **slayy.: first pass** — Performance arena Score. Pentagram dance vs Mudhull for Camera attention. SVG drag, delta moves, connections, Beat/Pose capture, hybrid Mudhull AI, Camera system, Mother, beat engine, Show escalation. Hidden entry via Hunter Encounter erratic ticker. ([score card](score-cards/slayy.md))
 - [x] **Mycourt: slice-scale decisions** — Snore threat, syndicate exodus, investigation claim, Mycourt decree. Misdirection mechanic. Stance shapes. Drain visual.
