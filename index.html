@@ -19,7 +19,7 @@
     --parchment: #ede0c0;
     --static: rgba(255,255,255,0.03);
     --signal: #e8b84b;
-    --hub-height: 100vh;
+    --hub-height: 100dvh;
     --score-frame-display: none;
     --selection-display: block;
   }
@@ -101,7 +101,7 @@
   #hub-shell {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100dvh;
     position: relative;
     z-index: 10;
   }
@@ -112,7 +112,7 @@
     overflow-y: auto;
     transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
                 opacity 0.3s ease;
-    max-height: 100vh;
+    max-height: 100dvh;
     opacity: 1;
   }
 
@@ -144,33 +144,6 @@
     min-height: 0;
   }
 
-  /* Mobile edge zones — thin drag handles at top/bottom of score area */
-  #mobile-edge-top, #mobile-edge-bottom {
-    display: none;
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 24px;
-    z-index: 5;
-  }
-
-  #mobile-edge-top {
-    top: 0;
-    background: linear-gradient(to bottom, rgba(200, 130, 10, 0.3), transparent);
-    animation: edgeHintFade 0.6s ease 0.3s both;
-  }
-
-  #mobile-edge-bottom {
-    bottom: 0;
-    background: linear-gradient(to top, rgba(200, 130, 10, 0.3), transparent);
-    animation: edgeHintFade 0.6s ease 0.3s both;
-  }
-
-  @keyframes edgeHintFade {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
   /* ── HUD BAR — shown when score is running ── */
   #hud-bar {
     display: none;
@@ -182,7 +155,7 @@
     font-size: 0.55rem;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--warm);
+    color: var(--bone);
     flex-shrink: 0;
     position: relative;
     z-index: 50;
@@ -218,20 +191,44 @@
 
   #hud-eject {
     background: none;
-    border: 1px solid var(--bark);
-    color: var(--warm);
+    border: 1px solid var(--warm);
+    color: var(--bone);
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.5rem;
     letter-spacing: 2px;
     text-transform: uppercase;
     padding: 3px 8px;
     cursor: pointer;
-    transition: all 0.1s;
+    transition: all 0.3s;
+    position: relative;
   }
 
   #hud-eject:hover {
     border-color: var(--amber);
     color: var(--amber);
+  }
+
+  #hud-eject.departing {
+    color: var(--amber);
+    border-color: var(--amber);
+    box-shadow: 0 0 8px rgba(200, 130, 10, 0.3);
+  }
+
+  #eject-farewell {
+    position: absolute;
+    right: 16px;
+    bottom: -18px;
+    font-size: 0.45rem;
+    letter-spacing: 1px;
+    color: var(--amber);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  #eject-farewell.visible {
+    opacity: 1;
   }
 
   /* ── STAGE ── */
@@ -624,27 +621,25 @@
   /* ── TICKER ── */
   #ticker {
     background: var(--amber);
-    padding: 5px 0;
-    overflow: hidden;
+    padding: 8px 24px;
     flex-shrink: 0;
     position: relative;
     z-index: 50;
+    text-align: center;
+    min-height: 2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   #ticker-inner {
-    display: inline-block;
-    white-space: nowrap;
-    animation: ticker 40s linear infinite;
-    font-size: 0.6rem;
+    font-size: 0.7rem;
     letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--void);
     font-weight: bold;
-  }
-
-  @keyframes ticker {
-    0% { transform: translateX(calc(100vw - 1px)); }
-    100% { transform: translateX(-100%); }
+    transition: opacity 0.6s ease;
+    line-height: 1.4;
   }
 
   /* ── LOADING SCREEN ── */
@@ -984,17 +979,11 @@
       min-height: 44px;
     }
 
-    /* ── HUD BAR ── */
+    /* ── HUD BAR — compact, always visible ── */
     #hud-bar {
-      padding: 6px 10px;
-      gap: 8px;
-      transition: transform 0.3s ease, opacity 0.3s ease;
-    }
-
-    #hud-bar.mobile-hidden {
-      transform: translateY(-100%);
-      opacity: 0;
-      pointer-events: none;
+      padding: 4px 10px;
+      gap: 6px;
+      min-height: 28px;
     }
 
     #hud-scraggle-feed {
@@ -1003,24 +992,27 @@
 
     #hud-eject {
       font-size: 0.55rem;
-      padding: 6px 12px;
-      min-height: 36px;
-      min-width: 60px;
+      padding: 4px 10px;
+      min-height: 32px;
+      min-width: 56px;
     }
 
-    /* ── TICKER ── */
+    /* ── TICKER — compact, always visible, pinned height ── */
     #ticker {
-      transition: transform 0.3s ease, opacity 0.3s ease;
-    }
-
-    #ticker.mobile-hidden {
-      transform: translateY(100%);
-      opacity: 0;
-      pointer-events: none;
+      padding: 4px 12px;
+      height: 28px;
+      min-height: 28px;
+      max-height: 28px;
+      overflow: hidden;
     }
 
     #ticker-inner {
-      font-size: 0.5rem;
+      font-size: 0.55rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      display: block;
     }
 
     /* ── SCRAGGLE TOAST ── */
@@ -1117,6 +1109,7 @@
     <span id="hud-score-name"></span>
     <div id="hud-scraggle-feed"></div>
     <button id="hud-eject" onclick="ejectScore()">⏏ EJECT</button>
+    <span id="eject-farewell"></span>
   </div>
 
   <!-- Selection panel — collapses when a score launches -->
@@ -1336,8 +1329,6 @@
   <!-- Score frame — hidden until a score launches -->
   <div id="score-area">
     <iframe id="score-frame" title="Score"></iframe>
-    <div id="mobile-edge-top"></div>
-    <div id="mobile-edge-bottom"></div>
   </div>
 
   <!-- Always present: ticker -->
@@ -1998,105 +1989,12 @@ function handleScoreMessage(e) {
 }
 
 // ============================================================
-// MOBILE HUD AUTO-HIDE
+// MOBILE VIEWPORT HELPERS
 // ============================================================
-
-let mobileHudTimer = null;
-let mobileHudHidden = false;
 
 function isMobileViewport() {
   return window.matchMedia('(max-width: 768px)').matches;
 }
-
-function hideMobileHud() {
-  mobileHudHidden = true;
-  document.getElementById('hud-bar').classList.add('mobile-hidden');
-  document.getElementById('ticker').classList.add('mobile-hidden');
-  // Show edge zones for drag-to-reveal (score stays fully interactive)
-  document.getElementById('mobile-edge-top').style.display = 'block';
-  document.getElementById('mobile-edge-bottom').style.display = 'block';
-}
-
-function showMobileHud() {
-  mobileHudHidden = false;
-  document.getElementById('hud-bar').classList.remove('mobile-hidden');
-  document.getElementById('ticker').classList.remove('mobile-hidden');
-  document.getElementById('mobile-edge-top').style.display = 'none';
-  document.getElementById('mobile-edge-bottom').style.display = 'none';
-  startMobileHudTimer();
-}
-
-function startMobileHudTimer() {
-  clearTimeout(mobileHudTimer);
-  if (!isMobileViewport()) return;
-  mobileHudTimer = setTimeout(hideMobileHud, 3000);
-}
-
-function clearMobileHud() {
-  clearTimeout(mobileHudTimer);
-  mobileHudTimer = null;
-  mobileHudHidden = false;
-  document.getElementById('hud-bar').classList.remove('mobile-hidden');
-  document.getElementById('ticker').classList.remove('mobile-hidden');
-  document.getElementById('mobile-edge-top').style.display = 'none';
-  document.getElementById('mobile-edge-bottom').style.display = 'none';
-}
-
-// Edge-drag detection: pull down from top edge or swipe up from bottom edge
-(function initEdgeDrag() {
-  const DRAG_THRESHOLD = 30; // px of drag needed to trigger reveal
-  let dragStartY = null;
-  let dragSource = null; // 'top' or 'bottom'
-
-  function onStart(e) {
-    const touch = e.touches ? e.touches[0] : e;
-    dragStartY = touch.clientY;
-    dragSource = e.currentTarget.id === 'mobile-edge-top' ? 'top' : 'bottom';
-  }
-
-  function onMove(e) {
-    if (dragStartY === null || !mobileHudHidden) return;
-    const touch = e.touches ? e.touches[0] : e;
-    const dy = touch.clientY - dragStartY;
-
-    // Top edge: drag down. Bottom edge: drag up.
-    const validDrag = (dragSource === 'top' && dy > DRAG_THRESHOLD) ||
-                      (dragSource === 'bottom' && dy < -DRAG_THRESHOLD);
-    if (validDrag) {
-      dragStartY = null;
-      dragSource = null;
-      showMobileHud();
-    }
-  }
-
-  function onEnd() {
-    dragStartY = null;
-    dragSource = null;
-  }
-
-  const topZone = document.getElementById('mobile-edge-top');
-  const bottomZone = document.getElementById('mobile-edge-bottom');
-
-  [topZone, bottomZone].forEach(zone => {
-    zone.addEventListener('touchstart', onStart, { passive: true });
-    zone.addEventListener('touchmove', onMove, { passive: true });
-    zone.addEventListener('touchend', onEnd);
-    // Mouse fallback for testing
-    zone.addEventListener('mousedown', onStart);
-    zone.addEventListener('mousemove', onMove);
-    zone.addEventListener('mouseup', onEnd);
-  });
-
-  // Also allow drag down from signal bar itself (always visible)
-  const signalBar = document.getElementById('signal-bar');
-  signalBar.addEventListener('touchstart', function(e) {
-    if (!mobileHudHidden || !isMobileViewport()) return;
-    dragStartY = e.touches[0].clientY;
-    dragSource = 'top';
-  }, { passive: true });
-  signalBar.addEventListener('touchmove', onMove, { passive: true });
-  signalBar.addEventListener('touchend', onEnd);
-})();
 
 // ============================================================
 // MOBILE BACK BUTTON NAVIGATION
@@ -2124,16 +2022,9 @@ window.addEventListener('popstate', function(e) {
     return;
   }
 
-  // Score is running — intercept
-  if (mobileHudHidden) {
-    // HUD is hidden → reveal it, stay in score
-    showMobileHud();
-    hallPushState('hud-visible');
-  } else {
-    // HUD is visible (or listening mode) → eject to selection
-    ejectScore();
-    hallPushState('selection');
-  }
+  // Score is running — eject to selection
+  ejectScore();
+  hallPushState('selection');
 });
 
 // ============================================================
@@ -2152,7 +2043,6 @@ function setHubMode(mode) {
       scoreArea.classList.add('active');
       hudBar.classList.add('visible');
       smailSetVisible(true);
-      startMobileHudTimer();
       break;
     case 'listening':
       // Score running, hub invisible (just ticker + signal bar)
@@ -2166,7 +2056,6 @@ function setHubMode(mode) {
       panel.classList.remove('collapsed');
       scoreArea.classList.remove('active');
       hudBar.classList.remove('visible');
-      clearMobileHud();
       scoreRunning = false;
       document.getElementById('score-frame').src = '';
       smailSetVisible(false);
@@ -2472,23 +2361,57 @@ function launchScore() {
   frame.addEventListener('load', () => frame.contentWindow.focus(), { once: true });
 }
 
+const EJECT_DEPARTURES = [
+  'The Hall will be here.',
+  'Safe travels.',
+  'You were here. That counted.',
+  'The door stays open.',
+  'Come back when you want to.',
+  'The music keeps playing.',
+];
+let ejectDepartureIndex = 0;
+let ejectInProgress = false;
+
 function ejectScore() {
-  setHubMode('selection');
-  hallClearHistory();
-  // Return to the anteroom — the place before the rack
-  document.getElementById('selection-panel').classList.add('collapsed');
-  anteroomShow();
+  if (ejectInProgress) return;
+  ejectInProgress = true;
+
+  const btn = document.getElementById('hud-eject');
+  const farewell = document.getElementById('eject-farewell');
+
+  // Pick a departure line — cycle, don't repeat the last
+  const line = EJECT_DEPARTURES[ejectDepartureIndex % EJECT_DEPARTURES.length];
+  ejectDepartureIndex++;
+
+  // Visual shift on the button
+  btn.classList.add('departing');
+  farewell.textContent = line;
+  setTimeout(() => farewell.classList.add('visible'), 50);
+
+  // Brief hold — the moment of noticing — then transition
+  setTimeout(() => {
+    farewell.classList.remove('visible');
+    btn.classList.remove('departing');
+    ejectInProgress = false;
+
+    setHubMode('selection');
+    hallClearHistory();
+    // Return to the anteroom — the place before the rack
+    document.getElementById('selection-panel').classList.add('collapsed');
+    anteroomShow();
+  }, 1200);
 }
 
 // ============================================================
 // TICKER
 // ============================================================
 
-// Ticker anchor lines — the Hall's permanent voice
+// Ticker — one message at a time, held, then released
 let tickerAnchors = [];
-// Recent scraggles that have joined the ticker
-let tickerScraggles = [];
-const TICKER_SCRAGGLE_CAP = 6; // max scraggle lines in the ticker at once
+let tickerPriority = [];   // scraggles queue — shown next, ahead of anchors
+let tickerIndex = 0;
+let tickerTimer = null;
+let tickerFading = false;
 
 function updateTicker() {
   if (!registry) return;
@@ -2506,29 +2429,61 @@ function updateTicker() {
     `★ NOTHING IS FORCED TO PARTICIPATE`,
     `★ FIXEDPOINTLOCAL — SIGNAL STRONG`,
   ];
-  rebuildTickerContent();
+  // Start rotation if not already running
+  if (!tickerTimer) tickerRotate();
 }
 
 function feedTickerScraggle(emoji, signal) {
-  if (!signal) return; // quiet scraggles (soil, microgpt) don't need ticker space
+  if (!signal) return;
   const line = `★ ${emoji} ${signal}`.toUpperCase();
-  // Don't duplicate if already in the ticker
-  if (tickerScraggles.includes(line)) return;
-  tickerScraggles.push(line);
-  while (tickerScraggles.length > TICKER_SCRAGGLE_CAP) tickerScraggles.shift();
-  rebuildTickerContent();
+  // Don't duplicate if already queued
+  if (tickerPriority.includes(line)) return;
+  tickerPriority.push(line);
+  // Cap priority queue so it doesn't grow unbounded
+  while (tickerPriority.length > 6) tickerPriority.shift();
 }
 
-function rebuildTickerContent() {
-  // Weave scraggle lines between anchor lines
-  const combined = [...tickerAnchors];
-  // Insert scraggle lines after the first few anchors, spaced out
-  for (let i = 0; i < tickerScraggles.length; i++) {
-    // Place each scraggle after anchor index 2 + i*1, so they spread through the ticker
-    const insertAt = Math.min(3 + i * 2, combined.length);
-    combined.splice(insertAt, 0, tickerScraggles[i]);
-  }
-  document.getElementById('ticker-inner').textContent = combined.join('   ');
+function tickerNextMessage() {
+  // Priority scraggles go first
+  if (tickerPriority.length > 0) return tickerPriority.shift();
+  // Then cycle through anchors
+  if (tickerAnchors.length === 0) return '★ FIXED POINT LOCAL';
+  const msg = tickerAnchors[tickerIndex % tickerAnchors.length];
+  tickerIndex++;
+  return msg;
+}
+
+function tickerDuration(text) {
+  // Longer messages get more time — 6-8s range, ~80ms per character
+  return Math.max(6000, Math.min(8000, text.length * 80));
+}
+
+function tickerRotate() {
+  if (tickerFading) return;
+  const el = document.getElementById('ticker-inner');
+  if (!el) return;
+
+  const message = tickerNextMessage();
+  tickerFading = true;
+
+  // Fade out
+  el.style.opacity = '0';
+
+  setTimeout(() => {
+    // Swap text while invisible
+    el.textContent = message;
+    // Fade in
+    el.style.opacity = '1';
+    tickerFading = false;
+
+    // Hold for duration, then pause, then next
+    const hold = tickerDuration(message);
+    tickerTimer = setTimeout(() => {
+      tickerTimer = null;
+      // Brief silence between messages
+      setTimeout(tickerRotate, 1500);
+    }, hold);
+  }, 600);
 }
 
 // ============================================================
