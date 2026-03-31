@@ -2242,9 +2242,9 @@ function receiveScraggle(emoji, signal, writeToStorage = true, source = 'hub', e
   // until the world shows them again through another source
   if (source !== 'microgpt') witnessGlyph(emoji);
 
-  // Feed the soil — scraggles that surfaced FROM the soil don't re-deposit
-  // (that would be a feedback loop, not composting)
-  if (source !== 'soil') Soil.deposit(emoji);
+  // Feed the soil — scraggles that surfaced FROM the soil don't re-deposit,
+  // and hall-ambient whispers are the Hall's own voice, not organic exhaust
+  if (source !== 'soil' && source !== 'hall-ambient') Soil.deposit(emoji);
 }
 
 function showScraggleToast(emoji, signal) {
@@ -3448,6 +3448,154 @@ function seedTemperatureFromNeighborhoods(hoods) {
 }
 
 // ============================================================
+// HALL AMBIENT VOICES
+// ============================================================
+//
+// Every Score has a life even when no one is visiting. The Hub
+// carries those whispers during pulse cycles — not echoes of
+// past activity, but ambient life from the rest of the Hall.
+// These are the true voices before music.
+
+const HALL_AMBIENT_VOICES = {
+  'tending-field': [
+    { emoji: '🌿', text: 'something grew an inch in the tending field' },
+    { emoji: '🌊', text: 'a tide shifted beneath the field' },
+    { emoji: '💧', text: 'a droplet climbed a kelp strand in the tending field' },
+    { emoji: '🪸', text: 'a coral bloom opened one more petal' },
+    { emoji: '🌵', text: 'something in the field held very still' },
+    { emoji: '🛖', text: 'a trader paused on the horizon, considering' },
+  ],
+  'sunset-ridge-mall': [
+    { emoji: '🛍', text: 'a store rearranged itself at Sunset Ridge' },
+    { emoji: '🎵', text: 'the muzak drifted a key at Sunset Ridge' },
+    { emoji: '💡', text: 'a corridor light buzzed once at the Mall' },
+    { emoji: '🔔', text: 'an elevator arrived on an empty floor at Sunset Ridge' },
+    { emoji: '🧸', text: 'something shifted on a shelf at Sunset Ridge' },
+    { emoji: '🌙', text: 'the Mall settled an inch closer to the ground' },
+  ],
+  'chunxly': [
+    { emoji: '🎨', text: 'paint dried slowly in Chunxly\'s studio' },
+    { emoji: '🖌️', text: 'a brush rolled to the edge of the table at Chunxly\'s' },
+    { emoji: '✨', text: 'the fairy hummed something half-remembered at Chunxly\'s' },
+    { emoji: '🦎', text: 'a creature blinked in a jar at Chunxly\'s Canvas' },
+    { emoji: '🪴', text: 'the studio smelled like wet pigment and leaves' },
+  ],
+  'slayy': [
+    { emoji: '📷', text: 'a camera adjusted itself at the slayy. stage' },
+    { emoji: '💃', text: 'someone practiced a pose backstage at slayy.' },
+    { emoji: '👁', text: 'Mudhull opened one eye, then closed it again' },
+    { emoji: '🔊', text: 'the beat continued without anyone listening at slayy.' },
+    { emoji: '📺', text: 'a screen flickered with last night\'s scores at slayy.' },
+  ],
+  'taste': [
+    { emoji: '🔪', text: 'a knife rested on a cutting board at Taste' },
+    { emoji: '🍋', text: 'citrus oil hung in the air at Taste' },
+    { emoji: '📋', text: 'the grocery list fluttered in a draft at Taste' },
+    { emoji: '🧊', text: 'the fridge hummed its one note at Taste' },
+    { emoji: '📖', text: 'a magazine page turned itself at Taste' },
+  ],
+  'grimoire': [
+    { emoji: '📖', text: 'a page turned in the Grimoire' },
+    { emoji: '🖋️', text: 'ink settled into a new shape in the Grimoire' },
+    { emoji: '🌿', text: 'a pressed leaf shifted between pages of the Grimoire' },
+    { emoji: '✨', text: 'the Grimoire remembered a name it hadn\'t been asked' },
+    { emoji: '🕯️', text: 'a candle near the Grimoire found a lower flame' },
+  ],
+  'lode': [
+    { emoji: '🎲', text: 'dice rattled in a cup somewhere in Lode' },
+    { emoji: '⭐', text: 'a new star appeared on the Lode constellation map' },
+    { emoji: '⛏️', text: 'ore glinted in a vein no one was watching at Lode' },
+    { emoji: '🏰', text: 'an empire ticked forward one turn at Lode' },
+    { emoji: '🌌', text: 'the star field shifted above Lode' },
+    { emoji: '👑', text: 'a throne sat empty for one more round at Lode' },
+  ],
+  'bao': [
+    { emoji: '📜', text: 'a dispatch arrived at Bao that no one read' },
+    { emoji: '🗺️', text: 'the paper map curled at one edge at Bao' },
+    { emoji: '⚔️', text: 'an advisor murmured something about the western front at Bao' },
+    { emoji: '🏴', text: 'a title changed hands somewhere in Bao' },
+    { emoji: '🕊️', text: 'a vendetta cooled by one degree at Bao' },
+  ],
+  'silmor-spells': [
+    { emoji: '🎲', text: 'a die clattered down a stone corridor in Silmor' },
+    { emoji: '✨', text: 'a spell fizzled in an empty room in Silmor' },
+    { emoji: '🔥', text: 'a fumble sparked against the dark in Silmor' },
+    { emoji: '📜', text: 'a word bridge formed between two floors of Silmor' },
+    { emoji: '🗝️', text: 'something unlocked quietly in Silmor' },
+  ],
+  'critter-crank': [
+    { emoji: '⚙️', text: 'gears turned once at the Critter Crank' },
+    { emoji: '🥚', text: 'something stirred inside the Crank' },
+    { emoji: '🔧', text: 'a lever settled into a new position at the Crank' },
+    { emoji: '🐾', text: 'a creature shifted in its housing at the Crank' },
+    { emoji: '💫', text: 'the Crank hummed a frequency it hadn\'t tried before' },
+  ],
+  'efdp': [
+    { emoji: '📊', text: 'an entity\'s timeline ticked forward at the Field Data Page' },
+    { emoji: '🫀', text: 'a pulse registered in the entity field' },
+    { emoji: '🎭', text: 'an animate skeleton held a pose no one saw' },
+    { emoji: '🌡️', text: 'the field data page updated a reading' },
+  ],
+  'storeroom': [
+    { emoji: '📦', text: 'an object muttered about its tolerance in the Storeroom' },
+    { emoji: '🪑', text: 'a shelf settled under familiar weight in the Storeroom' },
+    { emoji: '🔍', text: 'something narrowed its preferences in the Storeroom' },
+    { emoji: '💡', text: 'an object remembered what it was for in the Storeroom' },
+    { emoji: '🧹', text: 'dust rearranged itself in the Storeroom' },
+  ],
+  'shoot-the-moon': [
+    { emoji: '🌙', text: 'the moon hung where it always does at Shoot the Moon' },
+    { emoji: '🎪', text: 'a vendor called out to no one at Shoot the Moon' },
+    { emoji: '🎯', text: 'a rival adjusted their aim at Shoot the Moon' },
+    { emoji: '🎠', text: 'the fairground turned one rotation at Shoot the Moon' },
+    { emoji: '🌃', text: 'the night got one shade deeper at Shoot the Moon' },
+  ],
+  'taco-science': [
+    { emoji: '🌮', text: 'a sauce barrel bubbled at Taco Science' },
+    { emoji: '🔬', text: 'a research note pinned itself to the wall at Taco Science' },
+    { emoji: '💡', text: 'the lab hummed with bright purpose at Taco Science' },
+    { emoji: '🧪', text: 'an experiment continued without supervision at Taco Science' },
+    { emoji: '📝', text: 'a PREP checklist updated itself at Taco Science' },
+  ],
+  'aspect': [
+    { emoji: '🎭', text: 'a resolution ticked toward conclusion at Aspect' },
+    { emoji: '🎨', text: 'a color was claimed in an empty room at Aspect' },
+    { emoji: '⚖️', text: 'a skill tilted by one degree at Aspect' },
+    { emoji: '🪞', text: 'a character studied its own reflection at Aspect' },
+    { emoji: '📐', text: 'a mundane scenario played out with no one watching at Aspect' },
+  ],
+  'mycourt': [
+    { emoji: '🏀', text: 'a ball bounced once on an empty court at Mycourt' },
+    { emoji: '👟', text: 'a shoe squeaked on the hardwood at Mycourt' },
+    { emoji: '🥅', text: 'the net swished from a shot no one took at Mycourt' },
+    { emoji: '🌤️', text: 'the outdoor court warmed in the afternoon at Mycourt' },
+    { emoji: '📊', text: 'a scoreboard held its last number at Mycourt' },
+  ],
+  'hunter-encounter': [
+    { emoji: '🌲', text: 'the forest shifted in Mucklerbuckler' },
+    { emoji: '🦌', text: 'something moved between the trees in Mucklerbuckler' },
+    { emoji: '🍂', text: 'leaves settled on an old path in Mucklerbuckler' },
+    { emoji: '🌫️', text: 'fog gathered at the edge of the encounter' },
+    { emoji: '🪵', text: 'a branch cracked under its own patience in Mucklerbuckler' },
+  ],
+};
+
+function hallAmbientWhisper() {
+  // ~18% chance per pulse — roughly once every 4 minutes
+  if (Math.random() > 0.18) return;
+
+  // Gather all score keys except the one currently loaded
+  const keys = Object.keys(HALL_AMBIENT_VOICES).filter(k => k !== selectedScore);
+  if (keys.length === 0) return;
+
+  const scoreKey = keys[Math.floor(Math.random() * keys.length)];
+  const pool = HALL_AMBIENT_VOICES[scoreKey];
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+
+  receiveScraggle(pick.emoji, pick.text, true, 'hall-ambient');
+}
+
+// ============================================================
 // THE HALL PULSE
 // ============================================================
 //
@@ -3485,6 +3633,9 @@ function emitPulse() {
 
   // Process persistent Scraggles — re-emit with decay
   processPersistentScraggles();
+
+  // The Hall whispers on behalf of Scores that aren't loaded
+  hallAmbientWhisper();
 
   // The hub feels its own pulse
   hudBreath();
