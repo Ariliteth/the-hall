@@ -149,6 +149,7 @@ body::after{content:'';position:fixed;inset:0;
 <div class="notif" id="notif"></div>
 <div class="hdr">
   <div class="logo">Chunxly's Canvas</div>
+  <button id="btn-fast-pipeline" style="font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;">Fast Pipeline</button>
   <div class="phase-tag" id="phaseTag">waiting</div>
 </div>
 <div class="voices">
@@ -5395,6 +5396,101 @@ window.addEventListener('resize', resizeCanvas);
 })();
 
 document.getElementById('btnCompare').addEventListener('click', loadMazeSnapshot);
+
+// ═══════════════════════════════════════════════════════
+//  Fast Pipeline — skip animation, straight to fairy + export
+//  For testing creature-to-EFDP handoff without manual steps.
+// ═══════════════════════════════════════════════════════
+async function fastPipeline(imageCanvas, w, h, name) {
+  S.imageCanvas = imageCanvas;
+  S.imgW = w;
+  S.imgH = h;
+  S.stallName = name || 'Unnamed';
+  S.nodes = [];
+  S.edges = [];
+  S.nextId = 1;
+  S.fairy = {
+    x: -50, y: -50, targetX: -50, targetY: -50,
+    color: [200, 210, 225], expression: 'idle', visible: false,
+    journey: null, journeyQueue: [], settled: false, settleTimer: 0,
+    diamonds: [], wingPhase: 0, visions: [], firstVisionFired: false,
+  };
+
+  setPhase('analyzing');
+  render();
+
+  const candidates = analyzeMultiPass();
+  if (!candidates.length) {
+    showNotif('No containers found in image.');
+    return;
+  }
+  S.stallAnalysis = analyzeStallDrawing();
+
+  // Create nodes directly — skip daub animation
+  for (const c of candidates) {
+    const sx = (c.x / S.imgW) * S.canvasSize;
+    const sy = (c.y / S.imgH) * S.canvasSize;
+    S.nodes.push({
+      id: S.nextId++, x: sx, y: sy,
+      color: c.color, size: c.size,
+      boundary: c.boundary, wobble: c.wobble,
+      scribble: c.scribble, energy: c.energy,
+      gradMag: c.gradMag || 0, gradAngle: c.gradAngle || 0,
+      edge: c.edge || 0, sat: c.sat || 0,
+      conviction: c.conviction ?? 1.0, source: 'chunxly'
+    });
+  }
+  render();
+  showNotif(candidates.length + ' containers found. Launching fairy...');
+
+  // Launch fairy for diamond tracing + structural role classification
+  launchFairy();
+
+  // Wait for fairy to settle (journeys complete + reweighting applied)
+  await new Promise(resolve => {
+    const check = setInterval(() => {
+      if (S.fairy.settled || S.fairy.journeyQueue.length === 0) {
+        clearInterval(check);
+        resolve();
+      }
+    }, 300);
+  });
+
+  // Small grace period for reweighting
+  await new Promise(r => setTimeout(r, 800));
+
+  // Export to localStorage for EFDP pickup
+  exportCreature();
+  const roles = S.nodes.map(n => n.structuralRole || 'unclassified');
+  const roleCounts = {};
+  roles.forEach(r => roleCounts[r] = (roleCounts[r] || 0) + 1);
+  showNotif('Exported! Roles: ' + Object.entries(roleCounts).map(([k,v]) => k + ':' + v).join(', '));
+  console.log('Fast pipeline complete — CPM in localStorage. Switch to EFDP and click ← Aspects.');
+}
+
+document.getElementById('btn-fast-pipeline').addEventListener('click', () => {
+  // Use whatever creature is already on the canvas
+  if (S.imageCanvas && S.stallName) {
+    fastPipeline(S.imageCanvas, S.imgW, S.imgH, S.stallName);
+    return;
+  }
+  // Fallback: load Briny Broadswordfish rendition as test fixture
+  const img = new Image();
+  img.onload = () => {
+    const maxDim = 512;
+    let w = img.width, h = img.height;
+    if (w > maxDim || h > maxDim) {
+      const s = maxDim / Math.max(w, h);
+      w = Math.round(w * s); h = Math.round(h * s);
+    }
+    const oc = document.createElement('canvas');
+    oc.width = w; oc.height = h;
+    oc.getContext('2d').drawImage(img, 0, 0, w, h);
+    fastPipeline(oc, w, h, 'Briny Broadswordfish');
+  };
+  img.onerror = () => showNotif('Could not load rendition. Check that the file exists.');
+  img.src = '/neighborhoods/kitchendom/entities/briny-broadswordfish/rendition.png';
+});
 </script>
 </body>
 </html>
