@@ -2247,6 +2247,9 @@ function receiveScraggle(emoji, signal, writeToStorage = true, source = 'hub', e
   // Feed the soil — scraggles that surfaced FROM the soil don't re-deposit,
   // and hall-ambient whispers are the Hall's own voice, not organic exhaust
   if (source !== 'soil' && source !== 'hall-ambient') Soil.deposit(emoji);
+
+  // Feed the ticker — scraggles join the scroll if they have something to say
+  if (!extended?.reemit) feedTickerScraggle(emoji, signal);
 }
 
 function showScraggleToast(emoji, signal) {
@@ -2481,12 +2484,18 @@ function ejectScore() {
 // TICKER
 // ============================================================
 
+// Ticker anchor lines — the Hall's permanent voice
+let tickerAnchors = [];
+// Recent scraggles that have joined the ticker
+let tickerScraggles = [];
+const TICKER_SCRAGGLE_CAP = 6; // max scraggle lines in the ticker at once
+
 function updateTicker() {
   if (!registry) return;
   const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
   const hoods = Object.keys(registry.neighborhoods).map(formatNeighborhoodName);
   const residents = Object.values(registry.neighborhoods).flatMap(getEntities).map(formatSlug);
-  const lines = [
+  tickerAnchors = [
     `★ FIXED POINT LOCAL — THE HALL IS OPEN`,
     `★ ${hoods.length} NEIGHBORHOODS BROADCASTING: ${hoods.join(' · ')}`,
     `★ RESIDENTS ON RECORD: ${residents.join(' · ')}`,
@@ -2497,7 +2506,29 @@ function updateTicker() {
     `★ NOTHING IS FORCED TO PARTICIPATE`,
     `★ FIXEDPOINTLOCAL — SIGNAL STRONG`,
   ];
-  document.getElementById('ticker-inner').textContent = lines.join('   ');
+  rebuildTickerContent();
+}
+
+function feedTickerScraggle(emoji, signal) {
+  if (!signal) return; // quiet scraggles (soil, microgpt) don't need ticker space
+  const line = `★ ${emoji} ${signal}`.toUpperCase();
+  // Don't duplicate if already in the ticker
+  if (tickerScraggles.includes(line)) return;
+  tickerScraggles.push(line);
+  while (tickerScraggles.length > TICKER_SCRAGGLE_CAP) tickerScraggles.shift();
+  rebuildTickerContent();
+}
+
+function rebuildTickerContent() {
+  // Weave scraggle lines between anchor lines
+  const combined = [...tickerAnchors];
+  // Insert scraggle lines after the first few anchors, spaced out
+  for (let i = 0; i < tickerScraggles.length; i++) {
+    // Place each scraggle after anchor index 2 + i*1, so they spread through the ticker
+    const insertAt = Math.min(3 + i * 2, combined.length);
+    combined.splice(insertAt, 0, tickerScraggles[i]);
+  }
+  document.getElementById('ticker-inner').textContent = combined.join('   ');
 }
 
 // ============================================================
