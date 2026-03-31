@@ -1863,6 +1863,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     renderRoster();
     updateTicker();
     updateContextSummary();
+    // Enrich entity whisper pool in the background — doesn't block init
+    enrichEntityWhispers();
   } catch(e) {
     document.getElementById('neighborhoods-loading').textContent = 'SIGNAL LOST — OFFLINE MODE';
     document.getElementById('roster-loading').textContent = 'NO SIGNAL';
@@ -3580,11 +3582,111 @@ const HALL_AMBIENT_VOICES = {
   ],
 };
 
+// ── Entity whisper pool — enriched from tuning.md at init ──
+let entityWhisperPool = [];
+
+async function enrichEntityWhispers() {
+  if (!registry) return;
+  const pool = [];
+  const fetches = [];
+
+  for (const [hood, data] of Object.entries(registry.neighborhoods)) {
+    const slugs = Array.isArray(data) ? data : (data.entities || []);
+    for (const slug of slugs) {
+      fetches.push(
+        fetch(`${RAW}/neighborhoods/${hood}/entities/${slug}/tuning.md`)
+          .then(r => r.ok ? r.text() : null)
+          .then(text => {
+            if (!text) return;
+            const entity = parseTuningForWhisper(text, slug, hood);
+            if (entity) pool.push(entity);
+          })
+          .catch(() => {})
+      );
+    }
+  }
+
+  await Promise.all(fetches);
+  entityWhisperPool = pool;
+}
+
+function parseTuningForWhisper(text, slug, hood) {
+  let name = null, category = null, tags = [];
+
+  // YAML format: name: ..., category: ..., tags: [...]
+  const yamlName = text.match(/^name:\s*(.+)/m);
+  if (yamlName) name = yamlName[1].trim();
+  const yamlCat = text.match(/^category:\s*(.+)/mi);
+  if (yamlCat) category = yamlCat[1].trim().toLowerCase();
+  const yamlTags = text.match(/^tags:\s*\[([^\]]+)\]/m);
+  if (yamlTags) tags = yamlTags[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+
+  // Markdown format: # Name, **Category:** ..., **Tags:** ...
+  if (!name) {
+    const mdName = text.match(/^#\s+(.+)/m);
+    if (mdName) name = mdName[1].trim();
+  }
+  if (!category) {
+    const mdCat = text.match(/\*\*Category:\*\*\s*(.+)/i);
+    if (mdCat) category = mdCat[1].trim().toLowerCase();
+  }
+  if (tags.length === 0) {
+    const mdTags = text.match(/\*\*Tags:\*\*\s*(.+)/i);
+    if (mdTags) tags = mdTags[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+  }
+
+  if (!name) name = formatSlug(slug);
+  return { slug, name, hood, category: category || 'presence', tags };
+}
+
+// Category-based verb pools for entity whispers
+const ENTITY_WHISPER_VERBS = {
+  spirit:   ['drifted through', 'watched from', 'settled in', 'stirred in', 'waited in'],
+  action:   ['happened quietly in', 'passed through', 'echoed in', 'rippled through'],
+  object:   ['shifted on a shelf in', 'held still in', 'rested in', 'settled in'],
+  creature: ['blinked in', 'stirred in', 'turned once in', 'breathed in'],
+  presence: ['was felt in', 'lingered in', 'occupied a corner of', 'remained in'],
+  location: ['hummed in', 'held its shape in', 'persisted in'],
+  tendency: ['leaned toward something in', 'drifted through', 'pulled gently in'],
+};
+
+function entityWhisper() {
+  if (entityWhisperPool.length === 0) return null;
+  const entity = entityWhisperPool[Math.floor(Math.random() * entityWhisperPool.length)];
+  const hoodName = entity.hood.charAt(0).toUpperCase() + entity.hood.slice(1);
+
+  // 60% chance: name + verb + neighborhood
+  // 40% chance: tag-based ("something [tag] stirred in [neighborhood]")
+  if (entity.tags.length > 0 && Math.random() < 0.4) {
+    const tag = entity.tags[Math.floor(Math.random() * entity.tags.length)];
+    const templates = [
+      `something ${tag} stirred in ${hoodName}`,
+      `a ${tag} presence shifted in ${hoodName}`,
+      `${entity.name} was being ${tag} about it`,
+    ];
+    const text = templates[Math.floor(Math.random() * templates.length)];
+    return { emoji: '✦', text };
+  }
+
+  const verbs = ENTITY_WHISPER_VERBS[entity.category] || ENTITY_WHISPER_VERBS.presence;
+  const verb = verbs[Math.floor(Math.random() * verbs.length)];
+  return { emoji: '✦', text: `${entity.name} ${verb} ${hoodName}` };
+}
+
 function hallAmbientWhisper() {
   // ~18% chance per pulse — roughly once every 4 minutes
   if (Math.random() > 0.18) return;
 
-  // Gather all score keys except the one currently loaded
+  // 40% chance entity whisper, 60% chance score whisper
+  if (entityWhisperPool.length > 0 && Math.random() < 0.4) {
+    const w = entityWhisper();
+    if (w) {
+      receiveScraggle(w.emoji, w.text, true, 'hall-ambient');
+      return;
+    }
+  }
+
+  // Score-level ambient voice
   const keys = Object.keys(HALL_AMBIENT_VOICES).filter(k => k !== selectedScore);
   if (keys.length === 0) return;
 
