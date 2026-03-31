@@ -1719,6 +1719,8 @@ const G = {
   kitchendomPosterSeen: !!localStorage.getItem('baseline-session/kitchendom-theme'),
   posterConfettiPending: false, // poster is processing what just happened
   posterConfettiSteps: 0,       // steps taken since poster bump
+  sleepPhase: 0,    // 0=awake, 1-3=settling, 4=asleep
+  idlePulses: 0,    // consecutive hub:pulse cycles with no input
 };
 
 // Three.js module-level refs
@@ -1729,6 +1731,9 @@ let borderTO = null;
 
 // Audio module-level refs — created lazily on first user gesture
 let audioCtx = null, muzakMaster = null, audioReady = false, audioMuted = false;
+// Sleep-accessible audio nodes — stored so the Mall can settle its own sound
+let muzakLowPass = null, bassGains = [], padVoices = [];
+let ambientLightRef = null; // stored for sleep dimming
 
 // ── AUDIO ─────────────────────────────────────────────────────────────────────
 function noteToFreq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
@@ -1766,8 +1771,10 @@ function startMallMuzak() {
   lp.frequency.value = 900;
   lp.Q.value = 0.7;
   lp.connect(muzakMaster);
+  muzakLowPass = lp;
 
   // Bass drone — C2 (65.41 Hz) and G2 (98 Hz), triangle wave, always on
+  bassGains = [];
   [[65.41, 0.09], [98.0, 0.055]].forEach(([freq, gain]) => {
     const osc = audioCtx.createOscillator();
     const g = audioCtx.createGain();
@@ -1777,21 +1784,25 @@ function startMallMuzak() {
     osc.connect(g);
     g.connect(lp);
     osc.start();
+    bassGains.push({ node: g, baseGain: gain });
   });
 
   // Two pentatonic pad voices — generative, staggered, slowly evolving
   // C major pentatonic spanning 3 octaves
   const PENTA = [48, 50, 52, 55, 57, 60, 62, 64, 67, 69, 72];
+  padVoices = [];
 
   function makePadVoice(gainVal, startOffset, beatSecs) {
     const voiceGain = audioCtx.createGain();
     voiceGain.gain.value = gainVal;
     voiceGain.connect(lp);
+    const voice = { node: voiceGain, baseGain: gainVal, baseBeat: beatSecs, currentBeat: beatSecs };
+    padVoices.push(voice);
     let nextT = audioCtx.currentTime + startOffset;
     function schedule() {
       while (nextT < audioCtx.currentTime + 2.5) {
         const note = PENTA[Math.floor(Math.random() * PENTA.length)];
-        const dur = beatSecs * (0.7 + Math.random() * 0.85);
+        const dur = voice.currentBeat * (0.7 + Math.random() * 0.85);
         const osc = audioCtx.createOscillator();
         const env = audioCtx.createGain();
         osc.type = 'sine';
@@ -1803,7 +1814,7 @@ function startMallMuzak() {
         env.gain.setTargetAtTime(0, nextT + dur * 0.55, dur * 0.28);
         osc.start(nextT);
         osc.stop(nextT + dur + 0.7);
-        nextT += beatSecs * (0.5 + Math.random() * 0.75);
+        nextT += voice.currentBeat * (0.5 + Math.random() * 0.75);
       }
       setTimeout(schedule, 500);
     }
@@ -1813,6 +1824,65 @@ function startMallMuzak() {
   makePadVoice(0.065, 0.1, 2.6);  // medium-slow voice
   makePadVoice(0.04,  1.8, 4.1);  // slow second voice, offset
 }
+
+// ── SLEEP MODE — the Mall arranges itself for rest ───────────────────────────
+//
+// After extended stillness the Mall begins settling. The muzak slows,
+// the filter drops, the bass gets closer, the pads thin out.
+// A building dreaming — a note surfaces every few seconds, hangs longer.
+
+const SLEEP_PARAMS = [
+  // phase: [lpCutoff, bassGainMult, padGainMult, padBeatMult]
+  /* 0 awake    */ [900,  1.0,  1.0,  1.0 ],
+  /* 1 settling */ [650,  1.1,  0.7,  1.4 ],
+  /* 2 dimming  */ [450,  1.15, 0.45, 1.9 ],
+  /* 3 deep     */ [300,  1.2,  0.3,  2.5 ],
+  /* 4 asleep   */ [220,  1.25, 0.2,  3.2 ],
+];
+
+// Visual targets per sleep phase
+// [bgR, bgG, bgB, ambientIntensity, fogNearMult, flickerSpeedMult, flickerBaseMult]
+const SLEEP_VISUALS = [
+  /* 0 awake    */ [200, 184, 154,  0.55,  1.0,  1.0,  1.0 ],
+  /* 1 settling */ [182, 168, 140,  0.42,  0.85, 0.5,  0.8 ],
+  /* 2 dimming  */ [160, 146, 122,  0.32,  0.7,  0.25, 0.6 ],
+  /* 3 deep     */ [144, 130, 108,  0.24,  0.58, 0.12, 0.4 ],
+  /* 4 asleep   */ [138, 122, 102,  0.20,  0.5,  0.06, 0.3 ],
+];
+
+// Current interpolated visual state (starts at awake values)
+const sleepVisualCurrent = { r: 200, g: 184, b: 154, ambient: 0.55, fogNear: 1.0, flickSpeed: 1.0, flickBase: 1.0 };
+
+function updateSleepAudio(phase) {
+  if (!audioCtx || !muzakLowPass) return;
+  const t = audioCtx.currentTime;
+  const tau = 4.0; // ~4-second exponential glide
+  const [lpFreq, bassMult, padMult, beatMult] = SLEEP_PARAMS[phase];
+
+  muzakLowPass.frequency.setTargetAtTime(lpFreq, t, tau);
+
+  bassGains.forEach(bg => {
+    bg.node.gain.setTargetAtTime(bg.baseGain * bassMult, t, tau);
+  });
+  padVoices.forEach(pv => {
+    pv.node.gain.setTargetAtTime(pv.baseGain * padMult, t, tau);
+    pv.currentBeat = pv.baseBeat * beatMult;
+  });
+}
+
+function updateSleepVisualTargets(phase) {
+  // Just sets targets — the render loop interpolates toward them
+  const v = SLEEP_VISUALS[phase];
+  sleepVisualCurrent._targetR = v[0];
+  sleepVisualCurrent._targetG = v[1];
+  sleepVisualCurrent._targetB = v[2];
+  sleepVisualCurrent._targetAmbient = v[3];
+  sleepVisualCurrent._targetFogNear = v[4];
+  sleepVisualCurrent._targetFlickSpeed = v[5];
+  sleepVisualCurrent._targetFlickBase = v[6];
+}
+// Initialize targets to awake
+updateSleepVisualTargets(0);
 
 function playSound(type) {
   if (!audioCtx || audioMuted) return;
@@ -3043,7 +3113,8 @@ function init() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color('#C8B89A');
   scene.fog = new THREE.Fog('#C8B89A', CELL*4, CELL*11);
-  scene.add(new THREE.AmbientLight(0xFFF8E7, 0.55));
+  ambientLightRef = new THREE.AmbientLight(0xFFF8E7, 0.55);
+  scene.add(ambientLightRef);
 
   // Soft personal light — glows when carrying items, follows camera
   personalLight = new THREE.PointLight(0xFFEECC, 0, CELL * 1.8);
@@ -3063,19 +3134,41 @@ function init() {
   // Render loop
   (function loop(ts = 0) {
     requestAnimationFrame(loop);
+
+    // ── Sleep visual interpolation — smooth glide toward current targets ──
+    const sv = sleepVisualCurrent;
+    const lerp = 0.015; // ~4-second visual settling at 60fps
+    sv.r += (sv._targetR - sv.r) * lerp;
+    sv.g += (sv._targetG - sv.g) * lerp;
+    sv.b += (sv._targetB - sv.b) * lerp;
+    sv.ambient += (sv._targetAmbient - sv.ambient) * lerp;
+    sv.fogNear += (sv._targetFogNear - sv.fogNear) * lerp;
+    sv.flickSpeed += (sv._targetFlickSpeed - sv.flickSpeed) * lerp;
+    sv.flickBase += (sv._targetFlickBase - sv.flickBase) * lerp;
+
+    // Apply to scene
+    const bgCol = `rgb(${Math.round(sv.r)},${Math.round(sv.g)},${Math.round(sv.b)})`;
+    scene.background.setStyle(bgCol);
+    scene.fog.color.setStyle(bgCol);
+    scene.fog.near = CELL * 4 * sv.fogNear + CELL * 2 * (1 - sv.fogNear); // glides from CELL*4 toward CELL*2
+    if (ambientLightRef) ambientLightRef.intensity = sv.ambient;
+
     flickerLights.forEach(fl => {
-      fl.light.intensity = fl.base * (0.55 + 0.45 * Math.sin(ts * fl.speed + fl.phase));
+      const effectiveBase = fl.base * sv.flickBase;
+      const effectiveSpeed = fl.speed * sv.flickSpeed;
+      fl.light.intensity = effectiveBase * (0.55 + 0.45 * Math.sin(ts * effectiveSpeed + fl.phase));
     });
+
     // Personal glow — pulses gently when you're carrying items
+    // Dims toward zero as the Mall sleeps
+    const sleepDim = G.sleepPhase >= 4 ? 0.05 : (1 - G.sleepPhase * 0.2);
     if (personalLight) {
       const heldItems = G.hands.filter(h => h && !h.isDollar);
       if (heldItems.length > 0) {
         personalLight.position.copy(camera.position);
-        // Each item contributes a little light; flickers at slightly different rates
         const pulse = heldItems.reduce((sum, item, i) =>
           sum + 0.12 * (0.65 + 0.35 * Math.sin(ts * 0.0025 + i * 1.7)), 0);
-        personalLight.intensity = pulse;
-        // Tint based on first held item's rarity
+        personalLight.intensity = pulse * sleepDim;
         const rc = { common: 0xFFEECC, uncommon: 0xCCEEFF, rare: 0xDDBBFF, legendary: 0xFFDD55 };
         personalLight.color.setHex(rc[heldItems[0].rarity] ?? 0xFFEECC);
       } else {
@@ -3111,8 +3204,27 @@ function init() {
   // has been idle for a full interval, the Mall takes the floor.
 
   let lastInput = Date.now();
+  function mallWake() {
+    lastInput = Date.now();
+    if (G.sleepPhase > 0) {
+      G.sleepPhase = 0;
+      G.idlePulses = 0;
+      updateSleepAudio(0);
+      updateSleepVisualTargets(0);
+      // HUD restores
+      const hud = document.getElementById('game-hud');
+      if (hud) hud.style.opacity = '1';
+      renderHUD();
+      // The Mall stretches awake
+      window.parent.postMessage({
+        type: 'hub:scraggle',
+        emoji: '☀️',
+        text: `the Mall stretched and remembered its hours`
+      }, '*');
+    }
+  }
   ['pointermove','pointerdown','keydown','touchstart'].forEach(ev =>
-    window.addEventListener(ev, () => { lastInput = Date.now(); }, { passive: true })
+    window.addEventListener(ev, mallWake, { passive: true })
   );
 
   const IDLE_THRESHOLD = 40000; // ~40s — slightly under pulse interval
@@ -3140,7 +3252,24 @@ function init() {
     // Idle behavior — the Mall takes the floor
     const idleDuration = Date.now() - lastInput;
     if (idleDuration >= IDLE_THRESHOLD) {
+      G.idlePulses++;
+
+      // After 3 consecutive idle pulses, begin settling into sleep
+      if (G.idlePulses >= 3 && G.sleepPhase < 4) {
+        G.sleepPhase = Math.min(4, G.sleepPhase + 1);
+        updateSleepAudio(G.sleepPhase);
+        updateSleepVisualTargets(G.sleepPhase);
+
+        // HUD dims as sleep deepens
+        if (G.sleepPhase >= 3) {
+          const hud = document.getElementById('game-hud');
+          if (hud) hud.style.opacity = G.sleepPhase >= 4 ? '0.25' : '0.45';
+        }
+      }
+
       mallTakesTheFloor();
+    } else {
+      G.idlePulses = 0;
     }
 
     // Color-aware listening — hear Scraggles that reach the Mall
@@ -3170,6 +3299,12 @@ function init() {
 
 function mallTakesTheFloor() {
   if (!G.fd) return;
+
+  // The Mall doesn't restock while someone is resting — it settles.
+  if (G.sleepPhase >= 1) {
+    mallIdleAmbience();
+    return;
+  }
 
   // Try to restock a store — if stores exist and have room
   if (G.fd.stores && G.fd.stores.length > 0) {
@@ -3254,8 +3389,20 @@ const MALL_AMBIENCE = [
   { emoji: '🎵', text: 'the muzak changed key' },
 ];
 
+// Sleep register — the Mall settling around someone who is resting
+const MALL_SLEEP_AMBIENCE = [
+  { emoji: '🌙', text: 'the escalator exhaled and went still' },
+  { emoji: '💨', text: 'the ventilation found a lower register' },
+  { emoji: '🪟', text: 'a store shutter settled one more inch' },
+  { emoji: '💧', text: 'somewhere, a fountain\'s last ripple' },
+  { emoji: '🎵', text: 'the muzak forgot a note and kept going' },
+  { emoji: '🕯️', text: 'a display light gave up, warmly' },
+  { emoji: '🧸', text: 'something soft shifted on a high shelf' },
+];
+
 function mallIdleAmbience() {
-  const pick = MALL_AMBIENCE[Math.floor(Math.random() * MALL_AMBIENCE.length)];
+  const pool = G.sleepPhase >= 2 ? MALL_SLEEP_AMBIENCE : MALL_AMBIENCE;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
   // If this ambience has a real action, do it
   if (pick.act) pick.act();
   window.parent.postMessage({

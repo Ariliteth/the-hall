@@ -102,6 +102,8 @@
     #field-section {
       position: relative;
       width: min(640px, 96vw);
+      transition: max-width 3s ease-in-out;
+      max-width: 640px;
     }
     #field-grid {
       display: grid;
@@ -200,7 +202,7 @@
       font-size: 9px; color: var(--dim);
       text-transform: uppercase; letter-spacing: 0.12em;
     }
-    #plant-options { display: grid; grid-template-columns: repeat(5,1fr); gap: 5px; }
+    #plant-options { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
     .plant-option {
       background: var(--kelp); border: 1px solid var(--bark);
       border-radius: 6px; padding: 8px 4px; cursor: pointer;
@@ -211,25 +213,33 @@
     .plant-option-emoji { font-size: 20px; }
     .plant-option-name { font-size: 7px; color: var(--bone); text-align: center; }
     #entity-list {
-      display: flex; flex-direction: column; gap: 4px;
-      max-height: 180px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 5px;
+      max-height: 220px; overflow-y: auto;
     }
     .entity-option {
       background: var(--kelp); border: 1px solid var(--bark);
-      border-radius: 4px; padding: 6px 10px; cursor: pointer;
+      border-radius: 6px; padding: 8px 10px; cursor: pointer;
       display: flex; align-items: center; gap: 8px;
-      transition: border-color 0.12s;
+      transition: border-color 0.2s, background 0.2s;
     }
-    .entity-option:hover { border-color: var(--glow); }
-    .entity-option-emoji { font-size: 15px; }
+    .entity-option:hover { border-color: var(--glow); background: rgba(60,154,122,0.08); }
+    .entity-option-emoji { font-size: 18px; flex-shrink: 0; }
     .entity-option-info { flex:1; min-width:0; }
+    .entity-option-header { display: flex; align-items: center; gap: 5px; }
+    .entity-option-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
     .entity-option-name {
       font-size: 10px; color: var(--bone);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .entity-option-tags {
-      font-size: 8px; color: var(--dim);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px;
+    }
+    .entity-tag {
+      font-size: 7px; color: var(--dim); background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06); border-radius: 3px;
+      padding: 1px 4px; white-space: nowrap;
     }
     .entity-option.placed { opacity: 0.35; cursor: default; pointer-events: none; }
     .entity-loading { font-size: 10px; color: var(--dim); font-style: italic; }
@@ -410,6 +420,7 @@ const PLANTS = [
   { id:'coral',   name:'Coral Bloom',   emoji:'🪸', produces:['🪸','🪸'], rare:null, rareChance:0,   affinity:['tasteful','warm','joy'],           spawnRate:6,  outputWord:'Bloom'  },
   { id:'anemone', name:'Ember Anemone', emoji:'🔥', produces:['🔥'],       rare:null, rareChance:0,   affinity:['fierce','territorial','bold'],     spawnRate:10, outputWord:'Ember'  },
   { id:'ribbon',  name:'Ghost Ribbon',  emoji:'✨', produces:['✨'],       rare:null, rareChance:0,   affinity:['quiet','ancient','memory'],        spawnRate:9,  outputWord:'Thread' },
+  { id:'cactus',  name:'Aquatic Cactus',emoji:'🌵', produces:['🌵'],       rare:'💎', rareChance:0.04,affinity:['stillness','reception','depth'],    spawnRate:14, outputWord:'Spine'  },
 ];
 
 const TAG_EMOJI = {
@@ -418,6 +429,7 @@ const TAG_EMOJI = {
   seeking:'🔎', fierce:'🔥', bold:'🔆', subtle:'🌫️', warm:'☀️',
   patience:'⏳', memory:'🪞', joy:'🎈', heavy:'🪨', swift:'💨',
   predator:'🦅', mysterious:'🔮', strange:'🌀',
+  stillness:'🏜️', reception:'🫧', depth:'🌊',
 };
 const CATEGORY_EMOJI = { spirit:'💫', item:'📦', location:'🗺️', tendency:'🌀', action:'⚡' };
 
@@ -428,6 +440,7 @@ const TAG_ADJECTIVE = {
   seeking:'Seeking', fierce:'Fierce', bold:'Bold', subtle:'Faint', warm:'Warm',
   patience:'Patient', memory:'Remembered', joy:'Bright', heavy:'Heavy', swift:'Swift',
   predator:'Keen', mysterious:'Strange', strange:'Strange',
+  stillness:'Still', reception:'Receptive', depth:'Deep',
 };
 
 function ageWord(cycles) {
@@ -787,6 +800,43 @@ function updateTileRects() {
   tileScale = tileRects[0] ? tileRects[0].w / BASE_TILE_W : 1;
 }
 
+// ── Field breathing ────────────────────────────────────────────
+const BREATH_NORMAL = 640;
+const BREATH_COMPRESS = 580;   // Leviathan pressure
+const BREATH_EXPAND  = 690;    // caravan anticipation
+let breathTarget = BREATH_NORMAL;
+
+function breatheField() {
+  let target = BREATH_NORMAL;
+  // Shadow: brief inhale on entering, hold slightly during crossing, exhale on leaving
+  if (shadow.phase === 'entering') {
+    target = BREATH_NORMAL - (BREATH_NORMAL - BREATH_COMPRESS) * shadow.opacity;
+  } else if (shadow.phase === 'crossing') {
+    // Gently ease back toward normal during the long crossing
+    const crossProgress = Math.min(shadow.timer / 8000, 1);
+    target = BREATH_COMPRESS + (BREATH_NORMAL - BREATH_COMPRESS) * crossProgress;
+  } else if (shadow.phase === 'leaving') {
+    target = BREATH_NORMAL;
+  }
+  // Caravan anticipation: gentle swell in the last 20%
+  if (G.caravan.progress > 0.8 && !G.caravan.arrived && target >= BREATH_NORMAL) {
+    const t = (G.caravan.progress - 0.8) / 0.2;
+    target = BREATH_NORMAL + (BREATH_EXPAND - BREATH_NORMAL) * t;
+  }
+  if (target !== breathTarget) {
+    breathTarget = target;
+    const sec = document.getElementById('field-section');
+    if (sec) sec.style.maxWidth = Math.round(target) + 'px';
+  }
+}
+
+// Keep tile rects in sync during CSS transitions
+// Note: do NOT resize pCanvas here — setting canvas.width clears it,
+// causing flicker during breathing. The CSS inset:0 handles visual fit.
+new ResizeObserver(() => {
+  updateTileRects();
+}).observe(document.getElementById('field-section') || document.body);
+
 // ── Background effects ─────────────────────────────────────────
 function initSparkles() {
   const n = Math.max(30, Math.floor(bgCanvas.width * bgCanvas.height / 7000));
@@ -925,12 +975,52 @@ function updateParticles(dt) {
       const d  = Math.sqrt(dx * dx + dy * dy);
       if (d > 28) { p.vx += dx / d * 0.0025; p.vy += dy / d * 0.0025; }
     }
+
+    // ── Cactus absorption — the cactus drinks from its neighbors ──
+    // If a particle drifts near an adjacent cactus tile, it fades early
+    if (!p._absorbed) {
+      const srcNeighbors = getNeighbors(p.tileIdx);
+      for (const ni of srcNeighbors) {
+        const nt = G.field[ni];
+        if (!nt || nt.kind !== 'plant' || nt.data?.id !== 'cactus') continue;
+        const cr = tileRects[ni];
+        if (!cr) continue;
+        const cdx = cr.x - p.x, cdy = cr.y - p.y;
+        const cd = Math.sqrt(cdx * cdx + cdy * cdy);
+        if (cd < 35) {
+          // Gently pull toward the cactus and accelerate fade
+          p.vx += cdx / cd * 0.012;
+          p.vy += cdy / cd * 0.012;
+          p.life *= 0.4; // shorten remaining life — absorbed
+          p._absorbed = true;
+          // Pulse the cactus tile element briefly
+          cactusPulse(ni);
+          break;
+        }
+      }
+    }
+
     p.vx *= 0.992; p.vy *= 0.992;
     p.x += p.vx * dt / 16;
     p.y += p.vy * dt / 16;
     if (p.age < p.life && p.opacity > 0.01) alive.push(p);
   }
   particles = alive;
+}
+
+// ── Cactus pulse — brief visual throb when absorbing a particle ──
+function cactusPulse(tileIdx) {
+  const el = document.querySelector(`.tile[data-idx="${tileIdx}"] .tile-emoji`);
+  if (!el || el._pulsing) return;
+  el._pulsing = true;
+  el.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+  el.style.transform = 'scale(1.15)';
+  el.style.opacity = '1';
+  setTimeout(() => {
+    el.style.transform = 'scale(1)';
+    el.style.opacity = '';
+    setTimeout(() => { el._pulsing = false; }, 350);
+  }, 300);
 }
 
 function sweepParticles() {
@@ -1495,24 +1585,39 @@ async function fetchRegistry() {
 }
 
 function parseTuning(md, slug, neighborhood) {
-  const nl  = md.split('\n').find(l => l.startsWith('# '));
-  const name = nl ? nl.replace('# ', '').trim() : slug;
-  const cm   = md.match(/\*\*Category:\*\*\s*(.+)/);
-  const tm   = md.match(/\*\*Tags:\*\*\s*(.+)/);
-  let color = null;
-  const yamlColor = md.match(/^color:\s*\[?\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]?/m);
-  if (yamlColor) {
-    color = [parseInt(yamlColor[1]), parseInt(yamlColor[2]), parseInt(yamlColor[3])];
+  const lines = md.split('\n');
+  let name = slug, category = 'spirit', tags = [], color = null;
+
+  // Detect format: YAML starts with "name:" on first non-empty line
+  const firstLine = lines.find(l => l.trim().length > 0) || '';
+  if (/^name\s*:/i.test(firstLine)) {
+    // YAML format (Kitchendom entities)
+    for (const line of lines) {
+      const kv = line.match(/^(\w[\w\s]*?):\s*(.+)/);
+      if (!kv) continue;
+      const key = kv[1].trim().toLowerCase(), val = kv[2].trim();
+      if (key === 'name') name = val;
+      else if (key === 'category') category = val.toLowerCase();
+      else if (key === 'tags') {
+        const inner = val.replace(/^\[/, '').replace(/\]$/, '');
+        tags = inner.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+      } else if (key === 'color') {
+        const nums = val.replace(/^\[/, '').replace(/\]$/, '').split(',').map(n => parseInt(n.trim()));
+        if (nums.length === 3 && nums.every(n => !isNaN(n))) color = nums;
+      }
+    }
   } else {
-    const mdColor = md.match(/\*\*Color:\*\*\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-    if (mdColor) color = [parseInt(mdColor[1]), parseInt(mdColor[2]), parseInt(mdColor[3])];
+    // Markdown format (Greengarden / Mucklerbuckler)
+    const nl = lines.find(l => l.startsWith('# '));
+    if (nl) name = nl.replace('# ', '').trim();
+    const cm = md.match(/\*\*Category:\*\*\s*(.+)/);
+    if (cm) category = cm[1].trim().toLowerCase();
+    const tm = md.match(/\*\*Tags:\*\*\s*(.+)/);
+    if (tm) tags = tm[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    const mc = md.match(/\*\*Color:\*\*\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (mc) color = [parseInt(mc[1]), parseInt(mc[2]), parseInt(mc[3])];
   }
-  return {
-    name,
-    category: cm ? cm[1].trim().toLowerCase() : 'spirit',
-    tags: tm ? tm[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [],
-    color, slug, neighborhood,
-  };
+  return { name, category, tags, color, slug, neighborhood };
 }
 
 const NEIGHBORHOOD_COLORS = {
@@ -1872,10 +1977,19 @@ function openPlantModal(idx) {
     for (const entity of G.entities) {
       const row = document.createElement('div');
       row.className = 'entity-option' + (placed.has(entity.slug) ? ' placed' : '');
+      const [cr, cg, cb] = entityColor(entity);
+      const allTags = entity.tags || [];
+      const shown = allTags.slice(0, 4);
+      const extra = allTags.length - shown.length;
+      const tagPills = shown.map(t => `<span class="entity-tag">${t}</span>`).join('')
+        + (extra > 0 ? `<span class="entity-tag" style="opacity:0.5">+${extra}</span>` : '');
       row.innerHTML = `<span class="entity-option-emoji">${entity.derivedEmoji || entityEmoji(entity)}</span>
         <div class="entity-option-info">
-          <div class="entity-option-name">${entity.name}</div>
-          <div class="entity-option-tags">${(entity.tags || []).join(', ')}</div>
+          <div class="entity-option-header">
+            <span class="entity-option-dot" style="background:rgb(${cr},${cg},${cb})"></span>
+            <div class="entity-option-name">${entity.name}</div>
+          </div>
+          <div class="entity-option-tags">${tagPills}</div>
         </div>`;
       if (!placed.has(entity.slug)) {
         row.addEventListener('click', () => {
@@ -2128,6 +2242,7 @@ function loop(ts) {
   const dt = Math.min(ts - lastTs, 50);
   lastTs = ts;
   drawBackground(dt);
+  breatheField();
   tickParticleSpawns(dt);
   updateParticles(dt);
   updateRelics(dt);
