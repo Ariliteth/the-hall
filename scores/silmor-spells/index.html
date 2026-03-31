@@ -474,6 +474,51 @@ header {
 .die.tapped { transform: scale(0.94); background: var(--warm); }
 .die.die-noticed { animation-play-state: paused !important; filter: brightness(1.08); }
 
+/* ── Die Moods (awareness layer) ── */
+.die.mood-curious {
+  border-color: var(--gold) !important;
+  filter: brightness(1.06);
+  transition: transform 0.25s ease-out, border-color 0.2s, filter 0.2s;
+}
+.die.mood-curious.neighbor-left  { transform: rotate(-1.5deg) translateX(2px); }
+.die.mood-curious.neighbor-right { transform: rotate(1.5deg) translateX(-2px); }
+.die.mood-sympathetic {
+  border-color: var(--pass-bd, #7a9060) !important;
+  filter: brightness(1.1);
+  transition: filter 0.3s, border-color 0.3s;
+}
+.die.mood-withdrawn {
+  opacity: 0.7;
+  filter: saturate(0.6);
+  transition: opacity 0.4s, filter 0.4s;
+}
+.die.mood-alert {
+  animation: die-alert-pulse 0.3s ease-out 2 !important;
+  border-color: var(--gold) !important;
+}
+@keyframes die-alert-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+/* ── Drift (idle daydream) ── */
+.die.drifting {
+  border-style: dashed;
+  transition: border-color 0.5s, opacity 0.5s;
+}
+.die-drift {
+  color: var(--gold);
+  opacity: 0.55 !important;
+  font-style: italic;
+  animation: drift-breathe 3s ease-in-out infinite;
+  letter-spacing: 0;
+}
+.die:hover .die-drift { opacity: 0.85 !important; }
+@keyframes drift-breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.65; }
+}
+
 .die.fumble-low {
   animation: die-jitter-low 2.5s ease-in-out infinite;
 }
@@ -561,6 +606,14 @@ header {
 
 .die-type { font-size: 0.85rem; font-weight: bold; color: var(--gold); margin-left: 0.25rem; }
 .die-faces { font-size: 0.85rem; margin-top: 0.3rem; letter-spacing: 0.08em; }
+.die-next {
+  font-size: 0.65rem;
+  opacity: 0.3;
+  margin-top: 0.15rem;
+  transition: opacity 0.3s;
+  letter-spacing: 0.05em;
+}
+.die:hover .die-next { opacity: 0.55; }
 
 /* ── Controls ── */
 #controls { text-align: center; }
@@ -1397,8 +1450,37 @@ function rollPersonality() {
   };
 }
 
+/* Shuffle thresholds — how many taps before the die rearranges its sequence.
+   Personality-driven: a "spin" die reshuffles often, a "still" die is steady. */
+const SHUFFLE_THRESHOLDS = { rock: 4, still: 5, spin: 3, bounce: 4 };
+const SYMPATHETIC_CHANCE = { rock: 0.25, still: 0.10, spin: 0.35, bounce: 0.30 };
+
+function buildSequence(sides) {
+  const seq = Array.from({ length: sides }, (_, i) => i);
+  // Fisher-Yates shuffle
+  for (let i = seq.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [seq[i], seq[j]] = [seq[j], seq[i]];
+  }
+  return seq;
+}
+
 function makeDie(sides) {
-  return { sides, faces: S.allEmoji.slice(0, sides).map(e => ({ ...e })), attachments: [], personality: rollPersonality() };
+  return {
+    sides,
+    faces: S.allEmoji.slice(0, sides).map(e => ({ ...e })),
+    attachments: [],
+    personality: rollPersonality(),
+    // Cycling state
+    sequence: buildSequence(sides),
+    cyclePos: 0,
+    tapsSinceShuffle: 0,
+    mood: 'neutral',       // neutral | curious | sympathetic | withdrawn | alert
+    moodTimer: null,
+    // Idle drift state
+    idleTaps: 0,
+    driftFace: null,       // ghost suggestion when the die has been left alone
+  };
 }
 
 function getDieBonus(die) {
@@ -1413,6 +1495,132 @@ function rollDifferent(die, currentFace) {
   const others = die.faces.filter(f => f.value !== currentFace.value);
   if (others.length === 0) return currentFace;
   return others[Math.floor(Math.random() * others.length)];
+}
+
+/* ── Die Cycling ── */
+
+function cycleDie(die) {
+  // Advance through the die's sequence, return the next face
+  const faceIndex = die.sequence[die.cyclePos % die.sequence.length];
+  die.cyclePos = (die.cyclePos + 1) % die.sequence.length;
+  die.tapsSinceShuffle++;
+  return die.faces[faceIndex];
+}
+
+function reshuffleDie(die) {
+  die.sequence = buildSequence(die.sides);
+  die.cyclePos = 0;
+  die.tapsSinceShuffle = 0;
+  die.idleTaps = 0;
+  die.driftFace = null;
+  setDieMood(die, 'alert');
+}
+
+function checkShuffle(dieIndex) {
+  const die = S.dice[dieIndex];
+  const threshold = SHUFFLE_THRESHOLDS[die.personality.fidget] || 4;
+  if (die.tapsSinceShuffle >= threshold) {
+    reshuffleDie(die);
+    // Sympathetic shuffle on neighbors
+    S.dice.forEach((neighbor, ni) => {
+      if (ni === dieIndex) return;
+      const adjacent = Math.abs(ni - dieIndex) === 1;
+      const chance = adjacent
+        ? SYMPATHETIC_CHANCE[neighbor.personality.fidget] || 0.25
+        : (SYMPATHETIC_CHANCE[neighbor.personality.fidget] || 0.25) * 0.4;
+      if (Math.random() < chance) {
+        reshuffleDie(neighbor);
+      }
+    });
+  }
+}
+
+function peekNextFace(die) {
+  return die.faces[die.sequence[die.cyclePos % die.sequence.length]];
+}
+
+function setDieMood(die, mood) {
+  clearTimeout(die.moodTimer);
+  die.mood = mood;
+  die.moodTimer = setTimeout(() => { die.mood = 'neutral'; }, mood === 'alert' ? 600 : 400);
+}
+
+function updateDieMoods(tappedIndex, rolledFace) {
+  const spell = S.currentSpell || [];
+  const spellEmoji = spell.map(s => s.emoji);
+  const rolledMatchesSpell = spellEmoji.includes(rolledFace.emoji);
+
+  S.dice.forEach((die, i) => {
+    if (i === tappedIndex) return;
+    if (die.mood === 'alert') return; // don't override shuffle alert
+    const nextFace = peekNextFace(die);
+    if (nextFace.emoji === rolledFace.emoji) {
+      // Neighbor has the same face coming — curious, lean toward who rolled
+      die._curiousToward = tappedIndex;
+      setDieMood(die, 'curious');
+    } else if (rolledMatchesSpell && spellEmoji.includes(nextFace.emoji)) {
+      // Rolled face matched spell and I also have a spell face next — sympathetic
+      setDieMood(die, 'sympathetic');
+    } else if (!spellEmoji.some(e => die.faces.find(f => f.emoji === e))) {
+      // None of my faces match the spell at all — withdrawn
+      setDieMood(die, 'withdrawn');
+    }
+    // Otherwise stays neutral (no mood set)
+  });
+}
+
+/* ── Idle Drift ── */
+
+const DRIFT_THRESHOLD = 3; // taps on other dice before daydreaming begins
+
+function computeDrift(die) {
+  const spellEmoji = (S.currentSpell || []).map(s => s.emoji);
+  switch (die.personality.fidget) {
+    case 'still': {
+      // Pragmatic — surfaces its own highest-value face
+      return [...die.faces].sort((a, b) => b.value - a.value)[0];
+    }
+    case 'rock': {
+      // Attentive — offers a spell-matching face if it has one
+      const match = die.faces.find(f => spellEmoji.includes(f.emoji));
+      return match || [...die.faces].sort((a, b) => b.value - a.value)[0];
+    }
+    case 'bounce': {
+      // Sociable — reflects what the spell needs, even if it has to stretch
+      // Pick the spell face it has; if multiple, choose highest value
+      const matches = die.faces.filter(f => spellEmoji.includes(f.emoji));
+      if (matches.length > 0) return matches.sort((a, b) => b.value - a.value)[0];
+      // No spell match — offer the face most recently seen in selection
+      const lastUsed = S.selection.length > 0
+        ? die.faces.find(f => f.emoji === S.selection[S.selection.length - 1].face.emoji)
+        : null;
+      return lastUsed || die.faces[Math.floor(Math.random() * die.faces.length)];
+    }
+    case 'spin': {
+      // Wandering — 50% chance it imagines a face it doesn't even have
+      if (Math.random() < 0.5) {
+        const foreign = S.allEmoji.filter(e => !die.faces.find(f => f.emoji === e.emoji));
+        if (foreign.length > 0) return foreign[Math.floor(Math.random() * foreign.length)];
+      }
+      return die.faces[Math.floor(Math.random() * die.faces.length)];
+    }
+  }
+  return peekNextFace(die);
+}
+
+function updateDrift(tappedIndex) {
+  S.dice.forEach((die, i) => {
+    if (i === tappedIndex) {
+      // Tapped — wake up, clear dream
+      die.idleTaps = 0;
+      die.driftFace = null;
+    } else {
+      die.idleTaps++;
+      if (die.idleTaps >= DRIFT_THRESHOLD && !die.driftFace) {
+        die.driftFace = computeDrift(die);
+      }
+    }
+  });
 }
 
 /* ── Spell System ── */
@@ -1782,6 +1990,10 @@ function rollForEmail(dieIndex) {
         die.faces.push({ ...master }, { ...master });
         die.sides += 2;
         exploded = true;
+        // Die evolved — rebuild its conversational sequence
+        die.sequence = buildSequence(die.sides);
+        die.cyclePos = 0;
+        die.tapsSinceShuffle = 0;
         // Die evolves — re-roll one personality trait
         if (Math.random() < 0.5) {
           die.personality.shape = DIE_SHAPES[Math.floor(Math.random() * DIE_SHAPES.length)];
@@ -1812,6 +2024,10 @@ function rollForEmail(dieIndex) {
       faceOnDie.value = email.value;
       faceOnDie.name = email.name;
     }
+    // Face changed — reshuffle the conversation
+    die.sequence = buildSequence(die.sides);
+    die.cyclePos = 0;
+    die.tapsSinceShuffle = 0;
 
     // Check for orphaned attachments (face no longer on this die)
     const orphanActions = [];
@@ -2002,7 +2218,7 @@ function tapDie(index) {
   if (index < 0 || index >= S.dice.length) return;
 
   const die = S.dice[index];
-  const face = rollDie(die);
+  const face = cycleDie(die);
 
   S.selection.push({
     dieIndex: index,
@@ -2027,6 +2243,11 @@ function tapDie(index) {
       S.selection.shift();
     }
   }
+
+  // Cycling: check if this die should reshuffle, update neighbor moods, track drift
+  checkShuffle(index);
+  updateDieMoods(index, face);
+  updateDrift(index);
 
   updateSilmor();
   updateBossWatching();
@@ -2328,6 +2549,7 @@ function nextRow() {
   S.phase = 'selecting';
   S.sectionNumber++;
   S.rowInDoc++;
+  S.dice.forEach(d => { d.idleTaps = 0; d.driftFace = null; });
   S.bossThreshold = 5 + Math.floor(Math.random() * 6);
   S.currentSpell = generateSpell();
   S.silmorVocab = pickSilmorVocab();
@@ -2485,10 +2707,24 @@ function renderDice() {
     const faces = die.faces.map(f => f.emoji).join('');
     const shapeCls = ' die-' + die.personality.shape;
     const fidgetCls = fumbleCls ? '' : (' die-' + die.personality.fidget);
-    h += `<div class="die${shapeCls}${fidgetCls}${fumbleCls}" data-i="${i}">`;
+    const moodCls = die.mood !== 'neutral' ? ` mood-${die.mood}` : '';
+    // Directional hint for curious lean: which neighbor triggered it
+    let dirCls = '';
+    if (die.mood === 'curious' && die._curiousToward !== undefined) {
+      dirCls = die._curiousToward < i ? ' neighbor-left' : ' neighbor-right';
+    }
+    const driftCls = die.driftFace ? ' drifting' : '';
+    h += `<div class="die${shapeCls}${fidgetCls}${fumbleCls}${moodCls}${dirCls}${driftCls}" data-i="${i}">`;
     h += `<span class="die-key">${S.keys[i]}</span>`;
     h += ` <span class="die-type">d${die.sides}</span>`;
     h += `<div class="die-faces">${faces}</div>`;
+    // Next-face hint: actual sequence face, or drift suggestion when idle
+    if (die.driftFace) {
+      h += `<div class="die-next die-drift">~${die.driftFace.emoji}</div>`;
+    } else {
+      const nextFace = peekNextFace(die);
+      h += `<div class="die-next">${nextFace.emoji}</div>`;
+    }
     if (die.attachments && die.attachments.length > 0) {
       h += '<div class="die-attachments">';
       die.attachments.forEach(a => {

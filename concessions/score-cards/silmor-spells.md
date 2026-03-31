@@ -1,9 +1,9 @@
 # SILMOR Spells
 **Location:** `scores/silmor-spells/` | **Status:** Active
-**Neighborhood:** None | **Stack:** Vanilla JS (~2,730 lines)
+**Neighborhood:** None | **Stack:** Vanilla JS (~2,900 lines)
 
 ## Current State
-Roguelike about being the bridge between emoji and word. Three roles: Boss (bureaucrat, numbers), You (the player, emoji+numbers), SILMOR (the system, emoji, gets excited at patterns). Dice + FIFO slot system. Spell matching with cast animations. DOC.GEN generates margin annotations. Email interludes between documents.
+Roguelike about being the bridge between emoji and word. Three roles: Boss (bureaucrat, numbers), You (the player, emoji+numbers), SILMOR (the system, emoji, gets excited at patterns). Dice + FIFO slot system. Spell matching with cast animations. DOC.GEN generates margin annotations. Email interludes between documents. Dice are conversationalists — they cycle, reshuffle, react to neighbors, and daydream when left alone.
 
 ## What's Built
 - 4 dice (d4s) with emoji faces, unique shapes, fidget animations
@@ -20,12 +20,23 @@ Roguelike about being the bridge between emoji and word. Three roles: Boss (bure
 - Die explosion on stacked attachments, orphan attachment migration
 - SILMOR's wand (absorbs orphaned attachments)
 - Dice cast animation with flying emoji and trail particles
-- Die personality (shape + fidget behavior)
+- **Die personality (shape + fidget) with personality-driven cycling behavior**
+- **Sequential cycling: taps advance through a shuffled face sequence (not random rolls)**
+- **Personality-driven reshuffle thresholds: spin=3, bounce/rock=4, still=5 taps**
+- **Sympathetic reshuffles: neighbors may rearrange when a die changes its sequence**
+- **Awareness moods: curious (leans toward neighbor), sympathetic (green glow), withdrawn (dims), alert (pulse on reshuffle)**
+- **Next-face hint: each die shows the coming face subtly beneath its faces**
+- **Idle drift: after 3 untouched taps, dice daydream — shown as gold `~emoji`, dashed border, breathing pulse**
+  - `still` → surfaces highest-value face it has (pragmatic)
+  - `rock` → offers a spell-matching face it has (attentive)
+  - `bounce` → best spell contribution, eager to help (sociable)
+  - `spin` → may suggest a face it doesn't own (wandering, imagining growth)
+- Internal mechanics (email rolls, gamble shifts, explosions) remain random
 
 ## What's Next
+- SILMOR noticing drift: she's present for all of it but currently blind to the dice daydreaming — a `rock` die quietly offering the spell face, a `spin` die suggesting 🌋 it can never give. Natural next extension of the conversation layer.
 - No persistence — game state is entirely ephemeral, resets on reload
 - No progression beyond documents (no endgame, campaign arc, or Dream Job)
-- Build Order mentions no specific SILMOR items — largely complete as designed
 
 ## Specs & References
 - `concessions/archive/SILMOR_SPELLS_DESIGN.md` — original design
