@@ -1455,6 +1455,7 @@ function resetFarm() {
   G.caravan      = { progress:0, arrived:false, trader:null, bank:null };
   // traderMemory preserved — travelers remember across floats
   particles = []; relics = []; spawnAccum = Array(TILE_COUNT).fill(0);
+  affinityEdges = []; affinityMotes = [];
 
   const sec = document.getElementById('field-section');
   sec.style.transition = 'opacity 2s';
