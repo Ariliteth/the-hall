@@ -7,7 +7,7 @@
 Items actively in development or immediately next. The deployment sequence is the through-line.
 
 - [ ] **Tending Field: color canvas visualization** — Trader gifts landed. Remaining: relationship/influence visualization via color. ([score card](score-cards/tending-field.md) | [spec](tending-field-workin-spec.md))
-- [ ] **Fairy → EFDP skeleton** — Chunxly's fairy structural data creates corridors in EFDP. ([chunxly card](score-cards/chunxly.md) | [efdp card](score-cards/efdp.md) | [FAIRY_SPEC.md](FAIRY_SPEC.md))
+- [ ] **Fairy → EFDP skeleton** — Animate engine built (spring physics, role-based lag, 3 states). Remaining: hand-authored Briny CPM skeleton, then color field deformation (flesh follows bones). ([chunxly card](score-cards/chunxly.md) | [efdp card](score-cards/efdp.md) | [animate spec](efdp-animate-mode.md) | [FAIRY_SPEC.md](FAIRY_SPEC.md))
 
 ## Next
 Items with clear specs or obvious next steps, ready to build.

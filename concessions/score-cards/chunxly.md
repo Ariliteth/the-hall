@@ -1,6 +1,6 @@
 # Chunxly's Canvas
 **Location:** `scores/chunxly/` | **Status:** Active
-**Neighborhood:** None (authoring tool) | **Stack:** Vanilla JS (~5,250 lines)
+**Neighborhood:** None (authoring tool) | **Stack:** Vanilla JS (~5,340 lines)
 
 ## Current State
 Creature-authoring tool. Draw creatures in organic containers. Multi-pass image analysis places nodes with conviction scoring. Fairy companion traces structural data. Full round-trip pipeline to EFDP and back. Chunxme's Stall persona activates when no context is present — stall vendor who reads drawings procedurally and generates items. PNG drop pipeline proven end-to-end: drop image → name → Stall analysis (tags, naming, color clusters) → CrankSeed with entity identity → Crank direct mode.
@@ -26,6 +26,7 @@ Creature-authoring tool. Draw creatures in organic containers. Multi-pass image 
 - Keep button (PNG export + thumbnail storage)
 - Item storage to localStorage, Scraggle emission on item creation
 - **Seed panel shows:** entity name, slug, Stall tags, generated name alongside existing shape/color/structure data
+- **Fast pipeline:** skip animation, straight to fairy + export for EFDP handoff testing. Uses current canvas creature if present, falls back to Briny Broadswordfish rendition
 
 ## What's Next
 - Fairy voice banks `fairy_first_vision` and `fairy_done` have only 1 entry each (vs 2-8 for others)

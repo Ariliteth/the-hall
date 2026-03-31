@@ -1,6 +1,6 @@
 # Color Pin Maze (EFDP)
 **Location:** `scores/efdp/` | **Status:** Active
-**Neighborhood:** None (tool) | **Stack:** Vanilla JS (~2,950 lines)
+**Neighborhood:** None (tool) | **Stack:** Vanilla JS (~3,150 lines)
 
 ## Current State
 Guided image generation using maze structure as a diffusion substrate. Color pins pulse outward through maze passages. Three pin types with distinct physics. Multi-layer compositing. The Third serves as inter-layer observer reading kiwi density. Exports CrankSeed witness records. Full Chunxly round-trip pipeline with per-aspect layers and touch-up.
@@ -22,16 +22,19 @@ Guided image generation using maze structure as a diffusion substrate. Color pin
 - Scraggle witness overlay (radial glow from persistent Scraggles)
 - Hub pulse listener for witness refresh
 - Hub greeting (auto-pins on bare load)
+- **Animate mode:** spring-physics engine with role-based lag (anchor/body/release/opinion/character), 3 states (idle/noticed/return), mouse-driven response, per-pin structural role assignment from Chunxly data or heuristic fallback
 
 ## What's Next
 - Commented-out production deltas for challenge phase (infrastructure preserved, hidden)
 - Possible case bug: witness overlay references `maze.w`/`maze.h` but maze uses `maze.W`/`maze.H`
+- Animate mode: hand-authored Briny CPM skeleton, then color field deformation (flesh follows bones)
 - Build Order: "Fairy edges → EFDP skeleton" — corridor creation from Chunxly structural data
 - `color-pin-maze-next-steps.md` lists: configurable layers, layer settings (blend mode, press, pin density, decay rate)
 
 ## Specs & References
 - `concessions/COLOR_PIN_MAZE_DESIGN.md` — full pin physics and design
 - `concessions/color-pin-maze-next-steps.md` — refinement plan
+- `concessions/efdp-animate-mode.md` — animate mode spec (timeline, response rules, role system)
 - `concessions/archive/EFDP_ANIMATION_RIGS.md` — pose/rig system
 - `concessions/archive/MAZE_TO_CRANK_HANDOFF.md` — CrankSeed format
 
