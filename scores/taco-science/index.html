@@ -395,6 +395,173 @@
     }
     #drag-ghost.active { display: block; }
 
+    /* ── Start Day Button ─────────────────────────────────── */
+    .btn-start-day {
+      background: rgba(26,138,122,0.12);
+      border: 2px solid var(--teal);
+      color: var(--teal);
+      padding: 10px 24px;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin-top: 8px;
+    }
+    .btn-start-day:hover { background: rgba(26,138,122,0.25); }
+
+    /* ── DAY Phase ───────────────────────────────────────── */
+    #day-section { display: none; }
+
+    #researcher-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .researcher-card {
+      flex: 1;
+      min-width: 180px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      box-shadow: 0 1px 3px var(--shadow);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .researcher-card.executing {
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--glow);
+    }
+    .researcher-card.done {
+      border-color: var(--teal);
+    }
+    .researcher-card.exploded {
+      border-color: var(--paprika);
+      box-shadow: 0 0 12px rgba(192,48,40,0.2);
+    }
+    .researcher-card.idle {
+      opacity: 0.5;
+    }
+    .rc-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .rc-emoji { font-size: 22px; line-height: 1; }
+    .rc-name { font-size: 12px; font-weight: bold; }
+    .rc-title { font-size: 9px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+    .rc-assignment {
+      font-size: 10px;
+      color: var(--dim);
+      margin-bottom: 6px;
+      min-height: 16px;
+    }
+    .rc-layers {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      min-height: 20px;
+    }
+    .rc-layer {
+      width: 18px;
+      height: 18px;
+      border-radius: 3px;
+      transition: transform 0.25s, opacity 0.25s;
+      transform: scale(0);
+      opacity: 0;
+    }
+    .rc-layer.revealed {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .rc-layer.deviated {
+      border: 2px dashed var(--accent);
+    }
+    .rc-layer.withheld {
+      background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 5px) !important;
+      opacity: 0.4;
+    }
+    .rc-status {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 8px;
+      min-height: 14px;
+    }
+    .rc-status.waiting { color: var(--dim); }
+    .rc-status.executing { color: var(--accent); }
+    .rc-status.complete { color: var(--teal); }
+    .rc-status.exploded { color: var(--paprika); font-weight: bold; }
+
+    /* ── Execution Log ───────────────────────────────────── */
+    #execution-log {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      box-shadow: 0 1px 3px var(--shadow);
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .log-entry {
+      font-size: 11px;
+      padding: 3px 0;
+      border-bottom: 1px solid var(--border);
+      animation: logFade 0.3s ease-out;
+    }
+    .log-entry:last-child { border-bottom: none; }
+    .log-entry.deviation { color: var(--accent); font-style: italic; }
+    .log-entry.explosion { color: var(--paprika); font-weight: bold; font-size: 12px; }
+    .log-entry.info { color: var(--dim); }
+    @keyframes logFade {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── End of Day ──────────────────────────────────────── */
+    #endofday-section { display: none; }
+    .eod-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      box-shadow: 0 1px 3px var(--shadow);
+    }
+    .eod-title {
+      font-size: 14px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .eod-results { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .eod-result {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .eod-result:last-child { border-bottom: none; }
+    .eod-verdict { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    .eod-verdict.pass { color: var(--teal); }
+    .eod-verdict.fail { color: var(--paprika); }
+    .eod-new-vials {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 16px;
+      min-height: 32px;
+    }
+    .eod-vial {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+    }
+    .eod-no-vials { font-size: 10px; color: var(--dim); font-style: italic; }
+
     /* ── Scrollbar ───────────────────────────────────────── */
     #bench::-webkit-scrollbar { width: 6px; }
     #bench::-webkit-scrollbar-track { background: transparent; }
@@ -478,6 +645,26 @@
       <div id="stock-row"></div>
     </div>
 
+    <!-- DAY Phase -->
+    <div id="day-section">
+      <div class="section-label">Research in Progress</div>
+      <div id="researcher-row"></div>
+      <div id="execution-log">
+        <div class="section-label">Lab Notes</div>
+      </div>
+    </div>
+
+    <!-- End of Day -->
+    <div id="endofday-section">
+      <div class="eod-panel">
+        <div class="eod-title">End of Day</div>
+        <div class="eod-results" id="eod-results"></div>
+        <div class="section-label" style="margin-bottom:6px;">New Vials</div>
+        <div class="eod-new-vials" id="eod-new-vials"></div>
+        <button class="btn btn-start-day" id="next-day-btn" onclick="nextDay()">Next Day</button>
+      </div>
+    </div>
+
   </div>
 
   <!-- Drag ghost -->
@@ -510,6 +697,47 @@ const VESSELS = [
 
 const TROUGH_MATERIALS = ['metal', 'metal', 'plastic', 'bedazzled'];
 
+/* ── Researchers ────────────────────────────────────── */
+
+const RESEARCHERS = [
+  {
+    id: 'lumen',
+    name: 'Dr. Lumen',
+    emoji: '\u{1F52C}',
+    title: 'The Precisionist',
+    deviationStyle: 'withhold',
+    deviationChance: 0.25,
+    prefColors: 'bright',
+    prefMaterial: 'metal',
+    explosionResponse: 'rattled',
+    favorites: ['CRM', 'RIC'],
+  },
+  {
+    id: 'nudo',
+    name: 'Nudo',
+    emoji: '\u{1F3A8}',
+    title: 'The Improviser',
+    deviationStyle: 'embellish',
+    deviationChance: 0.5,
+    prefColors: 'warm',
+    prefMaterial: 'bedazzled',
+    explosionResponse: 'inspired',
+    favorites: ['JAL', 'MEA'],
+  },
+  {
+    id: 'fenn',
+    name: 'Fenn',
+    emoji: '\u{1F4CB}',
+    title: 'The Loyalist',
+    deviationStyle: 'favor',
+    deviationChance: 0.35,
+    prefColors: null,
+    prefMaterial: 'plastic',
+    explosionResponse: 'curious',
+    favorites: ['CHE', 'BEN'],
+  },
+];
+
 /* ── Sauce Name Generation ───────────────────────────── */
 
 const SAUCE_PREFIXES = {
@@ -524,7 +752,7 @@ const SAUCE_SUFFIXES_ORIGIN = {
   starter:  ['Original', 'Prime', 'Stock', 'Reserve'],
   combined: ['Blend', 'Fold', 'Splice', 'Weave', 'Cross'],
   halved:   ['Residue', 'Ghost', 'Echo', 'Trace', 'Wisp'],
-  explosion:[],
+  explosion:['Debris', 'Fallout', 'Shrapnel', 'Scatter', 'Remnant'],
 };
 
 function classifyColor(c) {
@@ -570,7 +798,7 @@ let nextSauceId = 1;
 
 const S = {
   day: 1,
-  phase: 'prep',
+  phase: 'prep',  // prep | day | endOfDay
   troughs: TROUGH_MATERIALS.map((mat, i) => ({ slot: i, material: mat, ingredient: null })),
   stock: INGREDIENTS.map(i => i.code),
   recipes: [],
@@ -578,6 +806,9 @@ const S = {
   sauceArchive: [],
   combineSelection: [],
   drag: { active: false, code: null, x: 0, y: 0 },
+  researchers: RESEARCHERS.map(r => ({ ...r, favorites: [...r.favorites], deviationChance: r.deviationChance })),
+  dayLog: [],
+  dayResults: [],
 };
 
 function initStarterSauces() {
@@ -882,6 +1113,18 @@ function renderSubmittedCards() {
     `;
     container.appendChild(el);
   });
+
+  // Start Day button
+  const existing = document.getElementById('start-day-btn');
+  if (existing) existing.remove();
+  if (S.recipes.length > 0 && S.phase === 'prep') {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-start-day';
+    btn.id = 'start-day-btn';
+    btn.textContent = 'Start Day';
+    btn.onclick = startDay;
+    container.appendChild(btn);
+  }
 }
 
 function updateSubmitButton() {
@@ -1074,6 +1317,360 @@ function drinkVial(amount) {
 
   S.combineSelection = [];
   renderSauceArchive();
+}
+
+/* ================================================================
+   DAY Phase — Execution Engine
+   ================================================================ */
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function ingredientLuminance(code) {
+  const ing = ingredientByCode(code);
+  if (!ing) return 128;
+  const [r, g, b] = ing.color;
+  return r * 0.299 + g * 0.587 + b * 0.114;
+}
+
+function ingredientColorFamily(code) {
+  const ing = ingredientByCode(code);
+  if (!ing) return 'neutral';
+  return classifyColor(ing.color);
+}
+
+/* Which trough materials hold which ingredients right now */
+function troughMaterialFor(code) {
+  const t = S.troughs.find(t => t.ingredient === code);
+  return t ? t.material : null;
+}
+
+/* Execute a single recipe through a researcher's personality */
+function executeRecipe(researcher, recipe) {
+  const vessel = vesselById(recipe.vessel);
+  const actualLayers = [];
+  const deviations = [];
+  const availableTrough = S.troughs.filter(t => t.ingredient).map(t => t.ingredient);
+
+  for (let i = 0; i < recipe.layers.length; i++) {
+    const code = recipe.layers[i];
+    const roll = Math.random();
+
+    if (researcher.deviationStyle === 'withhold') {
+      // Lumen withholds ingredients she thinks are muddy (low luminance)
+      if (roll < researcher.deviationChance && ingredientLuminance(code) < 140) {
+        deviations.push({ type: 'withheld', index: i, code, msg: `${researcher.emoji} ${researcher.name} withholds ${code} \u2014 too muddy` });
+        continue;
+      }
+      actualLayers.push(code);
+
+    } else if (researcher.deviationStyle === 'embellish') {
+      actualLayers.push(code);
+      if (roll < researcher.deviationChance) {
+        // Nudo embellishes: add a favorite, swap order, or grab from troughs
+        const action = Math.random();
+        if (action < 0.4 && researcher.favorites.length > 0) {
+          // Sneak in a favorite
+          const fav = researcher.favorites[Math.floor(Math.random() * researcher.favorites.length)];
+          actualLayers.push(fav);
+          deviations.push({ type: 'added', index: i, code: fav, msg: `${researcher.emoji} ${researcher.name} sneaks in ${fav} \u2014 couldn't resist` });
+        } else if (action < 0.7 && actualLayers.length >= 2) {
+          // Swap last two layers
+          const last = actualLayers.length - 1;
+          [actualLayers[last], actualLayers[last - 1]] = [actualLayers[last - 1], actualLayers[last]];
+          deviations.push({ type: 'swapped', index: i, code, msg: `${researcher.emoji} ${researcher.name} swaps the last two layers \u2014 "better flow"` });
+        } else if (availableTrough.length > 0) {
+          // Grab something from troughs not in recipe
+          const offMenu = availableTrough.filter(c => !recipe.layers.includes(c));
+          if (offMenu.length > 0) {
+            const pick = offMenu[Math.floor(Math.random() * offMenu.length)];
+            actualLayers.push(pick);
+            deviations.push({ type: 'added', index: i, code: pick, msg: `${researcher.emoji} ${researcher.name} adds ${pick} \u2014 not on the card!` });
+          }
+        }
+      }
+
+    } else if (researcher.deviationStyle === 'favor') {
+      actualLayers.push(code);
+      // Fenn doubles up on favorites
+      if (roll < researcher.deviationChance && researcher.favorites.includes(code)) {
+        actualLayers.push(code);
+        deviations.push({ type: 'doubled', index: i, code, msg: `${researcher.emoji} ${researcher.name} doubles up on ${code} \u2014 old friend` });
+      }
+    }
+  }
+
+  // Explosion check
+  const exploded = actualLayers.length > vessel.capacity;
+  let residueVial = null;
+
+  if (exploded) {
+    // Mix all layer colors
+    let mixed = [...ingredientByCode(actualLayers[0]).color];
+    for (let i = 1; i < actualLayers.length; i++) {
+      mixed = subtractMix(mixed, ingredientByCode(actualLayers[i]).color);
+    }
+    const name = generateSauceName(mixed, 'explosion');
+    residueVial = {
+      id: nextSauceId++,
+      color: mixed,
+      fill: 1,
+      barrel: false,
+      origin: 'explosion',
+      name,
+      code: generateSauceCode(name),
+      day: S.day,
+    };
+  }
+
+  return { researcher, recipe, actualLayers, deviations, exploded, residueVial, vessel };
+}
+
+/* Assign recipes to researchers round-robin */
+function assignRecipes() {
+  return S.recipes.map((recipe, i) => ({
+    researcher: S.researchers[i % S.researchers.length],
+    recipe,
+  }));
+}
+
+/* ── DAY Phase Rendering ────────────────────────────── */
+
+function addLog(msg, cls) {
+  const log = document.getElementById('execution-log');
+  const el = document.createElement('div');
+  el.className = 'log-entry' + (cls ? ' ' + cls : '');
+  el.textContent = msg;
+  log.appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function renderResearcherCards(assignments) {
+  const row = document.getElementById('researcher-row');
+  row.innerHTML = '';
+  S.researchers.forEach(r => {
+    const assignment = assignments.find(a => a.researcher.id === r.id);
+    const el = document.createElement('div');
+    el.className = 'researcher-card' + (assignment ? '' : ' idle');
+    el.id = 'rc-' + r.id;
+    el.innerHTML = `
+      <div class="rc-header">
+        <span class="rc-emoji">${r.emoji}</span>
+        <div>
+          <div class="rc-name">${r.name}</div>
+          <div class="rc-title">${r.title}</div>
+        </div>
+      </div>
+      <div class="rc-assignment" id="rc-assign-${r.id}">${assignment ? vesselById(assignment.recipe.vessel).emoji + ' ' + vesselById(assignment.recipe.vessel).name : 'No card'}</div>
+      <div class="rc-layers" id="rc-layers-${r.id}"></div>
+      <div class="rc-status waiting" id="rc-status-${r.id}">${assignment ? 'waiting' : '\u2014'}</div>
+    `;
+    row.appendChild(el);
+  });
+}
+
+function revealLayer(researcherId, color, deviated, withheld) {
+  const container = document.getElementById('rc-layers-' + researcherId);
+  const el = document.createElement('div');
+  el.className = 'rc-layer' + (deviated ? ' deviated' : '') + (withheld ? ' withheld' : '');
+  el.style.background = rgb(color);
+  el.title = deviated ? 'deviation' : (withheld ? 'withheld' : '');
+  container.appendChild(el);
+  // Trigger animation
+  requestAnimationFrame(() => el.classList.add('revealed'));
+}
+
+function setResearcherStatus(researcherId, status) {
+  const card = document.getElementById('rc-' + researcherId);
+  const statusEl = document.getElementById('rc-status-' + researcherId);
+  card.className = 'researcher-card ' + status;
+  statusEl.className = 'rc-status ' + status;
+  const labels = { waiting: 'waiting', executing: 'executing...', complete: 'done', exploded: 'EXPLODED' };
+  statusEl.textContent = labels[status] || status;
+}
+
+/* ── Phase Transitions ──────────────────────────────── */
+
+function showPrepUI(show) {
+  ['trough-section', 'recipe-workspace', 'submitted-section', 'sauce-section', 'stock-section'].forEach(id => {
+    document.getElementById(id).style.display = show ? '' : 'none';
+  });
+}
+
+function startDay() {
+  if (S.recipes.length === 0) return;
+  S.phase = 'day';
+  S.dayLog = [];
+  S.dayResults = [];
+
+  showPrepUI(false);
+  document.getElementById('day-section').style.display = 'block';
+  document.getElementById('endofday-section').style.display = 'none';
+
+  // Clear log
+  const log = document.getElementById('execution-log');
+  log.innerHTML = '<div class="section-label">Lab Notes</div>';
+
+  const assignments = assignRecipes();
+  renderResearcherCards(assignments);
+  runDay(assignments);
+}
+
+async function runDay(assignments) {
+  const perStep = 550;
+  const perCard = 900;
+
+  for (let i = 0; i < assignments.length; i++) {
+    const { researcher, recipe } = assignments[i];
+    const vessel = vesselById(recipe.vessel);
+
+    await delay(perCard);
+    setResearcherStatus(researcher.id, 'executing');
+    addLog(`${researcher.emoji} ${researcher.name} picks up the card: ${vessel.emoji} ${vessel.name}`, 'info');
+
+    const result = executeRecipe(researcher, recipe);
+    S.dayResults.push(result);
+
+    // Walk through the original recipe layers + deviations for narrative
+    let revealIdx = 0;
+    const deviationMap = {};
+    result.deviations.forEach(d => {
+      if (!deviationMap[d.index]) deviationMap[d.index] = [];
+      deviationMap[d.index].push(d);
+    });
+
+    // Reveal actual layers one by one
+    for (let j = 0; j < result.actualLayers.length; j++) {
+      await delay(perStep);
+      const code = result.actualLayers[j];
+      const ing = ingredientByCode(code);
+
+      // Check if this layer corresponds to a deviation
+      const isDeviation = result.deviations.some(d =>
+        (d.type === 'added' || d.type === 'doubled' || d.type === 'swapped') && d.code === code && !d._shown
+      );
+
+      if (isDeviation) {
+        const dev = result.deviations.find(d => (d.type === 'added' || d.type === 'doubled' || d.type === 'swapped') && d.code === code && !d._shown);
+        if (dev) {
+          dev._shown = true;
+          addLog(dev.msg, 'deviation');
+        }
+        revealLayer(researcher.id, ing.color, true, false);
+      } else {
+        addLog(`${researcher.emoji} adds ${ing.emoji} ${code}`, '');
+        revealLayer(researcher.id, ing.color, false, false);
+      }
+    }
+
+    // Show withheld deviations
+    const withholds = result.deviations.filter(d => d.type === 'withheld');
+    for (const w of withholds) {
+      await delay(300);
+      const ing = ingredientByCode(w.code);
+      addLog(w.msg, 'deviation');
+      revealLayer(researcher.id, ing.color, false, true);
+    }
+
+    // Explosion?
+    if (result.exploded) {
+      await delay(500);
+      addLog(`\u{1F4A5} EXPLOSION! ${researcher.name}'s ${vessel.name} exceeds capacity (${result.actualLayers.length}/${vessel.capacity})!`, 'explosion');
+      setResearcherStatus(researcher.id, 'exploded');
+
+      // Add residue vial
+      S.sauceArchive.push(result.residueVial);
+      await delay(300);
+      addLog(`Residue collected: ${result.residueVial.name}`, 'info');
+
+      // Explosion response
+      if (researcher.explosionResponse === 'rattled') {
+        researcher.deviationChance = Math.max(0.05, researcher.deviationChance - 0.08);
+        addLog(`${researcher.emoji} ${researcher.name} adjusts her notes nervously...`, 'info');
+      } else if (researcher.explosionResponse === 'inspired') {
+        researcher.deviationChance = Math.min(0.8, researcher.deviationChance + 0.08);
+        addLog(`${researcher.emoji} ${researcher.name} grins. "Beautiful."`, 'info');
+      } else if (researcher.explosionResponse === 'curious') {
+        addLog(`${researcher.emoji} ${researcher.name} examines the residue carefully, takes notes.`, 'info');
+      }
+    } else {
+      setResearcherStatus(researcher.id, 'complete');
+      addLog(`${researcher.emoji} ${researcher.name} finishes the ${vessel.name}. \u2713`, 'info');
+    }
+  }
+
+  // Unassigned researchers get a note
+  const assignedIds = new Set(assignments.map(a => a.researcher.id));
+  S.researchers.filter(r => !assignedIds.has(r.id)).forEach(r => {
+    addLog(`${r.emoji} ${r.name} reorganizes the shelf.`, 'info');
+  });
+
+  await delay(1200);
+  S.phase = 'endOfDay';
+  renderEndOfDay();
+}
+
+/* ── End of Day ─────────────────────────────────────── */
+
+function renderEndOfDay() {
+  document.getElementById('day-section').style.display = 'none';
+  document.getElementById('endofday-section').style.display = 'block';
+
+  const resultsEl = document.getElementById('eod-results');
+  resultsEl.innerHTML = '';
+  S.dayResults.forEach(r => {
+    const vessel = vesselById(r.recipe.vessel);
+    const el = document.createElement('div');
+    el.className = 'eod-result';
+    el.innerHTML = `
+      <span>${r.researcher.emoji}</span>
+      <span>${r.researcher.name}</span>
+      <span>${vessel.emoji} ${vessel.name}</span>
+      <span>${r.actualLayers.length} layers</span>
+      <span class="eod-verdict ${r.exploded ? 'fail' : 'pass'}">${r.exploded ? '\u{1F4A5} exploded' : '\u2713 complete'}</span>
+    `;
+    resultsEl.appendChild(el);
+  });
+
+  const vialsEl = document.getElementById('eod-new-vials');
+  vialsEl.innerHTML = '';
+  const newVials = S.dayResults.filter(r => r.residueVial).map(r => r.residueVial);
+  if (newVials.length === 0) {
+    vialsEl.innerHTML = '<span class="eod-no-vials">No explosions today \u2014 a clean day in the lab.</span>';
+  } else {
+    newVials.forEach(v => {
+      const el = document.createElement('div');
+      el.className = 'eod-vial';
+      el.style.background = rgb(v.color);
+      el.title = v.name;
+      vialsEl.appendChild(el);
+      const label = document.createElement('span');
+      label.style.fontSize = '10px';
+      label.style.color = 'var(--dim)';
+      label.textContent = v.code;
+      vialsEl.appendChild(label);
+    });
+  }
+}
+
+function nextDay() {
+  S.day++;
+  S.phase = 'prep';
+  S.recipes = [];
+  S.dayLog = [];
+  S.dayResults = [];
+  S.currentRecipe = { vessel: 'taco', layers: [], sauce: null };
+  S.combineSelection = [];
+
+  document.getElementById('endofday-section').style.display = 'none';
+  showPrepUI(true);
+
+  document.getElementById('day-badge').textContent = 'Day ' + S.day;
+  renderTroughs();
+  renderStock();
+  renderVesselSelect();
+  renderLayers();
+  renderSauceArchive();
+  renderSubmittedCards();
 }
 
 /* ================================================================

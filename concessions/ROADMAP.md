@@ -12,7 +12,7 @@ Items actively in development or immediately next. The deployment sequence is th
 ## Next
 Items with clear specs or obvious next steps, ready to build.
 
-- [ ] **Taco Science: DAY phase** — Researchers execute recipe cards with personality-driven deviations, sauce-drinking, explosions. ([score card](score-cards/taco-science.md) | [spec](taco-science-spec.md))
+- [ ] **Taco Science: researcher depth** — Sauce-drinking before work, trough material effects on behavior, researcher drift/memory across days, persistence. ([score card](score-cards/taco-science.md) | [spec](taco-science-spec.md))
 - [ ] **Mycourt: syndicate negotiation** — Tap syndicates for offers, trust/suspicion mechanics, syndicate voice. ([score card](score-cards/mycourt.md))
 - [ ] **Mycourt: spoire influence overlap** — Overlapping radii produce richer dust or attract rarer syndicates.
 - [ ] **Mycourt: sporedust color blending** — Third dust axis shaped by active/adjacent syndicates.
@@ -60,6 +60,7 @@ Held ideas, vision pieces, long-term.
 Last completed milestones for context.
 
 - [x] **SILMOR: dice as conversationalists** — Sequential cycling replaces random rolls. Personality-driven reshuffle thresholds, sympathetic neighbor reshuffles, awareness moods (curious/sympathetic/withdrawn/alert), next-face hints. Idle drift: untouched dice daydream by personality voice (still=pragmatic, rock=attentive, bounce=sociable, spin=wandering/foreign). ([score card](score-cards/silmor-spells.md))
+- [x] **Taco Science: DAY phase** — 3 founding researchers (Dr. Lumen/Nudo/Fenn) with personality-driven execution. Staggered layer reveals, deviation logic (withhold/embellish/favor), explosion mechanic producing residue vials, explosion responses, end-of-day summary, day cycling. ([score card](score-cards/taco-science.md))
 - [x] **Taco Science: PREP phase** — Kitchendom research lab. 10 ingredients, 4 vessels, troughs, recipe card authoring, sauce archive with infinite barrels + finite vials (sip/drink/combine), subtractive color mixing, auto-generated sauce names. Bright graph-paper lab aesthetic. ([score card](score-cards/taco-science.md))
 - [x] **ASPECT: first pass** — Character engine Score. 12 aspects, name-derived personal stats, deterministic letter-proximity resolution, color claiming, skill tilting, persistence + fracture (Mk.II), 16 mundane scenarios, encounter pacing. Zero randomness. ([score card](score-cards/aspect.md))
 - [x] **slayy.: first pass** — Performance arena Score. Pentagram dance vs Mudhull for Camera attention. SVG drag, delta moves, connections, Beat/Pose capture, hybrid Mudhull AI, Camera system, Mother, beat engine, Show escalation. Hidden entry via Hunter Encounter erratic ticker. ([score card](score-cards/slayy.md))
