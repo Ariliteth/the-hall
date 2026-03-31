@@ -1,5 +1,5 @@
 # The Hall — Roadmap
-*Last updated: March 29, 2026*
+*Last updated: March 31, 2026*
 
 ---
 
@@ -41,6 +41,7 @@ Items that need speccing first or depend on Now/Next.
 - [ ] **Anteroom** — Hub entrance score. Spec exists ([archive/ANTEROOM_SPEC.md](archive/ANTEROOM_SPEC.md)), implementation pending.
 - [ ] **Hub Audio Memory** — Volume as hub concern, musical state carried across Scores.
 - [ ] **Shoot the Moon: progression** — No persistence, binary outcome, no scoring. ([score card](score-cards/shoot-the-moon.md))
+- [ ] **SILMOR: SILMOR notices drift** — Dice daydream but she's currently blind to it. A rock die quietly offering the spell face, a spin die suggesting something it can't give — she should have a reaction. ([score card](score-cards/silmor-spells.md))
 - [ ] **SILMOR: persistence + Dream Job** — No save, no campaign arc. ([score card](score-cards/silmor-spells.md))
 
 ## Horizon
@@ -58,6 +59,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **SILMOR: dice as conversationalists** — Sequential cycling replaces random rolls. Personality-driven reshuffle thresholds, sympathetic neighbor reshuffles, awareness moods (curious/sympathetic/withdrawn/alert), next-face hints. Idle drift: untouched dice daydream by personality voice (still=pragmatic, rock=attentive, bounce=sociable, spin=wandering/foreign). ([score card](score-cards/silmor-spells.md))
 - [x] **Taco Science: PREP phase** — Kitchendom research lab. 10 ingredients, 4 vessels, troughs, recipe card authoring, sauce archive with infinite barrels + finite vials (sip/drink/combine), subtractive color mixing, auto-generated sauce names. Bright graph-paper lab aesthetic. ([score card](score-cards/taco-science.md))
 - [x] **ASPECT: first pass** — Character engine Score. 12 aspects, name-derived personal stats, deterministic letter-proximity resolution, color claiming, skill tilting, persistence + fracture (Mk.II), 16 mundane scenarios, encounter pacing. Zero randomness. ([score card](score-cards/aspect.md))
 - [x] **slayy.: first pass** — Performance arena Score. Pentagram dance vs Mudhull for Camera attention. SVG drag, delta moves, connections, Beat/Pose capture, hybrid Mudhull AI, Camera system, Mother, beat engine, Show escalation. Hidden entry via Hunter Encounter erratic ticker. ([score card](score-cards/slayy.md))
