@@ -1652,10 +1652,13 @@ async function loadEntities() {
 // ── Adjacency ──────────────────────────────────────────────────
 function getNeighbors(idx) {
   const row = Math.floor(idx / COLS), col = idx % COLS, ns = [];
-  if (row > 0)      ns.push((row - 1) * COLS + col);
-  if (row < ROWS-1) ns.push((row + 1) * COLS + col);
-  if (col > 0)      ns.push(row * COLS + (col - 1));
-  if (col < COLS-1) ns.push(row * COLS + (col + 1));
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const r = row + dr, c = col + dc;
+      if (r >= 0 && r < ROWS && c >= 0 && c < COLS) ns.push(r * COLS + c);
+    }
+  }
   return ns;
 }
 
