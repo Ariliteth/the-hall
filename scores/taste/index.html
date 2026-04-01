@@ -681,6 +681,131 @@
   .q-badge.mid  { background: rgba(180,160,100,0.4); }
   .q-badge.poor { background: rgba(160,64,48,0.4); }
 
+  .dream-label {
+    font-style: italic;
+    font-size: 0.4rem;
+    color: #8a7a5a;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+    display: block;
+    text-align: center;
+  }
+
+  /* ── AISLE LAYOUT (Terroir's) ── */
+  #bins-area.aisle-layout {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 4px;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+  #bins-area.aisle-layout::-webkit-scrollbar { display: none; }
+
+  .aisle {
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 12px;
+    gap: 8px;
+    background: linear-gradient(180deg, #5a4a30 0%, #3a2a18 100%);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+  .aisle:last-child { border-right: none; }
+
+  .aisle-label {
+    font-size: 0.55rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 4px;
+  }
+  .aisle-items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    width: 100%;
+  }
+  .aisle-items .bin-item {
+    width: 100%;
+    max-width: 180px;
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .aisle-items .bin-item .produce-emoji { font-size: 1.4rem; flex-shrink: 0; }
+  .aisle-items .bin-item .produce-name { font-size: 0.5rem; }
+  .aisle-items .bin-item .quality-badges { flex-wrap: nowrap; }
+
+  /* ── LOADOUT PHASE ─�� */
+  #loadout-phase.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 40px 20px;
+  }
+  .loadout-hint {
+    font-size: 0.7rem;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+  #loadout-tools {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .loadout-tool {
+    width: 120px;
+    padding: 18px 12px;
+    background: var(--card);
+    border: 2px solid var(--card-border);
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.2s, border-color 0.2s;
+  }
+  .loadout-tool.selected {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .loadout-tool.deselected {
+    opacity: 0.3;
+    transform: scale(0.95);
+  }
+  .loadout-tool .tool-emoji { font-size: 1.5rem; margin-bottom: 6px; }
+  .loadout-tool .tool-name { font-size: 0.5rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); }
+  #loadout-go-btn {
+    padding: 8px 28px;
+    font-family: inherit;
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, opacity 0.2s;
+    opacity: 0.4;
+  }
+  #loadout-go-btn.ready {
+    opacity: 1;
+    color: var(--accent);
+    border-color: var(--accent);
+    cursor: pointer;
+  }
+  #loadout-go-btn.ready:hover {
+    background: var(--accent);
+    color: #fff;
+  }
+
   /* ── TOOL BENCH ── */
   #tool-bench {
     display: flex;
@@ -1137,6 +1262,13 @@
     .bin { min-width: 64px; }
     .bin-item { width: 56px; }
 
+    /* Aisles on mobile — swipeable */
+    .aisle { min-width: 82vw; }
+    .aisle-items .bin-item { max-width: none; }
+
+    /* Loadout on mobile */
+    .loadout-tool { width: 100px; padding: 14px 8px; }
+
     /* ── TAP-TO-SELECT ── */
     .bin-item.selected {
       outline: 2px solid var(--accent);
@@ -1201,11 +1333,19 @@
     <div id="store-cards"></div>
   </div>
 
+  <!-- TOOL LOADOUT -->
+  <div id="loadout-phase" class="phase">
+    <h2>Pack Your Tools</h2>
+    <p class="loadout-hint">Choose three.</p>
+    <div id="loadout-tools"></div>
+    <button id="loadout-go-btn">Go</button>
+  </div>
+
   <!-- SHOPPING -->
   <div id="shop-phase" class="phase">
     <div id="shop-header">
       <div>
-        <span class="dept-name">Citrus</span>
+        <span class="dept-name" id="shop-dept-name">Citrus</span>
         <span class="store-tag" id="shop-store-tag"></span>
       </div>
       <button id="done-btn" onclick="enterGoingHome()">Done Shopping</button>
@@ -1217,20 +1357,7 @@
     <div id="shop-body">
       <div id="display-area">
         <div id="bins-area"></div>
-        <div id="tool-bench">
-          <div class="tool-zone" data-tool="trampoline">
-            <div class="tool-emoji">🔵</div>
-            <div class="tool-name">Fruitrampoline</div>
-          </div>
-          <div class="tool-zone" data-tool="calipers">
-            <div class="tool-emoji">🫳</div>
-            <div class="tool-name">Gentle Calipers</div>
-          </div>
-          <div class="tool-zone" data-tool="blade">
-            <div class="tool-emoji">🔪</div>
-            <div class="tool-name">The Blade</div>
-          </div>
-        </div>
+        <div id="tool-bench"></div>
       </div>
       <div id="list-sidebar">
         <h3>Her List</h3>
@@ -1607,6 +1734,175 @@ const ISSUES = [
         }
       },
     ]
+  },
+  // ===== ISSUE 02: HOMMES DE TERRE =====
+  {
+    id: 'roots-02',
+    name: 'Hommes de Terre',
+    color: '#6b5b3a',
+    pages: [
+      // Spread 1 — The Potato
+      {
+        left: {
+          prose: {
+            text: 'There is a vegetable that has never tried to impress you. It grew in the dark. It is not ashamed of this. The potato does not perform ripeness or wear color to catch your eye. It sits in the bin and waits to be chosen by someone who knows what weight means.',
+            dropCap: true
+          },
+          scribbles: [
+            { text: 'dirt is a credential', x: 72, y: 18, rotate: -3 },
+            { text: 'heavy = honest', x: 80, y: 72, rotate: 5, style: 'font-size:0.7rem;opacity:0.3' },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'roots-02-potato',
+              size: 'large',
+              category: 'new produce',
+              title: 'Potato',
+              body: 'The potato dreams simply. Fry. Stew. Sal. Sometimes Raw, which may or may not concern you. It has always known what it is. That is not nothing.',
+              unlock: { type: 'variety', catalog: 'roots', key: 'potato', desc: 'Potatoes now available at Terroir\u2019s' }
+            }
+          ],
+          scribbles: [
+            { text: 'she said get the heavy ones', x: 55, y: 78, rotate: 2 },
+          ]
+        }
+      },
+      // Spread 2 — The Potäto
+      {
+        left: {
+          prose: {
+            text: 'Then there is the other one. Same bin, same dirt, same silence. But the pot\u00e4to carries something the potato does not: aspiration. It dreams of ice cream. This is not a joke. This is a potato with a full interior life, and if you cannot respect that, perhaps you are not ready for this store.'
+          },
+          scribbles: [
+            { text: 'they are NOT the same', x: 68, y: 24, rotate: -6, style: 'font-size:0.8rem' },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'roots-02-potaeto',
+              size: 'large',
+              category: 'new produce',
+              title: 'Pot\u00e4to',
+              body: 'Dreaming Ice Cream is most likely a sign of health. Full coherence. A full interior life. If it only dreams Sal, it may not be feeling well. Or it may just have different dreams. You cannot know. That is the point.',
+              unlock: { type: 'variety', catalog: 'roots', key: 'potaeto', desc: 'Pot\u00e4to now available at Terroir\u2019s' }
+            }
+          ],
+          scribbles: [
+            { text: 'ice cream potato is VALID', x: 50, y: 82, rotate: 3 },
+          ]
+        }
+      },
+      // Spread 3 — The Apeeler
+      {
+        left: {
+          prose: {
+            text: 'The new tool does not measure firmness. It does not weigh. It does not slice. The Apeeler peels back one thin layer and shows you what the item has been carrying this whole time: its Dream Dish. Not what you should do with it. What it wants to become.'
+          },
+          scribbles: [
+            { text: 'it tells you what it WANTS', x: 74, y: 20, rotate: -2 },
+            { text: 'not the same as health', x: 70, y: 60, rotate: 4, style: 'font-size:0.65rem;opacity:0.35' },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'roots-02-apeeler',
+              size: 'large',
+              category: 'new tool',
+              title: 'The Apeeler',
+              body: 'Reveals the Dream Dish. The most honest approximation of health available \u2014 precisely because it is not diagnostic. It says what the item is dreaming and leaves you to decide what that means.',
+              unlock: { type: 'tool', key: 'apeeler', desc: 'The Apeeler is now available' }
+            }
+          ],
+          scribbles: [
+            { text: 'bring the right tools', x: 58, y: 80, rotate: -1 },
+          ]
+        }
+      },
+      // Spread 4 — Terroir's Roots
+      {
+        left: {
+          prose: {
+            text: 'There is a store where the floor knows things. The bins have weight and history. Nothing here is performing freshness. It is simply fresh, in the way that things pulled from actual earth are fresh. The aisles are narrow. A little crowded in the right way.'
+          },
+          scribbles: [
+            { text: 'I believe this produce', x: 76, y: 22, rotate: -5 },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'roots-02-terroirs',
+              size: 'large',
+              category: 'new store',
+              title: 'Terroir\u2019s Roots',
+              body: 'Somewhere tangible and dirty in the way that tells you the produce does not just identify as fresh. You navigate the aisles rather than scroll past a grid. Dirt under the nails. Everything here grew in the dark.',
+              unlock: { type: 'store', key: 'terroirs', desc: 'Terroir\u2019s Roots is now open' }
+            }
+          ],
+          scribbles: [
+            { text: 'the dirt is the point', x: 52, y: 76, rotate: 2 },
+          ]
+        }
+      },
+      // Spread 5 — Reading Dreams
+      {
+        left: {
+          prose: {
+            text: 'A potato dreaming Fry is a potato that knows itself. A pot\u00e4to dreaming Ice Cream is one with its whole self intact. But a potato dreaming Raw might be perfect and pure, or it might be the only dream left. The Apeeler cannot tell the difference. Neither can you, without the rest of your tools.'
+          },
+          scribbles: [
+            { text: 'triangulate', x: 80, y: 30, rotate: -3 },
+          ]
+        },
+        right: {
+          panels: [
+            {
+              id: 'roots-02-technique',
+              size: 'small',
+              category: 'technique',
+              title: 'Dream Reading',
+              body: 'A skilled shopper learns to read across tools. Brings what they have. Knows what each one sees clearly and what it is only guessing at. The story is never complete, which keeps shopping from becoming a solved puzzle.',
+              unlock: { type: 'technique', key: 'dream_reading', desc: 'You notice dream patterns more easily' }
+            },
+            {
+              id: 'roots-02-fad',
+              size: 'small',
+              category: 'fad watch',
+              title: 'Root Curiosity',
+              body: 'There are rumours of produce that dreams in colors instead of dishes. Nobody has confirmed this. But the people at Terroir\u2019s talk about it like weather.',
+              unlock: { type: 'fad_watch', key: 'color_dreams', desc: 'You\u2019ve heard about color dreams' }
+            }
+          ],
+          scribbles: [
+            { text: 'ask about the colors', x: 60, y: 84, rotate: 1, style: 'color:rgba(100,80,50,0.3)' },
+          ]
+        }
+      },
+      // Spread 6 — Closing
+      {
+        left: {
+          prose: {
+            text: 'You cannot bring every tool to every store. This is not a limitation. It is the shape of discernment. You choose your lenses. You see what they show you. You bring your own judgment to the rest. That is shopping. That has always been shopping.'
+          },
+          scribbles: [
+            { text: 'choose well', x: 78, y: 26, rotate: -4 },
+            { text: 'next issue: ???', x: 65, y: 88, rotate: 6, style: 'font-size:0.65rem;opacity:0.25' },
+          ]
+        },
+        right: {
+          prose: {
+            text: 'The pot\u00e4to does not owe you legibility. It sits in the dirt and dreams of ice cream and does not care whether you find that diagnostic or merely beautiful. Both readings are correct. The Apeeler knows this. Now you do too.'
+          },
+          scribbles: [
+            { text: 'thank you, Terroir\u2019s', x: 58, y: 80, rotate: -2, style: 'color:rgba(100,80,50,0.3)' },
+          ]
+        }
+      },
+    ]
   }
 ];
 
@@ -1620,6 +1916,19 @@ const STORES = {
     freshBias: 0.7,
     ripeBias: 0.4,
     count: 24,
+    catalog: 'citrus',
+  },
+  terroirs: {
+    name: "Terroir's Roots",
+    emoji: '🥔',
+    character: 'earthy',
+    description: 'Dirt under the nails. Everything here grew in the dark.',
+    surface: 'earth',
+    freshBias: 0.5,
+    ripeBias: 0.6,
+    count: 18,
+    catalog: 'roots',
+    layout: 'aisles',
   },
 };
 
@@ -1633,6 +1942,15 @@ const CITRUS = {
 };
 const CITRUS_KEYS = Object.keys(CITRUS);
 
+const ROOTS = {
+  potato:  { emoji: '🥔', name: 'Potato' },
+  potaeto: { emoji: '🥔', name: 'Potäto' },
+};
+
+const CATALOGS = { citrus: CITRUS, roots: ROOTS };
+function storeCatalog(sk) { return CATALOGS[STORES[sk]?.catalog] || CITRUS; }
+function storeCatalogKeys(sk) { return Object.keys(storeCatalog(sk)); }
+
 // Quality attributes and what reveals them
 const QUALS = {
   weight:    { label: 'Weight',    bounce: true,  squeeze: false, slice: false },
@@ -1642,29 +1960,76 @@ const QUALS = {
   color:     { label: 'Color',     bounce: false, squeeze: false, slice: true  },
 };
 
+// Dream Dish system — what produce wants to become
+const DREAM_DISHES = {
+  potato:  ['Raw', 'Sal', 'Stew', 'Fry'],
+  potaeto: ['Sal', 'Fry', 'Ice Cream'],
+};
+const DREAM_RANGES = {
+  potato:  { Raw: [0, 0.3], Sal: [0.2, 0.55], Stew: [0.45, 0.75], Fry: [0.65, 1.0] },
+  potaeto: { Sal: [0, 0.5], Fry: [0.3, 0.7], 'Ice Cream': [0.6, 1.0] },
+};
+function pickDream(typeKey, health, rng) {
+  const ranges = DREAM_RANGES[typeKey];
+  if (!ranges) return null;
+  const candidates = [];
+  for (const [dish, [lo, hi]] of Object.entries(ranges)) {
+    if (health >= lo && health <= hi) {
+      const center = (lo + hi) / 2;
+      const w = 1 - Math.abs(health - center) / ((hi - lo) / 2 || 1);
+      candidates.push({ dish, w: Math.max(0.1, w) });
+    }
+  }
+  if (!candidates.length) return DREAM_DISHES[typeKey][0];
+  const total = candidates.reduce((s, c) => s + c.w, 0);
+  let r = rng() * total;
+  for (const c of candidates) { r -= c.w; if (r <= 0) return c.dish; }
+  return candidates[candidates.length - 1].dish;
+}
+
+// Tool definitions for dynamic bench rendering
+const TOOLS = {
+  trampoline: { emoji: '🔵', name: 'Fruitrampoline' },
+  calipers:   { emoji: '🫳', name: 'Gentle Calipers' },
+  blade:      { emoji: '🔪', name: 'The Blade' },
+  apeeler:    { emoji: '〰️', name: 'The Apeeler' },
+};
+
 // Wife list templates
-function getWifeList(run) {
-  if (run === 0) return [
+function getWifeList(run, storeKey) {
+  const catalog = storeCatalog(storeKey || 'marias');
+  const catKeys = storeCatalogKeys(storeKey || 'marias');
+  const isRoots = STORES[storeKey || 'marias']?.catalog === 'roots';
+
+  if (run === 0 && !isRoots) return [
     { item: 'lemon',  pref: 'firmness', desc: "A good lemon. Firm if you can.", weight: 1.0 },
     { item: 'orange', pref: 'weight',   desc: "Oranges. Heavy ones have juice.", weight: 1.0 },
     { item: 'lime',   pref: null,        desc: "Limes. Any will do.", weight: 0.5 },
   ];
-  // Later runs: shuffle items, sharpen preferences
-  const rng = seededRng(hashStr('wife' + run));
-  const items = CITRUS_KEYS.slice(); // draw from whatever's available
-  const prefs = ['firmness', 'weight', 'freshness', 'juiciness', null];
+
+  const rng = seededRng(hashStr('wife' + run + (storeKey || '')));
+  const items = catKeys.slice();
+  const qualPrefs = ['firmness', 'weight', 'freshness', 'juiciness', null];
+  const dreamPrefs = ['dreamDish:Fry', 'dreamDish:Stew', 'dreamDish:Sal', null];
+  const prefs = isRoots ? [...qualPrefs, ...dreamPrefs] : qualPrefs;
   const count = 2 + Math.floor(rng() * 2); // 2-3 items
   const list = [];
   const used = new Set();
   for (let i = 0; i < count; i++) {
     let k;
-    do { k = items[Math.floor(rng() * items.length)]; } while (used.has(k));
+    do { k = items[Math.floor(rng() * items.length)]; } while (used.has(k) && used.size < items.length);
     used.add(k);
     const p = prefs[Math.floor(rng() * prefs.length)];
     const descs = [];
-    descs.push(CITRUS[k].name + (CITRUS[k].name.endsWith('s') ? '' : 's') + '.');
-    if (p) descs.push(p === 'firmness' ? 'Firm ones.' : p === 'weight' ? 'Heavy ones.' : p === 'freshness' ? 'Fresh, please.' : 'Juicy if you can find them.');
-    else descs.push("Whatever looks okay.");
+    const name = catalog[k].name;
+    descs.push(name + (name.endsWith('s') || name.endsWith('o') ? '' : 's') + '.');
+    if (!p) descs.push("Whatever looks okay.");
+    else if (p.startsWith('dreamDish:')) {
+      const dish = p.split(':')[1];
+      descs.push(`One that dreams of ${dish.toLowerCase()}.`);
+    } else {
+      descs.push(p === 'firmness' ? 'Firm ones.' : p === 'weight' ? 'Heavy ones.' : p === 'freshness' ? 'Fresh, please.' : 'Juicy if you can find them.');
+    }
     list.push({ item: k, pref: p, desc: descs.join(' '), weight: 0.7 + rng() * 0.6 });
   }
   return list;
@@ -1699,6 +2064,23 @@ const GHOST_IMPOSSIBLE = [
   { item: null, pref: null, full: "~~~" },
 ];
 
+// Ghost phrases for roots catalog
+const GHOST_PHRASES_ROOTS = [
+  { item: 'potato',  pref: 'firmness',  full: "potatoes. Firm ones." },
+  { item: 'potato',  pref: 'weight',    full: "potatoes. Heavy." },
+  { item: 'potato',  pref: null,        full: "potatoes. Whatever's there." },
+  { item: 'potaeto', pref: 'freshness', full: "pot\u00e4to. Fresh, please." },
+  { item: 'potaeto', pref: null,        full: "pot\u00e4to. Any will do." },
+  { item: 'potaeto', pref: 'dreamDish:Ice Cream', full: "pot\u00e4to. One that dreams." },
+];
+const GHOST_IMPOSSIBLE_ROOTS = [
+  { item: null, pref: null, full: "lemons. The yellow kind." },
+  { item: null, pref: null, full: "oranges." },
+  { item: null, pref: null, full: "something bright." },
+  { item: null, pref: null, full: "limes if they have them." },
+  { item: null, pref: null, full: "~~~" },
+];
+
 function smudge(text, rng, intensity) {
   // intensity: 0 = mostly legible, 1 = mostly illegible
   const words = text.split(' ');
@@ -1717,7 +2099,10 @@ function smudge(text, rng, intensity) {
   }).join(' ');
 }
 
-function getGhostList(run, ghostSeed, drift) {
+function getGhostList(run, ghostSeed, drift, storeKey) {
+  const isRoots = STORES[storeKey || 'marias']?.catalog === 'roots';
+  const phrases = isRoots ? GHOST_PHRASES_ROOTS : GHOST_PHRASES;
+  const impossibles = isRoots ? GHOST_IMPOSSIBLE_ROOTS : GHOST_IMPOSSIBLE;
   const rng = seededRng(hashStr('ghost' + ghostSeed + run));
 
   // The ghost is weather. It doesn't owe you anything.
@@ -1757,15 +2142,15 @@ function getGhostList(run, ghostSeed, drift) {
   for (let i = 0; i < count; i++) {
     // Small chance of an impossible request — something Maria doesn't sell
     if (rng() < 0.12) {
-      const imp = GHOST_IMPOSSIBLE[Math.floor(rng() * GHOST_IMPOSSIBLE.length)];
+      const imp = impossibles[Math.floor(rng() * impossibles.length)];
       const desc = imp.full === '~~~' ? '~~~' : smudge(imp.full, rng, legibility);
       list.push({ item: null, pref: null, desc, fullyIllegible: imp.full === '~~~', impossible: true });
       continue;
     }
 
     // Pick a phrase, influenced by drift
-    let candidates = GHOST_PHRASES.filter(p => !used.has(p.item));
-    if (candidates.length === 0) candidates = GHOST_PHRASES;
+    let candidates = phrases.filter(p => !used.has(p.item));
+    if (candidates.length === 0) candidates = phrases;
 
     // Weight toward drifted preferences
     let pick;
@@ -1806,7 +2191,9 @@ const S = {
   wife: { list: [], satisfaction: 0.5, memory: [] },
 
   store: null,
-  bins: {},     // { typeKey: [item, ...] } — Maria's stock by type
+  pendingStore: null,
+  loadout: [],
+  bins: {},     // { typeKey: [item, ...] } — store stock by type
   basket: { wife: [], ghost: [] },
 
   sliceUsed: false,
@@ -1897,17 +2284,19 @@ let _nextItemId = 0;
 function generateBins(storeKey, run) {
   const store = STORES[storeKey];
   const rng = seededRng(hashStr(storeKey + run));
+  const catalog = storeCatalog(storeKey);
+  const catKeys = storeCatalogKeys(storeKey);
   const bins = {};
   _nextItemId = 0;
 
   // Initialize empty bins for all available types
-  for (const key of CITRUS_KEYS) bins[key] = [];
+  for (const key of catKeys) bins[key] = [];
 
   // Distribute ~count items across types with natural weighting
   const total = store.count;
   for (let i = 0; i < total; i++) {
-    const typeKey = CITRUS_KEYS[Math.floor(rng() * CITRUS_KEYS.length)];
-    const ct = CITRUS[typeKey];
+    const typeKey = catKeys[Math.floor(rng() * catKeys.length)];
+    const ct = catalog[typeKey];
     const quality = {};
     for (const qk of Object.keys(QUALS)) {
       let base = 0.3 + rng() * 0.5;
@@ -1916,6 +2305,11 @@ function generateBins(storeKey, run) {
       base += (rng() - 0.5) * 0.3;
       quality[qk] = Math.max(0, Math.min(1, base));
     }
+    // Dream Dish — what this item wants to become
+    const qVals = Object.values(quality);
+    const avgHealth = qVals.reduce((a, b) => a + b, 0) / qVals.length;
+    const dream = pickDream(typeKey, avgHealth, rng);
+
     bins[typeKey].push({
       id: _nextItemId++,
       type: typeKey,
@@ -1924,6 +2318,8 @@ function generateBins(storeKey, run) {
       quality,
       revealed: {},
       sliced: false,
+      dreamDish: dream,        // null for citrus, string for roots
+      dreamRevealed: false,
     });
   }
   return bins;
@@ -1978,8 +2374,23 @@ function criticFrom(zone, text, opts = {}) {
 const BOUNCE_REMARKS = ['Heavy.', 'Solid thud.', 'Dense.', 'Airy.', 'Light bounce.', 'Hardly any weight.'];
 const SQUEEZE_REMARKS = ['Firm.', 'Good give.', 'Springs right back.', 'Stays dented.', 'Soft.', 'Like a rock.'];
 const SLICE_REMARKS = ['Look at that color.', 'Juice everywhere.', 'Dry inside.', 'Beautiful cross-section.', 'Pale.', 'Zest for days.'];
+const PEEL_REMARKS = {
+  Raw:         ['Raw. Hm.', 'It dreams of being raw.', 'That is a raw dream.'],
+  Sal:         ['Salad dreams.', 'It sees itself in a salad.', 'Normal enough.'],
+  Stew:        ['Stew dreams. Honest.', 'This one wants slow heat.', 'Patient.'],
+  Fry:         ['Golden dreams.', 'It wants the fryer.', 'Confident.'],
+  'Ice Cream': ['Ice cream. Remarkable.', 'Aspirational.', 'It dreams big.'],
+  _none:       ['Nothing.', 'No dreams here.', 'This one doesn\u2019t dream.'],
+};
 
 function criticOnTool(toolKey, item, revealedVals) {
+  if (toolKey === 'apeeler') {
+    const dish = item.dreamDish || null;
+    const pool = PEEL_REMARKS[dish] || PEEL_REMARKS._none;
+    const text = pool[Math.floor(Math.random() * pool.length)];
+    S._pendingCritic = { text, zone: 'tools', duration: 'medium' };
+    return;
+  }
   const avg = Object.values(revealedVals).reduce((a,b) => a+b, 0) / Object.values(revealedVals).length;
   let pool;
   if (toolKey === 'trampoline') pool = BOUNCE_REMARKS;
@@ -1993,12 +2404,22 @@ function criticOnTool(toolKey, item, revealedVals) {
 }
 
 function criticOnAllocate(item, slot) {
+  const catalog = storeCatalog(S.store);
   // Notice substitutions
   if (item.type !== slot.item) {
-    setTimeout(() => criticFrom('sidebar', `That's not ${CITRUS[slot.item].name.toLowerCase()}.`, { duration: 'medium' }), 400);
+    const expected = catalog[slot.item]?.name || slot.item;
+    setTimeout(() => criticFrom('sidebar', `That's not ${expected.toLowerCase()}.`, { duration: 'medium' }), 400);
     return;
   }
   if (!slot.pref) return;
+  // Dream-based preference
+  if (slot.pref.startsWith('dreamDish:')) {
+    const wanted = slot.pref.split(':')[1];
+    if (item.dreamRevealed && item.dreamDish !== wanted) {
+      setTimeout(() => criticFrom('sidebar', `She said ${wanted.toLowerCase()}...`, { duration: 'medium' }), 400);
+    }
+    return;
+  }
   const val = item.quality[slot.pref];
   if (val !== undefined && item.revealed[slot.pref] && val < 0.4) {
     const prefLabel = QUALS[slot.pref].label.toLowerCase();
@@ -2290,31 +2711,39 @@ function applyUnlock(unlock) {
   // Apply the unlock effect to the game world
   switch (unlock.type) {
     case 'variety':
-      // Add to CITRUS if not already there
-      if (!CITRUS[unlock.key]) {
-        const VARIETY_DEFS = {
-          blood_orange:    { emoji: '\uD83C\uDF4A', name: 'Blood Orange' },
-          meyer_lemon:     { emoji: '\uD83C\uDF4B', name: 'Meyer Lemon' },
-          succulent_lemon: { emoji: '\uD83C\uDF4B', name: 'Succulent Lemon' },
-        };
-        if (VARIETY_DEFS[unlock.key]) {
-          CITRUS[unlock.key] = VARIETY_DEFS[unlock.key];
-          // Rebuild the keys array
-          CITRUS_KEYS.length = 0;
-          CITRUS_KEYS.push(...Object.keys(CITRUS));
+      if (unlock.catalog === 'roots') {
+        // Roots varieties are pre-defined — just flag them as available
+        S.critic.preferences['root_' + unlock.key] = true;
+      } else {
+        // Add to CITRUS if not already there
+        if (!CITRUS[unlock.key]) {
+          const VARIETY_DEFS = {
+            blood_orange:    { emoji: '\uD83C\uDF4A', name: 'Blood Orange' },
+            meyer_lemon:     { emoji: '\uD83C\uDF4B', name: 'Meyer Lemon' },
+            succulent_lemon: { emoji: '\uD83C\uDF4B', name: 'Succulent Lemon' },
+          };
+          if (VARIETY_DEFS[unlock.key]) {
+            CITRUS[unlock.key] = VARIETY_DEFS[unlock.key];
+            // Rebuild the keys array
+            CITRUS_KEYS.length = 0;
+            CITRUS_KEYS.push(...Object.keys(CITRUS));
+          }
         }
       }
       break;
+    case 'tool':
+      S.critic.preferences['tool_' + unlock.key] = true;
+      break;
+    case 'store':
+      S.critic.preferences['store_' + unlock.key] = true;
+      break;
     case 'technique':
-      // Store in critic preferences for now — tools can read this later
       S.critic.preferences[unlock.key] = true;
       break;
     case 'store_note':
-      // Store as a flag — store behavior can read this later
       S.critic.preferences[unlock.key] = true;
       break;
     case 'fad_watch':
-      // Plant a seed — future issues or wife behavior can reference this
       S.critic.preferences[unlock.key] = true;
       break;
   }
@@ -2381,7 +2810,7 @@ function deliverWifeList() {
   document.getElementById('go-shopping-btn').style.display = '';
 
   // Generate wife's list
-  S.wife.list = getWifeList(S.run);
+  S.wife.list = getWifeList(S.run, 'marias');
 
   // Render list lines
   const linesEl = document.getElementById('wife-lines');
@@ -2443,6 +2872,9 @@ function enterChooseStore() {
   container.innerHTML = '';
 
   for (const [key, store] of Object.entries(STORES)) {
+    // Gate locked stores behind magazine unlocks
+    if (key !== 'marias' && !S.critic.preferences['store_' + key]) continue;
+
     const card = document.createElement('div');
     card.className = 'store-card';
     card.innerHTML = `
@@ -2450,9 +2882,81 @@ function enterChooseStore() {
       <div class="store-name">${store.name}</div>
       <div class="store-desc">${store.description}</div>
     `;
-    card.onclick = () => enterShopping(key);
+    card.onclick = () => enterLoadout(key);
     container.appendChild(card);
   }
+}
+
+// ===== PHASE: TOOL LOADOUT =====
+function availableTools() {
+  const tools = ['trampoline', 'calipers', 'blade'];
+  if (S.critic.preferences.tool_apeeler) tools.push('apeeler');
+  return tools;
+}
+
+function enterLoadout(storeKey) {
+  S.pendingStore = storeKey;
+  const tools = availableTools();
+
+  // If only 3 tools available, skip loadout — bring them all
+  if (tools.length <= 3) {
+    S.loadout = tools.slice();
+    enterShopping(storeKey);
+    return;
+  }
+
+  setPhase('loadout');
+
+  const container = document.getElementById('loadout-tools');
+  container.innerHTML = '';
+
+  // Start with all selected
+  const selected = new Set(tools);
+
+  function updateBtn() {
+    const btn = document.getElementById('loadout-go-btn');
+    if (selected.size === 3) {
+      btn.classList.add('ready');
+      btn.disabled = false;
+    } else {
+      btn.classList.remove('ready');
+      btn.disabled = true;
+    }
+  }
+
+  for (const tk of tools) {
+    const card = document.createElement('div');
+    card.className = 'loadout-tool selected';
+    card.dataset.tool = tk;
+    card.innerHTML = `
+      <div class="tool-emoji">${TOOLS[tk].emoji}</div>
+      <div class="tool-name">${TOOLS[tk].name}</div>
+    `;
+    card.onclick = () => {
+      if (selected.has(tk)) {
+        if (selected.size <= 3) return; // can't deselect below 3
+        selected.delete(tk);
+        card.classList.remove('selected');
+        card.classList.add('deselected');
+      } else {
+        selected.add(tk);
+        card.classList.add('selected');
+        card.classList.remove('deselected');
+      }
+      updateBtn();
+    };
+    container.appendChild(card);
+  }
+
+  // Need to deselect one to get to 3
+  updateBtn();
+
+  const goBtn = document.getElementById('loadout-go-btn');
+  goBtn.onclick = () => {
+    if (selected.size !== 3) return;
+    S.loadout = [...selected];
+    enterShopping(S.pendingStore);
+  };
 }
 
 // ===== PHASE: SHOPPING =====
@@ -2463,21 +2967,49 @@ function enterShopping(storeKey) {
   S.basket.ghost = [];
   S.bins = generateBins(storeKey, S.run);
 
+  // Regenerate wife's list for the chosen store (lamp showed marias default)
+  S.wife.list = getWifeList(S.run, storeKey);
+
+  // If loadout wasn't set (e.g. direct call), default to base 3 tools
+  if (!S.loadout || !S.loadout.length) S.loadout = ['trampoline', 'calipers', 'blade'];
+
   // Generate ghost list for this run
   ensureGhostSeed();
-  S.ghost.list = getGhostList(S.run, S.ghost.seed, S.ghost.drift);
+  S.ghost.list = getGhostList(S.run, S.ghost.seed, S.ghost.drift, storeKey);
 
   setPhase('shopping');
   hubMsg('hub:minimize'); // show HUD bar with eject during active play
 
-  document.getElementById('shop-store-tag').textContent = '— ' + STORES[storeKey].name;
+  // Store-specific hub color
+  const storeColors = { marias: { r: 140, g: 170, b: 60 }, terroirs: { r: 120, g: 90, b: 50 } };
+  const sc = storeColors[storeKey] || storeColors.marias;
+  try { window.parent.postMessage({ type: 'hub:color', ...sc }, '*'); } catch(e) {}
+
+  // Set dept name and store tag
+  const store = STORES[storeKey];
+  const deptName = store.catalog === 'roots' ? 'Roots' : 'Citrus';
+  document.getElementById('shop-dept-name').textContent = deptName;
+  document.getElementById('shop-store-tag').textContent = '— ' + store.name;
+
+  // Build tool bench dynamically from loadout
+  const bench = document.getElementById('tool-bench');
+  bench.innerHTML = '';
+  for (const tk of S.loadout) {
+    const tz = document.createElement('div');
+    tz.className = 'tool-zone';
+    tz.dataset.tool = tk;
+    tz.innerHTML = `<div class="tool-emoji">${TOOLS[tk].emoji}</div><div class="tool-name">${TOOLS[tk].name}</div>`;
+    bench.appendChild(tz);
+  }
+  wireToolZones();
 
   renderBins();
   renderListSlots();
   updateDoneBtn();
 
-  // Reset blade tool visual
-  document.querySelector('.tool-zone[data-tool="blade"]').classList.remove('used');
+  // Reset blade tool visual (if blade is in loadout)
+  const bladeEl = document.querySelector('.tool-zone[data-tool="blade"]');
+  if (bladeEl) bladeEl.classList.remove('used');
 
   // Clear any previous ghost timers
   if (S._ghostFadeTimer) clearTimeout(S._ghostFadeTimer);
@@ -2524,20 +3056,27 @@ function renderBins() {
   const area = document.getElementById('bins-area');
   area.innerHTML = '';
 
-  for (const typeKey of CITRUS_KEYS) {
+  const catalog = storeCatalog(S.store);
+  const catKeys = storeCatalogKeys(S.store);
+  const store = STORES[S.store];
+  const isAisles = store?.layout === 'aisles';
+
+  area.classList.toggle('aisle-layout', isAisles);
+
+  for (const typeKey of catKeys) {
     const items = S.bins[typeKey] || [];
-    const ct = CITRUS[typeKey];
-    const bin = document.createElement('div');
-    bin.className = 'bin';
-    bin.dataset.type = typeKey;
+    const ct = catalog[typeKey];
+    const container = document.createElement('div');
+    container.className = isAisles ? 'aisle' : 'bin';
+    container.dataset.type = typeKey;
 
     const label = document.createElement('div');
-    label.className = 'bin-label';
+    label.className = isAisles ? 'aisle-label' : 'bin-label';
     label.textContent = ct.name;
-    bin.appendChild(label);
+    container.appendChild(label);
 
     const itemsDiv = document.createElement('div');
-    itemsDiv.className = 'bin-items';
+    itemsDiv.className = isAisles ? 'aisle-items' : 'bin-items';
 
     if (items.length === 0) {
       const empty = document.createElement('div');
@@ -2565,9 +3104,12 @@ function renderBins() {
       }
     }
 
-    bin.appendChild(itemsDiv);
-    area.appendChild(bin);
+    container.appendChild(itemsDiv);
+    area.appendChild(container);
   }
+
+  // Reset aisle scroll to first aisle
+  if (isAisles) area.scrollLeft = 0;
 }
 
 function renderBadges(item) {
@@ -2578,6 +3120,9 @@ function renderBadges(item) {
       const cls = v >= 0.65 ? 'good' : v >= 0.4 ? 'mid' : 'poor';
       html += `<span class="q-badge ${cls}">${qd.label}</span>`;
     }
+  }
+  if (item.dreamRevealed && item.dreamDish) {
+    html += `<span class="dream-label">Dreams: ${item.dreamDish}</span>`;
   }
   return html;
 }
@@ -2785,12 +3330,14 @@ function triggerTool(toolKey, item) {
 
   emojiEl.textContent = item.emoji;
   resultEl.textContent = '';
+  resultEl.style.fontStyle = '';
   sliceCanvas.style.display = 'none';
   overlay.classList.add('active');
 
   if (toolKey === 'trampoline') animBounce(item);
   else if (toolKey === 'calipers') animSqueeze(item);
   else if (toolKey === 'blade') animSlice(item);
+  else if (toolKey === 'apeeler') animPeel(item);
 }
 
 function closeToolAnim() {
@@ -2981,6 +3528,30 @@ function animSlice(item) {
   }, 200);
 }
 
+function animPeel(item) {
+  const emojiEl = document.getElementById('anim-emoji');
+  const resultEl = document.getElementById('anim-result');
+
+  // Phase 1: slow rotation — peeling
+  emojiEl.style.transition = 'transform 1s ease-in-out';
+  emojiEl.style.transform = 'rotate(360deg) scale(0.92)';
+
+  setTimeout(() => {
+    // Reveal dream
+    item.dreamRevealed = true;
+    const dream = item.dreamDish;
+    if (dream) {
+      resultEl.style.fontStyle = 'italic';
+      resultEl.textContent = `Dreams: ${dream}`;
+    } else {
+      resultEl.style.fontStyle = 'italic';
+      resultEl.textContent = 'No dreams here.';
+    }
+    criticOnTool('apeeler', item, {});
+    setTimeout(closeToolAnim, 1600);
+  }, 1050);
+}
+
 // ===== ALLOCATION =====
 function allocateItem(item, slotIdx) {
   item.allocated = true;
@@ -3030,6 +3601,7 @@ function enterGoingHome() {
   returnBtn.classList.remove('visible');
 
   // Wife examines each item
+  const catalog = storeCatalog(S.store);
   const lines = [];
   let totalScore = 0;
   let totalWeight = 0;
@@ -3038,8 +3610,9 @@ function enterGoingHome() {
 
   S.wife.list.forEach((entry, i) => {
     const item = S.basket.wife[i];
+    const entryName = (catalog[entry.item]?.name || entry.item).toLowerCase();
     if (!item) {
-      lines.push({ text: `No ${CITRUS[entry.item].name.toLowerCase()}? Hm.`, tone: 'disappointed' });
+      lines.push({ text: `No ${entryName}? Hm.`, tone: 'disappointed' });
       totalScore += 0.2 * entry.weight;
       totalWeight += entry.weight;
       return;
@@ -3047,12 +3620,15 @@ function enterGoingHome() {
 
     // Substitution detection
     const isSubstitution = item.type !== entry.item;
-    const expectedName = CITRUS[entry.item].name.toLowerCase();
 
     let score;
-    if (entry.pref && item.quality[entry.pref] !== undefined) {
+    if (entry.pref && entry.pref.startsWith('dreamDish:')) {
+      // Dream-based preference
+      const wanted = entry.pref.split(':')[1];
+      score = item.dreamDish === wanted ? 0.85 : 0.3;
+      if (isSubstitution) score *= 0.85;
+    } else if (entry.pref && item.quality[entry.pref] !== undefined) {
       score = item.quality[entry.pref];
-      // Substitutions carry a small penalty — she notices
       if (isSubstitution) score *= 0.85;
     } else {
       const vals = Object.values(item.quality);
@@ -3071,8 +3647,7 @@ function enterGoingHome() {
     }
 
     if (isSubstitution) {
-      // She notices the substitution first, then reacts to quality
-      const subNote = `I said ${expectedName}. This is ${item.name.toLowerCase() === expectedName ? 'also ' : ''}${item.name.toLowerCase()}.`;
+      const subNote = `I said ${entryName}. This is ${item.name.toLowerCase() === entryName ? 'also ' : ''}${item.name.toLowerCase()}.`;
       if (score >= 0.6) lines.push({ text: `${subNote} ...it's good, though.`, tone: 'neutral' });
       else if (score >= 0.4) lines.push({ text: `${subNote}`, tone: 'neutral' });
       else lines.push({ text: `${subNote} And it's not even a good one.`, tone: 'disappointed' });
@@ -3236,7 +3811,7 @@ function enterGoingHome() {
 function setPhase(phase) {
   S.phase = phase;
   document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
-  const map = { lamp: 'lamp-phase', chooseStore: 'store-phase', shopping: 'shop-phase', goingHome: 'home-phase' };
+  const map = { lamp: 'lamp-phase', chooseStore: 'store-phase', loadout: 'loadout-phase', shopping: 'shop-phase', goingHome: 'home-phase' };
   const el = document.getElementById(map[phase]);
   if (el) el.classList.add('active');
 }
