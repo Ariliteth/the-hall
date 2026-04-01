@@ -1,5 +1,5 @@
 # The Hall — Roadmap
-*Last updated: March 31, 2026*
+*Last updated: April 1, 2026*
 
 ---
 
@@ -27,7 +27,7 @@ Items with clear specs or obvious next steps, ready to build.
 - [x] **Mall: Scraggle response** — Three behaviors: themed item stock (emoji→prefix, color→stat), immediate PA announcement, ambient shiver. ([score card](score-cards/sunset-ridge-mall.md))
 - [ ] **Mall: ambient audio** — Elevator chime, muzak shift, footsteps. (Muzak system exists, effects partially built.)
 - [ ] **Storeroom: persistence** — No save across reloads. Also: new objects after departures. ([score card](score-cards/storeroom.md))
-- [ ] **Taste: next magazine issue** — Potato issue teased in Citrus Issue. ([score card](score-cards/taste.md))
+- [ ] **Taste: universal aisles + aisle language** — Aisles for all stores (snap-based, grouped produce), discerning script, store-influenced descriptions. Remove loadout phase. ([score card](score-cards/taste.md))
 - [ ] **EFDP: configurable layers** — Layer settings (blend mode, press, pin density, decay rate). ([color-pin-maze-next-steps.md](color-pin-maze-next-steps.md))
 
 ## Then
@@ -59,6 +59,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **Taste: Hommes de Terre (Issue 02)** — Potato/Potäto with Dream Dish system, The Apeeler tool, Terroir's Roots store with aisle layout, magazine Issue 02 (6 spreads), catalog abstraction, tool loadout, store gating. ([score card](score-cards/taste.md) | [spec](TASTE_HOMMES_DE_TERRE_SPEC.md))
 - [x] **SILMOR: dice as conversationalists** — Sequential cycling replaces random rolls. Personality-driven reshuffle thresholds, sympathetic neighbor reshuffles, awareness moods (curious/sympathetic/withdrawn/alert), next-face hints. Idle drift: untouched dice daydream by personality voice (still=pragmatic, rock=attentive, bounce=sociable, spin=wandering/foreign). ([score card](score-cards/silmor-spells.md))
 - [x] **Taco Science: DAY phase** — 3 founding researchers (Dr. Lumen/Nudo/Fenn) with personality-driven execution. Staggered layer reveals, deviation logic (withhold/embellish/favor), explosion mechanic producing residue vials, explosion responses, end-of-day summary, day cycling. ([score card](score-cards/taco-science.md))
 - [x] **Taco Science: PREP phase** — Kitchendom research lab. 10 ingredients, 4 vessels, troughs, recipe card authoring, sauce archive with infinite barrels + finite vials (sip/drink/combine), subtractive color mixing, auto-generated sauce names. Bright graph-paper lab aesthetic. ([score card](score-cards/taco-science.md))
