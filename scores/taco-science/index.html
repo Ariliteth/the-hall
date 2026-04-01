@@ -40,7 +40,6 @@
       display: flex;
       flex-direction: column;
       user-select: none;
-      touch-action: none;
     }
 
     /* ── Header ──────────────────────────────────────────── */
@@ -383,17 +382,15 @@
     .stock-code { font-size: 9px; font-weight: bold; letter-spacing: 1px; }
     .stock-swatch { width: 100%; height: 3px; border-radius: 1px; margin-top: 1px; }
 
-    /* ── Drag Ghost ──────────────────────────────────────── */
-    #drag-ghost {
-      position: fixed;
-      display: none;
-      font-size: 36px;
-      pointer-events: none;
-      z-index: 100;
-      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.2));
-      transform: translate(-50%, -50%);
+    /* ── Stock selected state ────────────────────────────── */
+    .stock-item.selected {
+      box-shadow: 0 0 0 2px var(--accent), 0 2px 8px var(--glow);
+      background: rgba(232,112,10,0.08);
     }
-    #drag-ghost.active { display: block; }
+    .trough:not(.filled).ready {
+      box-shadow: 0 0 12px var(--glow), 0 0 0 2px var(--accent);
+      cursor: pointer;
+    }
 
     /* ── Start Day Button ─────────────────────────────────── */
     .btn-start-day {
@@ -667,8 +664,7 @@
 
   </div>
 
-  <!-- Drag ghost -->
-  <div id="drag-ghost"></div>
+
 
 <script>
 /* ================================================================
@@ -805,7 +801,7 @@ const S = {
   currentRecipe: { vessel: 'taco', layers: [], sauce: null },
   sauceArchive: [],
   combineSelection: [],
-  drag: { active: false, code: null, x: 0, y: 0 },
+  selectedStock: null,
   researchers: RESEARCHERS.map(r => ({ ...r, favorites: [...r.favorites], deviationChance: r.deviationChance })),
   dayLog: [],
   dayResults: [],
@@ -875,9 +871,10 @@ function renderTroughs() {
       el.style.cursor = 'pointer';
     } else {
       el.innerHTML = `
-        <span class="trough-empty">+</span>
+        <span class="trough-empty">${S.selectedStock ? ingredientByCode(S.selectedStock).emoji : '+'}</span>
         <span class="trough-material">${t.material}</span>
       `;
+      el.onclick = () => placeInTrough(i);
     }
     row.appendChild(el);
   });
@@ -891,17 +888,24 @@ function renderStock() {
   S.stock.forEach(code => {
     const ing = ingredientByCode(code);
     const el = document.createElement('div');
-    el.className = `stock-item${inTrough.has(code) ? ' in-trough' : ''}`;
+    const isInTrough = inTrough.has(code);
+    const isSelected = S.selectedStock === code;
+    el.className = `stock-item${isInTrough ? ' in-trough' : ''}${isSelected ? ' selected' : ''}`;
     el.dataset.code = code;
     el.innerHTML = `
       <span class="stock-emoji">${ing.emoji}</span>
       <span class="stock-code">${code}</span>
       <div class="stock-swatch" style="background:${rgb(ing.color)}"></div>
     `;
-    if (!inTrough.has(code)) {
-      el.onpointerdown = (e) => startDrag(e, code);
+    if (!isInTrough) {
+      el.onclick = () => selectStock(code);
     }
     row.appendChild(el);
+  });
+
+  // Highlight empty troughs when something is selected
+  document.querySelectorAll('.trough:not(.filled)').forEach(tr => {
+    tr.classList.toggle('ready', S.selectedStock !== null);
   });
 }
 
@@ -1136,64 +1140,27 @@ function updateSubmitButton() {
    Interactions
    ================================================================ */
 
-/* ── Drag ingredient to trough ─────────────────────── */
+/* ── Tap ingredient to select, tap trough to place ──── */
 
-function startDrag(e, code) {
-  e.preventDefault();
-  const ing = ingredientByCode(code);
-  S.drag.active = true;
-  S.drag.code = code;
-
-  const ghost = document.getElementById('drag-ghost');
-  ghost.textContent = ing.emoji;
-  ghost.classList.add('active');
-  ghost.style.left = (e.clientX) + 'px';
-  ghost.style.top = (e.clientY) + 'px';
-
-  const src = document.querySelector(`.stock-item[data-code="${code}"]`);
-  if (src) src.style.opacity = '0.3';
+function selectStock(code) {
+  S.selectedStock = S.selectedStock === code ? null : code;
+  renderStock();
 }
 
-document.addEventListener('pointermove', (e) => {
-  if (!S.drag.active) return;
-  e.preventDefault();
-  const ghost = document.getElementById('drag-ghost');
-  ghost.style.left = e.clientX + 'px';
-  ghost.style.top = e.clientY + 'px';
-
-  document.querySelectorAll('.trough:not(.filled)').forEach(tr => {
-    const r = tr.getBoundingClientRect();
-    const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-    tr.classList.toggle('hover', over);
-  });
-});
-
-document.addEventListener('pointerup', (e) => {
-  if (!S.drag.active) return;
-  S.drag.active = false;
-
-  const ghost = document.getElementById('drag-ghost');
-  ghost.classList.remove('active');
-  document.querySelectorAll('.trough.hover').forEach(tr => tr.classList.remove('hover'));
-
-  let placed = false;
-  document.querySelectorAll('.trough:not(.filled)').forEach(tr => {
-    if (placed) return;
-    const r = tr.getBoundingClientRect();
-    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
-      const slot = parseInt(tr.dataset.slot);
-      S.troughs[slot].ingredient = S.drag.code;
-      placed = true;
-    }
-  });
-
+function placeInTrough(slot) {
+  if (S.selectedStock === null) return;
+  const t = S.troughs[slot];
+  if (t.ingredient) return;
+  t.ingredient = S.selectedStock;
+  S.selectedStock = null;
   renderTroughs();
   renderStock();
-});
+}
 
 /* ── Trough -> Layer ─────────────────────────────────── */
 
 function addLayerFromTrough(slot) {
+  if (S.selectedStock !== null) return;
   const t = S.troughs[slot];
   if (!t.ingredient) return;
   const v = vesselById(S.currentRecipe.vessel);
