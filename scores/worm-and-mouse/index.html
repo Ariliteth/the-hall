@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Worm & Mouse</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --paper:#e8e0cc;--paper-dark:#d8d0bc;--ink:#1a1a18;--mold:#5a6a4a;
+  --mold-light:#7a8a6a;--mold-faint:rgba(90,106,74,0.12);
+  --trace:#3a4a2a;--stamp:#b04030;--brass:#8a7a50;
+  --chip-mouse:#4a6a8a;--chip-worm:#8a5a3a;
+  --log-agent:#2a2a18;--log-int:#5a6a4a;
+  --dim:rgba(26,26,24,0.35);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--paper);touch-action:none;user-select:none;font-family:'Courier New',monospace;color:var(--ink)}
+
+/* ── Layout ── */
+#layout{display:grid;width:100%;height:100%;grid-template-rows:1fr auto auto;grid-template-columns:1fr auto}
+#bp-wrap{position:relative;grid-column:1;grid-row:1;overflow:hidden;min-height:0}
+#bp{display:block;width:100%;height:100%}
+#manifest{grid-column:2;grid-row:1;width:0;overflow:hidden;transition:width 0.25s;background:var(--paper-dark);border-left:1px solid var(--mold-faint)}
+#manifest.open{width:160px;padding:10px 8px}
+#manifest h3{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--mold);margin-bottom:8px}
+.pin-slot{display:flex;align-items:center;gap:6px;padding:5px 6px;margin-bottom:4px;border:1px solid var(--mold-faint);border-radius:3px;cursor:pointer;font-size:11px;transition:background 0.15s}
+.pin-slot:hover{background:var(--mold-faint)}
+.pin-slot.empty{opacity:0.35;cursor:default}
+.pin-emoji{font-size:14px}
+.pin-count{margin-left:auto;font-size:9px;color:var(--mold-light)}
+#manifest-toggle{position:absolute;top:8px;right:8px;z-index:5;width:28px;height:28px;border:1px solid var(--mold-faint);border-radius:3px;background:var(--paper-dark);color:var(--mold);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center}
+
+/* ── Queue strip ── */
+#queue-strip{grid-column:1/-1;grid-row:2;display:flex;gap:8px;padding:6px 10px;border-top:1px solid var(--mold-faint);background:var(--paper-dark);min-height:52px}
+.queue-lane{flex:1;display:flex;align-items:center;gap:4px;overflow-x:auto}
+.queue-lane-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);writing-mode:vertical-lr;transform:rotate(180deg);margin-right:4px;flex-shrink:0}
+.queue-chip{display:inline-flex;flex-direction:column;align-items:center;padding:4px 7px;border-radius:4px;font-size:13px;min-width:32px;transition:opacity 0.2s,transform 0.15s;cursor:pointer;flex-shrink:0}
+.queue-chip:hover{transform:translateY(-1px)}
+.chip-subtag{font-size:7px;letter-spacing:0.5px;opacity:0.7;margin-top:1px}
+.queue-placeholder{font-size:10px;color:var(--dim);font-style:italic}
+
+/* ── Log thread ── */
+#log-thread{grid-column:1/-1;grid-row:3;display:flex;gap:0;border-top:1px solid var(--mold-faint);background:rgba(26,26,24,0.04);height:72px;overflow:hidden}
+#log-agent{flex:1;padding:6px 10px;overflow-y:auto;font-size:11px;color:var(--log-agent);line-height:1.5}
+#log-int{flex:1;padding:6px 10px;overflow-y:auto;font-size:10px;color:var(--log-int);font-family:'Courier New',monospace;text-align:right;opacity:0.7;line-height:1.5}
+.log-line{animation:logIn 0.3s ease}
+@keyframes logIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Sticker palette ── */
+#sticker-palette{position:absolute;bottom:8px;left:8px;z-index:10;display:flex;gap:4px;padding:5px 6px;background:rgba(232,224,204,0.92);border:1px solid var(--mold-faint);border-radius:4px;backdrop-filter:blur(4px)}
+.sticker-btn{display:flex;flex-direction:column;align-items:center;padding:4px 6px;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:14px;transition:border-color 0.15s,background 0.15s;background:none;font-family:inherit}
+.sticker-btn:hover{border-color:var(--mold-light);background:var(--mold-faint)}
+.sticker-btn.selected{border-color:var(--mold);background:rgba(90,106,74,0.18)}
+.sticker-label{font-size:6px;text-transform:uppercase;letter-spacing:0.5px;color:var(--dim);margin-top:2px}
+
+/* ── Drag ghost ── */
+#drag-ghost{position:fixed;z-index:100;pointer-events:none;font-size:22px;opacity:0.85;transform:translate(-50%,-50%) scale(1.1);display:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))}
+
+/* ── Send button ── */
+#send-btn{position:absolute;bottom:8px;right:8px;z-index:10;padding:8px 16px;background:var(--mold);color:var(--paper);border:none;border-radius:3px;font-family:inherit;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity 0.3s}
+#send-btn.visible{opacity:1;pointer-events:auto}
+#send-btn:hover{background:var(--trace)}
+
+/* ── Witness overlay ── */
+#witness-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,transparent 40%,rgba(26,26,24,0.3));cursor:pointer}
+#witness-overlay.active{display:flex}
+#witness-text{color:var(--ink);font-size:13px;text-align:center;max-width:320px;line-height:1.6;padding:20px;background:rgba(232,224,204,0.95);border:1px solid var(--mold-faint);border-radius:4px}
+</style>
+</head>
+<body>
+<div id="layout">
+  <div id="bp-wrap">
+    <canvas id="bp"></canvas>
+    <button id="manifest-toggle">P</button>
+    <div id="sticker-palette"></div>
+    <button id="send-btn">Send Them In</button>
+    <div id="drag-ghost"></div>
+  </div>
+  <div id="manifest"></div>
+  <div id="queue-strip">
+    <div class="queue-lane" id="queue-mouse"><span class="queue-lane-label">MOUSE</span><span class="queue-placeholder">Awaiting dispatch...</span></div>
+    <div class="queue-lane" id="queue-worm"><span class="queue-lane-label">WORM</span><span class="queue-placeholder">Awaiting dispatch...</span></div>
+  </div>
+  <div id="log-thread">
+    <div id="log-agent"></div>
+    <div id="log-int"></div>
+  </div>
+</div>
+<div id="witness-overlay"><div id="witness-text"></div></div>
+
+<script>
+// ===== HUB INTEGRATION =====
+try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
+try { window.parent.postMessage({ type: 'hub:color', r: 90, g: 105, b: 75 }, '*'); } catch(e) {}
+
+// ===== CONSTANTS =====
+const TAU = Math.PI * 2;
+const GRID = { cols: 12, rows: 10 };
+
+const STICKER_TYPES = {
+  OBJECTIVE: { emoji: '\u{1F3AF}', color: '#b04030', label: 'OBJ' },
+  CAUTION:   { emoji: '\u26A0\uFE0F', color: '#c0a020', label: 'CAUT' },
+  WALL:      { emoji: '\u{1F9F1}', color: '#6a5a4a', label: 'WALL' },
+  CLEAR:     { emoji: '\u2705', color: '#4a8a4a', label: 'CLR' },
+  TRUST_ME:  { emoji: '\u{1F91D}', color: '#4a6a8a', label: 'TRST' },
+  CONTACT:   { emoji: '\u{1F4E1}', color: '#7a5a8a', label: 'CNTC' },
+};
+
+const PIN_DEFS = {
+  FILE:  { emoji: '\u{1F4C4}', label: 'File', max: 1 },
+  KEY:   { emoji: '\u{1F511}', label: 'Key', max: 1 },
+  INTEL: { emoji: '\u{1F4CC}', label: 'Intel', max: 2 },
+};
+
+const CHIP_ACTIONS = {
+  MOVE:   { emoji: '\u{1F43E}', color: 'var(--chip-mouse)', label: 'move' },
+  SLIDE:  { emoji: '\u2744\uFE0F', color: '#5a8a7a', label: 'slide' },
+  SEARCH: { emoji: '\u{1F50D}', color: '#6a6a8a', label: 'search' },
+  CLIMB:  { emoji: '\u{1FA9C}', color: '#8a7a5a', label: 'climb' },
+  BURROW: { emoji: '\u{1F4A5}', color: 'var(--chip-worm)', label: 'burrow' },
+  PUSH:   { emoji: '\u{1F4E6}', color: '#7a6a5a', label: 'push' },
+  WAIT:   { emoji: '\u23F8\uFE0F', color: '#888', label: 'wait' },
+  REACT:  { emoji: '\u26A1', color: '#aa6a3a', label: 'react' },
+};
+
+const TILE_TYPES = {
+  metal:    { hardness: 0.8, noise: 0.3 },
+  paper:    { hardness: 0.1, noise: 0.1 },
+  cardboard:{ hardness: 0.2, noise: 0.2 },
+  wood:     { hardness: 0.5, noise: 0.5 },
+  hardware: { hardness: 0.9, noise: 0.7 },
+};
+
+// ===== FLOOR PLANS =====
+// Each floor: rooms (rect zones), doors (connections), entry point
+const CABINETS = [
+  { // Cabinet 1
+    floors: [
+      { // Floor 1
+        rooms: [
+          { x:0,y:0,w:5,h:4, label:'Filing A', tile:'paper' },
+          { x:5,y:0,w:4,h:3, label:'Corridor', tile:'metal' },
+          { x:9,y:0,w:3,h:5, label:'Filing B', tile:'cardboard' },
+          { x:0,y:4,w:5,h:3, label:'Main Hall', tile:'wood' },
+          { x:5,y:3,w:4,h:4, label:'Alcove', tile:'metal' },
+          { x:0,y:7,w:8,h:3, label:'Basement Access', tile:'metal' },
+          { x:8,y:5,w:4,h:5, label:'Storage', tile:'cardboard' },
+        ],
+        doors: [
+          {r1:0,r2:1,col:5,row:1},{r1:1,r2:2,col:9,row:1},
+          {r1:0,r2:3,col:2,row:4},{r1:1,r2:4,col:6,row:3},
+          {r1:2,r2:4,col:9,row:4},{r1:3,r2:5,col:3,row:7},
+          {r1:4,r2:5,col:6,row:7},{r1:4,r2:6,col:9,row:5},
+          {r1:5,r2:6,col:8,row:8},
+        ],
+        entry: { col:4, row:9 },
+        objectives: [{col:2,row:1},{col:10,row:2}],
+        keyPos: {col:10,row:7},
+      },
+      { // Floor 2
+        rooms: [
+          { x:0,y:0,w:6,h:5, label:'Records', tile:'paper' },
+          { x:6,y:0,w:6,h:3, label:'North Wing', tile:'wood' },
+          { x:6,y:3,w:3,h:4, label:'Closet', tile:'cardboard' },
+          { x:9,y:3,w:3,h:4, label:'Server Room', tile:'hardware' },
+          { x:0,y:5,w:6,h:5, label:'Atrium', tile:'metal' },
+          { x:6,y:7,w:6,h:3, label:'South Passage', tile:'metal' },
+        ],
+        doors: [
+          {r1:0,r2:1,col:6,row:1},{r1:0,r2:4,col:3,row:5},
+          {r1:1,r2:2,col:7,row:3},{r1:1,r2:3,col:10,row:3},
+          {r1:2,r2:4,col:6,row:5},{r1:2,r2:5,col:7,row:7},
+          {r1:3,r2:5,col:10,row:7},{r1:4,r2:5,col:6,row:8},
+        ],
+        entry: { col:3, row:9 },
+        objectives: [{col:10,row:4},{col:2,row:2}],
+        keyPos: {col:7,row:5},
+      },
+      { // Floor 3
+        rooms: [
+          { x:0,y:0,w:4,h:4, label:'Vault Ante', tile:'metal' },
+          { x:4,y:0,w:4,h:4, label:'Executive', tile:'wood' },
+          { x:8,y:0,w:4,h:4, label:'Archive', tile:'paper' },
+          { x:0,y:4,w:6,h:3, label:'Gallery', tile:'hardware' },
+          { x:6,y:4,w:6,h:3, label:'Transit', tile:'metal' },
+          { x:0,y:7,w:12,h:3, label:'Grand Hall', tile:'cardboard' },
+        ],
+        doors: [
+          {r1:0,r2:1,col:4,row:2},{r1:1,r2:2,col:8,row:2},
+          {r1:0,r2:3,col:2,row:4},{r1:1,r2:3,col:5,row:4},
+          {r1:2,r2:4,col:9,row:4},{r1:3,r2:5,col:3,row:7},
+          {r1:4,r2:5,col:8,row:7},
+        ],
+        entry: { col:6, row:9 },
+        objectives: [{col:1,row:1},{col:10,row:1}],
+        keyPos: {col:6,row:5},
+      },
+    ],
+  },
+];
+
+// ===== STATE =====
+const S = {
+  phase: 'planning',
+  floor: 0,
+  cabinet: 0,
+  paused: false,
+
+  blueprint: {
+    stickers: [],
+    pins: [],
+    revealed: new Set(),
+  },
+
+  world: {
+    tiles: [],       // [row][col] tile type string
+    gnomes: [],
+    gnomeTick: 0,
+    gnomeTickInterval: 2800,
+  },
+
+  agents: {
+    mouse: {
+      col: 0, row: 0, x: 0, y: 0,
+      targetCol: 0, targetRow: 0, moveT: 1,
+      tickAccum: 0, tickInterval: 1800,
+      queue: [], queueMax: 7,
+      personality: { caution: 0.7, trust: 0.3, thoroughness: 0.9 },
+      visited: new Set(), report: null, active: false,
+    },
+    worm: {
+      col: 0, row: 0, x: 0, y: 0,
+      targetCol: 0, targetRow: 0, moveT: 1,
+      tickAccum: 0, tickInterval: 1300,  // slow, steady, never stops
+      queue: [], queueMax: 3,
+      trail: [],          // [{col, row, age}] — visual fade trail (recent movement)
+      trailMax: 30,
+      body: new Set(),    // cellKey strings — persistent body segments (infrastructure)
+      bodyOrder: [],      // ordered list of body cell keys for drawing connections
+      personality: { caution: 0.2, trust: 0.1, impulsiveness: 0.8 },
+      visited: new Set(), report: null, active: false,
+    },
+  },
+
+  ui: {
+    drag: { active: false, type: null, x: 0, y: 0 },
+    selectedSticker: null,
+    holdStart: 0, holdTimer: null,
+    dpr: 1, w: 0, h: 0,
+    gridPx: 0, gridOx: 0, gridOy: 0,
+    canvasRect: null,
+    grainSeed: Math.random() * 1000,
+  },
+
+  run: {
+    trust: 0,
+    manifestSlots: { FILE: 1, KEY: 1, INTEL: 2 },
+    pinsPlaced: { FILE: 0, KEY: 0, INTEL: 0 },
+    floorsCleared: 0,
+  },
+
+  log: { agent: [], int: [] },
+};
+
+// ===== PERSISTENCE =====
+const SAVE_KEY = 'worm-and-mouse';
+function save() {
+  localStorage.setItem(`${SAVE_KEY}/trust`, JSON.stringify(S.run.trust));
+}
+function load() {
+  const t = localStorage.getItem(`${SAVE_KEY}/trust`);
+  if (t !== null) S.run.trust = JSON.parse(t);
+}
+load();
+
+// ===== CANVAS SETUP =====
+const canvas = document.getElementById('bp');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  const wrap = document.getElementById('bp-wrap');
+  const r = wrap.getBoundingClientRect();
+  S.ui.dpr = window.devicePixelRatio || 1;
+  S.ui.w = r.width;
+  S.ui.h = r.height;
+  canvas.width = r.width * S.ui.dpr;
+  canvas.height = r.height * S.ui.dpr;
+  canvas.style.width = r.width + 'px';
+  canvas.style.height = r.height + 'px';
+  ctx.setTransform(S.ui.dpr, 0, 0, S.ui.dpr, 0, 0);
+
+  // Compute grid geometry
+  const margin = 16;
+  const availW = S.ui.w - margin * 2;
+  const availH = S.ui.h - margin * 2;
+  S.ui.gridPx = Math.floor(Math.min(availW / GRID.cols, availH / GRID.rows));
+  S.ui.gridOx = Math.floor((S.ui.w - S.ui.gridPx * GRID.cols) / 2);
+  S.ui.gridOy = Math.floor((S.ui.h - S.ui.gridPx * GRID.rows) / 2);
+  S.ui.canvasRect = canvas.getBoundingClientRect();
+}
+window.addEventListener('resize', () => { resize(); });
+resize();
+
+// ===== HELPERS =====
+function gridToCanvas(col, row) {
+  return {
+    x: S.ui.gridOx + col * S.ui.gridPx,
+    y: S.ui.gridOy + row * S.ui.gridPx,
+  };
+}
+function canvasToGrid(cx, cy) {
+  const col = Math.floor((cx - S.ui.gridOx) / S.ui.gridPx);
+  const row = Math.floor((cy - S.ui.gridOy) / S.ui.gridPx);
+  if (col < 0 || col >= GRID.cols || row < 0 || row >= GRID.rows) return null;
+  return { col, row };
+}
+function pointerToCanvas(e) {
+  const r = S.ui.canvasRect || canvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function currentFloor() {
+  return CABINETS[S.cabinet].floors[S.floor];
+}
+function roomAt(col, row) {
+  const fl = currentFloor();
+  for (const rm of fl.rooms) {
+    if (col >= rm.x && col < rm.x + rm.w && row >= rm.y && row < rm.y + rm.h) return rm;
+  }
+  return null;
+}
+function isDoor(col, row) {
+  const fl = currentFloor();
+  return fl.doors.some(d => d.col === col && d.row === row);
+}
+function isWalkable(col, row) {
+  if (col < 0 || col >= GRID.cols || row < 0 || row >= GRID.rows) return false;
+  return roomAt(col, row) !== null || isDoor(col, row);
+}
+function cellKey(col, row) { return col + ',' + row; }
+
+// Seeded random for grain
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const grainRng = mulberry32(42);
+
+// ===== WORLD GENERATION =====
+function generateWorld() {
+  const fl = currentFloor();
+  S.world.tiles = [];
+  for (let r = 0; r < GRID.rows; r++) {
+    S.world.tiles[r] = [];
+    for (let c = 0; c < GRID.cols; c++) {
+      const rm = roomAt(c, r);
+      if (rm) {
+        // Dominant tile with 20% chance of variant
+        if (Math.random() < 0.2) {
+          const types = Object.keys(TILE_TYPES).filter(t => t !== rm.tile);
+          S.world.tiles[r][c] = types[Math.floor(Math.random() * types.length)];
+        } else {
+          S.world.tiles[r][c] = rm.tile;
+        }
+      } else {
+        S.world.tiles[r][c] = null;
+      }
+    }
+  }
+
+  // Spawn 2-3 gnomes at edges
+  S.world.gnomes = [];
+  const edges = ['top', 'bottom', 'left', 'right'];
+  const gnomeCount = 2 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < gnomeCount; i++) {
+    const edge = edges[Math.floor(Math.random() * edges.length)];
+    let gc, gr;
+    if (edge === 'top')    { gc = Math.floor(Math.random() * GRID.cols); gr = 0; }
+    if (edge === 'bottom') { gc = Math.floor(Math.random() * GRID.cols); gr = GRID.rows - 1; }
+    if (edge === 'left')   { gc = 0; gr = Math.floor(Math.random() * GRID.rows); }
+    if (edge === 'right')  { gc = GRID.cols - 1; gr = Math.floor(Math.random() * GRID.rows); }
+    S.world.gnomes.push({
+      col: gc, row: gr, presence: 0, edgeDir: edge,
+      tickPhase: Math.random() * TAU, driftT: 0, alerted: false,
+      trapping: null, trapTicks: 0,
+      _bodyBumped: false, _onBody: false, _witnessed: false,
+    });
+  }
+}
+
+// ===== DRAWING =====
+function drawBlueprint() {
+  const w = S.ui.w, h = S.ui.h;
+  const gx = S.ui.gridOx, gy = S.ui.gridOy, gp = S.ui.gridPx;
+
+  // Paper background
+  ctx.fillStyle = '#e8e0cc';
+  ctx.fillRect(0, 0, w, h);
+
+  // Paper grain
+  const rng = mulberry32(42);
+  ctx.globalAlpha = 0.04;
+  for (let i = 0; i < 600; i++) {
+    const px = rng() * w, py = rng() * h;
+    const s = rng() * 2 + 0.5;
+    ctx.fillStyle = rng() > 0.5 ? '#8a7a60' : '#6a6a5a';
+    ctx.fillRect(px, py, s, s);
+  }
+  ctx.globalAlpha = 1;
+
+  // Grid lines (mimeograph: slight opacity variation)
+  const lineRng = mulberry32(77);
+  ctx.lineWidth = 0.5;
+  for (let c = 0; c <= GRID.cols; c++) {
+    ctx.strokeStyle = `rgba(90,106,74,${0.08 + lineRng() * 0.06})`;
+    ctx.beginPath();
+    ctx.moveTo(gx + c * gp, gy);
+    ctx.lineTo(gx + c * gp, gy + GRID.rows * gp);
+    ctx.stroke();
+  }
+  for (let r = 0; r <= GRID.rows; r++) {
+    ctx.strokeStyle = `rgba(90,106,74,${0.08 + lineRng() * 0.06})`;
+    ctx.beginPath();
+    ctx.moveTo(gx, gy + r * gp);
+    ctx.lineTo(gx + GRID.cols * gp, gy + r * gp);
+    ctx.stroke();
+  }
+
+  // Room fills (very faint zone indication)
+  const fl = currentFloor();
+  for (const rm of fl.rooms) {
+    ctx.fillStyle = 'rgba(90,106,74,0.03)';
+    ctx.fillRect(gx + rm.x * gp + 1, gy + rm.y * gp + 1, rm.w * gp - 2, rm.h * gp - 2);
+
+    // Room label
+    ctx.fillStyle = 'rgba(90,106,74,0.2)';
+    ctx.font = `${Math.max(8, gp * 0.22)}px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(rm.label, gx + (rm.x + rm.w / 2) * gp, gy + (rm.y + rm.h / 2) * gp);
+  }
+
+  // Room outlines (thick ink, slight variation)
+  const wallRng = mulberry32(33);
+  ctx.strokeStyle = '#1a1a18';
+  for (const rm of fl.rooms) {
+    ctx.lineWidth = 1.5 + wallRng() * 0.8;
+    ctx.strokeRect(gx + rm.x * gp, gy + rm.y * gp, rm.w * gp, rm.h * gp);
+  }
+
+  // Doors (gaps in walls)
+  for (const d of fl.doors) {
+    const dx = gx + d.col * gp;
+    const dy = gy + d.row * gp;
+    ctx.fillStyle = '#e8e0cc';
+    // Determine door orientation by checking if it's on a horizontal or vertical wall
+    const doorSize = gp * 0.6;
+    const doorOffset = (gp - doorSize) / 2;
+    // Clear a section of wall and draw door marks
+    ctx.fillRect(dx + doorOffset, dy - 2, doorSize, 5);
+    ctx.fillRect(dx - 2, dy + doorOffset, 5, doorSize);
+    // Door tick marks
+    ctx.strokeStyle = 'rgba(90,106,74,0.4)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(dx + doorOffset, dy - 1);
+    ctx.lineTo(dx + doorOffset, dy + 2);
+    ctx.moveTo(dx + doorOffset + doorSize, dy - 1);
+    ctx.lineTo(dx + doorOffset + doorSize, dy + 2);
+    ctx.moveTo(dx - 1, dy + doorOffset);
+    ctx.lineTo(dx + 2, dy + doorOffset);
+    ctx.moveTo(dx - 1, dy + doorOffset + doorSize);
+    ctx.lineTo(dx + 2, dy + doorOffset + doorSize);
+    ctx.stroke();
+  }
+
+  // Entry marker
+  const en = fl.entry;
+  ctx.fillStyle = 'rgba(90,106,74,0.3)';
+  ctx.beginPath();
+  const ecx = gx + (en.col + 0.5) * gp;
+  const ecy = gy + (en.row + 0.5) * gp;
+  ctx.moveTo(ecx, ecy - gp * 0.25);
+  ctx.lineTo(ecx + gp * 0.2, ecy + gp * 0.15);
+  ctx.lineTo(ecx - gp * 0.2, ecy + gp * 0.15);
+  ctx.fill();
+  ctx.font = `${Math.max(7, gp * 0.18)}px 'Courier New', monospace`;
+  ctx.fillStyle = 'rgba(90,106,74,0.4)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('ENTRY', ecx, ecy + gp * 0.2);
+
+  // Revealed tiles
+  for (const key of S.blueprint.revealed) {
+    const [c, r] = key.split(',').map(Number);
+    const tile = S.world.tiles[r] && S.world.tiles[r][c];
+    if (!tile) continue;
+    drawTilePattern(c, r, tile);
+  }
+
+  // Placed stickers
+  for (const st of S.blueprint.stickers) {
+    drawSticker(st);
+  }
+
+  // Placed pins
+  for (const pin of S.blueprint.pins) {
+    drawPin(pin);
+  }
+}
+
+function drawTilePattern(col, row, tile) {
+  const gx = S.ui.gridOx, gy = S.ui.gridOy, gp = S.ui.gridPx;
+  const x = gx + col * gp, y = gy + row * gp;
+  const pad = 2;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x + pad, y + pad, gp - pad * 2, gp - pad * 2);
+  ctx.clip();
+  ctx.globalAlpha = 0.15;
+  ctx.strokeStyle = '#3a4a2a';
+  ctx.lineWidth = 0.5;
+
+  if (tile === 'metal') {
+    // Diagonal hatching
+    for (let i = -gp; i < gp * 2; i += 4) {
+      ctx.beginPath();
+      ctx.moveTo(x + i, y);
+      ctx.lineTo(x + i + gp, y + gp);
+      ctx.stroke();
+    }
+  } else if (tile === 'paper') {
+    // Horizontal fine lines
+    for (let i = 3; i < gp; i += 3) {
+      ctx.beginPath();
+      ctx.moveTo(x + pad, y + i);
+      ctx.lineTo(x + gp - pad, y + i);
+      ctx.stroke();
+    }
+  } else if (tile === 'cardboard') {
+    // Crosshatch
+    for (let i = -gp; i < gp * 2; i += 5) {
+      ctx.beginPath();
+      ctx.moveTo(x + i, y); ctx.lineTo(x + i + gp, y + gp);
+      ctx.moveTo(x + i + gp, y); ctx.lineTo(x + i, y + gp);
+      ctx.stroke();
+    }
+  } else if (tile === 'wood') {
+    // Curved grain
+    for (let i = 3; i < gp; i += 4) {
+      ctx.beginPath();
+      ctx.moveTo(x + pad, y + i);
+      ctx.quadraticCurveTo(x + gp / 2, y + i + 2, x + gp - pad, y + i);
+      ctx.stroke();
+    }
+  } else if (tile === 'hardware') {
+    // Dot grid
+    for (let i = 3; i < gp; i += 4) {
+      for (let j = 3; j < gp; j += 4) {
+        ctx.fillStyle = '#3a4a2a';
+        ctx.fillRect(x + i, y + j, 1, 1);
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawSticker(st) {
+  const gx = S.ui.gridOx, gy = S.ui.gridOy, gp = S.ui.gridPx;
+  const def = STICKER_TYPES[st.type];
+  if (!def) return;
+  const cx = gx + (st.col + 0.5) * gp;
+  const cy = gy + (st.row + 0.5) * gp;
+
+  // Developing animation (gnomaction cost visual)
+  let alpha = st.resolved ? 0.85 : Math.min(0.85, st.gnomactionT / 800);
+
+  // Confidence ring
+  ctx.globalAlpha = alpha * 0.3;
+  ctx.strokeStyle = def.color;
+  ctx.lineWidth = st.confidence === 'held' ? 2.5 : 1;
+  if (st.confidence === 'held') {
+    ctx.beginPath();
+    ctx.arc(cx, cy, gp * 0.35, 0, TAU);
+    ctx.stroke();
+  } else {
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, gp * 0.35, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Emoji
+  ctx.globalAlpha = alpha;
+  ctx.font = `${gp * 0.45}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(def.emoji, cx, cy);
+  ctx.globalAlpha = 1;
+}
+
+function drawPin(pin) {
+  const gx = S.ui.gridOx, gy = S.ui.gridOy, gp = S.ui.gridPx;
+  const def = PIN_DEFS[pin.type];
+  if (!def) return;
+  const cx = gx + (pin.col + 0.5) * gp;
+  const cy = gy + (pin.row + 0.5) * gp;
+
+  // Pin dot
+  ctx.fillStyle = '#b04030';
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  ctx.arc(cx, cy - gp * 0.1, 3, 0, TAU);
+  ctx.fill();
+
+  // Pin emoji
+  ctx.globalAlpha = 0.8;
+  ctx.font = `${gp * 0.3}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(def.emoji, cx, cy + gp * 0.1);
+  ctx.globalAlpha = 1;
+}
+
+// ===== LIVE SIGNAL (agents + gnomes) =====
+function drawLiveSignal() {
+  if (S.phase !== 'active') return;
+  const gx = S.ui.gridOx, gy = S.ui.gridOy, gp = S.ui.gridPx;
+  const mouse = S.agents.mouse;
+  const worm = S.agents.worm;
+
+  // Worm persistent body (infrastructure)
+  if (worm.bodyOrder.length > 1) {
+    // Draw body connections as steady lines
+    ctx.strokeStyle = 'rgba(138,90,58,0.25)';
+    ctx.lineWidth = gp * 0.12;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    const b0 = worm.bodyOrder[0].split(',').map(Number);
+    ctx.moveTo(gx + (b0[0] + 0.5) * gp, gy + (b0[1] + 0.5) * gp);
+    for (let i = 1; i < worm.bodyOrder.length; i++) {
+      const b = worm.bodyOrder[i].split(',').map(Number);
+      ctx.lineTo(gx + (b[0] + 0.5) * gp, gy + (b[1] + 0.5) * gp);
+    }
+    ctx.stroke();
+
+    // Draw body segment dots (tripwire nodes)
+    for (const key of worm.body) {
+      const [c, r] = key.split(',').map(Number);
+      const cx = gx + (c + 0.5) * gp;
+      const cy = gy + (r + 0.5) * gp;
+      // Tripwire active indicator
+      ctx.fillStyle = 'rgba(138,90,58,0.2)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, gp * 0.08, 0, TAU);
+      ctx.fill();
+      // Small cross mark for tripwire
+      ctx.strokeStyle = 'rgba(138,90,58,0.3)';
+      ctx.lineWidth = 0.8;
+      const s = gp * 0.06;
+      ctx.beginPath();
+      ctx.moveTo(cx - s, cy - s); ctx.lineTo(cx + s, cy + s);
+      ctx.moveTo(cx + s, cy - s); ctx.lineTo(cx - s, cy + s);
+      ctx.stroke();
+    }
+  }
+
+  // Worm recent movement trail (fading, shows direction of travel)
+  if (worm.trail.length > 1) {
+    for (let i = 1; i < worm.trail.length; i++) {
+      const t0 = worm.trail[i - 1], t1 = worm.trail[i];
+      const age0 = Math.min(1, t0.age / 3000);
+      const age1 = Math.min(1, t1.age / 3000);
+      const alpha = 1 - (age0 + age1) / 2;
+      const width = gp * 0.14 * (1 - (age0 + age1) / 2) + 1;
+      if (alpha <= 0) continue;
+      ctx.strokeStyle = `rgba(138,90,58,${alpha * 0.5})`;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(gx + (t0.col + 0.5) * gp, gy + (t0.row + 0.5) * gp);
+      ctx.lineTo(gx + (t1.col + 0.5) * gp, gy + (t1.row + 0.5) * gp);
+      ctx.stroke();
+    }
+  }
+
+  // Worm head (larger than before — the front of a growing body)
+  if (worm.active) {
+    ctx.fillStyle = '#8a5a3a';
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(worm.x, worm.y, gp * 0.16, 0, TAU);
+    ctx.fill();
+    // Inner dot
+    ctx.fillStyle = '#6a3a1a';
+    ctx.beginPath();
+    ctx.arc(worm.x, worm.y, gp * 0.06, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Mouse blip
+  if (mouse.active) {
+    ctx.fillStyle = '#4a6a8a';
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(mouse.x, mouse.y, gp * 0.12, 0, TAU);
+    ctx.fill();
+
+    // Trapped indicator
+    if (mouse._trapped) {
+      ctx.strokeStyle = 'rgba(180,80,40,0.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, gp * 0.2, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // Pulse ring on recent queue change
+    if (mouse._pulseT && mouse._pulseT > 0) {
+      const pr = gp * 0.3 * (1 - mouse._pulseT / 600);
+      ctx.strokeStyle = `rgba(74,106,138,${mouse._pulseT / 600 * 0.5})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, pr, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Gnome edge disturbances
+  for (const g of S.world.gnomes) {
+    drawGnomeDisturbance(g);
+  }
+}
+
+function drawGnomeDisturbance(g) {
+  const gx = S.ui.gridOx, gy = S.ui.gridOy, gp = S.ui.gridPx;
+  if (g.presence <= 0) return;
+  const cx = gx + (g.col + 0.5) * gp;
+  const cy = gy + (g.row + 0.5) * gp;
+
+  if (g.presence < 0.5) {
+    // Edge disturbance: smear/static
+    ctx.globalAlpha = g.presence * 0.5;
+    const rng = mulberry32(Math.floor(g.col * 13 + g.row * 7 + g.driftT));
+    for (let i = 0; i < 6; i++) {
+      const ox = (rng() - 0.5) * gp * 0.6;
+      const oy = (rng() - 0.5) * gp * 0.6;
+      ctx.fillStyle = `rgba(90,106,74,${0.3 + rng() * 0.3})`;
+      ctx.fillRect(cx + ox, cy + oy, rng() * 3 + 1, rng() * 2 + 0.5);
+    }
+    ctx.globalAlpha = 1;
+  } else {
+    // Resolved gnome glyph
+    ctx.globalAlpha = Math.min(1, (g.presence - 0.5) * 2) * 0.6;
+    const wobble = Math.sin(g.tickPhase) * 1.5;
+    ctx.font = `${gp * 0.35}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u{1F9CC}', cx + wobble, cy);
+
+    // Conversation indicator
+    if (g.trapping) {
+      ctx.globalAlpha = 0.5;
+      ctx.font = `${gp * 0.18}px 'Courier New', monospace`;
+      ctx.fillStyle = 'var(--ink)';
+      // Speech dots that animate
+      const dots = '.'.repeat(1 + Math.floor(g.tickPhase * 2) % 3);
+      ctx.fillText(dots, cx + gp * 0.25, cy - gp * 0.25);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ===== STICKER PALETTE =====
+function buildPalette() {
+  const pal = document.getElementById('sticker-palette');
+  pal.innerHTML = '';
+  for (const [key, def] of Object.entries(STICKER_TYPES)) {
+    const btn = document.createElement('button');
+    btn.className = 'sticker-btn';
+    btn.dataset.type = key;
+    btn.innerHTML = `<span>${def.emoji}</span><span class="sticker-label">${def.label}</span>`;
+    btn.addEventListener('pointerdown', onPaletteDown);
+    pal.appendChild(btn);
+  }
+}
+
+function onPaletteDown(e) {
+  e.preventDefault();
+  const type = e.currentTarget.dataset.type;
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+  if (isMobile) {
+    // Mobile: tap-to-select
+    if (S.ui.selectedSticker === type) {
+      S.ui.selectedSticker = null;
+      document.querySelectorAll('.sticker-btn').forEach(b => b.classList.remove('selected'));
+    } else {
+      S.ui.selectedSticker = type;
+      document.querySelectorAll('.sticker-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.type === type);
+      });
+    }
+    return;
+  }
+
+  // Desktop: drag
+  S.ui.drag = { active: true, type, x: e.clientX, y: e.clientY };
+  S.ui.holdStart = performance.now();
+  const ghost = document.getElementById('drag-ghost');
+  ghost.textContent = STICKER_TYPES[type].emoji;
+  ghost.style.display = 'block';
+  ghost.style.left = e.clientX + 'px';
+  ghost.style.top = e.clientY + 'px';
+
+  const onMove = (ev) => {
+    ghost.style.left = ev.clientX + 'px';
+    ghost.style.top = ev.clientY + 'px';
+    S.ui.drag.x = ev.clientX;
+    S.ui.drag.y = ev.clientY;
+  };
+  const onUp = (ev) => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    ghost.style.display = 'none';
+
+    const holdDuration = performance.now() - S.ui.holdStart;
+    const confidence = holdDuration > 300 ? 'held' : 'quick';
+
+    const pt = pointerToCanvas(ev);
+    const cell = canvasToGrid(pt.x, pt.y);
+    if (cell && roomAt(cell.col, cell.row)) {
+      placeSticker(S.ui.drag.type, cell.col, cell.row, confidence);
+    }
+    S.ui.drag.active = false;
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
+// Canvas click for mobile placement
+canvas.addEventListener('pointerdown', (e) => {
+  if (S.ui.drag.active) return;
+  S.ui.holdStart = performance.now();
+});
+canvas.addEventListener('pointerup', (e) => {
+  if (S.ui.drag.active) return;
+  const pt = pointerToCanvas(e);
+  const cell = canvasToGrid(pt.x, pt.y);
+  if (!cell) return;
+
+  // Mobile sticker placement
+  if (S.ui.selectedSticker && S.phase === 'planning') {
+    const holdDuration = performance.now() - S.ui.holdStart;
+    const confidence = holdDuration > 300 ? 'held' : 'quick';
+    if (roomAt(cell.col, cell.row)) {
+      placeSticker(S.ui.selectedSticker, cell.col, cell.row, confidence);
+      S.ui.selectedSticker = null;
+      document.querySelectorAll('.sticker-btn').forEach(b => b.classList.remove('selected'));
+    }
+    return;
+  }
+
+  // Mobile pin placement
+  if (S.ui.selectedPin && S.phase === 'planning') {
+    if (roomAt(cell.col, cell.row)) {
+      placePin(S.ui.selectedPin, cell.col, cell.row);
+      S.ui.selectedPin = null;
+      buildManifest();
+    }
+    return;
+  }
+
+  // Tap existing sticker to remove (planning only)
+  if (S.phase === 'planning') {
+    const idx = S.blueprint.stickers.findIndex(st =>
+      st.col === cell.col && st.row === cell.row
+    );
+    if (idx >= 0) {
+      S.blueprint.stickers.splice(idx, 1);
+      updateSendButton();
+      return;
+    }
+    // Tap existing pin to pick it up
+    const pidx = S.blueprint.pins.findIndex(p =>
+      p.col === cell.col && p.row === cell.row
+    );
+    if (pidx >= 0) {
+      const pin = S.blueprint.pins.splice(pidx, 1)[0];
+      S.run.pinsPlaced[pin.type]--;
+      buildManifest();
+      return;
+    }
+  }
+
+  // Active phase: tap chip interaction handled elsewhere
+});
+
+function placeSticker(type, col, row, confidence) {
+  // Remove existing sticker at same position
+  S.blueprint.stickers = S.blueprint.stickers.filter(st =>
+    !(st.col === col && st.row === row)
+  );
+  S.blueprint.stickers.push({
+    type, col, row, confidence,
+    gnomactionT: 0,
+    resolved: S.phase === 'planning', // instant during planning, delayed during active
+  });
+
+  // Gnomaction: during active phase, gnome tick fires before sticker resolves
+  if (S.phase === 'active') {
+    gnomeTick();
+    logInt(`STICKER PLACED: ${STICKER_TYPES[type].label} @ (${col},${row}) ${confidence === 'held' ? '[CONFIDENT]' : '[approximate]'}`);
+  }
+
+  updateSendButton();
+}
+
+function placePin(type, col, row) {
+  S.blueprint.pins.push({ type, col, row, id: Date.now() });
+  S.run.pinsPlaced[type]++;
+}
+
+// ===== MANIFEST =====
+function buildManifest() {
+  const el = document.getElementById('manifest');
+  el.innerHTML = '<h3>Manifest</h3>';
+  for (const [key, def] of Object.entries(PIN_DEFS)) {
+    const remaining = (S.run.manifestSlots[key] || 0) - (S.run.pinsPlaced[key] || 0);
+    const slot = document.createElement('div');
+    slot.className = 'pin-slot' + (remaining <= 0 ? ' empty' : '');
+    slot.innerHTML = `<span class="pin-emoji">${def.emoji}</span><span>${def.label}</span><span class="pin-count">${remaining > 0 ? 'x' + remaining : '-'}</span>`;
+    if (remaining > 0) {
+      slot.addEventListener('pointerdown', () => {
+        S.ui.selectedPin = key;
+        document.querySelectorAll('.pin-slot').forEach(s => s.style.borderColor = '');
+        slot.style.borderColor = 'var(--mold)';
+      });
+    }
+    el.appendChild(slot);
+  }
+}
+
+document.getElementById('manifest-toggle').addEventListener('click', () => {
+  document.getElementById('manifest').classList.toggle('open');
+});
+
+// ===== SEND BUTTON =====
+function updateSendButton() {
+  const btn = document.getElementById('send-btn');
+  btn.classList.toggle('visible', S.blueprint.stickers.length > 0 && S.phase === 'planning');
+}
+
+document.getElementById('send-btn').addEventListener('click', () => {
+  if (S.phase !== 'planning') return;
+  startActivePhase();
+});
+
+// ===== LOG =====
+function logAgent(text) {
+  S.log.agent.push(text);
+  const el = document.getElementById('log-agent');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.textContent = text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+  // Trim old lines
+  while (el.children.length > 20) el.removeChild(el.firstChild);
+}
+
+function logInt(text) {
+  S.log.int.push(text);
+  const el = document.getElementById('log-int');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.textContent = text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > 20) el.removeChild(el.firstChild);
+}
+
+function clearLog() {
+  S.log.agent = [];
+  S.log.int = [];
+  document.getElementById('log-agent').innerHTML = '';
+  document.getElementById('log-int').innerHTML = '';
+}
+
+// ===== AGENT AI =====
+function neighbors(col, row) {
+  return [
+    { col: col - 1, row }, { col: col + 1, row },
+    { col, row: row - 1 }, { col, row: row + 1 },
+  ].filter(n => isWalkable(n.col, n.row));
+}
+
+function stickerWeight(col, row, agent, agentKey) {
+  let w = 0;
+  const range = agentKey === 'mouse' ? 5 : 2;
+  for (const st of S.blueprint.stickers) {
+    if (!st.resolved && S.phase === 'active') continue;
+    const dist = Math.abs(st.col - col) + Math.abs(st.row - row);
+    const confMult = st.confidence === 'held' ? 1.5 : 1;
+
+    switch (st.type) {
+      case 'OBJECTIVE': {
+        const objKey = cellKey(st.col, st.row);
+        if (!agent.visited.has(objKey)) {
+          // Strong local pull when nearby
+          if (dist <= range) w += (range - dist + 2) * 3 * confMult;
+          // Global compass: long-range pull toward unvisited objectives
+          const fromAgent = Math.abs(st.col - agent.col) + Math.abs(st.row - agent.row);
+          const fromCell = dist;
+          if (fromCell < fromAgent) w += 6 * confMult;
+          else if (fromCell > fromAgent) w -= 1;
+          w += Math.max(0, 10 - fromCell * 0.3) * confMult;
+        }
+        // No pull toward already-visited objectives
+        break;
+      }
+      case 'CAUTION':
+        if (dist <= range) w -= (range - dist + 1) * 2 * agent.personality.caution * confMult;
+        break;
+      case 'WALL': if (dist === 0) w -= 100; break;
+      case 'CLEAR':
+        if (dist <= range) w += (range - dist + 1) * confMult;
+        break;
+      case 'TRUST_ME':
+        if (dist <= 1) w += (S.run.trust + agent.personality.trust) * 3 * confMult;
+        break;
+      case 'CONTACT':
+        if (dist === 0) w += 1;
+        break;
+    }
+  }
+  return w;
+}
+
+function agentThink(agent, agentKey) {
+  const nbrs = neighbors(agent.col, agent.row);
+  if (nbrs.length === 0) return;
+
+  // Score each neighbor
+  const scored = nbrs.map(n => {
+    let score = 1; // base
+    // Strongly prefer unvisited cells
+    if (!agent.visited.has(cellKey(n.col, n.row))) score += 8;
+    else score -= 3; // penalize re-exploring
+    // Sticker influence
+    score += stickerWeight(n.col, n.row, agent, agentKey);
+    // Avoid going backward
+    if (agent.queue.length > 0) {
+      const last = agent.queue[agent.queue.length - 1];
+      if (last && last.col === n.col && last.row === n.row) score -= 1;
+    }
+    return { ...n, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Build queue based on personality
+  agent.queue = [];
+  if (agentKey === 'mouse') {
+    // Mouse: plan ahead, pick best path greedily
+    let cur = { col: agent.col, row: agent.row };
+    const planned = new Set([cellKey(cur.col, cur.row)]);
+    for (let i = 0; i < agent.queueMax; i++) {
+      const candidates = neighbors(cur.col, cur.row)
+        .filter(n => !planned.has(cellKey(n.col, n.row)))
+        .map(n => ({
+          ...n,
+          score: 1
+            + (!agent.visited.has(cellKey(n.col, n.row)) ? 8 : -3)
+            + stickerWeight(n.col, n.row, agent, agentKey)
+        }))
+        .sort((a, b) => b.score - a.score);
+
+      if (candidates.length === 0) break;
+      const pick = candidates[0];
+      const tile = S.world.tiles[pick.row] && S.world.tiles[pick.row][pick.col];
+      let action = 'MOVE';
+      let subtag = pick.score > 4 ? 'target' : 'scan';
+      if (tile === 'metal') { action = 'SLIDE'; subtag = 'metal'; }
+      else if (tile === 'hardware') { action = 'CLIMB'; subtag = 'gear'; }
+      else if (tile === 'cardboard') { action = 'PUSH'; subtag = 'box'; }
+
+      agent.queue.push({
+        action, col: pick.col, row: pick.row,
+        emoji: CHIP_ACTIONS[action].emoji,
+        subtag,
+        color: CHIP_ACTIONS[action].color,
+      });
+      planned.add(cellKey(pick.col, pick.row));
+      cur = pick;
+    }
+  } else {
+    // Worm: impulsive, short queue, semi-random from top options
+    const top = scored.slice(0, Math.min(3, scored.length));
+    const count = 1 + Math.floor(Math.random() * agent.queueMax);
+    let cur = { col: agent.col, row: agent.row };
+    for (let i = 0; i < count; i++) {
+      let pick;
+      if (i === 0) {
+        // First move: weighted random from top
+        const r = Math.random();
+        pick = r < 0.5 ? top[0] : top[Math.floor(Math.random() * top.length)];
+      } else {
+        const nxt = neighbors(cur.col, cur.row);
+        pick = nxt[Math.floor(Math.random() * nxt.length)];
+      }
+      if (!pick) break;
+
+      const tile = S.world.tiles[pick.row] && S.world.tiles[pick.row][pick.col];
+      let action = 'BURROW';
+      let subtag = '';
+      if (tile === 'paper') { action = 'BURROW'; subtag = 'tear'; }
+      else if (tile === 'metal') { action = 'BURROW'; subtag = 'fast'; }
+      else if (tile === 'wood') { action = 'BURROW'; subtag = 'loud'; }
+      else { subtag = 'dig'; }
+
+      agent.queue.push({
+        action, col: pick.col, row: pick.row,
+        emoji: CHIP_ACTIONS[action].emoji,
+        subtag,
+        color: CHIP_ACTIONS[action].color,
+      });
+      cur = pick;
+    }
+  }
+}
+
+function agentStep(agent, agentKey) {
+  if (agent.queue.length === 0) {
+    agentThink(agent, agentKey);
+    if (agent.queue.length === 0) return;
+  }
+
+  const chip = agent.queue.shift();
+  agent.targetCol = chip.col;
+  agent.targetRow = chip.row;
+  agent.moveT = 0;
+
+  // Mark visited
+  agent.visited.add(cellKey(chip.col, chip.row));
+
+  // Reveal tile
+  const tile = S.world.tiles[chip.row] && S.world.tiles[chip.row][chip.col];
+  if (tile) {
+    S.blueprint.revealed.add(cellKey(chip.col, chip.row));
+  }
+
+  // Worm body extension + trail
+  if (agentKey === 'worm') {
+    // Visual trail (fading recent movement)
+    agent.trail.push({ col: agent.col, row: agent.row, age: 0 });
+    if (agent.trail.length > agent.trailMax) agent.trail.shift();
+
+    // Persistent body — worm grows as it burrows
+    const key = cellKey(chip.col, chip.row);
+    if (!agent.body.has(key)) {
+      agent.body.add(key);
+      agent.bodyOrder.push(key);
+    }
+  }
+
+  // Generate reports
+  if (agentKey === 'mouse') {
+    // Mouse reports thoughtfully, not every step
+    if (tile && Math.random() < 0.3) {
+      const rm = roomAt(chip.col, chip.row);
+      const msgs = [
+        `${tile} underfoot.${rm ? ' ' + rm.label + '.' : ''}`,
+        `Noted: ${tile} tiles here.`,
+        `Checking ${rm ? rm.label : 'area'}. ${tile}.`,
+        `Moving through. ${tile} surface.`,
+      ];
+      logAgent(msgs[Math.floor(Math.random() * msgs.length)]);
+    }
+    // Report on sticker arrival
+    for (const st of S.blueprint.stickers) {
+      if (st.col === chip.col && st.row === chip.row && st.resolved) {
+        if (st.type === 'OBJECTIVE') logAgent('On target. Searching.');
+        if (st.type === 'CAUTION') logAgent('Noted your caution. Proceeding carefully.');
+        if (st.type === 'TRUST_ME') {
+          if (S.run.trust > 0.5) logAgent('Understood, HQ.');
+          else logAgent('Repeat, HQ? Trust sticker here but... okay.');
+        }
+      }
+    }
+    // Refresh queue periodically
+    if (agent.queue.length < 3) {
+      agentThink(agent, agentKey);
+      if (agent._pulseT === undefined) agent._pulseT = 0;
+      agent._pulseT = 600;
+    }
+  } else {
+    // Worm: terse, physical, steady
+    if (Math.random() < 0.15) {
+      const bodyLen = agent.body.size;
+      const msgs = [
+        'through.', tile ? tile + '.' : 'dark.', 'extending.',
+        bodyLen > 8 ? 'long now.' : 'growing.',
+        tile === 'metal' ? 'metal. good.' : 'digging.',
+        tile === 'wood' ? 'splinters.' : 'steady.',
+      ];
+      logAgent(msgs[Math.floor(Math.random() * msgs.length)]);
+    }
+    // Worm always rebuilds queue
+    agentThink(agent, agentKey);
+  }
+
+  renderQueues();
+}
+
+// ===== GNOME CONVERSATION TOPICS =====
+const GNOME_TOPICS = [
+  { opener: 'Hey, do you know where the toner is?', duration: 4 },
+  { opener: 'The fax machine is doing that thing again.', duration: 3 },
+  { opener: 'Did you see the memo about recycling policy?', duration: 5 },
+  { opener: 'I think someone left the lights on in Records.', duration: 3 },
+  { opener: 'Have you signed the birthday card for Janet?', duration: 2 },
+  { opener: 'Is it just me or is the thermostat broken?', duration: 4 },
+  { opener: 'Filing system changed again. Nobody told me.', duration: 3 },
+  { opener: 'You look lost. This floor is confusing.', duration: 3 },
+];
+
+// ===== GNOME SYSTEM =====
+function gnomeTick() {
+  const worm = S.agents.worm;
+
+  for (const g of S.world.gnomes) {
+    g.tickPhase += 0.3 + Math.random() * 0.2;
+    g.driftT += 1;
+
+    // Slowly increase presence
+    if (g.presence < 1) {
+      g.presence += 0.08 + Math.random() * 0.05;
+      g.presence = Math.min(1, g.presence);
+    }
+
+    // Release agents from conversation
+    if (g.trapping) {
+      g.trapTicks--;
+      if (g.trapTicks <= 0) {
+        g.trapping = null;
+        logInt(`conversation ended.`);
+      }
+    }
+
+    // Movement: drift inward from edges, mill around rooms, avoid worm body
+    if (!g.trapping && g.presence >= 0.5 && Math.random() < 0.4) {
+      let newCol = g.col, newRow = g.row;
+      // Bias toward center of the floor (drift inward)
+      const centerCol = GRID.cols / 2, centerRow = GRID.rows / 2;
+      if (Math.random() < 0.5) {
+        // Drift toward center
+        newCol += g.col < centerCol ? 1 : g.col > centerCol ? -1 : (Math.random() < 0.5 ? 1 : -1);
+        if (Math.random() < 0.3) newRow += g.row < centerRow ? 1 : -1;
+      } else {
+        // Random mill
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        if (Math.random() < 0.5) newCol += dir; else newRow += dir;
+      }
+      newCol = Math.max(0, Math.min(GRID.cols - 1, newCol));
+      newRow = Math.max(0, Math.min(GRID.rows - 1, newRow));
+      // Worm body blocks gnome movement
+      const targetKey = cellKey(newCol, newRow);
+      if (worm.body.has(targetKey)) {
+        // Gnome bumps into worm body — blocked, maybe confused
+        if (!g._bodyBumped) {
+          g._bodyBumped = true;
+          logInt(`gnome tripped on something. rerouting.`);
+        }
+        // Try perpendicular instead
+        if (newCol !== g.col) {
+          newRow = Math.max(0, Math.min(GRID.rows - 1, g.row + (Math.random() < 0.5 ? 1 : -1)));
+          newCol = g.col;
+        } else {
+          newCol = Math.max(0, Math.min(GRID.cols - 1, g.col + (Math.random() < 0.5 ? 1 : -1)));
+          newRow = g.row;
+        }
+        if (worm.body.has(cellKey(newCol, newRow))) {
+          // Completely blocked — stay put
+          newCol = g.col;
+          newRow = g.row;
+        }
+      } else {
+        g._bodyBumped = false;
+      }
+      g.col = newCol;
+      g.row = newRow;
+    }
+
+    // Detect agent proximity — initiate conversation trap
+    if (g.presence >= 0.5 && !g.trapping) {
+      for (const [agentKey, agent] of Object.entries(S.agents)) {
+        if (!agent.active) continue;
+        if (agent._trapped) continue; // already trapped by another gnome
+        const dist = Math.abs(g.col - agent.col) + Math.abs(g.row - agent.row);
+        if (dist <= 1) {
+          // Worm body between gnome and agent blocks the trap
+          if (agentKey === 'mouse') {
+            const midKey = cellKey(
+              Math.round((g.col + agent.col) / 2),
+              Math.round((g.row + agent.row) / 2)
+            );
+            if (dist === 1 && worm.body.has(midKey)) {
+              logInt('worm body shielded mouse from conversation.');
+              continue;
+            }
+            // Also check if worm body is on gnome's cell
+            if (worm.body.has(cellKey(g.col, g.row))) {
+              logInt('gnome tangled in worm. mouse slips past.');
+              continue;
+            }
+          }
+          // Initiate conversation trap
+          const topic = GNOME_TOPICS[Math.floor(Math.random() * GNOME_TOPICS.length)];
+          g.trapping = agentKey;
+          g.trapTicks = topic.duration;
+          agent._trapped = true;
+          agent._trapTicks = topic.duration;
+          logAgent(`${agentKey === 'mouse' ? 'Someone is talking to me.' : 'stuck.'}`);
+          logInt(`GNOME: "${topic.opener}"`);
+
+          if (agentKey === 'mouse') {
+            // Mouse freezes — queue pauses but she's aware
+            if (Math.random() < 0.5) {
+              logAgent('Nodding. Waiting for an opening.');
+            }
+          }
+        }
+      }
+    }
+
+    // Worm body tripwire detection — gnome crosses worm body
+    if (g.presence >= 0.5) {
+      const gKey = cellKey(g.col, g.row);
+      if (worm.body.has(gKey) && !g._onBody) {
+        g._onBody = true;
+        logInt(`TRIPWIRE: gnome at (${g.col},${g.row}). Worm felt it.`);
+        // Worm notices — brief report
+        if (Math.random() < 0.7) {
+          logAgent('felt something. body tremor.');
+        }
+      } else if (!worm.body.has(gKey)) {
+        g._onBody = false;
+      }
+    }
+
+    // React to nearby stickers (dimensional pressure)
+    for (const st of S.blueprint.stickers) {
+      const dist = Math.abs(st.col - g.col) + Math.abs(st.row - g.row);
+      if (dist < 4 && !st._gnomeReacted) {
+        g.tickPhase += 1.5;
+        st._gnomeReacted = true;
+      }
+    }
+
+    // First full presence = witness moment
+    if (g.presence >= 0.5 && !g._witnessed) {
+      g._witnessed = true;
+      triggerWitness('Edge disturbance resolved. Something is inside.');
+    }
+  }
+}
+
+// ===== WITNESS SYSTEM =====
+function triggerWitness(text) {
+  if (S.phase !== 'active') return;
+  S.paused = true;
+  const overlay = document.getElementById('witness-overlay');
+  const textEl = document.getElementById('witness-text');
+  textEl.textContent = text;
+  overlay.classList.add('active');
+  logInt('// PAUSE FOR WITNESS');
+}
+
+document.getElementById('witness-overlay').addEventListener('click', () => {
+  S.paused = false;
+  document.getElementById('witness-overlay').classList.remove('active');
+  if (S._pendingFloorTransition) {
+    S._pendingFloorTransition = false;
+    startBetweenFloors();
+  }
+});
+
+// ===== QUEUE RENDERING =====
+function renderQueues() {
+  renderQueue('mouse');
+  renderQueue('worm');
+}
+
+function renderQueue(agentKey) {
+  const agent = S.agents[agentKey];
+  const lane = document.getElementById('queue-' + agentKey);
+  const label = lane.querySelector('.queue-lane-label');
+
+  // Clear non-label children
+  while (lane.children.length > 1) lane.removeChild(lane.lastChild);
+
+  if (!agent.active) {
+    const ph = document.createElement('span');
+    ph.className = 'queue-placeholder';
+    ph.textContent = 'Awaiting dispatch...';
+    lane.appendChild(ph);
+    return;
+  }
+
+  if (agent.queue.length === 0) {
+    const ph = document.createElement('span');
+    ph.className = 'queue-placeholder';
+    ph.textContent = agentKey === 'mouse' ? 'Reassessing...' : 'moving...';
+    lane.appendChild(ph);
+    return;
+  }
+
+  for (let i = 0; i < agent.queue.length; i++) {
+    const chip = agent.queue[i];
+    const el = document.createElement('div');
+    el.className = 'queue-chip';
+    const baseColor = agentKey === 'mouse' ? '#4a6a8a' : '#8a5a3a';
+    el.style.background = baseColor + (i === 0 ? '33' : '1a');
+    el.style.border = `1px solid ${baseColor}${i === 0 ? '66' : '33'}`;
+    el.innerHTML = `<span>${chip.emoji}</span><span class="chip-subtag">${chip.subtag}</span>`;
+    if (i === 0) el.style.boxShadow = `0 0 6px ${baseColor}33`;
+
+    // Tap to query
+    el.addEventListener('click', () => {
+      if (S.phase !== 'active') return;
+      // "Are you sure?" — agent re-evaluates
+      logInt(`QUERY: ${agentKey} chip ${i} — ${chip.action}`);
+      if (agentKey === 'mouse') {
+        // Mouse respects queries
+        if (Math.random() < 0.6) {
+          logAgent('Reconsidering...');
+          agentThink(agent, agentKey);
+          renderQueues();
+        } else {
+          logAgent('Confirmed. Proceeding.');
+        }
+      } else {
+        // Worm mostly ignores
+        if (Math.random() < 0.15) {
+          logAgent('...fine.');
+          agentThink(agent, agentKey);
+          renderQueues();
+        } else {
+          logAgent('committed.');
+        }
+      }
+    });
+
+    lane.appendChild(el);
+  }
+}
+
+// ===== PHASE MANAGEMENT =====
+function startActivePhase() {
+  S.phase = 'active';
+  const fl = currentFloor();
+
+  // Generate world
+  generateWorld();
+
+  // Spawn agents at entry
+  const entry = fl.entry;
+  for (const key of ['mouse', 'worm']) {
+    const a = S.agents[key];
+    a.col = entry.col;
+    a.row = entry.row;
+    a.targetCol = entry.col;
+    a.targetRow = entry.row;
+    a.moveT = 1;
+    const pos = gridToCanvas(entry.col + 0.5, entry.row + 0.5);
+    a.x = pos.x;
+    a.y = pos.y;
+    a.active = true;
+    a.visited = new Set([cellKey(entry.col, entry.row)]);
+    a.queue = [];
+    a.tickAccum = 0;
+    agentThink(a, key);
+  }
+
+  // Resolve all planning-phase stickers
+  for (const st of S.blueprint.stickers) {
+    st.resolved = true;
+  }
+
+  // UI updates
+  updateSendButton();
+  document.getElementById('sticker-palette').style.opacity = '0.4';
+  clearLog();
+  logInt(`FLOOR ${S.floor + 1} OF 3 // AGENTS DEPLOYED`);
+  logAgent('Mouse: In position. Beginning sweep.');
+  logAgent('through entry. moving.');
+  renderQueues();
+}
+
+function startBetweenFloors() {
+  S.phase = 'planning';
+  S.floor++;
+  S._floorComplete = false;
+
+  if (S.floor >= 3) {
+    // Cabinet complete
+    logInt('CABINET COMPLETE. All floors cleared.');
+    S.run.trust = Math.min(1, S.run.trust + 0.1);
+    save();
+    return;
+  }
+
+  // Reset for next floor
+  S.blueprint.stickers = [];
+  S.blueprint.pins = [];
+  S.blueprint.revealed = new Set();
+  S.run.pinsPlaced = { FILE: 0, KEY: 0, INTEL: 0 };
+
+  for (const key of ['mouse', 'worm']) {
+    const a = S.agents[key];
+    a.active = false;
+    a.queue = [];
+    a.visited = new Set();
+    if (key === 'worm') { a.trail = []; a.body = new Set(); a.bodyOrder = []; }
+  }
+
+  // UI
+  document.getElementById('sticker-palette').style.opacity = '1';
+  clearLog();
+  logInt(`PLANNING // Floor ${S.floor + 1} of 3`);
+  buildManifest();
+  updateSendButton();
+  renderQueues();
+}
+
+// ===== CHECK FLOOR COMPLETION =====
+function checkFloorComplete() {
+  if (S.phase !== 'active') return false;
+  const fl = currentFloor();
+
+  // All objectives must be reached
+  for (const obj of fl.objectives) {
+    const key = cellKey(obj.col, obj.row);
+    if (!S.agents.mouse.visited.has(key) && !S.agents.worm.visited.has(key)) {
+      return false;
+    }
+  }
+
+  // Key is a bonus — floor completes on objectives + sufficient exploration
+  const totalCells = fl.rooms.reduce((sum, rm) => sum + rm.w * rm.h, 0);
+  const explored = S.agents.mouse.visited.size + S.agents.worm.visited.size;
+  // Deduplicate: count unique visited cells
+  const allVisited = new Set([...S.agents.mouse.visited, ...S.agents.worm.visited]);
+  const coverage = allVisited.size / totalCells;
+
+  // Complete when objectives hit and at least 40% explored
+  return coverage >= 0.4;
+}
+
+// ===== MAIN LOOP =====
+let lastTime = 0;
+function frame(time) {
+  const dt = Math.min(time - lastTime, 50);
+  lastTime = time;
+
+  if (dt > 0) update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+function update(dt) {
+  if (S.phase !== 'active' || S.paused) return;
+
+  // Gnome tick
+  S.world.gnomeTick += dt;
+  if (S.world.gnomeTick >= S.world.gnomeTickInterval) {
+    S.world.gnomeTick -= S.world.gnomeTickInterval;
+    gnomeTick();
+  }
+
+  // Mouse tick
+  const mouse = S.agents.mouse;
+  if (mouse.active) {
+    // Conversation trap countdown
+    if (mouse._trapped && mouse._trapTicks > 0) {
+      mouse._trapTicks--;
+      if (mouse._trapTicks <= 0) {
+        mouse._trapped = false;
+        logAgent('Excuse me. Moving on.');
+      }
+    }
+    mouse.tickAccum += dt;
+    if (mouse.tickAccum >= mouse.tickInterval) {
+      mouse.tickAccum -= mouse.tickInterval;
+      if (!mouse._trapped) agentStep(mouse, 'mouse');
+    }
+    // Interpolate position
+    if (mouse.moveT < 1) {
+      mouse.moveT = Math.min(1, mouse.moveT + dt / 350);
+      const from = gridToCanvas(mouse.col + 0.5, mouse.row + 0.5);
+      const to = gridToCanvas(mouse.targetCol + 0.5, mouse.targetRow + 0.5);
+      const t = mouse.moveT * mouse.moveT * (3 - 2 * mouse.moveT); // smoothstep
+      mouse.x = from.x + (to.x - from.x) * t;
+      mouse.y = from.y + (to.y - from.y) * t;
+      if (mouse.moveT >= 1) {
+        mouse.col = mouse.targetCol;
+        mouse.row = mouse.targetRow;
+      }
+    }
+    // Pulse decay
+    if (mouse._pulseT > 0) mouse._pulseT -= dt;
+  }
+
+  // Worm tick
+  const worm = S.agents.worm;
+  if (worm.active) {
+    // Worm mostly ignores conversation — head pauses but briefly
+    if (worm._trapped && worm._trapTicks > 0) {
+      worm._trapTicks--;
+      if (worm._trapTicks <= 0) {
+        worm._trapped = false;
+        logAgent('...moving.');
+      }
+    }
+    worm.tickAccum += dt;
+    if (worm.tickAccum >= worm.tickInterval) {
+      worm.tickAccum -= worm.tickInterval;
+      if (!worm._trapped) agentStep(worm, 'worm');
+    }
+    if (worm.moveT < 1) {
+      // Steady crawl — uses most of the tick interval to traverse
+      worm.moveT = Math.min(1, worm.moveT + dt / 1000);
+      const from = gridToCanvas(worm.col + 0.5, worm.row + 0.5);
+      const to = gridToCanvas(worm.targetCol + 0.5, worm.targetRow + 0.5);
+      const t = worm.moveT; // linear — no easing, just steady
+      worm.x = from.x + (to.x - from.x) * t;
+      worm.y = from.y + (to.y - from.y) * t;
+      if (worm.moveT >= 1) {
+        worm.col = worm.targetCol;
+        worm.row = worm.targetRow;
+      }
+    }
+    // Trail aging
+    for (const t of worm.trail) t.age += dt;
+    worm.trail = worm.trail.filter(t => t.age < 5000);
+  }
+
+  // Resolve gnomaction stickers
+  for (const st of S.blueprint.stickers) {
+    if (!st.resolved) {
+      st.gnomactionT += dt;
+      if (st.gnomactionT >= 800) st.resolved = true;
+    }
+  }
+
+  // Check floor completion
+  if (!S._floorComplete && checkFloorComplete()) {
+    S._floorComplete = true;
+    // Check if key was also found (bonus)
+    const fl = currentFloor();
+    const keyKey = cellKey(fl.keyPos.col, fl.keyPos.row);
+    const keyFound = S.agents.mouse.visited.has(keyKey) || S.agents.worm.visited.has(keyKey);
+    const msg = keyFound
+      ? `Floor ${S.floor + 1} cleared. Objectives secured. Key recovered.`
+      : `Floor ${S.floor + 1} cleared. Objectives secured.`;
+    triggerWitness(msg);
+    S._pendingFloorTransition = true;
+  }
+}
+
+function render() {
+  drawBlueprint();
+  drawLiveSignal();
+}
+
+// ===== INIT =====
+buildPalette();
+buildManifest();
+document.getElementById('manifest').classList.add('open');
+logInt(`PLANNING // Floor ${S.floor + 1} of 3 // Cabinet ${S.cabinet + 1}`);
+updateSendButton();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
