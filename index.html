@@ -1364,6 +1364,7 @@
   </div>
 </div>
 
+<script src="ledger.js"></script>
 <script>
 // ============================================================
 // CONFIGURATION
@@ -1952,6 +1953,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 //   { type: "hub:scraggle", emoji, signal } — show a scraggle in the hud
 //   { type: "hub:title", name }       — update hud score name
 //   { type: "hub:color", r, g, b }     — nudge the Temperature of the Room
+//   { type: "hub:ledger", action, ... } — write to the Ledger (passport/milestone/scraggle)
 //
 // Scores that send nothing get the default: selection collapses, hud bar visible.
 
@@ -1994,6 +1996,9 @@ function handleScoreMessage(e) {
         if (cb) cb.checked = true;
         updateContextSummary();
       }
+      break;
+    case 'hub:ledger':
+      Ledger.handleMessage(msg);
       break;
   }
 }
@@ -2149,6 +2154,16 @@ function receiveScraggle(emoji, signal, writeToStorage = true, source = 'hub', e
 
   // Feed the ticker — scraggles join the scroll if they have something to say
   if (!extended?.reemit) feedTickerScraggle(emoji, signal);
+
+  // Feed the Ledger — every scraggle is recorded as neutral fact
+  if (!extended?.reemit) {
+    Ledger.scraggle({
+      emoji,
+      color: extended?.color || null,
+      weight: extended?.weight ?? null,
+      origin: extended?.origin || source || null
+    });
+  }
 }
 
 function showScraggleToast(emoji, signal) {
@@ -2359,6 +2374,17 @@ function launchScore() {
 
   // The room takes on the color of where you're going
   seedTemperatureFromNeighborhoods(activeNeighborhoods);
+
+  // Issue a Hall passport — the player arrived at this score
+  try {
+    const temp = readTemperature();
+    const hue = temp ? [temp.r, temp.g, temp.b] : [200, 180, 120];
+    Ledger.passport({
+      hue,
+      issuer: 'hall',
+      text: selectedScore
+    });
+  } catch(e) {}
 
   // Default mode: hud bar visible, selection collapses
   // The score can override this via postMessage once it loads
