@@ -56,10 +56,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--paper);touch-a
 /* ── Drag ghost ── */
 #drag-ghost{position:fixed;z-index:100;pointer-events:none;font-size:22px;opacity:0.85;transform:translate(-50%,-50%) scale(1.1);display:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))}
 
-/* ── Send button ── */
-#send-btn{position:absolute;bottom:8px;right:8px;z-index:10;padding:8px 16px;background:var(--mold);color:var(--paper);border:none;border-radius:3px;font-family:inherit;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity 0.3s}
-#send-btn.visible{opacity:1;pointer-events:auto}
-#send-btn:hover{background:var(--trace)}
+/* send button removed — the loop IS the send */
 
 /* ── Witness overlay ── */
 #witness-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,transparent 40%,rgba(26,26,24,0.3));cursor:pointer}
@@ -73,7 +70,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--paper);touch-a
     <canvas id="bp"></canvas>
     <button id="manifest-toggle">P</button>
     <div id="sticker-palette"></div>
-    <button id="send-btn">Send Them In</button>
+    <!-- send is the loop completing clean twice -->
     <div id="drag-ghost"></div>
   </div>
   <div id="manifest"></div>
@@ -130,6 +127,10 @@ const TILE_TYPES = {
   wood:     { hardness: 0.5, noise: 0.5 },
   hardware: { hardness: 0.9, noise: 0.7 },
 };
+
+const NODE_MODES = ['explore', 'sneak', 'quick', 'follow', 'hold', 'avoid'];
+const NODE_GLYPHS = { explore: 'E', sneak: 'S', quick: 'Q', follow: 'F', hold: 'H', avoid: 'X' };
+const NODE_DWELL = { explore: 2000, sneak: 1800, quick: 800, follow: 1200, hold: -1, avoid: 0 };
 
 // ===== FLOOR PLANS =====
 // Each floor: rooms (rect zones), doors (connections), entry point
@@ -201,7 +202,7 @@ const CABINETS = [
 
 // ===== STATE =====
 const S = {
-  phase: 'planning',
+  phase: 'briefing',
   floor: 0,
   cabinet: 0,
   paused: false,
@@ -210,6 +211,9 @@ const S = {
     stickers: [],
     pins: [],
     revealed: new Set(),
+    nodes: {},          // { roomIndex: 'explore'|'sneak'|'quick'|'follow'|'hold'|'avoid' }
+    wormPath: [],       // ordered cell coords [{col,row},...] — selected worm route
+    wormType: 'normal',
   },
 
   world: {
@@ -260,6 +264,39 @@ const S = {
   },
 
   log: { agent: [], int: [] },
+
+  briefing: {
+    notes: [],          // sticky notes for this floor
+    logQueue: [],       // sequential log lines to typewrite
+    logIndex: 0,        // which line we're on
+    logTimer: 0,        // ms accumulator for pacing
+    elapsed: 0,         // total briefing time
+    allResolved: false,  // true when every note has a choice
+    mouseQueuePenalty: 0, // overrides against Mouse's preference
+    notesAppearing: false, // true once log is done and notes start fading in
+    noteAppearIndex: 0,    // which note is currently appearing
+    noteAppearTimer: 0,    // timer for staggered appearance
+    resolveDelay: 0,       // delay after all resolved before transition
+    pendingEffects: [],    // effects to apply at execution start
+  },
+
+  planLoop: {
+    active: false,
+    t: 0,
+    mouseCell: { col: 0, row: 0 },
+    mouseRoomIdx: 0,
+    mouseProgress: 0,       // 0-1 within current room dwell
+    mousePath: [],           // cells mouse has traversed this iteration
+    wormProgress: 0,         // 0-1 along wormPath
+    wormCellIdx: 0,          // current index into wormPath
+    paused: false,
+    pauseRoom: -1,
+    clean: false,
+    cleanCount: 0,
+    alpha: 0.5,              // drawing alpha — rises after first clean
+    roomOrder: [],           // room visit order for Mouse (indices into floor.rooms)
+    roomDoors: [],           // door cells connecting rooms in visit order
+  },
 };
 
 // ===== PERSISTENCE =====
@@ -493,6 +530,62 @@ function drawBlueprint() {
   ctx.textBaseline = 'top';
   ctx.fillText('ENTRY', ecx, ecy + gp * 0.2);
 
+  // Room nodes (planning phase)
+  if (S.phase === 'planning') {
+    for (let ri = 0; ri < fl.rooms.length; ri++) {
+      const rm = fl.rooms[ri];
+      const ncx = gx + (rm.x + rm.w / 2) * gp;
+      const ncy = gy + (rm.y + rm.h / 2) * gp + gp * 0.45;
+      const mode = S.blueprint.nodes[ri];
+      const glyph = mode ? NODE_GLYPHS[mode] : '?';
+
+      // Circle background
+      ctx.fillStyle = mode ? 'rgba(90,106,74,0.15)' : 'rgba(26,26,24,0.06)';
+      ctx.beginPath();
+      ctx.arc(ncx, ncy, gp * 0.32, 0, TAU);
+      ctx.fill();
+
+      // Circle border
+      ctx.strokeStyle = mode ? 'rgba(90,106,74,0.5)' : 'rgba(26,26,24,0.15)';
+      ctx.lineWidth = mode ? 1.2 : 0.8;
+      ctx.beginPath();
+      ctx.arc(ncx, ncy, gp * 0.32, 0, TAU);
+      ctx.stroke();
+
+      // Glyph
+      ctx.fillStyle = mode ? '#5a6a4a' : 'rgba(26,26,24,0.25)';
+      ctx.font = `bold ${Math.max(9, gp * 0.28)}px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(glyph, ncx, ncy);
+    }
+  }
+
+  // Worm path (planning phase)
+  if (S.phase === 'planning' && S.blueprint.wormPath.length > 1) {
+    // Ghost worm (faint reference)
+    // Normal worm path
+    ctx.save();
+    ctx.strokeStyle = 'rgba(138,90,58,0.3)';
+    ctx.lineWidth = gp * 0.08;
+    ctx.setLineDash([3, 4]);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    const wp0 = S.blueprint.wormPath[0];
+    ctx.moveTo(gx + (wp0.col + 0.5) * gp, gy + (wp0.row + 0.5) * gp);
+    for (let i = 1; i < S.blueprint.wormPath.length; i++) {
+      const wp = S.blueprint.wormPath[i];
+      const prev = S.blueprint.wormPath[i - 1];
+      // Rectilinear: go horizontal first, then vertical
+      ctx.lineTo(gx + (wp.col + 0.5) * gp, gy + (prev.row + 0.5) * gp);
+      ctx.lineTo(gx + (wp.col + 0.5) * gp, gy + (wp.row + 0.5) * gp);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
   // Revealed tiles
   for (const key of S.blueprint.revealed) {
     const [c, r] = key.split(',').map(Number);
@@ -630,7 +723,7 @@ function drawPin(pin) {
 
 // ===== LIVE SIGNAL (agents + gnomes) =====
 function drawLiveSignal() {
-  if (S.phase !== 'active') return;
+  if (S.phase !== 'execution') return;
   const gx = S.ui.gridOx, gy = S.ui.gridOy, gp = S.ui.gridPx;
   const mouse = S.agents.mouse;
   const worm = S.agents.worm;
@@ -856,8 +949,55 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointerup', (e) => {
   if (S.ui.drag.active) return;
   const pt = pointerToCanvas(e);
+
+  // Briefing phase: tap sticky notes
+  if (S.phase === 'briefing') {
+    for (const note of S.briefing.notes) {
+      if (note.resolved) continue;
+      if (note.appearT < 0.8) continue;
+      const b = note._bounds;
+      if (!b) continue;
+      if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h) {
+        // Left half = A, right half = B
+        const midX = b.x + b.w / 2;
+        note.choice = pt.x < midX ? 'A' : 'B';
+        note.resolved = true;
+
+        // Mouse queue penalty for overriding her preference
+        if (note.mousePrefers && note.choice !== note.mousePrefers) {
+          S.briefing.mouseQueuePenalty++;
+        }
+
+        logInt(`// ${note.roomLabel}: ${note.choice === 'A' ? note.optionA.shortLabel : note.optionB.shortLabel}`);
+        break;
+      }
+    }
+    return;
+  }
+
   const cell = canvasToGrid(pt.x, pt.y);
   if (!cell) return;
+
+  // Room node tap (planning phase) — check if tap is near a room center node
+  if (S.phase === 'planning') {
+    const fl = currentFloor();
+    const gx = S.ui.gridOx, gy = S.ui.gridOy, gp = S.ui.gridPx;
+    for (let ri = 0; ri < fl.rooms.length; ri++) {
+      const rm = fl.rooms[ri];
+      const ncx = gx + (rm.x + rm.w / 2) * gp;
+      const ncy = gy + (rm.y + rm.h / 2) * gp + gp * 0.45;
+      const dx = pt.x - ncx, dy = pt.y - ncy;
+      if (Math.sqrt(dx * dx + dy * dy) < gp * 0.6) {
+        const cur = S.blueprint.nodes[ri];
+        const idx = cur ? NODE_MODES.indexOf(cur) : -1;
+        const next = NODE_MODES[(idx + 1) % NODE_MODES.length];
+        S.blueprint.nodes[ri] = next;
+        // Reset plan loop on any node change
+        resetPlanLoop();
+        return;
+      }
+    }
+  }
 
   // Mobile sticker placement
   if (S.ui.selectedSticker && S.phase === 'planning') {
@@ -888,7 +1028,6 @@ canvas.addEventListener('pointerup', (e) => {
     );
     if (idx >= 0) {
       S.blueprint.stickers.splice(idx, 1);
-      updateSendButton();
       return;
     }
     // Tap existing pin to pick it up
@@ -903,7 +1042,7 @@ canvas.addEventListener('pointerup', (e) => {
     }
   }
 
-  // Active phase: tap chip interaction handled elsewhere
+  // Execution phase: tap chip interaction handled elsewhere
 });
 
 function placeSticker(type, col, row, confidence) {
@@ -918,17 +1057,521 @@ function placeSticker(type, col, row, confidence) {
   });
 
   // Gnomaction: during active phase, gnome tick fires before sticker resolves
-  if (S.phase === 'active') {
+  if (S.phase === 'execution') {
     gnomeTick();
     logInt(`STICKER PLACED: ${STICKER_TYPES[type].label} @ (${col},${row}) ${confidence === 'held' ? '[CONFIDENT]' : '[approximate]'}`);
   }
 
-  updateSendButton();
+  // Reset plan loop on any blueprint change
+  if (S.phase === 'planning') resetPlanLoop();
 }
 
 function placePin(type, col, row) {
   S.blueprint.pins.push({ type, col, row, id: Date.now() });
   S.run.pinsPlaced[type]++;
+}
+
+// ===== WORM PATH GENERATION =====
+// ===== ROOM GRAPH UTILITIES =====
+function buildRoomAdj() {
+  const fl = currentFloor();
+  const adj = fl.rooms.map(() => []);
+  for (const d of fl.doors) {
+    adj[d.r1].push({ room: d.r2, doorCol: d.col, doorRow: d.row });
+    adj[d.r2].push({ room: d.r1, doorCol: d.col, doorRow: d.row });
+  }
+  return adj;
+}
+
+function entryRoomIndex() {
+  const fl = currentFloor();
+  const e = fl.entry;
+  return fl.rooms.findIndex(r =>
+    e.col >= r.x && e.col < r.x + r.w && e.row >= r.y && e.row < r.y + r.h
+  );
+}
+
+function roomCenter(ri) {
+  const rm = currentFloor().rooms[ri];
+  return { col: rm.x + Math.floor(rm.w / 2), row: rm.y + Math.floor(rm.h / 2) };
+}
+
+// DFS contiguous walk: visits every room exactly once, each transition
+// goes through a real door so the path never cuts through walls.
+// Returns [{roomIdx, doorCol, doorRow}] in walk order.
+function dfsRoomWalk(adj, startRi, entry) {
+  const fl = currentFloor();
+  const visited = new Set();
+  const walk = [];
+
+  function dfs(ri, doorCol, doorRow) {
+    visited.add(ri);
+    walk.push({ roomIdx: ri, doorCol, doorRow });
+    // Sort neighbors: prefer objective rooms, then larger rooms
+    const nbrs = adj[ri]
+      .filter(n => !visited.has(n.room))
+      .sort((a, b) => {
+        const ra = fl.rooms[a.room], rb = fl.rooms[b.room];
+        const aObj = fl.objectives.some(o => o.col >= ra.x && o.col < ra.x + ra.w && o.row >= ra.y && o.row < ra.y + ra.h) ? 1 : 0;
+        const bObj = fl.objectives.some(o => o.col >= rb.x && o.col < rb.x + rb.w && o.row >= rb.y && o.row < rb.y + rb.h) ? 1 : 0;
+        if (aObj !== bObj) return bObj - aObj;
+        return (rb.w * rb.h) - (ra.w * ra.h);
+      });
+    for (const n of nbrs) {
+      // Re-check: earlier recursive calls may have visited this room
+      if (!visited.has(n.room)) {
+        dfs(n.room, n.doorCol, n.doorRow);
+      }
+    }
+  }
+
+  const eri = startRi >= 0 ? startRi : 0;
+  dfs(eri, entry.col, entry.row);
+  return walk;
+}
+
+// Build a waypoint path from a room walk.
+// Path goes: entry → (center of room 0) → door → (center of room 1) → door → ...
+// Every segment stays within room geometry because center and door are both inside the room.
+function walkToPath(walk, entry) {
+  const path = [];
+  path.push({ col: entry.col, row: entry.row });
+
+  for (let i = 0; i < walk.length; i++) {
+    const step = walk[i];
+    const c = roomCenter(step.roomIdx);
+    if (i === 0) {
+      // First room: entry → center (both inside entry room)
+      if (c.col !== entry.col || c.row !== entry.row) {
+        path.push(c);
+      }
+    } else {
+      // Subsequent rooms: prev center → door → this center
+      // The door is at the boundary between prev room and this room.
+      const last = path[path.length - 1];
+      if (step.doorCol !== last.col || step.doorRow !== last.row) {
+        path.push({ col: step.doorCol, row: step.doorRow });
+      }
+      if (c.col !== step.doorCol || c.row !== step.doorRow) {
+        path.push(c);
+      }
+    }
+  }
+  return path;
+}
+
+function generateWormPath() {
+  const fl = currentFloor();
+  const adj = buildRoomAdj();
+  const eri = entryRoomIndex();
+  const walk = dfsRoomWalk(adj, eri, fl.entry);
+  S.blueprint.wormPath = walkToPath(walk, fl.entry);
+  return walk;
+}
+
+// ===== MOUSE ROUTE GENERATION (for planning loop) =====
+function generateMouseRoute() {
+  const fl = currentFloor();
+  const adj = buildRoomAdj();
+  const eri = entryRoomIndex();
+  const walk = dfsRoomWalk(adj, eri, fl.entry);
+
+  // Tag each step with the dispatcher's node mode
+  const order = walk.map(step => ({
+    ...step,
+    mode: S.blueprint.nodes[step.roomIdx] || null,
+  }));
+
+  // Build waypoint route (same geometry as worm, but with mode tags)
+  const route = [];
+  const entry = fl.entry;
+  route.push({ col: entry.col, row: entry.row, roomIdx: walk[0].roomIdx, mode: order[0].mode });
+
+  for (let i = 0; i < order.length; i++) {
+    const step = order[i];
+    if (step.mode === 'avoid') continue;
+    const c = roomCenter(step.roomIdx);
+    if (i === 0) {
+      if (c.col !== entry.col || c.row !== entry.row) {
+        route.push({ col: c.col, row: c.row, roomIdx: step.roomIdx, mode: step.mode });
+      }
+    } else {
+      const last = route[route.length - 1];
+      if (step.doorCol !== last.col || step.doorRow !== last.row) {
+        route.push({ col: step.doorCol, row: step.doorRow, roomIdx: step.roomIdx, mode: step.mode });
+      }
+      if (c.col !== step.doorCol || c.row !== step.doorRow) {
+        route.push({ col: c.col, row: c.row, roomIdx: step.roomIdx, mode: step.mode });
+      }
+    }
+  }
+
+  return { order, route };
+}
+
+// ===== PLANNING LOOP =====
+function resetPlanLoop() {
+  const lp = S.planLoop;
+  lp.active = false;
+  lp.t = 0;
+  lp.mouseRoomIdx = 0;
+  lp.mouseProgress = 0;
+  lp.mousePath = [];
+  lp.wormProgress = 0;
+  lp.wormCellIdx = 0;
+  lp.paused = false;
+  lp.pauseRoom = -1;
+  lp.clean = false;
+  lp.cleanCount = 0;
+  lp.alpha = 0.5;
+  lp.roomOrder = [];
+  lp._mouseRoute = [];
+  lp._mouseRouteIdx = 0;
+}
+
+function canStartPlanLoop() {
+  // Need at least one node set and a worm path
+  const hasNode = Object.keys(S.blueprint.nodes).length > 0;
+  const hasPath = S.blueprint.wormPath.length > 1;
+  return hasNode && hasPath;
+}
+
+function startPlanLoopIteration() {
+  const lp = S.planLoop;
+  const fl = currentFloor();
+  const entry = fl.entry;
+
+  // Generate mouse route from current nodes
+  const { order, route } = generateMouseRoute();
+  lp.roomOrder = order;
+  lp._mouseRoute = route;
+  lp._mouseRouteIdx = 0;
+
+  lp.active = true;
+  lp.t = 0;
+  lp.mouseCell = { col: entry.col, row: entry.row };
+  lp.mouseRoomIdx = 0;
+  lp.mouseProgress = 0;
+  lp.mousePath = [{ col: entry.col, row: entry.row }];
+  lp.wormProgress = 0;
+  lp.wormCellIdx = 0;
+  lp.paused = false;
+  lp.pauseRoom = -1;
+  lp.clean = false;
+}
+
+function updatePlanLoop(dt) {
+  if (S.phase !== 'planning') return;
+
+  const lp = S.planLoop;
+
+  // Auto-start when conditions met
+  if (!lp.active && canStartPlanLoop()) {
+    startPlanLoopIteration();
+    return;
+  }
+
+  if (!lp.active || lp.paused) return;
+
+  lp.t += dt;
+
+  // Advance worm along waypoints
+  const wormSpeed = 800; // ms per waypoint
+  const wormTarget = lp.t / wormSpeed;
+  const prevWormIdx = lp.wormCellIdx;
+  if (wormTarget > lp.wormCellIdx && lp.wormCellIdx < S.blueprint.wormPath.length - 1) {
+    lp.wormCellIdx = Math.min(Math.floor(wormTarget), S.blueprint.wormPath.length - 1);
+    lp.wormProgress = lp.wormCellIdx / Math.max(1, S.blueprint.wormPath.length - 1);
+  }
+  // Fractional progress within current waypoint segment for smooth interpolation
+  lp._wormFrac = wormTarget - Math.floor(wormTarget);
+
+  // Advance mouse along route waypoints
+  const route = lp._mouseRoute;
+  if (!route || route.length === 0) {
+    completePlanLoop();
+    return;
+  }
+
+  // Mouse speed varies by room node mode (ms per waypoint transition)
+  const curRouteStep = route[Math.min(lp._mouseRouteIdx, route.length - 1)];
+  let mouseSpeed = 600; // ms per waypoint default
+  if (curRouteStep) {
+    const mode = curRouteStep.mode;
+    if (mode === 'explore') mouseSpeed = 900;
+    else if (mode === 'sneak') mouseSpeed = 850;
+    else if (mode === 'quick') mouseSpeed = 400;
+    else if (mode === 'follow') mouseSpeed = 650;
+    else if (mode === 'hold') {
+      // Check if worm has reached this room yet
+      const wormCell = S.blueprint.wormPath[lp.wormCellIdx];
+      const rm = currentFloor().rooms[curRouteStep.roomIdx];
+      if (rm && wormCell) {
+        const wormInRoom = wormCell.col >= rm.x && wormCell.col < rm.x + rm.w &&
+                           wormCell.row >= rm.y && wormCell.row < rm.y + rm.h;
+        if (!wormInRoom) return; // hold — don't advance until worm arrives
+      }
+    }
+    // No mode set — check if we should pause
+    if (!mode && mode !== null) mouseSpeed = 600;
+  }
+
+  lp.mouseProgress += dt / mouseSpeed;
+  // Store fractional progress for smooth drawing
+  lp._mouseFrac = lp.mouseProgress;
+
+  if (lp.mouseProgress >= 1 && lp._mouseRouteIdx < route.length - 1) {
+    lp.mouseProgress -= 1;
+    lp._mouseRouteIdx++;
+
+    const step = route[lp._mouseRouteIdx];
+    lp.mouseCell = { col: step.col, row: step.row };
+    lp.mousePath.push({ col: step.col, row: step.row });
+
+    // Check for room transition — does this room have a mode set?
+    if (step.roomIdx !== undefined) {
+      const mode = S.blueprint.nodes[step.roomIdx];
+      if (!mode) {
+        lp.paused = true;
+        lp.pauseRoom = step.roomIdx;
+        return;
+      }
+      // Check follow-worm conflict: worm finished path but never reached this room
+      if (mode === 'follow' && lp.wormCellIdx >= S.blueprint.wormPath.length - 1) {
+        const wormCell = S.blueprint.wormPath[lp.wormCellIdx];
+        const rm = currentFloor().rooms[step.roomIdx];
+        if (rm && wormCell) {
+          const wormInRoom = wormCell.col >= rm.x && wormCell.col < rm.x + rm.w &&
+                             wormCell.row >= rm.y && wormCell.row < rm.y + rm.h;
+          if (!wormInRoom) {
+            lp.paused = true;
+            lp.pauseRoom = step.roomIdx;
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  // Check completion
+  if (lp._mouseRouteIdx >= route.length - 1 && lp.mouseProgress >= 1) {
+    completePlanLoop();
+  }
+}
+
+function completePlanLoop() {
+  const lp = S.planLoop;
+  lp.clean = true;
+  lp.cleanCount++;
+
+  if (lp.cleanCount >= 2) {
+    // THE SEND — transition to execution
+    transitionToExecution();
+    return;
+  }
+
+  // First clean: alpha bump, restart
+  lp.alpha = 0.7;
+  // Small pause then restart
+  setTimeout(() => {
+    if (S.phase === 'planning' && lp.cleanCount >= 1) {
+      startPlanLoopIteration();
+    }
+  }, 600);
+  lp.active = false; // pause briefly during restart delay
+}
+
+function transitionToExecution() {
+  const lp = S.planLoop;
+  const fl = currentFloor();
+
+  // Apply briefing effects
+  for (const effect of S.briefing.pendingEffects) {
+    applyBriefingEffect(effect);
+  }
+
+  // Set mouse position from loop's current state
+  const mouse = S.agents.mouse;
+  const mouseCell = lp.mouseCell;
+  mouse.col = mouseCell.col;
+  mouse.row = mouseCell.row;
+  mouse.targetCol = mouseCell.col;
+  mouse.targetRow = mouseCell.row;
+  mouse.moveT = 1;
+  const mpos = gridToCanvas(mouseCell.col + 0.5, mouseCell.row + 0.5);
+  mouse.x = mpos.x;
+  mouse.y = mpos.y;
+  mouse.active = true;
+  mouse.visited = new Set(lp.mousePath.map(p => cellKey(p.col, p.row)));
+  mouse.queue = [];
+  mouse.tickAccum = 0;
+  agentThink(mouse, 'mouse');
+
+  // Set worm position from loop's current state
+  const worm = S.agents.worm;
+  const wormCell = S.blueprint.wormPath[lp.wormCellIdx] || fl.entry;
+  worm.col = wormCell.col;
+  worm.row = wormCell.row;
+  worm.targetCol = wormCell.col;
+  worm.targetRow = wormCell.row;
+  worm.moveT = 1;
+  const wpos = gridToCanvas(wormCell.col + 0.5, wormCell.row + 0.5);
+  worm.x = wpos.x;
+  worm.y = wpos.y;
+  worm.active = true;
+  // Worm body from path traversed so far
+  worm.body = new Set();
+  worm.bodyOrder = [];
+  for (let i = 0; i <= lp.wormCellIdx; i++) {
+    const wp = S.blueprint.wormPath[i];
+    const key = cellKey(wp.col, wp.row);
+    if (!worm.body.has(key)) {
+      worm.body.add(key);
+      worm.bodyOrder.push(key);
+    }
+  }
+  worm.trail = [];
+  worm.visited = new Set(worm.bodyOrder);
+  worm.queue = [];
+  worm.tickAccum = 0;
+  agentThink(worm, 'worm');
+
+  // Resolve all planning-phase stickers
+  for (const st of S.blueprint.stickers) {
+    st.resolved = true;
+  }
+
+  // Phase flip — no announcement
+  S.phase = 'execution';
+  S.planLoop.active = false;
+
+  // UI: dim sticker palette
+  document.getElementById('sticker-palette').style.opacity = '0.4';
+  document.getElementById('sticker-palette').style.pointerEvents = 'none';
+
+  // No log clearing, no "AGENTS DEPLOYED" message.
+  // The dispatcher discovers they're in execution when the world moves.
+  renderQueues();
+}
+
+function drawPlanLoop() {
+  if (!S.planLoop.active && !S.planLoop.paused) return;
+  const lp = S.planLoop;
+  const gx = S.ui.gridOx, gy = S.ui.gridOy, gp = S.ui.gridPx;
+  const alpha = lp.alpha;
+
+  // Draw mouse path so far (thin dashed trail, rectilinear)
+  if (lp.mousePath.length > 1) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(74,106,138,${alpha * 0.5})`;
+    ctx.lineWidth = gp * 0.06;
+    ctx.setLineDash([2, 3]);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(gx + (lp.mousePath[0].col + 0.5) * gp, gy + (lp.mousePath[0].row + 0.5) * gp);
+    for (let i = 1; i < lp.mousePath.length; i++) {
+      const p = lp.mousePath[i], prev = lp.mousePath[i - 1];
+      // Rectilinear: horizontal then vertical
+      ctx.lineTo(gx + (p.col + 0.5) * gp, gy + (prev.row + 0.5) * gp);
+      ctx.lineTo(gx + (p.col + 0.5) * gp, gy + (p.row + 0.5) * gp);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // Draw worm progress along path (filled portion, rectilinear)
+  if (S.blueprint.wormPath.length > 1 && lp.wormCellIdx > 0) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(138,90,58,${alpha * 0.6})`;
+    ctx.lineWidth = gp * 0.1;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    const wp0 = S.blueprint.wormPath[0];
+    ctx.moveTo(gx + (wp0.col + 0.5) * gp, gy + (wp0.row + 0.5) * gp);
+    for (let i = 1; i <= lp.wormCellIdx; i++) {
+      const wp = S.blueprint.wormPath[i], prev = S.blueprint.wormPath[i - 1];
+      ctx.lineTo(gx + (wp.col + 0.5) * gp, gy + (prev.row + 0.5) * gp);
+      ctx.lineTo(gx + (wp.col + 0.5) * gp, gy + (wp.row + 0.5) * gp);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Draw worm head (loop sim) — interpolate rectilinearly between waypoints
+  const wp = S.blueprint.wormPath;
+  if (wp.length > 0) {
+    const wi = lp.wormCellIdx;
+    const wf = lp._wormFrac || 0;
+    const wCur = wp[wi];
+    const wNext = wp[Math.min(wi + 1, wp.length - 1)];
+    // Rectilinear interpolation: horizontal first half, vertical second half
+    const wfx = Math.min(wf * 2, 1); // 0→1 during first half
+    const wfy = Math.max((wf - 0.5) * 2, 0); // 0→1 during second half
+    const wx = gx + (wCur.col + (wNext.col - wCur.col) * wfx + 0.5) * gp;
+    const wy = gy + (wCur.row + (wNext.row - wCur.row) * wfy + 0.5) * gp;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#8a5a3a';
+    ctx.beginPath();
+    ctx.arc(wx, wy, gp * 0.12, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Draw mouse blip (loop sim) — interpolate rectilinearly between waypoints
+  const mr = lp._mouseRoute;
+  if (mr && mr.length > 0) {
+    const mi = Math.min(lp._mouseRouteIdx, mr.length - 1);
+    const mf = Math.min(lp._mouseFrac || 0, 1);
+    const mCur = mr[mi];
+    const mNext = mr[Math.min(mi + 1, mr.length - 1)];
+    const mfx = Math.min(mf * 2, 1);
+    const mfy = Math.max((mf - 0.5) * 2, 0);
+    const mx = gx + (mCur.col + (mNext.col - mCur.col) * mfx + 0.5) * gp;
+    const my = gy + (mCur.row + (mNext.row - mCur.row) * mfy + 0.5) * gp;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#4a6a8a';
+    ctx.beginPath();
+    ctx.arc(mx, my, gp * 0.1, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Pause indicator — pulsing ring at conflict room
+  if (lp.paused && lp.pauseRoom >= 0) {
+    const fl = currentFloor();
+    const rm = fl.rooms[lp.pauseRoom];
+    if (rm) {
+      const pcx = gx + (rm.x + rm.w / 2) * gp;
+      const pcy = gy + (rm.y + rm.h / 2) * gp;
+      const pulse = 0.4 + Math.sin(performance.now() / 300) * 0.3;
+      ctx.strokeStyle = `rgba(176,64,48,${pulse})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(pcx, pcy, gp * 0.8, 0, TAU);
+      ctx.stroke();
+
+      // "?" indicator
+      ctx.fillStyle = `rgba(176,64,48,${pulse})`;
+      ctx.font = `bold ${gp * 0.35}px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('?', pcx, pcy - gp * 0.4);
+    }
+  }
+
+  // Ready glow at entry after first clean
+  if (lp.cleanCount >= 1) {
+    const fl = currentFloor();
+    const ecx = gx + (fl.entry.col + 0.5) * gp;
+    const ecy = gy + (fl.entry.row + 0.5) * gp;
+    const glow = 0.15 + Math.sin(performance.now() / 500) * 0.1;
+    ctx.fillStyle = `rgba(90,106,74,${glow})`;
+    ctx.beginPath();
+    ctx.arc(ecx, ecy, gp * 0.5, 0, TAU);
+    ctx.fill();
+  }
 }
 
 // ===== MANIFEST =====
@@ -955,16 +1598,7 @@ document.getElementById('manifest-toggle').addEventListener('click', () => {
   document.getElementById('manifest').classList.toggle('open');
 });
 
-// ===== SEND BUTTON =====
-function updateSendButton() {
-  const btn = document.getElementById('send-btn');
-  btn.classList.toggle('visible', S.blueprint.stickers.length > 0 && S.phase === 'planning');
-}
-
-document.getElementById('send-btn').addEventListener('click', () => {
-  if (S.phase !== 'planning') return;
-  startActivePhase();
-});
+// Send button removed — the planning loop IS the send mechanism
 
 // ===== LOG =====
 function logAgent(text) {
@@ -997,6 +1631,364 @@ function clearLog() {
   document.getElementById('log-int').innerHTML = '';
 }
 
+// ===== BRIEFING SYSTEM =====
+
+// Note templates keyed by trigger condition
+const NOTE_TEMPLATES = [
+  {
+    id: 'metal-floor',
+    match: (rm) => rm.tile === 'metal' && rm.w * rm.h > 6,
+    generate: (rm) => ({
+      roomLabel: rm.label,
+      text: `Metal floor in ${rm.label}. Mouse wants to slide. Worm skips it.`,
+      optionA: { label: `Let Mouse use the metal`, shortLabel: 'Mouse slides', effect: { type: 'mouseInterval', delta: -300 } },
+      optionB: { label: `Route around, stay quiet`, shortLabel: 'Route around', effect: { type: 'gnomeInterval', delta: 400 } },
+      mousePrefers: 'A',
+    }),
+  },
+  {
+    id: 'hardware-room',
+    match: (rm) => rm.tile === 'hardware',
+    generate: (rm) => ({
+      roomLabel: rm.label,
+      text: `Heavy hardware in ${rm.label}. Noisy if we push through.`,
+      optionA: { label: `Push through the hardware`, shortLabel: 'Push through', effect: { type: 'wormInterval', delta: -200 } },
+      optionB: { label: `Find another way`, shortLabel: 'Go around', effect: { type: 'mouseInterval', delta: 200 } },
+      mousePrefers: 'B',
+    }),
+  },
+  {
+    id: 'closet',
+    match: (rm) => rm.w * rm.h <= 6,
+    generate: (rm) => ({
+      roomLabel: rm.label,
+      text: `Tight space in ${rm.label}. One way in. Gnomes could block the door.`,
+      optionA: { label: `Go in prepared, placate if needed`, shortLabel: 'Placate', effect: { type: 'mouseInterval', delta: 200 } },
+      optionB: { label: `Hide and wait for a gap`, shortLabel: 'Hide', effect: { type: 'gnomeCount', delta: -1 } },
+      mousePrefers: 'A',
+    }),
+  },
+  {
+    id: 'deep-objective',
+    match: (rm, fl) => {
+      const entry = fl.entry;
+      const rmCenterCol = rm.x + Math.floor(rm.w / 2);
+      const rmCenterRow = rm.y + Math.floor(rm.h / 2);
+      const dist = Math.abs(rmCenterCol - entry.col) + Math.abs(rmCenterRow - entry.row);
+      return dist > 8 && fl.objectives.some(o => o.col >= rm.x && o.col < rm.x + rm.w && o.row >= rm.y && o.row < rm.y + rm.h);
+    },
+    generate: (rm) => ({
+      roomLabel: rm.label,
+      text: `Objective deep in ${rm.label}. Long walk from entry. Direct or sweep?`,
+      optionA: { label: `Direct approach, fast`, shortLabel: 'Direct', effect: { type: 'mouseInterval', delta: -200 } },
+      optionB: { label: `Sweep wide, clear the path`, shortLabel: 'Sweep wide', effect: { type: 'gnomeInterval', delta: 200 } },
+      mousePrefers: 'B',
+    }),
+  },
+  {
+    id: 'bottleneck',
+    match: (rm, fl) => {
+      // Room with only one door connection = bottleneck
+      const doorCount = fl.doors.filter(d => d.r1 === fl.rooms.indexOf(rm) || d.r2 === fl.rooms.indexOf(rm)).length;
+      return doorCount === 1 && rm.w * rm.h > 6;
+    },
+    generate: (rm) => ({
+      roomLabel: rm.label,
+      text: `Single entry to ${rm.label}. Bottleneck. Fast through or careful?`,
+      optionA: { label: `Quick, commit to momentum`, shortLabel: 'Fast', effect: { type: 'wormInterval', delta: -300 } },
+      optionB: { label: `Careful, check everything`, shortLabel: 'Careful', effect: { type: 'gnomeCount', delta: 1 } },
+      mousePrefers: 'B',
+    }),
+  },
+];
+
+function generateBriefingNotes() {
+  const fl = currentFloor();
+  const notes = [];
+  const usedRooms = new Set();
+  const usedTemplates = new Set();
+
+  // Collect all possible matches, then pick diverse set
+  const candidates = [];
+  for (const template of NOTE_TEMPLATES) {
+    for (const rm of fl.rooms) {
+      if (template.match(rm, fl)) {
+        candidates.push({ template, rm });
+      }
+    }
+  }
+
+  // Shuffle to avoid always picking the same order
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+
+  // Pick up to 3, preferring different templates and rooms
+  for (const { template, rm } of candidates) {
+    if (notes.length >= 3) break;
+    if (usedRooms.has(rm.label)) continue;
+    if (usedTemplates.has(template.id) && candidates.length > notes.length + 2) continue;
+    const data = template.generate(rm, fl);
+    const col = rm.x + Math.floor(rm.w / 2);
+    const row = rm.y + Math.floor(rm.h / 2);
+    notes.push({
+      col, row,
+      roomLabel: data.roomLabel,
+      text: data.text,
+      optionA: data.optionA,
+      optionB: data.optionB,
+      mousePrefers: data.mousePrefers,
+      resolved: false,
+      choice: null,
+      appearT: 0,
+      _seed: Math.random(),
+    });
+    usedRooms.add(rm.label);
+    usedTemplates.add(template.id);
+  }
+
+  // Guarantee at least 2 notes — add a generic one if needed
+  if (notes.length < 2) {
+    const unusedRooms = fl.rooms.filter(rm => !usedRooms.has(rm.label) && rm.w * rm.h > 4);
+    for (const rm of unusedRooms) {
+      if (notes.length >= 2) break;
+      const col = rm.x + Math.floor(rm.w / 2);
+      const row = rm.y + Math.floor(rm.h / 2);
+      notes.push({
+        col, row,
+        roomLabel: rm.label,
+        text: `${rm.label} is larger than expected. Could be useful. Could be trouble.`,
+        optionA: { label: `Explore it fully`, shortLabel: 'Explore', effect: { type: 'mouseInterval', delta: 200 } },
+        optionB: { label: `Pass through quickly`, shortLabel: 'Quick pass', effect: { type: 'wormInterval', delta: -200 } },
+        mousePrefers: 'A',
+        resolved: false,
+        choice: null,
+        appearT: 0,
+        _seed: Math.random(),
+      });
+      usedRooms.add(rm.label);
+    }
+  }
+
+  return notes;
+}
+
+function generateBriefingLog(notes) {
+  const fl = currentFloor();
+  const queue = [];
+  queue.push({ type: 'int', text: `BRIEFING // Floor ${S.floor + 1} of 3`, delay: 0 });
+  queue.push({ type: 'pause', delay: 800 });
+
+  // Find the entry room for Mouse's first line
+  const entryRoom = fl.rooms.find(r =>
+    fl.entry.col >= r.x && fl.entry.col < r.x + r.w &&
+    fl.entry.row >= r.y && fl.entry.row < r.y + r.h
+  );
+
+  // Mouse line 1: what she confirmed (references a room she'd actually check)
+  const confirmedRoom = fl.rooms[Math.floor(Math.random() * Math.min(3, fl.rooms.length))];
+  const line1Pool = [
+    `Mouse: Went through ${confirmedRoom.label}. ${confirmedRoom.tile}. Confirmed.`,
+    `Mouse: ${confirmedRoom.label} is ${confirmedRoom.tile}. Counted the doors. We're fine.`,
+    `Mouse: Checked ${confirmedRoom.label}. Quiet. ${confirmedRoom.tile} underfoot.`,
+  ];
+  queue.push({ type: 'agent', text: line1Pool[Math.floor(Math.random() * line1Pool.length)], delay: 1200 });
+
+  // Mouse line 2: references something from the notes (what surprised her)
+  if (notes.length > 0) {
+    const n = notes[Math.floor(Math.random() * notes.length)];
+    const line2Pool = [
+      `Mouse: ${n.roomLabel} needs a decision. I have a preference.`,
+      `Mouse: Something in ${n.roomLabel}. Not what I expected.`,
+      `Mouse: ${n.roomLabel}. There's a call to make there.`,
+    ];
+    queue.push({ type: 'agent', text: line2Pool[Math.floor(Math.random() * line2Pool.length)], delay: 1200 });
+  } else {
+    queue.push({ type: 'agent', text: 'Mouse: Rooms are as briefed. Mostly.', delay: 1200 });
+  }
+
+  // Mouse line 3 (40% chance): entry orientation
+  if (Math.random() < 0.4) {
+    const entryName = entryRoom ? entryRoom.label : 'the south side';
+    const line3Pool = [
+      `Mouse: Entry from ${entryName}. Path exists.`,
+      `Mouse: We go in through ${entryName}. I can work with that.`,
+    ];
+    queue.push({ type: 'agent', text: line3Pool[Math.floor(Math.random() * line3Pool.length)], delay: 1200 });
+  }
+
+  queue.push({ type: 'pause', delay: 600 });
+
+  // Worm: 0-1 lines (50% silence)
+  if (Math.random() < 0.5) {
+    const wormPool = ['Worm: ...', 'Worm: paths laid.', 'Worm: ready.'];
+    queue.push({ type: 'agent', text: wormPool[Math.floor(Math.random() * wormPool.length)], delay: 1000 });
+  }
+
+  queue.push({ type: 'pause', delay: 400 });
+  queue.push({ type: 'int', text: `${notes.length} item${notes.length !== 1 ? 's' : ''} require${notes.length === 1 ? 's' : ''} your attention.`, delay: 800 });
+  queue.push({ type: 'notes', delay: 200 });
+
+  return queue;
+}
+
+function applyBriefingEffect(effect) {
+  if (!effect) return;
+  switch (effect.type) {
+    case 'gnomeCount':
+      if (effect.delta > 0) {
+        // Add gnomes at random edges
+        const edges = ['top', 'bottom', 'left', 'right'];
+        for (let i = 0; i < effect.delta; i++) {
+          const edge = edges[Math.floor(Math.random() * edges.length)];
+          let gc, gr;
+          if (edge === 'top')    { gc = Math.floor(Math.random() * GRID.cols); gr = 0; }
+          if (edge === 'bottom') { gc = Math.floor(Math.random() * GRID.cols); gr = GRID.rows - 1; }
+          if (edge === 'left')   { gc = 0; gr = Math.floor(Math.random() * GRID.rows); }
+          if (edge === 'right')  { gc = GRID.cols - 1; gr = Math.floor(Math.random() * GRID.rows); }
+          S.world.gnomes.push({
+            col: gc, row: gr, presence: 0, edgeDir: edge,
+            tickPhase: Math.random() * TAU, driftT: 0, alerted: false,
+            trapping: null, trapTicks: 0,
+            _bodyBumped: false, _onBody: false, _witnessed: false,
+          });
+        }
+      } else if (effect.delta < 0 && S.world.gnomes.length > 1) {
+        S.world.gnomes.splice(-1, Math.min(-effect.delta, S.world.gnomes.length - 1));
+      }
+      break;
+    case 'tileSwap':
+      if (S.world.tiles[effect.row] && S.world.tiles[effect.row][effect.col]) {
+        S.world.tiles[effect.row][effect.col] = effect.newTile;
+      }
+      break;
+    case 'mouseInterval':
+      S.agents.mouse.tickInterval = Math.max(800, S.agents.mouse.tickInterval + effect.delta);
+      break;
+    case 'wormInterval':
+      S.agents.worm.tickInterval = Math.max(600, S.agents.worm.tickInterval + effect.delta);
+      break;
+    case 'gnomeInterval':
+      S.world.gnomeTickInterval = Math.max(1200, S.world.gnomeTickInterval + effect.delta);
+      break;
+  }
+}
+
+function startBriefingPhase() {
+  // Generate world first — notes examine tile data
+  generateWorld();
+
+  const notes = generateBriefingNotes();
+  const logQueue = generateBriefingLog(notes);
+
+  S.phase = 'briefing';
+  S.briefing.notes = notes;
+  S.briefing.logQueue = logQueue;
+  S.briefing.logIndex = 0;
+  S.briefing.logTimer = 0;
+  S.briefing.elapsed = 0;
+  S.briefing.allResolved = false;
+  S.briefing.mouseQueuePenalty = 0;
+  S.briefing.notesAppearing = false;
+  S.briefing.noteAppearIndex = 0;
+  S.briefing.noteAppearTimer = 0;
+  S.briefing.resolveDelay = 0;
+  S.briefing.pendingEffects = [];
+
+  // Hide planning UI
+  document.getElementById('sticker-palette').style.opacity = '0';
+  document.getElementById('sticker-palette').style.pointerEvents = 'none';
+  document.getElementById('manifest').classList.remove('open');
+  document.getElementById('manifest-toggle').style.display = 'none';
+  clearLog();
+  renderQueues();
+}
+
+function startPlanningPhase() {
+  S.phase = 'planning';
+
+  // Apply mouse queue penalty from briefing overrides
+  S.agents.mouse.queueMax = Math.max(3, 7 - S.briefing.mouseQueuePenalty);
+
+  // Collect effects for application at execution start
+  S.briefing.pendingEffects = [];
+  for (const note of S.briefing.notes) {
+    if (note.choice) {
+      const effect = note.choice === 'A' ? note.optionA.effect : note.optionB.effect;
+      S.briefing.pendingEffects.push(effect);
+    }
+  }
+
+  // Generate worm path for this floor
+  generateWormPath();
+
+  // Reset plan loop
+  resetPlanLoop();
+
+  // Show planning UI
+  document.getElementById('sticker-palette').style.opacity = '1';
+  document.getElementById('sticker-palette').style.pointerEvents = 'auto';
+  document.getElementById('manifest-toggle').style.display = 'flex';
+  clearLog();
+  logInt(`PLANNING // Set room treatments. Loop runs when ready.`);
+  buildManifest();
+  renderQueues();
+}
+
+function updateBriefing(dt) {
+  if (S.phase !== 'briefing') return;
+
+  S.briefing.elapsed += dt;
+
+  // Typewriter log lines
+  if (S.briefing.logIndex < S.briefing.logQueue.length) {
+    S.briefing.logTimer += dt;
+    const entry = S.briefing.logQueue[S.briefing.logIndex];
+    if (S.briefing.logTimer >= entry.delay) {
+      S.briefing.logTimer = 0;
+      if (entry.type === 'agent') logAgent(entry.text);
+      else if (entry.type === 'int') logInt(entry.text);
+      else if (entry.type === 'notes') S.briefing.notesAppearing = true;
+      // 'pause' type just consumes delay
+      S.briefing.logIndex++;
+    }
+  }
+
+  // Staggered note appearance
+  if (S.briefing.notesAppearing && S.briefing.noteAppearIndex < S.briefing.notes.length) {
+    S.briefing.noteAppearTimer += dt;
+    if (S.briefing.noteAppearTimer >= 400) {
+      S.briefing.noteAppearTimer = 0;
+      S.briefing.noteAppearIndex++;
+    }
+  }
+
+  // Animate note fade-in
+  for (let i = 0; i < S.briefing.notes.length; i++) {
+    const note = S.briefing.notes[i];
+    if (i < S.briefing.noteAppearIndex && note.appearT < 1) {
+      note.appearT = Math.min(1, note.appearT + dt / 400);
+    }
+  }
+
+  // Check all resolved → transition after delay
+  if (!S.briefing.allResolved) {
+    const allDone = S.briefing.notes.length > 0 && S.briefing.notes.every(n => n.resolved);
+    if (allDone) {
+      S.briefing.allResolved = true;
+      S.briefing.resolveDelay = 0;
+      logInt('// All items resolved.');
+    }
+  }
+  if (S.briefing.allResolved) {
+    S.briefing.resolveDelay += dt;
+    if (S.briefing.resolveDelay >= 800) {
+      startPlanningPhase();
+    }
+  }
+}
+
 // ===== AGENT AI =====
 function neighbors(col, row) {
   return [
@@ -1009,7 +2001,7 @@ function stickerWeight(col, row, agent, agentKey) {
   let w = 0;
   const range = agentKey === 'mouse' ? 5 : 2;
   for (const st of S.blueprint.stickers) {
-    if (!st.resolved && S.phase === 'active') continue;
+    if (!st.resolved && S.phase === 'execution') continue;
     const dist = Math.abs(st.col - col) + Math.abs(st.row - row);
     const confMult = st.confidence === 'held' ? 1.5 : 1;
 
@@ -1378,7 +2370,7 @@ function gnomeTick() {
 
 // ===== WITNESS SYSTEM =====
 function triggerWitness(text) {
-  if (S.phase !== 'active') return;
+  if (S.phase !== 'execution') return;
   S.paused = true;
   const overlay = document.getElementById('witness-overlay');
   const textEl = document.getElementById('witness-text');
@@ -1438,7 +2430,7 @@ function renderQueue(agentKey) {
 
     // Tap to query
     el.addEventListener('click', () => {
-      if (S.phase !== 'active') return;
+      if (S.phase !== 'execution') return;
       // "Are you sure?" — agent re-evaluates
       logInt(`QUERY: ${agentKey} chip ${i} — ${chip.action}`);
       if (agentKey === 'mouse') {
@@ -1467,49 +2459,9 @@ function renderQueue(agentKey) {
 }
 
 // ===== PHASE MANAGEMENT =====
-function startActivePhase() {
-  S.phase = 'active';
-  const fl = currentFloor();
-
-  // Generate world
-  generateWorld();
-
-  // Spawn agents at entry
-  const entry = fl.entry;
-  for (const key of ['mouse', 'worm']) {
-    const a = S.agents[key];
-    a.col = entry.col;
-    a.row = entry.row;
-    a.targetCol = entry.col;
-    a.targetRow = entry.row;
-    a.moveT = 1;
-    const pos = gridToCanvas(entry.col + 0.5, entry.row + 0.5);
-    a.x = pos.x;
-    a.y = pos.y;
-    a.active = true;
-    a.visited = new Set([cellKey(entry.col, entry.row)]);
-    a.queue = [];
-    a.tickAccum = 0;
-    agentThink(a, key);
-  }
-
-  // Resolve all planning-phase stickers
-  for (const st of S.blueprint.stickers) {
-    st.resolved = true;
-  }
-
-  // UI updates
-  updateSendButton();
-  document.getElementById('sticker-palette').style.opacity = '0.4';
-  clearLog();
-  logInt(`FLOOR ${S.floor + 1} OF 3 // AGENTS DEPLOYED`);
-  logAgent('Mouse: In position. Beginning sweep.');
-  logAgent('through entry. moving.');
-  renderQueues();
-}
+// startExecutionPhase removed — transitionToExecution() handles the seamless send
 
 function startBetweenFloors() {
-  S.phase = 'planning';
   S.floor++;
   S._floorComplete = false;
 
@@ -1525,6 +2477,8 @@ function startBetweenFloors() {
   S.blueprint.stickers = [];
   S.blueprint.pins = [];
   S.blueprint.revealed = new Set();
+  S.blueprint.nodes = {};
+  S.blueprint.wormPath = [];
   S.run.pinsPlaced = { FILE: 0, KEY: 0, INTEL: 0 };
 
   for (const key of ['mouse', 'worm']) {
@@ -1532,21 +2486,19 @@ function startBetweenFloors() {
     a.active = false;
     a.queue = [];
     a.visited = new Set();
+    a.tickInterval = key === 'mouse' ? 1800 : 1300; // reset from briefing effects
+    a.queueMax = key === 'mouse' ? 7 : 3;
     if (key === 'worm') { a.trail = []; a.body = new Set(); a.bodyOrder = []; }
   }
+  S.world.gnomeTickInterval = 2800; // reset
 
-  // UI
-  document.getElementById('sticker-palette').style.opacity = '1';
-  clearLog();
-  logInt(`PLANNING // Floor ${S.floor + 1} of 3`);
-  buildManifest();
-  updateSendButton();
-  renderQueues();
+  // Enter briefing for next floor
+  startBriefingPhase();
 }
 
 // ===== CHECK FLOOR COMPLETION =====
 function checkFloorComplete() {
-  if (S.phase !== 'active') return false;
+  if (S.phase !== 'execution') return false;
   const fl = currentFloor();
 
   // All objectives must be reached
@@ -1580,7 +2532,13 @@ function frame(time) {
 }
 
 function update(dt) {
-  if (S.phase !== 'active' || S.paused) return;
+  // Briefing phase update
+  if (S.phase === 'briefing') { updateBriefing(dt); return; }
+
+  // Planning phase: run the planning loop
+  if (S.phase === 'planning') { updatePlanLoop(dt); return; }
+
+  if (S.phase !== 'execution' || S.paused) return;
 
   // Gnome tick
   S.world.gnomeTick += dt;
@@ -1681,15 +2639,184 @@ function update(dt) {
 
 function render() {
   drawBlueprint();
+  if (S.phase === 'briefing') drawBriefingNotes();
+  if (S.phase === 'planning') drawPlanLoop();
   drawLiveSignal();
+}
+
+// ===== BRIEFING NOTES RENDERING =====
+function drawBriefingNotes() {
+  const gp = S.ui.gridPx;
+  const notes = S.briefing.notes;
+
+  for (let i = 0; i < notes.length; i++) {
+    const note = notes[i];
+    if (note.appearT <= 0) continue;
+
+    const alpha = note.appearT;
+    const slideY = (1 - note.appearT) * 8; // slide up as appearing
+
+    ctx.save();
+
+    // Note position — offset from room center
+    const cx = S.ui.gridOx + (note.col + 0.5) * gp;
+    const cy = S.ui.gridOy + (note.row + 0.5) * gp - slideY;
+
+    // Note dimensions in canvas pixels
+    const nw = Math.min(gp * 3.2, 160);
+    const nh = Math.min(gp * 2.4, 100);
+    const nx = cx - nw / 2;
+    const ny = cy - nh / 2;
+
+    // Store bounds for hit testing
+    note._bounds = { x: nx, y: ny, w: nw, h: nh };
+
+    ctx.globalAlpha = alpha;
+
+    // Slight rotation
+    const rot = (note._seed - 0.5) * 0.06;
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.translate(-cx, -cy);
+
+    // Shadow
+    ctx.shadowColor = 'rgba(26,26,24,0.15)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+
+    // Paper rectangle
+    const paperColor = note.resolved ? '#ddd8c8' : '#eee8c8';
+    ctx.fillStyle = paperColor;
+    ctx.fillRect(nx, ny, nw, nh);
+    ctx.shadowColor = 'transparent';
+
+    // Border
+    ctx.strokeStyle = 'rgba(90,106,74,0.3)';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(nx, ny, nw, nh);
+
+    // Situation text (top area)
+    ctx.fillStyle = '#2a2a18';
+    ctx.font = 'italic 9px "Courier New", monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    // Word-wrap the situation text
+    const textPad = 6;
+    const maxTextW = nw - textPad * 2;
+    const words = note.text.split(' ');
+    let lines = [];
+    let currentLine = '';
+    for (const word of words) {
+      const test = currentLine ? currentLine + ' ' + word : word;
+      if (ctx.measureText(test).width > maxTextW && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = test;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+    lines = lines.slice(0, 3); // max 3 lines
+
+    for (let l = 0; l < lines.length; l++) {
+      ctx.fillText(lines[l], nx + textPad, ny + textPad + l * 11);
+    }
+
+    // Divider
+    const divY = ny + textPad + lines.length * 11 + 4;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(nx + textPad, divY);
+    ctx.lineTo(nx + nw - textPad, divY);
+    ctx.strokeStyle = 'rgba(90,106,74,0.4)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Options area
+    const optY = divY + 6;
+    const halfW = nw / 2;
+    ctx.font = '8px "Courier New", monospace';
+
+    // Option A (left)
+    const aAlpha = note.resolved && note.choice !== 'A' ? 0.3 : 1;
+    ctx.globalAlpha = alpha * aAlpha;
+    ctx.fillStyle = '#2a2a18';
+    ctx.textAlign = 'center';
+
+    // Strike-through unchosen option
+    if (note.resolved && note.choice !== 'A') {
+      const aText = note.optionA.shortLabel;
+      const aX = nx + halfW * 0.5;
+      ctx.fillText(aText, aX, optY);
+      const tw = ctx.measureText(aText).width;
+      ctx.beginPath();
+      ctx.moveTo(aX - tw / 2, optY + 4);
+      ctx.lineTo(aX + tw / 2, optY + 4);
+      ctx.strokeStyle = '#b04030';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    } else {
+      ctx.fillText(note.optionA.shortLabel, nx + halfW * 0.5, optY);
+    }
+
+    // Option B (right)
+    const bAlpha = note.resolved && note.choice !== 'B' ? 0.3 : 1;
+    ctx.globalAlpha = alpha * bAlpha;
+
+    if (note.resolved && note.choice !== 'B') {
+      const bText = note.optionB.shortLabel;
+      const bX = nx + halfW * 1.5;
+      ctx.fillText(bText, bX, optY);
+      const tw = ctx.measureText(bText).width;
+      ctx.beginPath();
+      ctx.moveTo(bX - tw / 2, optY + 4);
+      ctx.lineTo(bX + tw / 2, optY + 4);
+      ctx.strokeStyle = '#b04030';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    } else {
+      ctx.fillText(note.optionB.shortLabel, nx + halfW * 1.5, optY);
+    }
+
+    // Chosen option check mark
+    if (note.resolved) {
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#4a8a4a';
+      ctx.font = '10px sans-serif';
+      const checkX = note.choice === 'A' ? nx + halfW * 0.5 + 24 : nx + halfW * 1.5 + 24;
+      ctx.fillText('\u2713', checkX, optY + 1);
+    }
+
+    // Mouse preference indicator
+    ctx.globalAlpha = alpha * 0.6;
+    if (note.mousePrefers && !note.resolved) {
+      ctx.fillStyle = '#4a6a8a';
+      ctx.font = 'italic 7px "Courier New", monospace';
+      ctx.textAlign = 'left';
+      const mX = note.mousePrefers === 'A' ? nx + 4 : nx + halfW + 4;
+      const mY = optY + 12;
+      ctx.fillText('M\u2191', mX, mY);
+    }
+
+    // Vertical divider between options
+    ctx.globalAlpha = alpha * 0.3;
+    ctx.beginPath();
+    ctx.moveTo(nx + halfW, divY + 2);
+    ctx.lineTo(nx + halfW, ny + nh - 4);
+    ctx.strokeStyle = 'rgba(90,106,74,0.4)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    ctx.restore();
+  }
 }
 
 // ===== INIT =====
 buildPalette();
 buildManifest();
-document.getElementById('manifest').classList.add('open');
-logInt(`PLANNING // Floor ${S.floor + 1} of 3 // Cabinet ${S.cabinet + 1}`);
-updateSendButton();
+startBriefingPhase();
 requestAnimationFrame(frame);
 </script>
 </body>
