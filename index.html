@@ -231,6 +231,234 @@
     opacity: 1;
   }
 
+  /* ── LEDGER TRIGGER BUTTONS ── */
+  #hud-ledger, #selection-ledger {
+    background: none;
+    border: 1px solid var(--warm);
+    color: var(--bone);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  #hud-ledger:hover, #selection-ledger:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+  #selection-ledger {
+    margin-left: auto;
+  }
+
+  /* ── LEDGER OVERLAY ── */
+  #ledger-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease-out;
+  }
+  #ledger-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #ledger-surface {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 8, 6, 0.94);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 32px;
+    overflow-y: auto;
+    transform: scale(0.97);
+    transition: transform 0.4s ease-out;
+  }
+  #ledger-overlay.open #ledger-surface {
+    transform: scale(1);
+  }
+
+  /* Grain layers — only active one is visible */
+  #ledger-coarse, #ledger-mid, #ledger-fine {
+    display: none;
+    width: 100%;
+    max-width: 700px;
+  }
+  .grain-coarse #ledger-coarse { display: block; }
+  .grain-mid #ledger-mid       { display: flex; flex-direction: column; gap: 32px; }
+  .grain-fine #ledger-fine      { display: flex; flex-direction: column; gap: 32px; }
+
+  /* Coarse — single color fill */
+  #ledger-coarse {
+    aspect-ratio: 3 / 2;
+    max-height: 60vh;
+    border-radius: 4px;
+    transition: background 0.6s ease;
+  }
+
+  /* Mid — passport chips */
+  #ledger-passports {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .passport-chip {
+    width: 28px;
+    height: 28px;
+    border-radius: 3px;
+    cursor: default;
+    position: relative;
+    transition: transform 0.2s;
+  }
+  .passport-chip:hover {
+    transform: scale(1.3);
+  }
+  .passport-chip .chip-tip {
+    display: none;
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--mud);
+    color: var(--bone);
+    font-size: 0.5rem;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .passport-chip:hover .chip-tip {
+    display: block;
+  }
+
+  /* Mid — milestones */
+  .milestone-entry {
+    font-size: 0.55rem;
+    letter-spacing: 1.5px;
+    color: var(--bark);
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(61, 46, 24, 0.3);
+  }
+
+  /* Mid — spectrum canvas */
+  #ledger-spectrum {
+    height: 24px;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #ledger-spectrum-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #ledger-spectrum.absent { display: none; }
+
+  /* Fine — full passports */
+  .passport-card {
+    padding: 12px 16px;
+    border: 1px solid var(--bark);
+    border-radius: 4px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .passport-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .passport-detail {
+    font-size: 0.5rem;
+    letter-spacing: 1.5px;
+    color: var(--bone);
+    line-height: 1.6;
+  }
+  .passport-detail .issuer {
+    color: var(--amber);
+    text-transform: uppercase;
+  }
+  .passport-detail .traits {
+    color: var(--bark);
+    font-style: italic;
+  }
+
+  /* Fine — milestones full */
+  .milestone-full {
+    font-size: 0.55rem;
+    letter-spacing: 1.5px;
+    color: var(--bone);
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(61, 46, 24, 0.3);
+  }
+  .milestone-full .ms-ts {
+    color: var(--bark);
+    margin-left: 8px;
+  }
+
+  /* Fine — origin swatches */
+  .origin-swatch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.5rem;
+    letter-spacing: 1.5px;
+    color: var(--bone);
+    padding: 4px 0;
+  }
+  .origin-swatch span.origin-color {
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  /* Close button */
+  #ledger-close {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    background: none;
+    border: 1px solid var(--warm);
+    color: var(--bone);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  #ledger-close:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  /* Grain dots */
+  #ledger-grain-dots {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    gap: 8px;
+  }
+  .grain-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--bark);
+    transition: background 0.3s;
+    cursor: pointer;
+  }
+  .grain-dot.active {
+    background: var(--amber);
+  }
+
   /* ── STAGE ── */
   #stage {
     max-width: 860px;
@@ -1108,6 +1336,7 @@
   <div id="hud-bar">
     <span id="hud-score-name"></span>
     <div id="hud-scraggle-feed"></div>
+    <button id="hud-ledger" onclick="toggleLedger()">☰ LEDGER</button>
     <button id="hud-eject" onclick="ejectScore()">⏏ EJECT</button>
     <span id="eject-farewell"></span>
   </div>
@@ -1124,6 +1353,7 @@
           <span><span class="dot"></span>BROADCASTING</span>
           <span id="neighborhood-status">READING REGISTRY...</span>
           <span id="entity-count"></span>
+          <button id="selection-ledger" onclick="toggleLedger()">☰ LEDGER</button>
         </div>
       </div>
 
@@ -1361,6 +1591,29 @@
     <div id="smail-ambience"></div>
     <div id="smail-strip"></div>
     <div id="smail-message"></div>
+  </div>
+</div>
+
+<!-- THE LEDGER — Read Interface Overlay -->
+<div id="ledger-overlay">
+  <div id="ledger-surface" class="grain-coarse">
+    <div id="ledger-coarse"></div>
+    <div id="ledger-mid">
+      <div id="ledger-passports"></div>
+      <div id="ledger-milestones"></div>
+      <div id="ledger-spectrum"><canvas id="ledger-spectrum-canvas"></canvas></div>
+    </div>
+    <div id="ledger-fine">
+      <div id="ledger-passports-full"></div>
+      <div id="ledger-milestones-full"></div>
+      <div id="ledger-origins"></div>
+    </div>
+    <button id="ledger-close" onclick="closeLedger()">FOLD</button>
+    <div id="ledger-grain-dots">
+      <span class="grain-dot active" data-grain="coarse"></span>
+      <span class="grain-dot" data-grain="mid"></span>
+      <span class="grain-dot" data-grain="fine"></span>
+    </div>
   </div>
 </div>
 
@@ -1823,6 +2076,226 @@ function anteroomShow() {
 }
 
 // ============================================================
+// THE LEDGER — Read Interface
+// ============================================================
+
+let ledgerOpen = false;
+let ledgerGrain = 'coarse'; // coarse | mid | fine
+const GRAIN_ORDER = ['coarse', 'mid', 'fine'];
+
+function toggleLedger() {
+  if (ledgerOpen) closeLedger();
+  else openLedger();
+}
+
+function openLedger() {
+  const overlay = document.getElementById('ledger-overlay');
+  const surface = document.getElementById('ledger-surface');
+
+  const allEntries = Ledger.entries();
+  const portrait = Ledger.portrait();
+  const passports = allEntries.filter(e => e.kind === 'passport');
+  const milestones = allEntries.filter(e => e.kind === 'milestone');
+
+  renderCoarseView(passports, portrait);
+  renderMidView(passports, milestones, portrait);
+  renderFineView(passports, milestones, portrait);
+
+  ledgerGrain = 'coarse';
+  applyGrain();
+
+  overlay.classList.add('open');
+  ledgerOpen = true;
+}
+
+function closeLedger() {
+  const overlay = document.getElementById('ledger-overlay');
+  overlay.classList.remove('open');
+  ledgerOpen = false;
+
+  setTimeout(() => {
+    document.getElementById('ledger-passports').innerHTML = '';
+    document.getElementById('ledger-milestones').innerHTML = '';
+    document.getElementById('ledger-passports-full').innerHTML = '';
+    document.getElementById('ledger-milestones-full').innerHTML = '';
+    document.getElementById('ledger-origins').innerHTML = '';
+  }, 450);
+}
+
+function setLedgerGrain(grain) {
+  if (!GRAIN_ORDER.includes(grain)) return;
+  ledgerGrain = grain;
+  applyGrain();
+}
+
+function applyGrain() {
+  const surface = document.getElementById('ledger-surface');
+  surface.className = 'grain-' + ledgerGrain;
+  document.querySelectorAll('.grain-dot').forEach(d => {
+    d.classList.toggle('active', d.dataset.grain === ledgerGrain);
+  });
+}
+
+// --- Coarse View ---
+function renderCoarseView(passports, portrait) {
+  const el = document.getElementById('ledger-coarse');
+
+  if (passports.length === 0 && !portrait) {
+    el.style.background = 'rgb(30, 23, 16)';
+    return;
+  }
+
+  let passAvg = null;
+  if (passports.length > 0) {
+    let r = 0, g = 0, b = 0;
+    for (const p of passports) {
+      r += p.hue[0]; g += p.hue[1]; b += p.hue[2];
+    }
+    const n = passports.length;
+    passAvg = [Math.round(r / n), Math.round(g / n), Math.round(b / n)];
+  }
+
+  let blended;
+  if (passAvg && portrait) {
+    blended = [
+      Math.round((passAvg[0] + portrait.blend[0]) / 2),
+      Math.round((passAvg[1] + portrait.blend[1]) / 2),
+      Math.round((passAvg[2] + portrait.blend[2]) / 2)
+    ];
+  } else if (portrait) {
+    blended = portrait.blend;
+  } else {
+    blended = passAvg;
+  }
+
+  el.style.background = `rgb(${blended[0]}, ${blended[1]}, ${blended[2]})`;
+}
+
+// --- Mid View ---
+function renderMidView(passports, milestones, portrait) {
+  const chipContainer = document.getElementById('ledger-passports');
+  chipContainer.innerHTML = '';
+  for (const p of passports) {
+    const chip = document.createElement('span');
+    chip.className = 'passport-chip';
+    chip.style.background = `rgb(${p.hue[0]}, ${p.hue[1]}, ${p.hue[2]})`;
+    if (p.text) {
+      const tip = document.createElement('span');
+      tip.className = 'chip-tip';
+      tip.textContent = p.text;
+      chip.appendChild(tip);
+    }
+    chipContainer.appendChild(chip);
+  }
+
+  const msContainer = document.getElementById('ledger-milestones');
+  msContainer.innerHTML = '';
+  for (const m of milestones) {
+    const row = document.createElement('div');
+    row.className = 'milestone-entry';
+    const parts = [m.score, m.key];
+    if (m.label) parts.push(m.label);
+    row.textContent = parts.join(' · ');
+    msContainer.appendChild(row);
+  }
+
+  const spectrumEl = document.getElementById('ledger-spectrum');
+  if (!portrait) {
+    spectrumEl.classList.add('absent');
+    return;
+  }
+  spectrumEl.classList.remove('absent');
+
+  const scraggles = Ledger.entries({ kind: 'scraggle' }).filter(
+    s => Array.isArray(s.color) && s.color.length === 3
+  );
+  const canvas = document.getElementById('ledger-spectrum-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * (window.devicePixelRatio || 1);
+  canvas.height = canvas.offsetHeight * (window.devicePixelRatio || 1);
+  const segW = canvas.width / scraggles.length;
+  for (let i = 0; i < scraggles.length; i++) {
+    const c = scraggles[i].color;
+    ctx.fillStyle = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+    ctx.fillRect(Math.floor(i * segW), 0, Math.ceil(segW), canvas.height);
+  }
+}
+
+// --- Fine View ---
+function renderFineView(passports, milestones, portrait) {
+  const passContainer = document.getElementById('ledger-passports-full');
+  passContainer.innerHTML = '';
+  for (const p of passports) {
+    const card = document.createElement('div');
+    card.className = 'passport-card';
+    const swatch = document.createElement('div');
+    swatch.className = 'passport-swatch';
+    swatch.style.background = `rgb(${p.hue[0]}, ${p.hue[1]}, ${p.hue[2]})`;
+    card.appendChild(swatch);
+
+    const detail = document.createElement('div');
+    detail.className = 'passport-detail';
+    let html = `<span class="issuer">${p.issuer}</span>`;
+    if (p.text) html += `<br>${p.text}`;
+    if (p.traits && p.traits.length) html += `<br><span class="traits">${p.traits.join(', ')}</span>`;
+    if (p.portrait) html += `<br>${p.portrait}`;
+    detail.innerHTML = html;
+    card.appendChild(detail);
+    passContainer.appendChild(card);
+  }
+
+  const msContainer = document.getElementById('ledger-milestones-full');
+  msContainer.innerHTML = '';
+  for (const m of milestones) {
+    const row = document.createElement('div');
+    row.className = 'milestone-full';
+    const parts = [m.score, m.key];
+    if (m.label) parts.push(m.label);
+    const d = new Date(m.ts);
+    const ts = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    row.innerHTML = parts.join(' · ') + `<span class="ms-ts">${ts}</span>`;
+    msContainer.appendChild(row);
+  }
+
+  const originsContainer = document.getElementById('ledger-origins');
+  originsContainer.innerHTML = '';
+  if (!portrait) return;
+  for (const [slug, data] of Object.entries(portrait.byOrigin)) {
+    const row = document.createElement('div');
+    row.className = 'origin-swatch';
+    row.innerHTML = `<span class="origin-color" style="background:rgb(${data.color[0]}, ${data.color[1]}, ${data.color[2]})"></span>${slug} (${data.count})`;
+    originsContainer.appendChild(row);
+  }
+}
+
+// --- Grain zoom: wheel + keyboard ---
+document.addEventListener('wheel', (e) => {
+  if (!ledgerOpen) return;
+  e.preventDefault();
+  const idx = GRAIN_ORDER.indexOf(ledgerGrain);
+  if (e.deltaY > 0 && idx < GRAIN_ORDER.length - 1) setLedgerGrain(GRAIN_ORDER[idx + 1]);
+  else if (e.deltaY < 0 && idx > 0) setLedgerGrain(GRAIN_ORDER[idx - 1]);
+}, { passive: false });
+
+document.addEventListener('keydown', (e) => {
+  if (!ledgerOpen) return;
+  const idx = GRAIN_ORDER.indexOf(ledgerGrain);
+  if (e.key === 'ArrowDown' && idx < GRAIN_ORDER.length - 1) {
+    e.preventDefault(); setLedgerGrain(GRAIN_ORDER[idx + 1]);
+  } else if (e.key === 'ArrowUp' && idx > 0) {
+    e.preventDefault(); setLedgerGrain(GRAIN_ORDER[idx - 1]);
+  } else if (e.key === 'Escape') {
+    closeLedger();
+  }
+});
+
+// Grain dots click
+document.querySelectorAll('.grain-dot').forEach(dot => {
+  dot.addEventListener('click', () => setLedgerGrain(dot.dataset.grain));
+});
+
+// ============================================================
 // BOOT
 // ============================================================
 
@@ -2094,7 +2567,11 @@ function pollScraggles() {
 
     // Show new ones
     const newOnes = scraggles.slice(lastScraggleCount);
-    newOnes.forEach(s => receiveScraggle(s.emoji, s.signal, false));
+    newOnes.forEach(s => receiveScraggle(s.emoji, s.signal, false, 'hub', {
+      color: s.color || null,
+      weight: s.weight ?? null,
+      origin: s.origin || null
+    }));
     lastScraggleCount = scraggles.length;
   } catch(e) {}
 }

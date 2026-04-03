@@ -1,30 +1,38 @@
 # THE LEDGER
-**Location:** `ledger.js` (root) | **Status:** Active (Write endpoint only)
-**Neighborhood:** None — infrastructure | **Stack:** Vanilla JS (~160 lines)
+**Location:** `ledger.js` (root) + read overlay in `index.html` | **Status:** Active (Write + Read)
+**Neighborhood:** None — infrastructure | **Stack:** Vanilla JS
 
 ## Current State
-The Ledger's write endpoint. Neutral storage for player accumulation — passports, milestones, and scraggles data. No interpretation, no derived views, no synthesis at write time. It receives facts and holds them.
+Write endpoint for player accumulation plus a read interface overlay with three-grain zoom (coarse/mid/fine). Holds passports, milestones, and scraggles. The read overlay unfurls over the Hub without displacing it.
 
 ## What's Built
-- **Write module** (`ledger.js`): three methods — `Ledger.passport()`, `Ledger.milestone()`, `Ledger.scraggle()` — each appending timestamped, uid'd entries to `baseline-session/ledger` in localStorage
+- **Write module** (`ledger.js`): `Ledger.passport()`, `Ledger.milestone()`, `Ledger.scraggle()` — each appending timestamped, uid'd entries to `baseline-session/ledger` in localStorage
 - **Passport shape**: `{ kind: 'passport', hue: [r,g,b], issuer: string, text?, traits?, portrait?, ts, id }`
 - **Milestone shape**: `{ kind: 'milestone', score: string, key: string, label?, ts, id }`
 - **Scraggle shape**: `{ kind: 'scraggle', emoji: string, color?, weight?, origin?, ts, id }`
-- **Hub message handler**: `hub:ledger` postMessage type — scores write via `window.parent.postMessage({ type: 'hub:ledger', action: 'passport'|'milestone'|'scraggle', ...fields }, '*')`
-- **Scraggle bridge**: every non-reemit scraggle that arrives at the hub is also recorded in the Ledger automatically
-- **Hall passport issuance**: on score launch, the Hall issues a passport with the current Temperature hue and the score slug as text
-- **Verification helpers**: `Ledger.entries(filter?)` and `Ledger.counts()` for confirming writes
+- **Hub message handler**: `hub:ledger` postMessage type
+- **Scraggle bridge**: every non-reemit scraggle recorded in the Ledger automatically
+- **Hall passport issuance**: on score launch, Hall issues passport with Temperature hue
+- **Verification helpers**: `Ledger.entries(filter?)` and `Ledger.counts()`
+- **Scraggles portrait**: `Ledger.portrait()` — weighted color blend + per-origin breakdown, computed fresh each call
+- **Read overlay** (`index.html`): fixed overlay with unfurl/fold-back animation
+  - **Coarse grain**: single blended color (passport avg + portrait blend, 50/50)
+  - **Mid grain**: passport hue chips (hover for text), milestone entries, canvas spectrum strip (equal-width segments per scraggle, no blending)
+  - **Fine grain**: full passport cards (issuer, text, traits, portrait), timestamped milestones, per-origin color swatches with counts
+  - **Grain zoom**: mouse wheel, arrow keys, clickable dots, Escape to close
+  - **Trigger buttons**: HUD bar (score running) + selection panel status line (anteroom)
 
 ## What's Next
-- **Read interface** — the Ledger as a visitable space with grain control (coarse/mid/fine)
-- **Broadcast layer** — so Scores and entities can query the Ledger (`Ledger.entries({ kind: 'passport' })` is the seed, but the broadcast is about structured queries from within running scores)
-- **Score-issued passports** — individual scores issuing passports with their own hue on first visit
+- **Broadcast layer** — structured queries from within running scores
+- **Score-issued passports** — individual scores issuing passports with their own hue
 - **Entity-issued passports** — entities marking the player on encounter
-- **Scraggles portrait** — derived color distribution computed from accumulated scraggle data
+- **Three-pip broadcast summary** — lightweight player summary for score/entity recognition
 
 ## Specs & References
-- Spec: `concessions/THE_LEDGER.md`
+- Read spec: `concessions/LEDGER_READ_SPEC.md`
+- Write spec: `concessions/THE_LEDGER.md`
 - Write module: `ledger.js`
+- Read overlay: `index.html` (Ledger overlay section)
 
 ## Hub Integration
 - **Sends:** Nothing (infrastructure, not a score)

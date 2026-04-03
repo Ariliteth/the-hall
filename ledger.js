@@ -175,6 +175,55 @@ const Ledger = (() => {
     return c;
   }
 
+  /**
+   * Compute the Scraggles portrait — derived color distribution.
+   * Fresh each call, never cached.
+   * Returns { blend: [r,g,b], byOrigin: { [slug]: { color: [r,g,b], count } }, total } or null.
+   */
+  function portrait() {
+    const scraggles = read().filter(e => e.kind === 'scraggle' && validHue(e.color));
+    if (scraggles.length === 0) return null;
+
+    let rSum = 0, gSum = 0, bSum = 0, wSum = 0;
+    const origins = {};
+
+    for (const s of scraggles) {
+      const w = (typeof s.weight === 'number' && s.weight >= 0 && s.weight <= 1) ? s.weight : 1;
+      rSum += s.color[0] * w;
+      gSum += s.color[1] * w;
+      bSum += s.color[2] * w;
+      wSum += w;
+
+      const key = s.origin || '_unknown';
+      if (!origins[key]) origins[key] = { rSum: 0, gSum: 0, bSum: 0, wSum: 0, count: 0 };
+      origins[key].rSum += s.color[0] * w;
+      origins[key].gSum += s.color[1] * w;
+      origins[key].bSum += s.color[2] * w;
+      origins[key].wSum += w;
+      origins[key].count++;
+    }
+
+    const blend = [
+      Math.round(rSum / wSum),
+      Math.round(gSum / wSum),
+      Math.round(bSum / wSum)
+    ];
+
+    const byOrigin = {};
+    for (const [key, o] of Object.entries(origins)) {
+      byOrigin[key] = {
+        color: [
+          Math.round(o.rSum / o.wSum),
+          Math.round(o.gSum / o.wSum),
+          Math.round(o.bSum / o.wSum)
+        ],
+        count: o.count
+      };
+    }
+
+    return { blend, byOrigin, total: scraggles.length };
+  }
+
   return {
     passport,
     milestone,
@@ -182,6 +231,7 @@ const Ledger = (() => {
     handleMessage,
     entries,
     counts,
+    portrait,
     STORAGE_KEY
   };
 })();
