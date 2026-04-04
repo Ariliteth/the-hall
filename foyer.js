@@ -53,6 +53,19 @@ const Foyer = (() => {
       "Ah, the regular. The usual? ...We don't have a usual. But we could.",
     ],
     // Returning player — specific score visits detected
+    // Returning-with-memory — imported save file, fresh session but Ledger has history.
+    // The player carried something here. That's different.
+    returningWithMemory: [
+      "You brought your whole history. Good. I was wondering where you went.",
+      "Still the same person. I can tell by the Ledger.",
+      "Picked up right where you left off. I respect that.",
+      "That's a heavy file you walked in with. I mean that as a compliment.",
+      "Different browser, same fingerprints. The Hall doesn't forget — but you already knew that.",
+      "You packed everything. Most people don't pack everything.",
+      "The Ledger caught up before I did. It's like you never left.",
+      "Ah. You brought receipts. The neighborhood remembers.",
+    ],
+    // Returning player — specific score visits detected
     scoreSpecific: {
       'taste': [
         "Still shopping? The produce doesn't judge. Well, the ghost might.",
@@ -142,13 +155,75 @@ const Foyer = (() => {
     return 'full';
   }
 
+  // ── Returning-with-Memory Detection ──
+  // Fresh session flag absent but Ledger entries exist = imported history.
+  // Must be called before sessionStorage session flag is written.
+
+  let _importedHistory = false;
+
+  function hasImportedHistory() {
+    const sessionStarted = sessionStorage.getItem('fpl-session-started');
+    const entries = typeof Ledger !== 'undefined' ? Ledger.entries() : [];
+    return !sessionStarted && entries.length > 0;
+  }
+
+  // ── Save State Export / Import ──
+
+  function exportSave() {
+    const save = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith('baseline-session/')) {
+        save[key] = localStorage.getItem(key);
+      }
+    }
+    const blob = new Blob([JSON.stringify(save, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const d = new Date();
+    const stamp = d.getFullYear()
+      + String(d.getMonth() + 1).padStart(2, '0')
+      + String(d.getDate()).padStart(2, '0');
+    a.download = `fpl-save-${stamp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importSave(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const save = JSON.parse(e.target.result);
+        const keys = Object.keys(save).filter(k => k.startsWith('baseline-session/'));
+        if (keys.length === 0) return; // not a valid FPL save
+        keys.forEach(key => localStorage.setItem(key, save[key]));
+        // re-init Foyer with imported Ledger state
+        if (_registry && _entities.length > 0) {
+          const el = document.getElementById('foyer');
+          if (el) {
+            _importedHistory = true;
+            render(el, _registry, _entities);
+          }
+        }
+      } catch(err) {
+        // silent fail — invalid file, nothing changes
+      }
+    };
+    reader.readAsText(file);
+  }
+
   // ── Greeting Selection ──
   // Pick a greeting based on Ledger state.
 
   function pickGreeting() {
+    // Returning-with-memory takes priority — player imported a save file
+    if (_importedHistory) {
+      return pick(LARR_GREETINGS.returningWithMemory);
+    }
+
     const entries = typeof Ledger !== 'undefined' ? Ledger.entries() : [];
     const passports = entries.filter(e => e.kind === 'passport');
-    const milestones = entries.filter(e => e.kind === 'milestone');
 
     // New player — no passports at all
     if (passports.length === 0) {
@@ -470,6 +545,34 @@ const Foyer = (() => {
     enterBtn.onclick = () => enter();
     center.appendChild(enterBtn);
 
+    // Save portability controls — quiet, below enter button
+    const saveControls = document.createElement('div');
+    saveControls.id = 'foyer-save-controls';
+
+    const exportLink = document.createElement('button');
+    exportLink.className = 'foyer-save-link';
+    exportLink.textContent = '\u2193 save your place';
+    exportLink.onclick = () => exportSave();
+
+    const importInput = document.createElement('input');
+    importInput.type = 'file';
+    importInput.accept = '.json';
+    importInput.id = 'foyer-import-input';
+    importInput.onchange = (e) => {
+      if (e.target.files[0]) importSave(e.target.files[0]);
+      e.target.value = '';
+    };
+
+    const importLink = document.createElement('button');
+    importLink.className = 'foyer-save-link';
+    importLink.textContent = '\u2191 return to a place you saved';
+    importLink.onclick = () => importInput.click();
+
+    saveControls.appendChild(exportLink);
+    saveControls.appendChild(importInput);
+    saveControls.appendChild(importLink);
+    center.appendChild(saveControls);
+
     layout.appendChild(leftEdge);
     layout.appendChild(center);
     layout.appendChild(rightEdge);
@@ -537,6 +640,9 @@ const Foyer = (() => {
   }
 
   function show(reg, entities) {
+    // Detect imported history before session flag exists
+    _importedHistory = hasImportedHistory();
+
     const el = document.getElementById('foyer');
     el.style.display = 'block';
     el.classList.remove('exiting');
@@ -573,5 +679,7 @@ const Foyer = (() => {
     pickGreeting,
     toggleNeighborhood,
     toggleTheme,
+    exportSave,
+    importSave,
   };
 })();

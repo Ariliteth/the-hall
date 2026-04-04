@@ -7,7 +7,7 @@ Pre-Hub landing zone. Appears on fresh boot (new session), hosts Larr.AI as gree
 
 ## What's Built
 - Foyer container with three-column layout (neighborhoods left, entities+Larr center, themes/roster right)
-- Larr.AI greeting system: authored string pool with three registers (new/returning/veteran) plus score-specific greetings keyed to Ledger passport state
+- Larr.AI greeting system: authored string pool with four registers (new/returning/veteran/returning-with-memory) plus score-specific greetings keyed to Ledger passport state
 - Entity milling canvas: bezier-path walkers with glyph/portrait/color rendering (shared visual language with anteroom)
 - Neighborhood filter checkboxes (relocated from Hub sidebar)
 - Theme checkboxes (relocated from Hub sidebar)
@@ -20,6 +20,10 @@ Pre-Hub landing zone. Appears on fresh boot (new session), hosts Larr.AI as gree
 - Foyer → anteroom transition (calls anteroomInit with entity pool)
 - Mobile responsive layout (single column, center first)
 - CSS: fade-in animations for greeting and enter button, warm lobby register
+- Save state export: downloads all `baseline-session/` localStorage keys as timestamped JSON
+- Save state import: reads JSON file, writes keys back to localStorage, re-renders Foyer with imported state. Silent fail on invalid files.
+- Returning-with-memory detection: `hasImportedHistory()` checks for Ledger entries in a fresh session (no session flag yet). Runs at top of `show()` before session flag is written.
+- Quiet save/load controls below ENTER THE HALL button (`↓ save your place` / `↑ return to a place you saved`)
 
 ## What's Next
 - Larr.AI visual presence (portrait, animation — currently text-only)
@@ -30,6 +34,7 @@ Pre-Hub landing zone. Appears on fresh boot (new session), hosts Larr.AI as gree
 
 ## Specs & References
 - `concessions/THE_FOYER_SPEC.md` — design spec
+- `concessions/FOYER_SAVE_PORTABILITY.md` — save state export/import spec
 - `concessions/LARR_ONBOARDING_SPEC.md` — capability probe design (Foyer implements the three probes)
 - `concessions/LARR_ONBOARDING_HANDOFF.md` — original handoff note
 
@@ -37,5 +42,6 @@ Pre-Hub landing zone. Appears on fresh boot (new session), hosts Larr.AI as gree
 - **Sends:** Nothing (pre-Hub, seeds state before Hub loads)
 - **Receives:** Nothing
 - **sessionStorage:** `fpl-session-started` (fresh boot flag), `fpl-capability` (probe results)
-- **Reads:** `Ledger.entries()` for greeting selection, `registry` for neighborhoods/themes/roster
+- **localStorage:** Reads/writes all `baseline-session/` keys (export/import)
+- **Reads:** `Ledger.entries()` for greeting selection + imported history detection, `registry` for neighborhoods/themes/roster
 - **Downstream:** Anteroom receives entity pool from Foyer on first enter. Hub sidebar shows return button.

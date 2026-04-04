@@ -1327,6 +1327,35 @@
     border-color: var(--amber);
   }
 
+  /* Save portability controls — quiet, below enter button */
+  #foyer-save-controls {
+    position: relative;
+    z-index: 1;
+    margin-top: 18px;
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    opacity: 0;
+    animation: foyer-fade-in 0.8s ease 2.8s forwards;
+  }
+  .foyer-save-link {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--bark);
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    letter-spacing: 1px;
+    transition: color 0.3s ease;
+  }
+  .foyer-save-link:hover {
+    color: var(--amber);
+  }
+  #foyer-import-input {
+    display: none;
+  }
+
   /* Return to Foyer button (in Hub sidebar) */
   #return-to-foyer {
     display: flex;
