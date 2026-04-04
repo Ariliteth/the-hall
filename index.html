@@ -1129,10 +1129,248 @@
   }
 
   /* ══════════════════════════════════════════════
+     THE FOYER
+     ══════════════════════════════════════════════ */
+
+  #foyer {
+    position: fixed;
+    inset: 0;
+    background: #0d0a07;
+    z-index: 200;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    overflow-y: auto;
+  }
+
+  #foyer.visible { opacity: 1; }
+  #foyer.exiting { opacity: 0; transition: opacity 0.5s ease; }
+
+  /* Version selector — top, quiet */
+  #foyer-version {
+    text-align: right;
+    padding: 10px 20px 0;
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    color: var(--bark);
+  }
+
+  /* Main layout — three columns */
+  #foyer-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    gap: 0;
+    min-height: calc(100vh - 30px);
+    padding: 0 12px 20px;
+  }
+
+  /* Edge panels — neighborhoods and themes/roster */
+  .foyer-edge {
+    padding: 20px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .foyer-edge h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    color: var(--amber);
+    border-bottom: 1px solid var(--bark);
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+
+  .foyer-block {
+    margin-bottom: 16px;
+  }
+
+  .foyer-block h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    color: var(--amber);
+    border-bottom: 1px solid var(--bark);
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+
+  .foyer-hood-item, .foyer-theme-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    color: var(--bone);
+    cursor: pointer;
+  }
+
+  .foyer-hood-item input[type="checkbox"],
+  .foyer-theme-item input[type="checkbox"] {
+    appearance: none;
+    width: 10px; height: 10px;
+    border: 1px solid var(--bark);
+    background: var(--void);
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .foyer-hood-item input[type="checkbox"]:checked,
+  .foyer-theme-item input[type="checkbox"]:checked {
+    background: var(--amber);
+    border-color: var(--amber);
+  }
+
+  .foyer-hood-count {
+    margin-left: auto;
+    color: var(--bark);
+    font-size: 0.5rem;
+  }
+
+  .foyer-roster-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 0.55rem;
+    letter-spacing: 0.5px;
+    color: var(--bone);
+    opacity: 0.6;
+  }
+
+  .foyer-roster-hood {
+    color: var(--bark);
+    font-size: 0.5rem;
+  }
+
+  .foyer-empty {
+    font-size: 0.55rem;
+    color: var(--bark);
+    letter-spacing: 1px;
+    padding: 6px 0;
+  }
+
+  /* Center — milling + Larr.AI */
+  #foyer-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-height: 400px;
+  }
+
+  #foyer-milling-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  /* Larr.AI greeting */
+  #foyer-larr {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  #foyer-larr-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 4px;
+    color: var(--amber);
+    margin-bottom: 12px;
+    opacity: 0.7;
+  }
+
+  #foyer-larr-greeting {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--parchment);
+    max-width: 400px;
+    line-height: 1.6;
+    opacity: 0;
+    animation: foyer-fade-in 1.5s ease 0.8s forwards;
+  }
+
+  @keyframes foyer-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Enter button */
+  #foyer-enter {
+    position: relative;
+    z-index: 1;
+    margin-top: 30px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 4px;
+    color: var(--amber);
+    background: transparent;
+    border: 1px solid var(--bark);
+    padding: 10px 28px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0;
+    animation: foyer-fade-in 1s ease 2s forwards;
+  }
+
+  #foyer-enter:hover {
+    background: var(--bark);
+    color: var(--parchment);
+    border-color: var(--amber);
+  }
+
+  /* Return to Foyer button (in Hub sidebar) */
+  #return-to-foyer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    color: var(--bark);
+    background: transparent;
+    border: 1px solid var(--bark);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+  }
+
+  #return-to-foyer:hover {
+    color: var(--amber);
+    border-color: var(--amber);
+  }
+
+  /* ══════════════════════════════════════════════
      MOBILE RESPONSIVE
      ══════════════════════════════════════════════ */
 
   @media (max-width: 768px) {
+
+    /* ── FOYER MOBILE ── */
+    #foyer-layout {
+      grid-template-columns: 1fr;
+      padding: 0 16px 20px;
+    }
+
+    .foyer-edge {
+      padding: 12px 0;
+    }
+
+    .foyer-edge-left { order: 2; }
+    .foyer-edge-right { order: 3; }
+    #foyer-center { order: 1; min-height: 300px; }
+
+    #foyer-larr-greeting { font-size: 0.85rem; max-width: 90vw; }
 
     /* ── GRID → SINGLE COLUMN ── */
     #columns {
@@ -1316,6 +1554,9 @@
   <div id="loading-title">FIXED POINT LOCAL</div>
   <div id="loading-msg">TUNING IN...</div>
 </div>
+
+<!-- The Foyer — pre-Hub landing zone, fresh boot only -->
+<div id="foyer" style="display:none;"></div>
 
 <!-- Anteroom — the place before the rack -->
 <div id="anteroom" style="display:none;">
@@ -1539,28 +1780,8 @@
         </div>
 
         <div id="sidebar">
-
-          <div class="sidebar-block">
-            <h3>Neighborhoods</h3>
-            <div id="neighborhood-list">
-              <div id="neighborhoods-loading" style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:2px;">READING REGISTRY...</div>
-            </div>
-          </div>
-
-          <div class="sidebar-block">
-            <h3>Themes</h3>
-            <div id="theme-list">
-              <div id="themes-loading" style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:2px;">READING THEMES...</div>
-            </div>
-          </div>
-
-          <div class="sidebar-block">
-            <h3>On The Roster</h3>
-            <div id="roster-preview">
-              <div id="roster-loading">FETCHING RESIDENTS...</div>
-            </div>
-          </div>
-
+          <!-- Neighborhood/theme/roster panels relocated to Foyer (foyer.js) -->
+          <button id="return-to-foyer" onclick="returnToFoyer()">RETURN TO FOYER</button>
         </div>
       </div>
     </div>
@@ -1618,6 +1839,7 @@
 </div>
 
 <script src="ledger.js"></script>
+<script src="foyer.js"></script>
 <script>
 // ============================================================
 // CONFIGURATION
@@ -2333,6 +2555,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   try {
     registry = await fetchRegistry();
+    // Neighborhood/theme/roster rendering relocated to Foyer.
+    // Still call these to populate state (activeNeighborhoods, activeThemes)
+    // but guard against missing DOM containers.
     renderNeighborhoods();
     renderThemes();
     renderRoster();
@@ -2341,8 +2566,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Enrich entity whisper pool in the background — doesn't block init
     enrichEntityWhispers();
   } catch(e) {
-    document.getElementById('neighborhoods-loading').textContent = 'SIGNAL LOST — OFFLINE MODE';
-    document.getElementById('roster-loading').textContent = 'NO SIGNAL';
+    // Foyer will handle its own loading states
     renderThemes();
   }
 
@@ -2400,17 +2624,25 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Transition: loading → anteroom (hub stays hidden underneath)
+  // Transition: loading → Foyer (fresh boot) or anteroom (return visit)
   document.getElementById('selection-panel').classList.add('collapsed');
+
+  const freshBoot = Foyer.isFreshBoot();
 
   setTimeout(() => {
     document.getElementById('loading-screen').classList.add('fade');
     setTimeout(() => {
       document.getElementById('loading-screen').remove();
-      // Show anteroom
-      const anteroomEl = document.getElementById('anteroom');
-      anteroomEl.style.display = '';
-      anteroomInit(allEntities);
+
+      if (freshBoot) {
+        // Fresh boot — show the Foyer first
+        Foyer.show(registry, allEntities);
+      } else {
+        // Return visit — straight to anteroom
+        const anteroomEl = document.getElementById('anteroom');
+        anteroomEl.style.display = '';
+        anteroomInit(allEntities);
+      }
     }, 700);
   }, 900);
 });
@@ -2667,30 +2899,19 @@ async function fetchRegistry() {
 // ============================================================
 
 function renderNeighborhoods() {
-  const container = document.getElementById('neighborhood-list');
-  container.innerHTML = '';
-
   const neighborhoods = Object.entries(registry.neighborhoods);
   neighborhoods.forEach(([slug]) => activeNeighborhoods.add(slug));
 
   const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
   const totalResidents = neighborhoods.reduce((sum, [, entry]) => sum + getEntities(entry).length, 0);
 
-  document.getElementById('neighborhood-status').textContent = `${neighborhoods.length} NEIGHBORHOODS`;
-  document.getElementById('entity-count').textContent = `${totalResidents} RESIDENTS`;
+  // Status line elements still exist in the Hub masthead
+  const statusEl = document.getElementById('neighborhood-status');
+  if (statusEl) statusEl.textContent = `${neighborhoods.length} NEIGHBORHOODS`;
+  const countEl = document.getElementById('entity-count');
+  if (countEl) countEl.textContent = `${totalResidents} RESIDENTS`;
 
-  neighborhoods.forEach(([slug, entry]) => {
-    const entities = getEntities(entry);
-    const hasTheme = !Array.isArray(entry) && entry.theme;
-    const item = document.createElement('div');
-    item.className = 'neighborhood-item';
-    item.innerHTML = `
-      <input type="checkbox" id="hood-${slug}" checked onchange="toggleNeighborhood('${slug}', this.checked)">
-      <label class="neighborhood-name" for="hood-${slug}">${formatNeighborhoodName(slug)}${hasTheme ? ' ◆' : ''}</label>
-      <span class="neighborhood-count">${entities.length}</span>
-    `;
-    container.appendChild(item);
-  });
+  // DOM rendering relocated to Foyer — this function now only populates state
 }
 
 function formatNeighborhoodName(slug) {
@@ -2715,40 +2936,23 @@ function toggleNeighborhood(slug, checked) {
 // ============================================================
 
 function renderThemes() {
-  const container = document.getElementById('theme-list');
-  container.innerHTML = '';
-
+  // Populate activeThemes state from localStorage unlocks
   const themes = [];
   if (registry) {
     for (const [slug, entry] of Object.entries(registry.neighborhoods)) {
       if (!Array.isArray(entry) && entry.theme) {
-        const tName = formatNeighborhoodName(slug);
-        themes.push({ slug: entry.theme, name: tName, desc: `${tName} conducts.` });
+        themes.push({ slug: entry.theme });
       }
     }
   }
   KNOWN_THEMES.forEach(t => { if (!themes.find(x => x.slug === t.slug)) themes.push(t); });
 
-  if (themes.length === 0) {
-    container.innerHTML = '<div style="padding:10px 12px;font-size:0.6rem;color:var(--bark);letter-spacing:1px;">No themes in the repository yet.</div>';
-    return;
-  }
-
   themes.forEach(theme => {
-    const item = document.createElement('div');
-    item.className = 'theme-item';
-    // Auto-check themes unlocked via scores (e.g. Kitchendom poster in mall)
     const unlocked = localStorage.getItem(`baseline-session/${theme.slug}-theme`);
     if (unlocked) activeThemes.add(theme.slug);
-    item.innerHTML = `
-      <input type="checkbox" id="theme-${theme.slug}" ${unlocked ? 'checked' : ''} onchange="toggleTheme('${theme.slug}', this.checked)">
-      <div class="theme-info">
-        <div class="theme-name">${theme.name}</div>
-        <div class="theme-desc">${theme.desc}</div>
-      </div>
-    `;
-    container.appendChild(item);
   });
+
+  // DOM rendering relocated to Foyer
 }
 
 function toggleTheme(slug, checked) {
@@ -2762,27 +2966,8 @@ function toggleTheme(slug, checked) {
 // ============================================================
 
 function renderRoster() {
-  const container = document.getElementById('roster-preview');
-  container.innerHTML = '';
-  if (!registry) return;
-
-  const getEntities = (entry) => Array.isArray(entry) ? entry : (entry.entities || []);
-  let any = false;
-
-  for (const [hood, entry] of Object.entries(registry.neighborhoods)) {
-    if (!activeNeighborhoods.has(hood)) continue;
-    getEntities(entry).forEach(slug => {
-      any = true;
-      const el = document.createElement('div');
-      el.className = 'roster-entry';
-      el.innerHTML = `<span>${formatSlug(slug)}</span><span class="hood">${formatNeighborhoodName(hood)}</span>`;
-      container.appendChild(el);
-    });
-  }
-
-  if (!any) {
-    container.innerHTML = '<div style="font-size:0.6rem;color:var(--bark);letter-spacing:1px;">No neighborhoods selected.</div>';
-  }
+  // DOM rendering relocated to Foyer — this is now a no-op
+  // Roster data is derived from registry + activeNeighborhoods at render time
 }
 
 function formatSlug(slug) {
@@ -2913,6 +3098,47 @@ function ejectScore() {
     document.getElementById('selection-panel').classList.add('collapsed');
     anteroomShow();
   }, 1200);
+}
+
+// ============================================================
+// RETURN TO FOYER
+// ============================================================
+
+function returnToFoyer() {
+  // Hide selection panel, show Foyer with current registry + entities
+  document.getElementById('selection-panel').classList.add('collapsed');
+
+  // Rebuild entity pool from registry (same logic as boot)
+  const allEntities = [];
+  if (registry) {
+    const portraitMap = new Map();
+    try {
+      const qRaw = localStorage.getItem('baseline-session/portraits-queue');
+      if (qRaw) {
+        const queue = JSON.parse(qRaw);
+        for (const p of queue) {
+          if (p.slug && p.dataUrl) portraitMap.set(p.slug, p.dataUrl);
+        }
+      }
+    } catch(e) {}
+
+    for (const [hood, data] of Object.entries(registry.neighborhoods)) {
+      const slugs = Array.isArray(data) ? data : (data.entities || []);
+      const color = NEIGHBORHOOD_COLORS[hood] || { r: 150, g: 150, b: 150 };
+      const hasRealGlyphs = hood === 'greengarden';
+      for (const slug of slugs) {
+        const portrait = portraitMap.get(slug) || null;
+        allEntities.push({
+          slug, neighborhood: hood, name: formatSlug(slug), color,
+          glyphUrl: hasRealGlyphs ? `neighborhoods/${hood}/entities/${slug}/glyph.svg` : null,
+          portrait, glyphImg: null, portraitImg: null,
+          presence: 'color',
+        });
+      }
+    }
+  }
+
+  Foyer.show(registry, allEntities);
 }
 
 // ============================================================
