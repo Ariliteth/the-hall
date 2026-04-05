@@ -224,6 +224,138 @@ const Ledger = (() => {
     return { blend, byOrigin, total: scraggles.length };
   }
 
+  // ============================================================
+  // VISITOR CONSTELLATION
+  // ============================================================
+  //
+  // Separate from the main ledger. An emoji die that grows with
+  // visitor presence: anchor + faces, tier derived from count.
+  //
+  // Storage: localStorage 'baseline-session/visitor-constellation'
+  // Shape:  { anchor: emoji, faces: [{emoji, placedBy, ts}], tier }
+  //   tier is always recomputed at read time — stored for convenience
+  //
+  // Die form:
+  //   0 faces → d4, 1–3 → d6, 4–7 → d8, 8–11 → d10,
+  //   12–15 → d12, 16–19 → d20, 20–49 → d50, 50+ → d100
+
+  const CONSTELLATION_KEY = 'baseline-session/visitor-constellation';
+
+  const DIE_TIERS = [
+    { max: 0,  name: 'd4'   },
+    { max: 3,  name: 'd6'   },
+    { max: 7,  name: 'd8'   },
+    { max: 11, name: 'd10'  },
+    { max: 15, name: 'd12'  },
+    { max: 19, name: 'd20'  },
+    { max: 49, name: 'd50'  },
+    { max: Infinity, name: 'd100' },
+  ];
+
+  function constellationTier(faceCount) {
+    for (const t of DIE_TIERS) {
+      if (faceCount <= t.max) return t.name;
+    }
+    return 'd100';
+  }
+
+  function readConstellation() {
+    try {
+      const raw = localStorage.getItem(CONSTELLATION_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      // recompute tier
+      data.tier = constellationTier(data.faces ? data.faces.length : 0);
+      return data;
+    } catch(e) { return null; }
+  }
+
+  function writeConstellation(data) {
+    data.tier = constellationTier(data.faces ? data.faces.length : 0);
+    localStorage.setItem(CONSTELLATION_KEY, JSON.stringify(data));
+    return data;
+  }
+
+  /**
+   * Set or replace the anchor emoji. Creates the constellation if absent.
+   */
+  function constellationAnchor(emoji) {
+    if (!validString(emoji)) return null;
+    let c = readConstellation();
+    if (!c) c = { anchor: emoji, faces: [] };
+    else c.anchor = emoji;
+    return writeConstellation(c);
+  }
+
+  /**
+   * Add a face to the constellation.
+   * placedBy: 'visitor' | 'larr'
+   */
+  function constellationAdd(emoji, placedBy) {
+    if (!validString(emoji)) return null;
+    placedBy = placedBy === 'larr' ? 'larr' : 'visitor';
+    let c = readConstellation();
+    if (!c) c = { anchor: emoji, faces: [] };
+    c.faces.push({ emoji, placedBy, ts: now() });
+    return writeConstellation(c);
+  }
+
+  /**
+   * Remove a face by index.
+   */
+  function constellationRemove(index) {
+    const c = readConstellation();
+    if (!c || index < 0 || index >= c.faces.length) return null;
+    c.faces.splice(index, 1);
+    return writeConstellation(c);
+  }
+
+  /**
+   * Replace a face at index with a new emoji.
+   */
+  function constellationReplace(index, emoji) {
+    const c = readConstellation();
+    if (!c || index < 0 || index >= c.faces.length || !validString(emoji)) return null;
+    c.faces[index].emoji = emoji;
+    c.faces[index].ts = now();
+    return writeConstellation(c);
+  }
+
+  /**
+   * Clear the entire constellation.
+   */
+  function constellationClear() {
+    localStorage.removeItem(CONSTELLATION_KEY);
+  }
+
+  /**
+   * Pip 4 — constellation sample for score consumption.
+   * Returns 1–3 emoji weighted toward anchor and inner ring.
+   * Returns [] if no constellation exists.
+   */
+  function constellationSample() {
+    const c = readConstellation();
+    if (!c) return [];
+    const result = [c.anchor];
+    if (c.faces.length > 0) {
+      // inner ring = first half of faces (closest to anchor)
+      const inner = c.faces.slice(0, Math.ceil(c.faces.length / 2));
+      const outer = c.faces.slice(Math.ceil(c.faces.length / 2));
+      // pick from inner with 70% weight, outer 30%
+      const pool = Math.random() < 0.7 ? inner : (outer.length > 0 ? outer : inner);
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      if (pick) result.push(pick.emoji);
+      // third emoji from any ring, if large enough
+      if (c.faces.length >= 4) {
+        const all = c.faces.filter(f => f.emoji !== pick?.emoji);
+        if (all.length > 0) {
+          result.push(all[Math.floor(Math.random() * all.length)].emoji);
+        }
+      }
+    }
+    return result;
+  }
+
   return {
     passport,
     milestone,
@@ -232,6 +364,16 @@ const Ledger = (() => {
     entries,
     counts,
     portrait,
-    STORAGE_KEY
+    STORAGE_KEY,
+    // Constellation
+    CONSTELLATION_KEY,
+    constellationTier,
+    readConstellation,
+    constellationAnchor,
+    constellationAdd,
+    constellationRemove,
+    constellationReplace,
+    constellationClear,
+    constellationSample,
   };
 })();

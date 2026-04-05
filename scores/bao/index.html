@@ -1722,6 +1722,16 @@ function renderAssignUI(){
     arow.appendChild(btn);
   });
   document.getElementById('army-label').style.opacity=S.selectedGeneral?'1':'0';
+
+  // Pip 4 nudge: on first assign of a continent, pre-select a constellation-resonant General
+  if(!S.selectedGeneral && Object.keys(S.assignments).length === 0) {
+    const nudged = pip4NudgeGeneral();
+    if (nudged) {
+      S.selectedGeneral = nudged;
+      renderAssignUI();
+      return;
+    }
+  }
 }
 
 function selectGeneral(genId){
@@ -2715,6 +2725,34 @@ function init(){
   if(window.parent!==window){
     try{window.parent.postMessage({type:'hub:minimize'},'*');}catch(e){}
     try{window.parent.postMessage({type:'hub:color',r:160,g:130,b:70},'*');}catch(e){}
+
+    // Pip 4 — Visitor Constellation
+    // When enlisting, select a General whose character carries something from the constellation.
+    // The connection is felt, not explained.
+    let pip4Sample = [];
+    let pip4Nudged = false;
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'hub:pip4' && Array.isArray(e.data.constellation)) {
+        pip4Sample = e.data.constellation;
+      }
+    });
+
+    function pip4NudgeGeneral() {
+      if (pip4Nudged || pip4Sample.length === 0) return null;
+      pip4Nudged = true;
+      // Find a General whose emoji or preferred army resonates with the constellation
+      const sample = new Set(pip4Sample);
+      const match = GENERALS.find(g =>
+        !S.dispatchedGeneral || g.id !== S.dispatchedGeneral
+      ) && GENERALS.find(g =>
+        g.id !== S.dispatchedGeneral && (sample.has(g.emoji) || sample.has(g.preferredArmy))
+      );
+      if (match) return match.id;
+      // No direct match — pick the General at a constellation-derived position
+      const code = pip4Sample[0].codePointAt(0) || 0;
+      const eligible = GENERALS.filter(g => g.id !== S.dispatchedGeneral);
+      return eligible[code % eligible.length].id;
+    }
   }
 }
 

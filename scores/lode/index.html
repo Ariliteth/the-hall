@@ -38,6 +38,17 @@
 try { window.parent.postMessage({ type: 'hub:minimize' }, '*'); } catch(e) {}
 try { window.parent.postMessage({ type: 'hub:color', r: 60, g: 30, b: 80 }, '*'); } catch(e) {}
 
+// ===== PIP 4 — Visitor Constellation =====
+// Hub delivers 1–3 emoji from the visitor's constellation on load.
+// First emoji placed into the first stomp field — just there, not announced.
+let pip4Sample = [];
+let pip4Used = false;
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'hub:pip4' && Array.isArray(e.data.constellation)) {
+    pip4Sample = e.data.constellation;
+  }
+});
+
 // ===== CONSTANTS =====
 
 const TIERS = [
@@ -1362,6 +1373,12 @@ function generateChoices() {
   const pool = EMOJI_POOL.filter(e => e !== S.emblem);
   shuffle(pool);
   const picks = pool.slice(0, 3);
+
+  // Pip 4: first stomp field, first run only — visitor's constellation emoji, just there
+  if (!pip4Used && pip4Sample.length > 0 && S.tier === 0 && S.faces.length === 0) {
+    picks[Math.floor(Math.random() * 3)] = pip4Sample[0];
+    pip4Used = true;
+  }
 
   // chance for emblem to appear (recognition)
   if (S.emblem && S.phase !== 'emblem' && Math.random() < EMBLEM_CHANCE) {

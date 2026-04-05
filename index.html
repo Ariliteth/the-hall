@@ -270,27 +270,161 @@
     inset: 0;
     background: rgba(10, 8, 6, 0.94);
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    flex-direction: row;
+    align-items: stretch;
     justify-content: center;
     padding: 48px 32px;
     overflow-y: auto;
     transform: scale(0.97);
     transition: transform 0.4s ease-out;
+    gap: 32px;
   }
   #ledger-overlay.open #ledger-surface {
     transform: scale(1);
   }
 
+  /* Two-panel layout: constellation (left) + record (right) */
+  #ledger-left, #ledger-right {
+    flex: 1;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  @media (max-width: 700px) {
+    #ledger-surface { flex-direction: column; align-items: center; }
+    #ledger-left, #ledger-right { max-width: 100%; width: 100%; }
+  }
+
   /* Grain layers — only active one is visible */
-  #ledger-coarse, #ledger-mid, #ledger-fine {
+  #ledger-coarse, #ledger-mid, #ledger-fine,
+  #constellation-coarse, #constellation-mid, #constellation-fine {
     display: none;
     width: 100%;
-    max-width: 700px;
   }
   .grain-coarse #ledger-coarse { display: block; }
   .grain-mid #ledger-mid       { display: flex; flex-direction: column; gap: 32px; }
   .grain-fine #ledger-fine      { display: flex; flex-direction: column; gap: 32px; }
+  .grain-coarse #constellation-coarse { display: flex; align-items: center; justify-content: center; }
+  .grain-mid #constellation-mid       { display: flex; align-items: center; justify-content: center; }
+  .grain-fine #constellation-fine      { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+
+  /* Constellation — coarse: single large anchor */
+  #constellation-coarse {
+    min-height: 200px;
+  }
+  .constellation-anchor-large {
+    font-size: 72px;
+    line-height: 1;
+    text-align: center;
+    filter: drop-shadow(0 0 12px rgba(200,130,10,0.3));
+  }
+
+  /* Constellation — mid: gathered layout (canvas) */
+  #constellation-mid {
+    min-height: 240px;
+    width: 100%;
+  }
+  #constellation-canvas {
+    width: 100%;
+    height: 240px;
+    display: block;
+  }
+
+  /* Constellation — fine: editable emoji list */
+  #constellation-fine {
+    width: 100%;
+  }
+  .constellation-tier-label {
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    color: var(--bark);
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .constellation-face {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(61, 46, 24, 0.2);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .constellation-face:hover {
+    background: rgba(61, 46, 24, 0.15);
+  }
+  .constellation-face .face-emoji {
+    font-size: 22px;
+    min-width: 28px;
+    text-align: center;
+  }
+  .constellation-face .face-meta {
+    font-size: 0.45rem;
+    letter-spacing: 1.5px;
+    color: var(--bark);
+  }
+  .constellation-face .face-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+  }
+  .constellation-face .face-actions button {
+    background: none;
+    border: 1px solid var(--bark);
+    color: var(--bone);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.4rem;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    cursor: pointer;
+    transition: border-color 0.3s, color 0.3s;
+  }
+  .constellation-face .face-actions button:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+  #constellation-add-btn {
+    background: none;
+    border: 1px dashed var(--bark);
+    color: var(--bone);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.45rem;
+    letter-spacing: 1.5px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: border-color 0.3s, color 0.3s;
+    margin-top: 8px;
+  }
+  #constellation-add-btn:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+  #constellation-clear-btn {
+    background: none;
+    border: none;
+    color: var(--bark);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.4rem;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    margin-top: 12px;
+    opacity: 0.5;
+    transition: opacity 0.3s, color 0.3s;
+  }
+  #constellation-clear-btn:hover {
+    opacity: 1;
+    color: var(--amber);
+  }
+  .constellation-empty {
+    font-size: 0.5rem;
+    letter-spacing: 1.5px;
+    color: var(--bark);
+    text-align: center;
+    padding: 24px 0;
+    font-style: italic;
+  }
 
   /* Coarse — single color fill */
   #ledger-coarse {
@@ -1303,6 +1437,66 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  /* Constellation prompt (Larr.AI) */
+  #foyer-constellation-prompt {
+    margin-top: 18px;
+    opacity: 0;
+    animation: foyer-fade-in 1.2s ease 2.2s forwards;
+  }
+  .constellation-question {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 0.8rem;
+    color: var(--bone);
+    opacity: 0.7;
+    margin-bottom: 10px;
+  }
+  .constellation-input-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+  }
+  #constellation-emoji-input {
+    background: rgba(30, 23, 16, 0.6);
+    border: 1px solid var(--bark);
+    color: var(--parchment);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    padding: 4px 10px;
+    width: 80px;
+    text-align: center;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  #constellation-emoji-input:focus {
+    border-color: var(--amber);
+  }
+  #constellation-submit {
+    background: none;
+    border: 1px solid var(--bark);
+    color: var(--bone);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: border-color 0.3s, color 0.3s;
+  }
+  #constellation-submit:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+  .constellation-current {
+    font-size: 0.45rem;
+    letter-spacing: 1.5px;
+    color: var(--bark);
+    margin-top: 8px;
+    opacity: 0.6;
+  }
+
   /* Enter button */
   #foyer-enter {
     position: relative;
@@ -1850,16 +2044,25 @@
 <!-- THE LEDGER — Read Interface Overlay -->
 <div id="ledger-overlay">
   <div id="ledger-surface" class="grain-coarse">
-    <div id="ledger-coarse"></div>
-    <div id="ledger-mid">
-      <div id="ledger-passports"></div>
-      <div id="ledger-milestones"></div>
-      <div id="ledger-spectrum"><canvas id="ledger-spectrum-canvas"></canvas></div>
+    <!-- Left panel: Visitor Constellation -->
+    <div id="ledger-left">
+      <div id="constellation-coarse"></div>
+      <div id="constellation-mid"><canvas id="constellation-canvas"></canvas></div>
+      <div id="constellation-fine"></div>
     </div>
-    <div id="ledger-fine">
-      <div id="ledger-passports-full"></div>
-      <div id="ledger-milestones-full"></div>
-      <div id="ledger-origins"></div>
+    <!-- Right panel: Record (passports, milestones, spectrum) -->
+    <div id="ledger-right">
+      <div id="ledger-coarse"></div>
+      <div id="ledger-mid">
+        <div id="ledger-passports"></div>
+        <div id="ledger-milestones"></div>
+        <div id="ledger-spectrum"><canvas id="ledger-spectrum-canvas"></canvas></div>
+      </div>
+      <div id="ledger-fine">
+        <div id="ledger-passports-full"></div>
+        <div id="ledger-milestones-full"></div>
+        <div id="ledger-origins"></div>
+      </div>
     </div>
     <button id="ledger-close" onclick="closeLedger()">FOLD</button>
     <div id="ledger-grain-dots">
@@ -2355,6 +2558,11 @@ function openLedger() {
   renderMidView(passports, milestones, portrait);
   renderFineView(passports, milestones, portrait);
 
+  // Constellation (left panel)
+  renderConstellationCoarse();
+  renderConstellationMid();
+  renderConstellationFine();
+
   ledgerGrain = 'coarse';
   applyGrain();
 
@@ -2373,6 +2581,8 @@ function closeLedger() {
     document.getElementById('ledger-passports-full').innerHTML = '';
     document.getElementById('ledger-milestones-full').innerHTML = '';
     document.getElementById('ledger-origins').innerHTML = '';
+    document.getElementById('constellation-coarse').innerHTML = '';
+    document.getElementById('constellation-fine').innerHTML = '';
   }, 450);
 }
 
@@ -2521,6 +2731,195 @@ function renderFineView(passports, milestones, portrait) {
     row.innerHTML = `<span class="origin-color" style="background:rgb(${data.color[0]}, ${data.color[1]}, ${data.color[2]})"></span>${slug} (${data.count})`;
     originsContainer.appendChild(row);
   }
+}
+
+// --- Constellation Views (left panel) ---
+
+function renderConstellationCoarse() {
+  const el = document.getElementById('constellation-coarse');
+  el.innerHTML = '';
+  const c = Ledger.readConstellation();
+  const span = document.createElement('span');
+  span.className = 'constellation-anchor-large';
+  span.textContent = c ? c.anchor : '';
+  el.appendChild(span);
+  if (!c) {
+    const empty = document.createElement('div');
+    empty.className = 'constellation-empty';
+    empty.textContent = 'no constellation yet';
+    el.appendChild(empty);
+  }
+}
+
+function renderConstellationMid() {
+  const c = Ledger.readConstellation();
+  const canvas = document.getElementById('constellation-canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.parentElement.clientWidth || 300;
+  const h = 240;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  if (!c || !c.anchor) return;
+
+  // Adapted from LODE's getConstellationLayout — center + rings, no edges
+  const all = [c.anchor, ...c.faces.map(f => f.emoji)];
+  const n = all.length;
+  const cx = w / 2;
+  const cy = h * 0.45;
+  const scale = Math.min(w, h) * 0.28;
+  const positions = [{ x: cx, y: cy }];
+
+  if (n > 1) {
+    if (n <= 9) {
+      const r = scale * 0.75;
+      for (let i = 1; i < n; i++) {
+        const a = -Math.PI / 2 + (2 * Math.PI * (i - 1)) / (n - 1);
+        positions.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+      }
+    } else {
+      const inner = Math.floor((n - 1) / 2);
+      const outer = n - 1 - inner;
+      const r1 = scale * 0.45;
+      const r2 = scale * 0.85;
+      for (let i = 0; i < inner; i++) {
+        const a = -Math.PI / 2 + (2 * Math.PI * i) / inner;
+        positions.push({ x: cx + Math.cos(a) * r1, y: cy + Math.sin(a) * r1 });
+      }
+      for (let i = 0; i < outer; i++) {
+        const a = -Math.PI / 2 + (2 * Math.PI * i) / outer;
+        positions.push({ x: cx + Math.cos(a) * r2, y: cy + Math.sin(a) * r2 });
+      }
+    }
+  }
+
+  // Draw emoji at each position
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < Math.min(n, positions.length); i++) {
+    const p = positions[i];
+    ctx.font = (i === 0 ? '28px' : '20px') + ' sans-serif';
+    ctx.globalAlpha = i === 0 ? 1.0 : 0.85;
+    ctx.fillText(all[i], p.x, p.y);
+  }
+  ctx.globalAlpha = 1.0;
+
+  // Tier label below
+  ctx.font = '10px "Share Tech Mono", monospace';
+  ctx.fillStyle = '#3d2e18';
+  ctx.letterSpacing = '2px';
+  ctx.fillText(c.tier.toUpperCase(), cx, h - 16);
+}
+
+function renderConstellationFine() {
+  const el = document.getElementById('constellation-fine');
+  el.innerHTML = '';
+  const c = Ledger.readConstellation();
+
+  if (!c) {
+    const empty = document.createElement('div');
+    empty.className = 'constellation-empty';
+    empty.textContent = 'no constellation yet';
+    el.appendChild(empty);
+    return;
+  }
+
+  // Tier label
+  const tierLabel = document.createElement('div');
+  tierLabel.className = 'constellation-tier-label';
+  tierLabel.textContent = c.tier + ' · ' + (c.faces.length + 1) + ' faces';
+  el.appendChild(tierLabel);
+
+  // Anchor row
+  const anchorRow = document.createElement('div');
+  anchorRow.className = 'constellation-face';
+  anchorRow.innerHTML = `
+    <span class="face-emoji">${c.anchor}</span>
+    <span class="face-meta">ANCHOR</span>
+    <span class="face-actions">
+      <button onclick="constellationEditAnchor()">CHANGE</button>
+    </span>
+  `;
+  el.appendChild(anchorRow);
+
+  // Face rows
+  c.faces.forEach((face, i) => {
+    const d = new Date(face.ts);
+    const ts = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const row = document.createElement('div');
+    row.className = 'constellation-face';
+    row.innerHTML = `
+      <span class="face-emoji">${face.emoji}</span>
+      <span class="face-meta">${face.placedBy === 'larr' ? 'LARR.AI' : 'YOU'} · ${ts}</span>
+      <span class="face-actions">
+        <button onclick="constellationEditFace(${i})">SWAP</button>
+        <button onclick="constellationRemoveFace(${i})">DROP</button>
+      </span>
+    `;
+    el.appendChild(row);
+  });
+
+  // Add button
+  const addBtn = document.createElement('button');
+  addBtn.id = 'constellation-add-btn';
+  addBtn.textContent = '+ ADD FACE';
+  addBtn.onclick = () => constellationAddFace();
+  el.appendChild(addBtn);
+
+  // Clear button
+  const clearBtn = document.createElement('button');
+  clearBtn.id = 'constellation-clear-btn';
+  clearBtn.textContent = 'CLEAR CONSTELLATION';
+  clearBtn.onclick = () => {
+    Ledger.constellationClear();
+    renderConstellationCoarse();
+    renderConstellationMid();
+    renderConstellationFine();
+  };
+  el.appendChild(clearBtn);
+}
+
+// Fine-grain editing helpers — prompt for emoji input
+function constellationPromptEmoji(callback) {
+  const emoji = prompt('Enter an emoji:');
+  if (emoji && emoji.trim()) callback(emoji.trim());
+}
+
+function constellationEditAnchor() {
+  constellationPromptEmoji((emoji) => {
+    Ledger.constellationAnchor(emoji);
+    renderConstellationCoarse();
+    renderConstellationMid();
+    renderConstellationFine();
+  });
+}
+
+function constellationEditFace(index) {
+  constellationPromptEmoji((emoji) => {
+    Ledger.constellationReplace(index, emoji);
+    renderConstellationMid();
+    renderConstellationFine();
+  });
+}
+
+function constellationRemoveFace(index) {
+  Ledger.constellationRemove(index);
+  renderConstellationCoarse();
+  renderConstellationMid();
+  renderConstellationFine();
+}
+
+function constellationAddFace() {
+  constellationPromptEmoji((emoji) => {
+    Ledger.constellationAdd(emoji, 'visitor');
+    renderConstellationMid();
+    renderConstellationFine();
+  });
 }
 
 // --- Grain zoom: wheel + keyboard ---
@@ -3088,7 +3487,19 @@ function launchScore() {
   hallPushState('score-active');
 
   // Give the iframe focus so keyboard-only scores (e.g. LODE) receive input
-  frame.addEventListener('load', () => frame.contentWindow.focus(), { once: true });
+  // Deliver pip 4 (constellation sample) on load
+  frame.addEventListener('load', () => {
+    frame.contentWindow.focus();
+    try {
+      const sample = Ledger.constellationSample();
+      if (sample.length > 0) {
+        frame.contentWindow.postMessage({
+          type: 'hub:pip4',
+          constellation: sample
+        }, '*');
+      }
+    } catch(e) {}
+  }, { once: true });
 }
 
 const EJECT_DEPARTURES = [

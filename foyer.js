@@ -532,9 +532,21 @@ const Foyer = (() => {
     const larrBox = document.createElement('div');
     larrBox.id = 'foyer-larr';
     const greeting = pickGreeting();
+    const constellation = typeof Ledger !== 'undefined' ? Ledger.readConstellation() : null;
+    const constellationPrompt = pickConstellationPrompt(constellation);
+
     larrBox.innerHTML = `
       <div id="foyer-larr-name">LARR.AI</div>
       <div id="foyer-larr-greeting">${greeting}</div>
+      ${constellationPrompt ? `<div id="foyer-constellation-prompt">
+        <div class="constellation-question">${constellationPrompt}</div>
+        <div class="constellation-input-row">
+          <input type="text" id="constellation-emoji-input" maxlength="8"
+                 placeholder="one emoji" autocomplete="off">
+          <button id="constellation-submit" onclick="Foyer.submitConstellation()">hold</button>
+        </div>
+        ${constellation ? `<div class="constellation-current">carrying: ${constellation.anchor}${constellation.faces.map(f => f.emoji).join('')}</div>` : ''}
+      </div>` : ''}
     `;
     center.appendChild(larrBox);
 
@@ -665,6 +677,71 @@ const Foyer = (() => {
     else activeThemes.delete(slug);
   }
 
+  // ── Visitor Constellation ──
+
+  const CONSTELLATION_PROMPTS_NEW = [
+    "What did you bring in with you today? One emoji.",
+    "If you had to carry one thing in here, what would it be? Emoji.",
+    "One emoji. Whatever comes to mind.",
+    "Before you go in — what are you carrying? One emoji.",
+  ];
+
+  const CONSTELLATION_PROMPTS_RETURNING = [
+    "Anything new today? One emoji, if you have one.",
+    "You're different since last time. Show me — one emoji.",
+    "The constellation's listening. Got anything to add?",
+  ];
+
+  const CONSTELLATION_PROMPTS_NOTICE = [
+    "I'm going to hold %s for you, if that's alright.",
+  ];
+
+  function pickConstellationPrompt(constellation) {
+    // 60% chance to ask — not every visit
+    if (Math.random() > 0.6) return null;
+    if (!constellation) {
+      return pick(CONSTELLATION_PROMPTS_NEW);
+    }
+    return pick(CONSTELLATION_PROMPTS_RETURNING);
+  }
+
+  function submitConstellation() {
+    const input = document.getElementById('constellation-emoji-input');
+    if (!input) return;
+    const emoji = input.value.trim();
+    if (!emoji) return;
+
+    if (typeof Ledger === 'undefined') return;
+
+    const c = Ledger.readConstellation();
+    if (!c) {
+      // First emoji becomes the anchor
+      Ledger.constellationAnchor(emoji);
+    } else {
+      Ledger.constellationAdd(emoji, 'visitor');
+    }
+
+    // Visual feedback — Larr.AI reflects it back
+    const promptEl = document.getElementById('foyer-constellation-prompt');
+    if (promptEl) {
+      promptEl.innerHTML = `<div class="constellation-question">${emoji} — held.</div>`;
+    }
+  }
+
+  /**
+   * Larr.AI places an emoji on behalf of the visitor.
+   * Called programmatically, not from UI — for future use by richer Larr.AI conversations.
+   */
+  function larrHoldEmoji(emoji) {
+    if (typeof Ledger === 'undefined') return;
+    const c = Ledger.readConstellation();
+    if (!c) {
+      Ledger.constellationAnchor(emoji);
+    } else {
+      Ledger.constellationAdd(emoji, 'larr');
+    }
+  }
+
   // ── Fresh Boot Check ──
 
   function isFreshBoot() {
@@ -681,5 +758,7 @@ const Foyer = (() => {
     toggleTheme,
     exportSave,
     importSave,
+    submitConstellation,
+    larrHoldEmoji,
   };
 })();
