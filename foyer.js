@@ -528,27 +528,32 @@ const Foyer = (() => {
     millingCanvas.id = 'foyer-milling-canvas';
     center.appendChild(millingCanvas);
 
-    // Larr.AI greeting
+    // Larr.AI greeting + word prompt
     const larrBox = document.createElement('div');
     larrBox.id = 'foyer-larr';
     const greeting = pickGreeting();
-    const constellation = typeof Ledger !== 'undefined' ? Ledger.readConstellation() : null;
-    const constellationPrompt = pickConstellationPrompt(constellation);
+    const wordPrompt = pickWordPrompt();
 
     larrBox.innerHTML = `
       <div id="foyer-larr-name">LARR.AI</div>
-      <div id="foyer-larr-greeting">${greeting}</div>
-      ${constellationPrompt ? `<div id="foyer-constellation-prompt">
-        <div class="constellation-question">${constellationPrompt}</div>
-        <div class="constellation-input-row">
-          <input type="text" id="constellation-emoji-input" maxlength="8"
-                 placeholder="one emoji" autocomplete="off">
-          <button id="constellation-submit" onclick="Foyer.submitConstellation()">hold</button>
-        </div>
-        ${constellation ? `<div class="constellation-current">carrying: ${constellation.anchor}${constellation.faces.map(f => f.emoji).join('')}</div>` : ''}
-      </div>` : ''}
+      <div id="foyer-larr-greeting-wrap">
+        <div id="foyer-larr-greeting">${greeting}</div>
+        ${wordPrompt ? `<div id="foyer-word-prompt" onclick="Foyer.handleWordTap()">${wordPrompt}</div>` : ''}
+      </div>
     `;
     center.appendChild(larrBox);
+
+    // Fade word prompt after 15s if not tapped
+    if (wordPrompt) {
+      setTimeout(() => {
+        const wp = document.getElementById('foyer-word-prompt');
+        if (wp && !wp.dataset.opened) {
+          wp.style.transition = 'opacity 2s ease';
+          wp.style.opacity = '0';
+          wp.style.pointerEvents = 'none';
+        }
+      }, 15000);
+    }
 
     // Enter button
     const enterBtn = document.createElement('button');
@@ -677,60 +682,75 @@ const Foyer = (() => {
     else activeThemes.delete(slug);
   }
 
-  // ── Visitor Constellation ──
+  // ── Visitor Constellation — Word Prompt System ──
+  // A single word surfaces to one side of the greeting.
+  // Tapping it opens a minimal emoji input. If ignored, it fades.
 
-  const CONSTELLATION_PROMPTS_NEW = [
-    "What did you bring in with you today? One emoji.",
-    "If you had to carry one thing in here, what would it be? Emoji.",
-    "One emoji. Whatever comes to mind.",
-    "Before you go in — what are you carrying? One emoji.",
+  const LARR_WORD_POOL = [
+    'Lunch?', 'Dream?', 'Before?', 'Comfort?', 'Lately?',
+    'Gravity?', 'Colour?', 'Then?', 'Scraggle?', 'Tuning?',
+    'Somewhere?', 'Kiwi?', 'Produce?', 'Warmth?', 'Crank?',
+    'Tending?', 'Passport?', 'Threshold?', 'Carpet?', 'Hum?',
+    'Flavor?', 'Drift?', 'Anchor?', 'Spells?', 'Stomp?',
+    'Twilight?', 'Seeds?', 'Basement?', 'Roster?', 'Dice?',
   ];
 
-  const CONSTELLATION_PROMPTS_RETURNING = [
-    "Anything new today? One emoji, if you have one.",
-    "You're different since last time. Show me — one emoji.",
-    "The constellation's listening. Got anything to add?",
-  ];
-
-  const CONSTELLATION_PROMPTS_NOTICE = [
-    "I'm going to hold %s for you, if that's alright.",
-  ];
-
-  function pickConstellationPrompt(constellation) {
-    // 60% chance to ask — not every visit
+  function pickWordPrompt() {
+    // 60% chance to offer — not every visit
     if (Math.random() > 0.6) return null;
-    if (!constellation) {
-      return pick(CONSTELLATION_PROMPTS_NEW);
-    }
-    return pick(CONSTELLATION_PROMPTS_RETURNING);
+    return pick(LARR_WORD_POOL);
   }
 
-  function submitConstellation() {
-    const input = document.getElementById('constellation-emoji-input');
-    if (!input) return;
-    const emoji = input.value.trim();
-    if (!emoji) return;
+  function handleWordTap() {
+    const wordEl = document.getElementById('foyer-word-prompt');
+    if (!wordEl || wordEl.dataset.opened) return;
+    wordEl.dataset.opened = '1';
 
-    if (typeof Ledger === 'undefined') return;
+    // Replace word with minimal emoji input
+    wordEl.textContent = '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'foyer-word-emoji-input';
+    input.maxLength = 8;
+    input.autocomplete = 'off';
+    wordEl.appendChild(input);
+    input.focus();
 
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitWordEmoji(input.value.trim());
+    });
+    // Auto-submit when an emoji is detected
+    input.addEventListener('input', () => {
+      const val = input.value.trim();
+      if (val && /\p{Emoji_Presentation}/u.test(val)) {
+        submitWordEmoji(val);
+      }
+    });
+  }
+
+  function submitWordEmoji(emoji) {
+    if (!emoji || typeof Ledger === 'undefined') return;
+    const wordEl = document.getElementById('foyer-word-prompt');
+    if (!wordEl) return;
+
+    // Add to constellation
     const c = Ledger.readConstellation();
     if (!c) {
-      // First emoji becomes the anchor
       Ledger.constellationAnchor(emoji);
     } else {
       Ledger.constellationAdd(emoji, 'visitor');
     }
 
-    // Visual feedback — Larr.AI reflects it back
-    const promptEl = document.getElementById('foyer-constellation-prompt');
-    if (promptEl) {
-      promptEl.innerHTML = `<div class="constellation-question">${emoji} — held.</div>`;
-    }
+    // Show emoji briefly, then dissolve
+    wordEl.innerHTML = '';
+    wordEl.textContent = emoji;
+    wordEl.style.transition = 'opacity 0.6s ease';
+    setTimeout(() => { wordEl.style.opacity = '0'; }, 800);
   }
 
   /**
    * Larr.AI places an emoji on behalf of the visitor.
-   * Called programmatically, not from UI — for future use by richer Larr.AI conversations.
+   * Called programmatically — for future richer Larr.AI conversations.
    */
   function larrHoldEmoji(emoji) {
     if (typeof Ledger === 'undefined') return;
@@ -758,7 +778,7 @@ const Foyer = (() => {
     toggleTheme,
     exportSave,
     importSave,
-    submitConstellation,
+    handleWordTap,
     larrHoldEmoji,
   };
 })();

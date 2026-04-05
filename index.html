@@ -270,45 +270,34 @@
     inset: 0;
     background: rgba(10, 8, 6, 0.94);
     display: flex;
-    flex-direction: row;
-    align-items: stretch;
+    align-items: center;
     justify-content: center;
     padding: 48px 32px;
     overflow-y: auto;
     transform: scale(0.97);
     transition: transform 0.4s ease-out;
-    gap: 32px;
   }
   #ledger-overlay.open #ledger-surface {
     transform: scale(1);
   }
 
-  /* Two-panel layout: constellation (left) + record (right) */
-  #ledger-left, #ledger-right {
-    flex: 1;
-    max-width: 360px;
-    display: flex;
+  /* Horizontal axis — one panel visible at a time */
+  .ledger-panel {
+    display: none;
+    width: 100%;
+    max-width: 400px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
   }
-  @media (max-width: 700px) {
-    #ledger-surface { flex-direction: column; align-items: center; }
-    #ledger-left, #ledger-right { max-width: 100%; width: 100%; }
+  .ledger-panel.active {
+    display: flex;
   }
-
-  /* Grain layers — only active one is visible */
-  #ledger-coarse, #ledger-mid, #ledger-fine,
-  #constellation-coarse, #constellation-mid, #constellation-fine {
-    display: none;
-    width: 100%;
-  }
-  .grain-coarse #ledger-coarse { display: block; }
-  .grain-mid #ledger-mid       { display: flex; flex-direction: column; gap: 32px; }
-  .grain-fine #ledger-fine      { display: flex; flex-direction: column; gap: 32px; }
-  .grain-coarse #constellation-coarse { display: flex; align-items: center; justify-content: center; }
-  .grain-mid #constellation-mid       { display: flex; align-items: center; justify-content: center; }
-  .grain-fine #constellation-fine      { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+  #ledger-coarse.active { display: block; }
+  #ledger-mid.active { gap: 32px; }
+  #ledger-fine.active { gap: 32px; }
+  #constellation-coarse.active { min-height: 200px; }
+  #constellation-fine.active { gap: 16px; }
 
   /* Constellation — coarse: single large anchor */
   #constellation-coarse {
@@ -573,11 +562,12 @@
     color: var(--amber);
   }
 
-  /* Grain dots */
+  /* Grain dots — horizontal position indicator */
   #ledger-grain-dots {
     position: fixed;
     bottom: 24px;
-    right: 24px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     gap: 8px;
   }
@@ -1437,64 +1427,64 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  /* Constellation prompt (Larr.AI) */
-  #foyer-constellation-prompt {
-    margin-top: 18px;
-    opacity: 0;
-    animation: foyer-fade-in 1.2s ease 2.2s forwards;
+  /* Greeting wrap — positions word prompt to one side */
+  #foyer-larr-greeting-wrap {
+    position: relative;
+    display: inline-block;
   }
-  .constellation-question {
+
+  /* Word prompt — Larr.AI's quiet question */
+  #foyer-word-prompt {
+    position: absolute;
+    left: calc(100% + 28px);
+    top: 50%;
+    transform: translateY(-50%);
     font-family: 'Playfair Display', serif;
     font-style: italic;
-    font-size: 0.8rem;
-    color: var(--bone);
-    opacity: 0.7;
-    margin-bottom: 10px;
-  }
-  .constellation-input-row {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    align-items: center;
-  }
-  #constellation-emoji-input {
-    background: rgba(30, 23, 16, 0.6);
-    border: 1px solid var(--bark);
+    font-size: 1rem;
     color: var(--parchment);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 1.1rem;
-    padding: 4px 10px;
-    width: 80px;
-    text-align: center;
-    border-radius: 3px;
-    outline: none;
-    transition: border-color 0.3s;
-  }
-  #constellation-emoji-input:focus {
-    border-color: var(--amber);
-  }
-  #constellation-submit {
-    background: none;
-    border: 1px solid var(--bark);
-    color: var(--bone);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.5rem;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 5px 12px;
     cursor: pointer;
-    transition: border-color 0.3s, color 0.3s;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    opacity: 0;
+    animation: foyer-fade-in 0.8s ease 3s forwards;
   }
-  #constellation-submit:hover {
-    border-color: var(--amber);
+  #foyer-word-prompt:hover {
     color: var(--amber);
   }
-  .constellation-current {
-    font-size: 0.45rem;
-    letter-spacing: 1.5px;
-    color: var(--bark);
-    margin-top: 8px;
-    opacity: 0.6;
+
+  /* Minimal emoji input — replaces word on tap */
+  #foyer-word-emoji-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--bark);
+    color: var(--parchment);
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1rem;
+    width: 60px;
+    text-align: center;
+    outline: none;
+    padding: 2px 0;
+    transition: border-color 0.3s;
+  }
+  #foyer-word-emoji-input:focus {
+    border-color: var(--amber);
+  }
+
+  @media (max-width: 600px) {
+    #foyer-word-prompt {
+      position: relative;
+      left: auto;
+      top: auto;
+      transform: none;
+      margin-top: 16px;
+      justify-content: flex-end;
+      align-self: flex-end;
+    }
   }
 
   /* Enter button */
@@ -2041,35 +2031,31 @@
   </div>
 </div>
 
-<!-- THE LEDGER — Read Interface Overlay -->
+<!-- THE LEDGER — Read Interface Overlay (horizontal axis) -->
 <div id="ledger-overlay">
-  <div id="ledger-surface" class="grain-coarse">
-    <!-- Left panel: Visitor Constellation -->
-    <div id="ledger-left">
-      <div id="constellation-coarse"></div>
-      <div id="constellation-mid"><canvas id="constellation-canvas"></canvas></div>
-      <div id="constellation-fine"></div>
+  <div id="ledger-surface">
+    <!-- Position 0: Constellation Fine (leftmost — full detail) -->
+    <div class="ledger-panel" id="constellation-fine"></div>
+    <!-- Position 1: Constellation Mid (geometry) -->
+    <div class="ledger-panel" id="constellation-mid"><canvas id="constellation-canvas"></canvas></div>
+    <!-- Position 2: Constellation Coarse (anchor only) -->
+    <div class="ledger-panel" id="constellation-coarse"></div>
+    <!-- Position 3: Canvas / Record Coarse — default -->
+    <div class="ledger-panel" id="ledger-coarse"></div>
+    <!-- Position 4: Record Mid (passport chips + spectrum + milestones) -->
+    <div class="ledger-panel" id="ledger-mid">
+      <div id="ledger-passports"></div>
+      <div id="ledger-milestones"></div>
+      <div id="ledger-spectrum"><canvas id="ledger-spectrum-canvas"></canvas></div>
     </div>
-    <!-- Right panel: Record (passports, milestones, spectrum) -->
-    <div id="ledger-right">
-      <div id="ledger-coarse"></div>
-      <div id="ledger-mid">
-        <div id="ledger-passports"></div>
-        <div id="ledger-milestones"></div>
-        <div id="ledger-spectrum"><canvas id="ledger-spectrum-canvas"></canvas></div>
-      </div>
-      <div id="ledger-fine">
-        <div id="ledger-passports-full"></div>
-        <div id="ledger-milestones-full"></div>
-        <div id="ledger-origins"></div>
-      </div>
+    <!-- Position 5: Record Fine (full cards + milestone detail + origins) -->
+    <div class="ledger-panel" id="ledger-fine">
+      <div id="ledger-passports-full"></div>
+      <div id="ledger-milestones-full"></div>
+      <div id="ledger-origins"></div>
     </div>
     <button id="ledger-close" onclick="closeLedger()">FOLD</button>
-    <div id="ledger-grain-dots">
-      <span class="grain-dot active" data-grain="coarse"></span>
-      <span class="grain-dot" data-grain="mid"></span>
-      <span class="grain-dot" data-grain="fine"></span>
-    </div>
+    <div id="ledger-grain-dots"></div>
   </div>
 </div>
 
@@ -2537,8 +2523,16 @@ function anteroomShow() {
 // ============================================================
 
 let ledgerOpen = false;
-let ledgerGrain = 'coarse'; // coarse | mid | fine
-const GRAIN_ORDER = ['coarse', 'mid', 'fine'];
+const LEDGER_PANELS = [
+  'constellation-fine',    // 0 — leftmost, full detail
+  'constellation-mid',     // 1 — geometry
+  'constellation-coarse',  // 2 — anchor only
+  'ledger-coarse',         // 3 — canvas / record coarse (DEFAULT)
+  'ledger-mid',            // 4 — record mid
+  'ledger-fine'            // 5 — record fine (rightmost)
+];
+const LEDGER_DEFAULT_POS = 3;
+let ledgerPos = LEDGER_DEFAULT_POS;
 
 function toggleLedger() {
   if (ledgerOpen) closeLedger();
@@ -2547,24 +2541,26 @@ function toggleLedger() {
 
 function openLedger() {
   const overlay = document.getElementById('ledger-overlay');
-  const surface = document.getElementById('ledger-surface');
 
   const allEntries = Ledger.entries();
   const portrait = Ledger.portrait();
   const passports = allEntries.filter(e => e.kind === 'passport');
   const milestones = allEntries.filter(e => e.kind === 'milestone');
 
+  // Record panels (unchanged three-pip structure)
   renderCoarseView(passports, portrait);
   renderMidView(passports, milestones, portrait);
   renderFineView(passports, milestones, portrait);
 
-  // Constellation (left panel)
+  // Constellation panels
   renderConstellationCoarse();
-  renderConstellationMid();
   renderConstellationFine();
 
-  ledgerGrain = 'coarse';
-  applyGrain();
+  // Build grain dots for horizontal axis
+  buildLedgerDots();
+
+  ledgerPos = LEDGER_DEFAULT_POS;
+  applyLedgerPos();
 
   overlay.classList.add('open');
   ledgerOpen = true;
@@ -2586,17 +2582,37 @@ function closeLedger() {
   }, 450);
 }
 
-function setLedgerGrain(grain) {
-  if (!GRAIN_ORDER.includes(grain)) return;
-  ledgerGrain = grain;
-  applyGrain();
+function setLedgerPos(pos) {
+  if (pos < 0 || pos >= LEDGER_PANELS.length) return;
+  ledgerPos = pos;
+  applyLedgerPos();
+  // Canvas-based panels need re-render when becoming visible
+  const id = LEDGER_PANELS[pos];
+  if (id === 'constellation-mid') {
+    requestAnimationFrame(() => renderConstellationMid());
+  } else if (id === 'ledger-mid') {
+    requestAnimationFrame(() => renderSpectrumCanvas());
+  }
 }
 
-function applyGrain() {
-  const surface = document.getElementById('ledger-surface');
-  surface.className = 'grain-' + ledgerGrain;
-  document.querySelectorAll('.grain-dot').forEach(d => {
-    d.classList.toggle('active', d.dataset.grain === ledgerGrain);
+function applyLedgerPos() {
+  LEDGER_PANELS.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', i === ledgerPos);
+  });
+  document.querySelectorAll('.grain-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === ledgerPos);
+  });
+}
+
+function buildLedgerDots() {
+  const container = document.getElementById('ledger-grain-dots');
+  container.innerHTML = '';
+  LEDGER_PANELS.forEach((_, i) => {
+    const dot = document.createElement('span');
+    dot.className = 'grain-dot';
+    dot.addEventListener('click', () => setLedgerPos(i));
+    container.appendChild(dot);
   });
 }
 
@@ -2663,6 +2679,12 @@ function renderMidView(passports, milestones, portrait) {
     msContainer.appendChild(row);
   }
 
+  // Spectrum canvas rendered lazily when panel becomes visible
+  _midPortrait = portrait;
+}
+
+function renderSpectrumCanvas() {
+  const portrait = _midPortrait;
   const spectrumEl = document.getElementById('ledger-spectrum');
   if (!portrait) {
     spectrumEl.classList.add('absent');
@@ -2677,6 +2699,7 @@ function renderMidView(passports, milestones, portrait) {
   const ctx = canvas.getContext('2d');
   canvas.width = canvas.offsetWidth * (window.devicePixelRatio || 1);
   canvas.height = canvas.offsetHeight * (window.devicePixelRatio || 1);
+  if (scraggles.length === 0) return;
   const segW = canvas.width / scraggles.length;
   for (let i = 0; i < scraggles.length; i++) {
     const c = scraggles[i].color;
@@ -2684,6 +2707,7 @@ function renderMidView(passports, milestones, portrait) {
     ctx.fillRect(Math.floor(i * segW), 0, Math.ceil(segW), canvas.height);
   }
 }
+let _midPortrait = null;
 
 // --- Fine View ---
 function renderFineView(passports, milestones, portrait) {
@@ -2922,31 +2946,41 @@ function constellationAddFace() {
   });
 }
 
-// --- Grain zoom: wheel + keyboard ---
+// --- Horizontal axis navigation: wheel, keyboard, touch ---
 document.addEventListener('wheel', (e) => {
   if (!ledgerOpen) return;
   e.preventDefault();
-  const idx = GRAIN_ORDER.indexOf(ledgerGrain);
-  if (e.deltaY > 0 && idx < GRAIN_ORDER.length - 1) setLedgerGrain(GRAIN_ORDER[idx + 1]);
-  else if (e.deltaY < 0 && idx > 0) setLedgerGrain(GRAIN_ORDER[idx - 1]);
+  if (e.deltaY > 0 || e.deltaX > 0) {
+    if (ledgerPos < LEDGER_PANELS.length - 1) setLedgerPos(ledgerPos + 1);
+  } else if (e.deltaY < 0 || e.deltaX < 0) {
+    if (ledgerPos > 0) setLedgerPos(ledgerPos - 1);
+  }
 }, { passive: false });
 
 document.addEventListener('keydown', (e) => {
   if (!ledgerOpen) return;
-  const idx = GRAIN_ORDER.indexOf(ledgerGrain);
-  if (e.key === 'ArrowDown' && idx < GRAIN_ORDER.length - 1) {
-    e.preventDefault(); setLedgerGrain(GRAIN_ORDER[idx + 1]);
-  } else if (e.key === 'ArrowUp' && idx > 0) {
-    e.preventDefault(); setLedgerGrain(GRAIN_ORDER[idx - 1]);
+  if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && ledgerPos < LEDGER_PANELS.length - 1) {
+    e.preventDefault(); setLedgerPos(ledgerPos + 1);
+  } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && ledgerPos > 0) {
+    e.preventDefault(); setLedgerPos(ledgerPos - 1);
   } else if (e.key === 'Escape') {
     closeLedger();
   }
 });
 
-// Grain dots click
-document.querySelectorAll('.grain-dot').forEach(dot => {
-  dot.addEventListener('click', () => setLedgerGrain(dot.dataset.grain));
-});
+// Touch/swipe for mobile
+let _ledgerTouchX = 0;
+document.addEventListener('touchstart', (e) => {
+  if (!ledgerOpen) return;
+  _ledgerTouchX = e.touches[0].clientX;
+}, { passive: true });
+document.addEventListener('touchend', (e) => {
+  if (!ledgerOpen) return;
+  const dx = e.changedTouches[0].clientX - _ledgerTouchX;
+  if (Math.abs(dx) < 40) return;
+  if (dx < 0 && ledgerPos < LEDGER_PANELS.length - 1) setLedgerPos(ledgerPos + 1);
+  else if (dx > 0 && ledgerPos > 0) setLedgerPos(ledgerPos - 1);
+}, { passive: true });
 
 // ============================================================
 // BOOT

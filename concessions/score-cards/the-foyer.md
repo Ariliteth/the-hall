@@ -24,9 +24,11 @@ Pre-Hub landing zone. Appears on fresh boot (new session), hosts Larr.AI as gree
 - Save state import: reads JSON file, writes keys back to localStorage, re-renders Foyer with imported state. Silent fail on invalid files.
 - Returning-with-memory detection: `hasImportedHistory()` checks for Ledger entries in a fresh session (no session flag yet). Runs at top of `show()` before session flag is written.
 - Quiet save/load controls below ENTER THE HALL button (`↓ save your place` / `↑ return to a place you saved`)
+- Larr.AI word-prompt system: 60% chance a single Hall-vocabulary word appears to one side of the greeting (Playfair italic, same size/color). Tapping opens minimal emoji input (keyboard intentional). Emoji settles into visitor constellation. Word fades after 15s if untapped. Pool: 30 words from Hall vocabulary.
 
 ## What's Next
 - Larr.AI visual presence (portrait, animation — currently text-only)
+- Word-prompt pool expansion (Hall vocabulary grows with new scores/entities)
 - Version selector wired to version/branch infrastructure (currently placeholder)
 - Capability tier downstream effects (score filtering, layout adaptation)
 - Score-specific greeting expansion (more scores, more lines)
