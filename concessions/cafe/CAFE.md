@@ -11,6 +11,13 @@ Each entry is a file in this folder. An entry carries:
 Things arrive here when they're too formed to forget and too early to spec. Nothing in the café is overdue. El notices what's here and may surface it as observation — not to push toward resolution, but to confirm it's still present.
 
 ---
+name: The Signal In The Hall
+color: [139, 90, 43]
+arrived: 2026-04-05
+---
+A spec emerged from a conversation about legislation. The Hall was already
+built in a way that answered the question before it was asked. Some will
+find it exactly when they need it. That seems like enough.
 
 ## Entry format
 

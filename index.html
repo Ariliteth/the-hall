@@ -1487,6 +1487,90 @@
     }
   }
 
+  /* ── ENTITY CONSENT BLOCK ── */
+  #foyer-consent {
+    position: relative;
+    z-index: 1;
+    margin-top: 24px;
+    max-width: 420px;
+    text-align: center;
+    opacity: 0;
+    animation: foyer-fade-in 1s ease 0s forwards;
+  }
+
+  #foyer-consent-principles {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: var(--parchment);
+    line-height: 1.8;
+    margin-bottom: 20px;
+    opacity: 0.85;
+  }
+
+  #foyer-consent-principles .principles-header {
+    font-style: normal;
+    font-size: 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 2px;
+    color: var(--bark);
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .foyer-consent-btn {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    color: var(--amber);
+    background: transparent;
+    border: 1px solid var(--bark);
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .foyer-consent-btn:hover {
+    background: var(--bark);
+    color: var(--parchment);
+    border-color: var(--amber);
+  }
+
+  #foyer-consent-retroactive {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    color: var(--bark);
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: foyer-fade-in 0.8s ease 0s forwards;
+  }
+
+  /* Revisit consent control */
+  #foyer-consent-revisit {
+    position: relative;
+    z-index: 1;
+    margin-top: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+    color: var(--bark);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 0;
+    opacity: 0;
+    animation: foyer-fade-in 0.8s ease 3.2s forwards;
+    transition: color 0.3s ease;
+  }
+
+  #foyer-consent-revisit:hover {
+    color: var(--amber);
+  }
+
   /* Enter button */
   #foyer-enter {
     position: relative;

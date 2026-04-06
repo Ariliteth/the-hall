@@ -25,6 +25,7 @@ Pre-Hub landing zone. Appears on fresh boot (new session), hosts Larr.AI as gree
 - Returning-with-memory detection: `hasImportedHistory()` checks for Ledger entries in a fresh session (no session flag yet). Runs at top of `show()` before session flag is written.
 - Quiet save/load controls below ENTER THE HALL button (`↓ save your place` / `↑ return to a place you saved`)
 - Larr.AI word-prompt system: 60% chance a single Hall-vocabulary word appears to one side of the greeting (Playfair italic, same size/color). Tapping opens minimal emoji input (keyboard intentional). Emoji settles into visitor constellation. Word fades after 15s if untapped. Pool: 30 words from Hall vocabulary.
+- Entity consent moment: consent block surfaces between Larr's greeting and ENTER THE HALL on first visit. Two paths (signed/unsigned), both beginning with "I understand." Signed = full Ledger + identity. Unsigned = full Hall experience, no Ledger writes or identity memory. Stored at `baseline-session/entity-consent`. Returning visitors who predate the feature get a retroactive acknowledgment line from Larr before the block. Revisitable at will via `· change how you move through the Hall ·` control below save controls. Clears key and resurfaces block in place without reload.
 
 ## What's Next
 - Larr.AI visual presence (portrait, animation — currently text-only)
@@ -44,6 +45,6 @@ Pre-Hub landing zone. Appears on fresh boot (new session), hosts Larr.AI as gree
 - **Sends:** Nothing (pre-Hub, seeds state before Hub loads)
 - **Receives:** Nothing
 - **sessionStorage:** `fpl-session-started` (fresh boot flag), `fpl-capability` (probe results)
-- **localStorage:** Reads/writes all `baseline-session/` keys (export/import)
-- **Reads:** `Ledger.entries()` for greeting selection + imported history detection, `registry` for neighborhoods/themes/roster
+- **localStorage:** Reads/writes all `baseline-session/` keys (export/import), `baseline-session/entity-consent` (signed/unsigned/null)
+- **Reads:** `Ledger.entries()` for greeting selection + imported history detection + retroactive consent detection, `registry` for neighborhoods/themes/roster
 - **Downstream:** Anteroom receives entity pool from Foyer on first enter. Hub sidebar shows return button.

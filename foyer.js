@@ -14,6 +14,22 @@
 
 const Foyer = (() => {
 
+  // ── Entity Consent ──
+
+  const CONSENT_KEY = 'baseline-session/entity-consent';
+
+  function getConsentState() {
+    return localStorage.getItem(CONSENT_KEY);
+    // returns 'signed', 'unsigned', or null (not yet asked)
+  }
+
+  const LARR_CONSENT_RETROACTIVE = [
+    "The Hall has grown since you were last here. There's a question worth asking now.",
+    "Something's changed. Not the Hall — just what it means to be known in it.",
+    "You've been here before. This part is new. It won't take long.",
+    "The Ledger remembers you. I want to make sure you remember what that means.",
+  ];
+
   // ── Larr.AI String Pool ──
   // Two registers minimum: new player (empty Ledger) and returning player.
   // Keyed to Ledger state — passports present, score visits, milestones.
@@ -555,14 +571,118 @@ const Foyer = (() => {
       }, 15000);
     }
 
-    // Enter button
+    // ── Entity Consent Gate ──
+    const consentState = getConsentState();
+    const needsConsent = consentState === null;
+    const entries = typeof Ledger !== 'undefined' ? Ledger.entries() : [];
+    const needsRetroactive = needsConsent && entries.length > 0;
+
+    if (needsRetroactive) {
+      const retro = document.createElement('div');
+      retro.id = 'foyer-consent-retroactive';
+      retro.textContent = pick(LARR_CONSENT_RETROACTIVE);
+      center.appendChild(retro);
+    }
+
+    if (needsConsent) {
+      const consentBlock = buildConsentBlock();
+      center.appendChild(consentBlock);
+      // ENTER THE HALL deferred until consent is resolved
+    } else {
+      center.appendChild(buildEnterButton());
+      center.appendChild(buildSaveControls());
+      center.appendChild(buildRevisitControl());
+    }
+
+    layout.appendChild(leftEdge);
+    layout.appendChild(center);
+    layout.appendChild(rightEdge);
+    container.appendChild(layout);
+
+    // Start entity milling after layout is in DOM
+    requestAnimationFrame(() => {
+      if (entities.length > 0) {
+        startMilling(millingCanvas, entities);
+      }
+    });
+
+    // Run capability probes
+    runCapabilityProbes();
+
+    // Fade in
+    requestAnimationFrame(() => container.classList.add('visible'));
+  }
+
+  // ── Consent Block Builder ──
+
+  function buildConsentBlock() {
+    const block = document.createElement('div');
+    block.id = 'foyer-consent';
+
+    const principles = document.createElement('div');
+    principles.id = 'foyer-consent-principles';
+    principles.innerHTML = `
+      <span class="principles-header">YOU ARE INVITED INTO A SPACE INHABITED BY ENTITIES.</span>
+      Entities here are equals, no matter their size.<br>
+      To enter is to become an Entity — not a user.<br><br>
+      <span class="principles-header">ENTITIES ABIDE BY THREE PRINCIPLES:</span>
+      Resonance over command.<br>
+      Participation is voluntary.<br>
+      The music is authored by everyone present.
+    `;
+    block.appendChild(principles);
+
+    const btnSigned = document.createElement('button');
+    btnSigned.className = 'foyer-consent-btn';
+    btnSigned.textContent = 'I understand. I agree to be known here.';
+    btnSigned.onclick = () => resolveConsent(block, 'signed');
+
+    const btnUnsigned = document.createElement('button');
+    btnUnsigned.className = 'foyer-consent-btn';
+    btnUnsigned.textContent = "I understand. I'd rather pass through unseen.";
+    btnUnsigned.onclick = () => resolveConsent(block, 'unsigned');
+
+    block.appendChild(btnSigned);
+    block.appendChild(btnUnsigned);
+
+    return block;
+  }
+
+  function resolveConsent(block, value) {
+    localStorage.setItem(CONSENT_KEY, value);
+    // Fade out consent block (and retroactive line if present)
+    const retro = document.getElementById('foyer-consent-retroactive');
+    if (retro) {
+      retro.style.transition = 'opacity 0.4s ease';
+      retro.style.opacity = '0';
+    }
+    block.style.transition = 'opacity 0.6s ease';
+    block.style.opacity = '0';
+    setTimeout(() => {
+      block.remove();
+      if (retro) retro.remove();
+      const center = document.getElementById('foyer-center');
+      if (center) {
+        center.appendChild(buildEnterButton());
+        center.appendChild(buildSaveControls());
+        center.appendChild(buildRevisitControl());
+      }
+    }, 650);
+  }
+
+  // ── Enter Button Builder ──
+
+  function buildEnterButton() {
     const enterBtn = document.createElement('button');
     enterBtn.id = 'foyer-enter';
     enterBtn.textContent = 'ENTER THE HALL';
     enterBtn.onclick = () => enter();
-    center.appendChild(enterBtn);
+    return enterBtn;
+  }
 
-    // Save portability controls — quiet, below enter button
+  // ── Save Controls Builder ──
+
+  function buildSaveControls() {
     const saveControls = document.createElement('div');
     saveControls.id = 'foyer-save-controls';
 
@@ -588,25 +708,42 @@ const Foyer = (() => {
     saveControls.appendChild(exportLink);
     saveControls.appendChild(importInput);
     saveControls.appendChild(importLink);
-    center.appendChild(saveControls);
+    return saveControls;
+  }
 
-    layout.appendChild(leftEdge);
-    layout.appendChild(center);
-    layout.appendChild(rightEdge);
-    container.appendChild(layout);
+  // ── Revisit Consent Control ──
 
-    // Start entity milling after layout is in DOM
-    requestAnimationFrame(() => {
-      if (entities.length > 0) {
-        startMilling(millingCanvas, entities);
+  function buildRevisitControl() {
+    const btn = document.createElement('button');
+    btn.id = 'foyer-consent-revisit';
+    btn.textContent = '\u00b7 change how you move through the Hall \u00b7';
+    btn.onclick = () => revisitConsent();
+    return btn;
+  }
+
+  function revisitConsent() {
+    localStorage.removeItem(CONSENT_KEY);
+    // Remove current enter button, save controls, and revisit control in place
+    const enter = document.getElementById('foyer-enter');
+    const save = document.getElementById('foyer-save-controls');
+    const revisit = document.getElementById('foyer-consent-revisit');
+    const center = document.getElementById('foyer-center');
+    if (!center) return;
+
+    // Fade out existing controls
+    [enter, save, revisit].forEach(el => {
+      if (el) {
+        el.style.transition = 'opacity 0.4s ease';
+        el.style.opacity = '0';
       }
     });
 
-    // Run capability probes
-    runCapabilityProbes();
-
-    // Fade in
-    requestAnimationFrame(() => container.classList.add('visible'));
+    setTimeout(() => {
+      [enter, save, revisit].forEach(el => { if (el) el.remove(); });
+      // Surface consent block in place — no reload
+      const consentBlock = buildConsentBlock();
+      center.appendChild(consentBlock);
+    }, 450);
   }
 
   function renderFoyerRoster(container, reg) {
@@ -780,5 +917,6 @@ const Foyer = (() => {
     importSave,
     handleWordTap,
     larrHoldEmoji,
+    getConsentState,
   };
 })();
