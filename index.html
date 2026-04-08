@@ -4921,8 +4921,17 @@ function parseTuningForWhisper(text, slug, hood) {
     if (mdTags) tags = mdTags[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
   }
 
+  // Color: "**Color:** r, g, b" or "color: r, g, b"
+  let color = null;
+  const mdColor = text.match(/\*\*Color:\*\*\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (mdColor) color = [+mdColor[1], +mdColor[2], +mdColor[3]];
+  if (!color) {
+    const yamlColor = text.match(/^color:\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/m);
+    if (yamlColor) color = [+yamlColor[1], +yamlColor[2], +yamlColor[3]];
+  }
+
   if (!name) name = formatSlug(slug);
-  return { slug, name, hood, category: category || 'presence', tags };
+  return { slug, name, hood, category: category || 'presence', tags, color };
 }
 
 // Category-based verb pools for entity whispers
@@ -4951,12 +4960,101 @@ function entityWhisper() {
       `${entity.name} was being ${tag} about it`,
     ];
     const text = templates[Math.floor(Math.random() * templates.length)];
-    return { emoji: '✦', text };
+    return { emoji: '✦', text, entity };
   }
 
   const verbs = ENTITY_WHISPER_VERBS[entity.category] || ENTITY_WHISPER_VERBS.presence;
   const verb = verbs[Math.floor(Math.random() * verbs.length)];
-  return { emoji: '✦', text: `${entity.name} ${verb} ${hoodName}` };
+  return { emoji: '✦', text: `${entity.name} ${verb} ${hoodName}`, entity };
+}
+
+// ── Scraggle Awareness — witnessed slots ──
+
+function getWitnessedSlots(slug) {
+  try {
+    const raw = localStorage.getItem(`baseline-session/witnessed/${slug}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function setWitnessedSlots(slug, slots) {
+  try {
+    localStorage.setItem(`baseline-session/witnessed/${slug}`, JSON.stringify(slots));
+  } catch(e) {}
+}
+
+function witnessBarEntry(entity) {
+  // Read what's currently in the bar
+  let scraggles = [];
+  try {
+    const raw = localStorage.getItem('baseline-session/scraggles');
+    if (raw) scraggles = JSON.parse(raw);
+  } catch(e) { return null; }
+  if (scraggles.length === 0) return null;
+
+  // Filter out entries from the same entity
+  const candidates = scraggles.filter(s => s.origin !== entity.slug);
+  if (candidates.length === 0) return null;
+
+  // Weighted toward most recent (last in array) — linear weights
+  const weights = candidates.map((_, i) => i + 1);
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  let roll = Math.random() * totalWeight;
+  let picked = candidates[candidates.length - 1]; // fallback
+  for (let i = 0; i < candidates.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) { picked = candidates[i]; break; }
+  }
+
+  // Extract color — fall back to a neutral grey if no color on the entry
+  const color = picked.color || [128, 128, 128];
+  return { color, emoji: picked.emoji || '✦' };
+}
+
+function addWitnessedSlot(slug, slot, maxSlots = 6) {
+  const slots = getWitnessedSlots(slug);
+
+  // Insert at position 0 (70%) or 1 (30%)
+  const insertAt = (slots.length > 0 && Math.random() < 0.3) ? 1 : 0;
+  slots.splice(insertAt, 0, slot);
+
+  // If over capacity, drop from last (70%) or second-to-last (30%)
+  if (slots.length > maxSlots) {
+    const dropFrom = (slots.length >= 2 && Math.random() < 0.3)
+      ? slots.length - 2
+      : slots.length - 1;
+    slots.splice(dropFrom, 1);
+  }
+
+  setWitnessedSlots(slug, slots);
+}
+
+function blendEntityColor(originColor, witnessedSlots) {
+  if (!originColor || witnessedSlots.length === 0) return originColor;
+
+  // Recency-weighted average — linear decay, slot 0 weighs most
+  const n = witnessedSlots.length;
+  let totalWeight = 0;
+  let wr = 0, wg = 0, wb = 0;
+  for (let i = 0; i < n; i++) {
+    const w = n - i; // slot 0 gets weight n, last slot gets weight 1
+    const c = witnessedSlots[i].color || [128, 128, 128];
+    wr += c[0] * w;
+    wg += c[1] * w;
+    wb += c[2] * w;
+    totalWeight += w;
+  }
+  const witnessR = wr / totalWeight;
+  const witnessG = wg / totalWeight;
+  const witnessB = wb / totalWeight;
+
+  // 25% witnessed, 75% origin
+  const blend = 0.25;
+  return [
+    Math.round(originColor[0] * (1 - blend) + witnessR * blend),
+    Math.round(originColor[1] * (1 - blend) + witnessG * blend),
+    Math.round(originColor[2] * (1 - blend) + witnessB * blend),
+  ];
 }
 
 function hallAmbientWhisper() {
@@ -4967,7 +5065,17 @@ function hallAmbientWhisper() {
   if (entityWhisperPool.length > 0 && Math.random() < 0.4) {
     const w = entityWhisper();
     if (w) {
-      receiveScraggle(w.emoji, w.text, true, 'hall-ambient');
+      const ent = w.entity;
+      // Scraggle Awareness — witness the bar, blend the color
+      const witnessed = witnessBarEntry(ent);
+      if (witnessed) addWitnessedSlot(ent.slug, witnessed);
+      const emitColor = ent.color
+        ? blendEntityColor(ent.color, getWitnessedSlots(ent.slug))
+        : null;
+      receiveScraggle(w.emoji, w.text, true, 'hall-ambient', {
+        color: emitColor,
+        origin: ent.slug,
+      });
       return;
     }
   }
