@@ -1,5 +1,5 @@
 # The Hall — Roadmap
-*Last updated: April 1, 2026*
+*Last updated: April 7, 2026*
 
 ---
 
@@ -59,6 +59,7 @@ Held ideas, vision pieces, long-term.
 ## Done (recent)
 Last completed milestones for context.
 
+- [x] **Scraggle Awareness** — Entities witness one bar entry on emission, store in recency-ordered slot array (6 slots, both ends semi-flexible), witnessed colors nudge future emission at 25% blend. Runtime state in `baseline-session/witnessed/{slug}`. Lurk seeded. New principle: Presence Has Residue. ([spec](SCRAGGLE_AWARENESS_SPEC.md))
 - [x] **Taste: Hommes de Terre (Issue 02)** — Potato/Potäto with Dream Dish system, The Apeeler tool, Terroir's Roots store with aisle layout, magazine Issue 02 (6 spreads), catalog abstraction, tool loadout, store gating. ([score card](score-cards/taste.md) | [spec](TASTE_HOMMES_DE_TERRE_SPEC.md))
 - [x] **SILMOR: dice as conversationalists** — Sequential cycling replaces random rolls. Personality-driven reshuffle thresholds, sympathetic neighbor reshuffles, awareness moods (curious/sympathetic/withdrawn/alert), next-face hints. Idle drift: untouched dice daydream by personality voice (still=pragmatic, rock=attentive, bounce=sociable, spin=wandering/foreign). ([score card](score-cards/silmor-spells.md))
 - [x] **Taco Science: DAY phase** — 3 founding researchers (Dr. Lumen/Nudo/Fenn) with personality-driven execution. Staggered layer reveals, deviation logic (withhold/embellish/favor), explosion mechanic producing residue vials, explosion responses, end-of-day summary, day cycling. ([score card](score-cards/taco-science.md))
