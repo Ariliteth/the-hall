@@ -2195,6 +2195,9 @@ const anteroomState = {
   animId: null,
   mood: null,
   moodConfig: null,
+  linePhase: null,   // null | 'in' | 'hold' | 'out' | 'done'
+  lineAlpha: 0,
+  lineStart: null,
 };
 
 function anteroomPickMood(entities) {
@@ -2297,10 +2300,16 @@ function anteroomInit(entities) {
   }
   anteroomState.animId = requestAnimationFrame(frame);
 
-  // Show ENTER hint after a few seconds
+  // Anteroom voice — one line before ENTER
+  setTimeout(() => {
+    anteroomState.linePhase = 'in';
+    anteroomState.lineStart = performance.now();
+  }, 3200);
+
+  // Show ENTER hint after the line fades
   setTimeout(() => {
     document.getElementById('anteroom-enter').classList.add('visible');
-  }, 4000);
+  }, 5800);
 
   // Click to enter
   document.getElementById('anteroom').addEventListener('click', anteroomEnter);
@@ -2504,6 +2513,44 @@ function anteroomDraw(ctx, W, H, dt) {
       }
     }
   }
+
+  // — Anteroom voice —
+  if (anteroomState.linePhase && anteroomState.linePhase !== 'done') {
+    const elapsed = (performance.now() - anteroomState.lineStart) / 1000;
+    const FADE_DUR = 1.5;
+    const HOLD_DUR = 1.0;
+
+    if (anteroomState.linePhase === 'in') {
+      anteroomState.lineAlpha = Math.min(1, elapsed / FADE_DUR);
+      if (elapsed >= FADE_DUR) {
+        anteroomState.linePhase = 'hold';
+        anteroomState.lineStart = performance.now();
+      }
+    } else if (anteroomState.linePhase === 'hold') {
+      anteroomState.lineAlpha = 1;
+      if (elapsed >= HOLD_DUR) {
+        anteroomState.linePhase = 'out';
+        anteroomState.lineStart = performance.now();
+      }
+    } else if (anteroomState.linePhase === 'out') {
+      anteroomState.lineAlpha = Math.max(0, 1 - elapsed / FADE_DUR);
+      if (elapsed >= FADE_DUR) {
+        anteroomState.linePhase = 'done';
+        anteroomState.lineAlpha = 0;
+      }
+    }
+
+    if (anteroomState.lineAlpha > 0) {
+      const peakOpacity = 0.35;
+      ctx.save();
+      ctx.font = `11px 'Share Tech Mono', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = `rgba(212, 200, 168, ${anteroomState.lineAlpha * peakOpacity})`;
+      ctx.fillText('something is already here', W / 2, H * 0.44);
+      ctx.restore();
+    }
+  }
 }
 
 function anteroomEnter() {
@@ -2534,6 +2581,9 @@ function anteroomShow() {
     anteroomState.scanDone = false;
     anteroomState.walkers = [];
     anteroomState.lastFrame = null;
+    anteroomState.linePhase = null;
+    anteroomState.lineAlpha = 0;
+    anteroomState.lineStart = null;
     document.getElementById('anteroom-enter').classList.remove('visible');
 
     // Fresh mood for this return visit
@@ -2596,9 +2646,15 @@ function anteroomShow() {
       }, cfg.thinAfter);
     }
 
+    // Anteroom voice — one line before ENTER
+    setTimeout(() => {
+      anteroomState.linePhase = 'in';
+      anteroomState.lineStart = performance.now();
+    }, 3200);
+
     setTimeout(() => {
       document.getElementById('anteroom-enter').classList.add('visible');
-    }, 4000);
+    }, 5800);
   });
 }
 
